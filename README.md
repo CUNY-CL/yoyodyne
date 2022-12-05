@@ -1,5 +1,7 @@
 # Yoyodyne 🪀
 
+[![CircleCI](https://circleci.com/gh/CUNY-CL/yoyodyne/tree/master.svg?style=svg&circle-token=37883deeb03d32c8a7b2aa7c34e5143bf514acdd)](https://circleci.com/gh/CUNY-CL/yoyodyne/tree/master)
+
 Yoyodyne provides neural models for small-vocabulary sequence-to-sequence
 generation with and without feature conditioning.
 
