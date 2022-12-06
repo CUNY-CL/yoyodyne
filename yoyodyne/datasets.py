@@ -528,11 +528,8 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_symbol2i, source)
-        features_encoded = self.encode(
-            self.source_symbol2i,
+        features_encoded = self.encode_features(
             features,
-            add_start_tag=False,
-            add_end_tag=False,
         )
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
@@ -540,6 +537,22 @@ class DatasetFeatures(DatasetNoFeatures):
             else None
         )
         return source_encoded, features_encoded, target_encoded
+
+    def encode_features(
+        self,
+        features: torch.Tensor,
+    ) -> torch.Tensor:
+        sequence = []
+        for feat in features:
+            if feat in self.source_symbol2i:
+                sequence.append(self.source_symbol2i[feat])
+            else:
+                raise Error(
+                    f"Feature '{feat}' in inference was not present "
+                    "in training data. Please check that feature labels are "
+                    "consistent across all datasets."
+                )
+        return torch.LongTensor(sequence)
 
     def decode_source(
         self,
