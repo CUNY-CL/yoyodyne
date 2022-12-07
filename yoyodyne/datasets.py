@@ -545,8 +545,8 @@ class DatasetFeatures(DatasetNoFeatures):
         """Encodes a sequence as a tensor of indices with word boundary IDs.
 
         This essentially copies behavior of encode but limits return values
-        to only features seen from initialization. (i.e. no unknown feature
-        values permitted.)
+        to only features seen from initialization, so unknown feature
+        values are not permitted.
 
         Args:
             features (List[str]): features to be encoded.
@@ -560,9 +560,9 @@ class DatasetFeatures(DatasetNoFeatures):
                 sequence.append(self.source_symbol2i[feat])
             else:
                 raise Error(
-                    f"Feature '{feat}' in inference was not present "
-                    "in training data. Please check that feature labels are "
-                    "consistent across all datasets."
+                    f"Feature {feat!r} seen during inference was not
+                    "seen in training data; use consistent feature labels "
+                    "across datasets"
                 )
         return torch.LongTensor(sequence)
 
