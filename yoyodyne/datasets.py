@@ -540,8 +540,20 @@ class DatasetFeatures(DatasetNoFeatures):
 
     def encode_features(
         self,
-        features: torch.Tensor,
+        features: List[str],
     ) -> torch.Tensor:
+        """Encodes a sequence as a tensor of indices with word boundary IDs.
+
+        This essentially copies behavior of encode but limits return values
+        to only features seen from initialization. (i.e. no unknown feature
+        values permitted.)
+
+        Args:
+            features (List[str]): features to be encoded.
+
+        Returns:
+            torch.Tensor: the encoded tensor.
+        """
         sequence = []
         for feat in features:
             if feat in self.source_symbol2i:
