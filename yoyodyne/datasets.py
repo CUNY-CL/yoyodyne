@@ -555,12 +555,12 @@ class DatasetFeatures(DatasetNoFeatures):
             torch.Tensor: the encoded tensor.
         """
         sequence = []
-        for feat in features:
-            if feat in self.source_symbol2i:
-                sequence.append(self.source_symbol2i[feat])
+        for feature in features:
+            if feature in self.source_symbol2i:
+                sequence.append(self.source_symbol2i[feature])
             else:
                 raise Error(
-                    f"Feature {feat!r} seen during inference was not
+                    f"Feature {feature!r} seen during inference was not "
                     "seen in training data; use consistent feature labels "
                     "across datasets"
                 )
