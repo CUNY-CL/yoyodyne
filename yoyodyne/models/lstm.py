@@ -100,9 +100,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             dec_layers (int, optional).
             bidirectional (bool, optional).
             label_smoothing (float, optional).
-            beam_width (int, optional) defaults to None; if True, then beam
-                search is used for decoding. This should only be used at test
-                time.
+            beam_width (int, optional): if specified, beam search is used
+                during decoding.
             **kwargs: ignored.
         """
         super().__init__()
@@ -374,8 +373,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
         for t in range(self.max_decode_len):
-            # Flat [List] that stores the heap of the top beam_width elements
-            # from all beam_width * output_size possibilities
+            # List that stores the heap of the top beam_width elements from all
+            # beam_width x output_size possibilities
             likelihoods = []
             hypotheses = []
             # First accumulates all beam_width softmaxes.
@@ -385,7 +384,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in histories:
-                # Doesn ot keep decoding a path that has hit EOS.
+                # Does not keep decoding a path that has hit EOS.
                 if len(beam_idxs) > 1 and beam_idxs[-1] == self.end_idx:
                     fields = [
                         beam_likelihood,
@@ -424,7 +423,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in likelihoods:
-                # Preds is B x seq_len x outputs.
+                # -> B x seq_len x outputs.
                 # This is 1 x 1 x outputs since we fixed batch size to 1.
                 # We squeeze off the fist 2 dimensions to get a tensor of
                 # output_size.
