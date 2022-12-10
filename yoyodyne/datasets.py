@@ -528,11 +528,8 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_symbol2i, source)
-        features_encoded = self.encode(
-            self.source_symbol2i,
+        features_encoded = self.encode_features(
             features,
-            add_start_tag=False,
-            add_end_tag=False,
         )
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
@@ -540,6 +537,34 @@ class DatasetFeatures(DatasetNoFeatures):
             else None
         )
         return source_encoded, features_encoded, target_encoded
+
+    def encode_features(
+        self,
+        features: List[str],
+    ) -> torch.Tensor:
+        """Encodes a sequence as a tensor of indices with word boundary IDs.
+
+        This essentially copies behavior of encode but limits return values
+        to only features seen from initialization, so unknown feature
+        values are not permitted.
+
+        Args:
+            features (List[str]): features to be encoded.
+
+        Returns:
+            torch.Tensor: the encoded tensor.
+        """
+        sequence = []
+        for feature in features:
+            if feature in self.source_symbol2i:
+                sequence.append(self.source_symbol2i[feature])
+            else:
+                raise Error(
+                    f"Feature {feature!r} seen during inference was not "
+                    "seen in training data; use consistent feature labels "
+                    "across datasets"
+                )
+        return torch.LongTensor(sequence)
 
     def decode_source(
         self,
