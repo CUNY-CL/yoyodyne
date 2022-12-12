@@ -31,7 +31,7 @@ but differs on several key points of design:
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle this feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
--   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmark.
+-   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 -   🚧 UNDER CONSTRUCTION 🚧: Releases are made regularly.
 
 ## Install
