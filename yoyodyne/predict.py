@@ -139,9 +139,7 @@ def write_predictions(
 @click.option("--model-path", required=True)
 @click.option("--batch-size", type=int, default=1)
 @click.option(
-    "--beam-width",
-    type=int,
-    help="If specified, decode with beam search",
+    "--beam-width", type=int, help="If specified, beam search is used"
 )
 @click.option(
     "--attn/--no-attn",

@@ -99,9 +99,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             enc_layers (int, optional).
             dec_layers (int, optional).
             label_smoothing (float, optional).
-            beam_width (int, optional): defaults to None; if True, then beam
-                search is used for decoding. This should only be used at test
-                time.
+            beam_width (int, optional): if specified, beam search is used
+                during decoding.
             **kwargs: ignored.
         """
         super().__init__()

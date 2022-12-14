@@ -6,5 +6,6 @@ PAD = "<P>"
 START = "<S>"
 END = "<E>"
 UNK = "<UNK>"
+UNK_FEAT = "<UNK_FEAT>"
 
 SPECIAL = [UNK, PAD, START, END]

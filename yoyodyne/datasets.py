@@ -383,9 +383,13 @@ class DatasetNoFeatures(data.Dataset):
                 consumed by the model.
         """
         source, target = self.samples[idx]
-        source_encoded = self.encode(self.source_symbol2i, source, self.unk_idx)
+        source_encoded = self.encode(
+            self.source_symbol2i, source, self.unk_idx
+        )
         target_encoded = (
-            self.encode(self.target_symbol2i, target, self.unk_idx, add_start_tag=False)
+            self.encode(
+                self.target_symbol2i, target, self.unk_idx, add_start_tag=False
+            )
             if self.target_col
             else None
         )
@@ -498,15 +502,13 @@ class DatasetFeatures(DatasetNoFeatures):
             if self.target_col:
                 target_vocabulary.update(source_vocabulary)
         source_vocabulary = special_vocabulary + sorted(source_vocabulary)
+        # Additional special char for unk_features.
         features_vocabulary = [special.UNK_FEAT] + sorted(features_vocabulary)
         # Source and features vocab share embedding dict.
         # features_idx assists in indexing features.
         self.features_idx = len(source_vocabulary)
         self.source_symbol2i = {
-            c: i
-            for i, c in enumerate(
-                source_vocabulary + features_vocabulary
-            )
+            c: i for i, c in enumerate(source_vocabulary + features_vocabulary)
         }
         self.source_i2symbol = list(self.source_symbol2i.keys())
         self.target_symbol2i = {
@@ -530,7 +532,9 @@ class DatasetFeatures(DatasetNoFeatures):
                 source/features/target sample to be consumed by the model.
         """
         source, features, target = self.samples[idx]
-        source_encoded = self.encode(self.source_symbol2i, source, self.unk_idx)
+        source_encoded = self.encode(
+            self.source_symbol2i, source, self.unk_idx
+        )
         features_encoded = self.encode(
             self.source_symbol2i,
             features,
@@ -539,7 +543,9 @@ class DatasetFeatures(DatasetNoFeatures):
             add_end_tag=False,
         )
         target_encoded = (
-            self.encode(self.target_symbol2i, target, self.unk_idx, add_start_tag=False)
+            self.encode(
+                self.target_symbol2i, target, self.unk_idx, add_start_tag=False
+            )
             if self.target_col
             else None
         )
@@ -621,7 +627,13 @@ class DatasetFeatures(DatasetNoFeatures):
     @property
     def special_idx(self) -> Set[int]:
         """The set of indexes for all `special` symbols."""
-        return {self.unk_idx, self.unk_feat_idx, self.pad_idx, self.start_idx, self.end_idx}
+        return {
+            self.unk_idx,
+            self.unk_feat_idx,
+            self.pad_idx,
+            self.start_idx,
+            self.end_idx,
+        }
 
     def write_index(self, outdir: str, filename: str) -> None:
         # Overwrites method to save features encoding.
