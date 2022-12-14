@@ -216,7 +216,6 @@ class DatasetNoFeatures(data.Dataset):
         self,
         symbol2i: Dict,
         word: List[str],
-        unk: int,
         add_start_tag: bool = True,
         add_end_tag: bool = True,
     ) -> torch.Tensor:
@@ -241,7 +240,7 @@ class DatasetNoFeatures(data.Dataset):
         if add_end_tag:
             sequence.append(special.END)
         return torch.LongTensor(
-            [symbol2i.get(symbol, unk) for symbol in sequence]
+            [symbol2i.get(symbol, self.unk_idx) for symbol in sequence]
         )
 
     def _decode(
@@ -360,7 +359,7 @@ class DatasetNoFeatures(data.Dataset):
 
     @property
     def unk_idx(self) -> int:
-        return self.source_symbol2i[special.UNK_SYM]
+        return self.source_symbol2i[special.UNK]
 
     @property
     def special_idx(self) -> Set[int]:
@@ -383,13 +382,9 @@ class DatasetNoFeatures(data.Dataset):
                 consumed by the model.
         """
         source, target = self.samples[idx]
-        source_encoded = self.encode(
-            self.source_symbol2i, source, self.unk_idx
-        )
+        source_encoded = self.encode(self.source_symbol2i, source)
         target_encoded = (
-            self.encode(
-                self.target_symbol2i, target, self.unk_idx, add_start_tag=False
-            )
+            self.encode(self.target_symbol2i, target, add_start_tag=False)
             if self.target_col
             else None
         )
@@ -505,13 +500,14 @@ class DatasetFeatures(DatasetNoFeatures):
             if self.target_col:
                 target_vocabulary.update(source_vocabulary)
         source_vocabulary = special_vocabulary + sorted(source_vocabulary)
-        # Additional special char for unk_features.
-        features_vocabulary = [special.UNK_FEAT] + sorted(features_vocabulary)
         # Source and features vocab share embedding dict.
         # features_idx assists in indexing features.
         self.features_idx = len(source_vocabulary)
         self.source_symbol2i = {
-            c: i for i, c in enumerate(source_vocabulary + features_vocabulary)
+            c: i
+            for i, c in enumerate(
+                source_vocabulary + sorted(features_vocabulary)
+            )
         }
         self.source_i2symbol = list(self.source_symbol2i.keys())
         self.target_symbol2i = {
@@ -535,20 +531,15 @@ class DatasetFeatures(DatasetNoFeatures):
                 source/features/target sample to be consumed by the model.
         """
         source, features, target = self.samples[idx]
-        source_encoded = self.encode(
-            self.source_symbol2i, source, self.unk_idx
-        )
+        source_encoded = self.encode(self.source_symbol2i, source)
         features_encoded = self.encode(
             self.source_symbol2i,
             features,
-            self.unk_feat_idx,
             add_start_tag=False,
             add_end_tag=False,
         )
         target_encoded = (
-            self.encode(
-                self.target_symbol2i, target, self.unk_idx, add_start_tag=False
-            )
+            self.encode(self.target_symbol2i, target, add_start_tag=False)
             if self.target_col
             else None
         )
@@ -608,7 +599,7 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking source vocab.
         indices = torch.where(
-            (indices >= self.features_idx) | (indices == self.pad_idx),
+            (indices >= self.features_idx) | (indices < len(self.special_idx)),
             indices,
             self.pad_idx,
         )
@@ -620,23 +611,8 @@ class DatasetFeatures(DatasetNoFeatures):
         )
 
     @property
-    def unk_feat_idx(self) -> int:
-        return self.source_symbol2i[special.UNK_FEAT]
-
-    @property
     def features_vocab_size(self) -> int:
         return len(self.source_symbol2i) - self.features_idx
-
-    @property
-    def special_idx(self) -> Set[int]:
-        """The set of indexes for all `special` symbols."""
-        return {
-            self.unk_idx,
-            self.unk_feat_idx,
-            self.pad_idx,
-            self.start_idx,
-            self.end_idx,
-        }
 
     def write_index(self, outdir: str, filename: str) -> None:
         # Overwrites method to save features encoding.

@@ -583,20 +583,8 @@ class TransducerFeatures(TransducerNoFeatures):
         self.decoder = nn.LSTM(
             self.hidden_size * self.num_directions
             + self.embedding_size
-            + self.features_vocab_size,
-            self.hidden_size,
-            dropout=self.dropout,
-            num_layers=self.dec_layers,
-            batch_first=True,
-        )
-        self.features_idx = features_idx
-        self.features_vocab_size = features_vocab_size
-        super().__init__(*args, **kwargs)
-        # Re-initializes decoder to accomodate features.
-        self.decoder = nn.LSTM(
-            self.hidden_size * self.num_directions
-            + self.embedding_size
-            + self.features_vocab_size,
+            + self.features_vocab_size
+            + 1,  # For unk feature.
             self.hidden_size,
             dropout=self.dropout,
             num_layers=self.dec_layers,
@@ -642,8 +630,13 @@ class TransducerFeatures(TransducerNoFeatures):
             features = torch.where(
                 features_mask, 0, features - self.features_idx + 1
             )
+            # Features outside offset classified as unknown feature.
+            # Idx is end of features vocab.
+            features[features < 0] = self.features_vocab_size + 1
+            # One hot embeddings are vocab size plus two for padding and
+            # unknown.
             one_hot_features = nn.functional.one_hot(
-                features, self.features_vocab_size + 1
+                features, self.features_vocab_size + 2
             )
             # Truncates pad at idx 0 then sum one_hots for n_hot vectors.
             n_hot_features = torch.sum(
