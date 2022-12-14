@@ -224,6 +224,7 @@ class DatasetNoFeatures(data.Dataset):
         Args:
             symbol2i (Dict).
             word (List[str]): word to be encoded.
+            unk (int): default idx to return if symbol is outside symbol2i.
             add_start_tag (bool, optional): whether the sequence should be
                 prepended with a start tag.
             add_end_tag (bool, optional): whether the sequence should be
@@ -464,6 +465,9 @@ class DatasetFeatures(DatasetNoFeatures):
                 features = self._get_cell(
                     row, self.features_col, self.features_sep
                 )
+                # Use unique encoding for features.
+                # This disambiguates from overlap with source.
+                features = [f"[{feature}]" for feature in features]
                 target = (
                     self._get_cell(row, self.target_col, self.target_sep)
                     if self.target_col
@@ -528,8 +532,11 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_symbol2i, source)
-        features_encoded = self.encode_features(
+        features_encoded = self.encode(
+            self.source_symbol2i,
             features,
+            add_start_tag=False,
+            add_end_tag=False,
         )
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
@@ -537,34 +544,6 @@ class DatasetFeatures(DatasetNoFeatures):
             else None
         )
         return source_encoded, features_encoded, target_encoded
-
-    def encode_features(
-        self,
-        features: List[str],
-    ) -> torch.Tensor:
-        """Encodes a sequence as a tensor of indices with word boundary IDs.
-
-        This essentially copies behavior of encode but limits return values
-        to only features seen from initialization, so unknown feature
-        values are not permitted.
-
-        Args:
-            features (List[str]): features to be encoded.
-
-        Returns:
-            torch.Tensor: the encoded tensor.
-        """
-        sequence = []
-        for feature in features:
-            if feature in self.source_symbol2i:
-                sequence.append(self.source_symbol2i[feature])
-            else:
-                raise Error(
-                    f"Feature {feature!r} seen during inference was not "
-                    "seen in training data; use consistent feature labels "
-                    "across datasets"
-                )
-        return torch.LongTensor(sequence)
 
     def decode_source(
         self,
@@ -605,7 +584,8 @@ class DatasetFeatures(DatasetNoFeatures):
     ) -> List[List[str]]:
         """Given a tensor of feature indices, returns a list of characters.
 
-        This is simply an alias for using decode_source for features.
+        This is simply an alias for using decode_source for features that
+        manages the use of a separate SPECIAL vocabulary for features.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -619,12 +599,13 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking source vocab.
         indices = torch.where(
-            (indices >= self.features_idx) | (indices == self.pad_idx),
+            (indices >= self.features_idx) | (indices < len(self.special_idx)),
             indices,
             self.pad_idx,
         )
-        return super().decode_source(
+        return self._decode(
             indices,
+            decoder=self.source_i2symbol,
             symbols=symbols,
             special=special,
         )
