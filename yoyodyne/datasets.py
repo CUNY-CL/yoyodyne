@@ -360,7 +360,7 @@ class DatasetNoFeatures(data.Dataset):
 
     @property
     def unk_idx(self) -> int:
-        return self.source_symbol2i[special.UNK]
+        return self.source_symbol2i[special.UNK_SYM]
 
     @property
     def special_idx(self) -> Set[int]:
@@ -472,7 +472,7 @@ class DatasetFeatures(DatasetNoFeatures):
                 )
                 # Use unique encoding for features.
                 # This disambiguates from overlap with source.
-                features = [f"<{f}>" for f in features]
+                features = [f"[{f}]" for f in features]
                 target = (
                     self._get_cell(row, self.target_col, self.target_sep)
                     if self.target_col

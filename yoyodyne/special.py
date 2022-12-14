@@ -5,7 +5,7 @@
 PAD = "<P>"
 START = "<S>"
 END = "<E>"
-UNK = "<UNK>"
-UNK_FEAT = "<UNK_FEAT>"
+UNK_SYM = "<UNK>"
+UNK_FEAT = "[<UNK>]"
 
-SPECIAL = [UNK, PAD, START, END]
+SPECIAL = [UNK_SYM, PAD, START, END]
