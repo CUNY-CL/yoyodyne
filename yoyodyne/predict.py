@@ -52,6 +52,7 @@ def write_predictions(
     tester = pl.Trainer(
         accelerator=accelerator,
         devices=1,
+        max_epochs=0,  # Silences a warning.
     )
     util.log_info("Predicting...")
     predicted = tester.predict(model, dataloaders=data_loader)
