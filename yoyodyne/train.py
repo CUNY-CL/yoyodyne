@@ -330,7 +330,7 @@ def main(
     util.log_info("Arguments:")
     for arg, val in click.get_current_context().params.items():
         util.log_info(f"\t{arg}: {val!r}")
-    util.seed(seed)
+    pl.seed_everything(seed)
     device = util.get_device(gpu)
     include_features = features_col != 0
     if target_col == 0:
