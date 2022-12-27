@@ -9,5 +9,6 @@ scipy>=1.9.3
 setuptools>=65.5.0
 torch>=1.11.0
 tqdm>=4.64.1
+twine>=3.7.1
 wandb>=0.13.7
 wheel>=0.37.1
