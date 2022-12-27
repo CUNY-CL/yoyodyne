@@ -1,6 +1,7 @@
 """Dataset classes."""
 
 import csv
+import dataclasses
 import os
 import pickle
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
@@ -15,6 +16,125 @@ class Error(Exception):
     """Module-specific exception."""
 
     pass
+
+
+@dataclasses.dataclass
+class DatasetConfig:
+    """Configuration specifications for a dataset.
+
+    Args:
+        source_col (int, optional): 1-indexed column in TSV containing
+            source strings.
+        target_col (int, optional): 1-indexed column in TSV containing
+            target strings.
+        features_col (int, optional): 1-indexed column in TSV containing
+            features strings.
+        source_sep (str, optional): separator character between symbols in
+            source string. "" treats each character in source as a symbol.
+        target_sep (str, optional): separator character between symbols in
+            target string. "" treats each character in target as a symbol.
+        features_sep (str, optional): separator character between symbols in
+            features string. "" treats each character in features as a symbol.
+        tied_vocabulary (bool, optional): whether the source and target
+            should share a vocabulary.
+    """
+
+    source_col: int = 1
+    target_col: int = 2
+    features_col: int = 0
+    source_sep: str = ""
+    target_sep: str = ""
+    features_sep: str = ";"
+    tied_vocabulary: bool = True
+
+    def __post_init__(self) -> None:
+        # This is automatically called after initialization.
+        if self.source_col < 1:
+            raise Error(f"Invalid source column: {source_col}")
+        if self.target_col < 0:
+            raise Error(f"Invalid target column: {target_col}")
+        if self.target_col == 0:
+            util.log_info("Ignoring targets in input")
+        if self.features_col < 0:
+            raise Error(f"Invalid features column: {features_col}")
+        if self.features_col != 0:
+            util.log_info("Including features")
+
+    @staticmethod
+    def _get_cell(row: List[str], col: int, sep: str) -> List[str]:
+        """Returns the split cell of a row.
+
+        Args:
+           row (List[str]): the split row.
+           col (int): the column index
+           sep (str): the string to split the column on; if the empty string,
+              the column is split into characters instead.
+
+        Returns:
+           List[str]: symbols from that cell.
+        """
+        cell = row[col - 1]  # -1 because we're using one-based indexing.
+        return list(cell) if not sep else cell.split(sep)
+
+    # Source is always present.
+
+    @property
+    def has_targets(self) -> bool:
+        return self.target_col != 0
+
+    @property
+    def has_features(self) -> bool:
+        return self.features_col != 0
+
+    # Iterators over the data; just provide a filename path.
+
+    def source_samples(self, filename: str) -> Iterator[List[str]]:
+        """Yields source."""
+        with open(filename, "r") as source:
+            tsv_reader = csv.reader(source, delimiter="\t")
+            for row in tsv_reader:
+                source = self._get_cell(row, self.source_col, self.source_sep)
+                yield source
+
+    def source_target_samples(
+        self, filename: str
+    ) -> Iterator[Tuple[List[str], List[str]]]:
+        """Yields source and target."""
+        with open(filename, "r") as source:
+            tsv_reader = csv.reader(source, delimiter="\t")
+            for row in tsv_reader:
+                source = self._get_cell(row, self.source_col, self.source_sep)
+                target = self._get_cell(row, self.target_col, self.target_sep)
+                yield source, target
+
+    def source_features_target_samples(
+        self, filename: str
+    ) -> Iterator[Tuple[List[str], List[str], List[str]]]:
+        """Yields source, features, and target."""
+        with open(filename, "r") as source:
+            tsv_reader = csv.reader(source, delimiter="\t")
+            for row in tsv_reader:
+                source = self._get_cell(row, self.source_col, self.source_sep)
+                features = self._get_cell(
+                    row, self.features_col, self.features_sep
+                )
+                target = self._get_cell(row, self.target_col, self.target_sep)
+                yield source, features, target
+
+    def samples(self, filename: str) -> Iterator[Tuple[List[str], ...]]:
+        """Picks the right one for this config."""
+        if self.has_features:
+            return (
+                self.source_features_target_samples(filename)
+                if self.has_targets
+                else self.source_features_samples(filename)
+            )
+        else:
+            return (
+                self.source_target_samples(filename)
+                if self.has_targets
+                else self.source_samples(filename)
+            )
 
 
 class DatasetNoFeatures(data.Dataset):
@@ -33,10 +153,7 @@ class DatasetNoFeatures(data.Dataset):
     """
 
     filename: str
-    source_col: int
-    target_col: int
-    source_sep: str
-    target_sep: str
+    datasetconfig: DatasetConfig
     source_symbol2i: Dict[str, int]
     source_i2symbol: List[str]
     target_symbol2i: Dict[str, int]
@@ -46,102 +163,35 @@ class DatasetNoFeatures(data.Dataset):
     def __init__(
         self,
         filename,
-        tied_vocabulary,
-        source_col=1,
-        target_col=2,
-        source_sep="",
-        target_sep="",
+        config,
         **kwargs,
     ):
         """Initializes the dataset.
 
         Args:
             filename (str): input filename.
-            tied_vocabulary (bool): whether the source and target should
-                share a vocabulary.
-            source_col (int, optional): 1-indexed column in TSV containing
-                source strings.
-            target_col (int, optional): 1-indexed column in TSV containing
-                target strings.
-            source_sep (str, optional): separator character between symbols in
-                source string. "" treats each character in source as a symbol.
-            target_sep (str, optional): separator character between symbols in
-                target string. "" treats each character in target as a symbol.
             **kwargs: ignored.
         """
-        if source_col < 1:
-            raise Error(f"Invalid source column: {source_col}")
-        self.source_col = source_col
-        if target_col == 0:
-            util.log_info("Ignoring targets in input")
-        if target_col < 0:
-            raise Error(f"Invalid target column: {target_col}")
-        self.target_col = target_col
-        self.source_sep = source_sep
-        self.target_sep = target_sep
-        self.samples = list(self._iter_samples(filename))
-        self._make_indices(tied_vocabulary)
+        self.config = config
+        self.samples = list(self.config.samples(filename))
+        self._make_indices()
 
-    @staticmethod
-    def _get_cell(row: List[str], col: int, sep: str) -> List[str]:
-        """Returns the split cell of a row.
-
-        Args:
-           row (List[str]): the split row.
-           col (int): the column index
-           sep (str): the string to split the column on; if the empty string,
-              the column is split into characters instead.
-
-        Returns:
-           List[str]: symbols from that cell.
-        """
-        cell = row[col - 1]  # -1 because we're using one-based indexing.
-        return list(cell) if not sep else cell.split(sep)
-
-    def _iter_samples(
-        self, filename: str
-    ) -> Iterator[Tuple[List[str], Optional[List[str]]]]:
-        """Yields specific input samples from a file.
-
-        Args:
-            filename (str): input file.
-
-        Yields:
-            Tuple[List[str], Optional[List[str]]]: Tuple
-                of source and target string. (Target string
-                is None if self.target_col is 0).
-        """
-        with open(filename, "r") as source:
-            tsv_reader = csv.reader(source, delimiter="\t")
-            for row in tsv_reader:
-                source = self._get_cell(row, self.source_col, self.source_sep)
-                target = (
-                    self._get_cell(row, self.target_col, self.target_sep)
-                    if self.target_col
-                    else None
-                )
-                yield source, target
-
-    def _make_indices(self, tied_vocabulary: bool) -> None:
-        """Generates Dicts for encoding/decoding symbols as unique indices.
-
-        Args:
-            tied_vocabulary (bool): whether the source and target should
-                share a vocabulary.
-        """
+    def _make_indices(self) -> None:
+        """Generates Dicts for encoding/decoding symbols as unique indices."""
         # Ensures the idx of special symbols are identical in both vocabs.
         special_vocabulary = special.SPECIAL.copy()
         target_vocabulary: Set[str] = set()
         source_vocabulary: Set[str] = set()
-        for source, target in self.samples:
-            source_vocabulary.update(source)
-            # Only updates if target.
-            if self.target_col:
+        if self.config.has_targets:
+            for source, target in self.samples:
+                source_vocabulary.update(source)
                 target_vocabulary.update(target)
-        if tied_vocabulary:
-            source_vocabulary.update(target_vocabulary)
-            if self.target_col:
+            if self.config.tied_vocabulary:
+                source_vocabulary.update(target_vocabulary)
                 target_vocabulary.update(source_vocabulary)
+        else:
+            for source in self.samples:
+                source_vocabulary.update(source)
         self.source_symbol2i = {
             c: i
             for i, c in enumerate(
@@ -385,7 +435,7 @@ class DatasetNoFeatures(data.Dataset):
         source_encoded = self.encode(self.source_symbol2i, source)
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
-            if self.target_col
+            if self.config.has_targets
             else None
         )
         return source_encoded, target_encoded
@@ -396,109 +446,33 @@ class DatasetFeatures(DatasetNoFeatures):
 
     This accepts an additional secondary input of feature labels. Features are
     specified in a similar way to source and target.
-
-    The user specifies:
-
-    * an input filename path
-    * the 1-based indices for the columns (defaults: source is 1,
-      target is 2, features is 3)
-    * separator characters used to split the input columns strings, with an
-      empty string used to indicate that the string should be split into
-      Unicode characters
-
-    These together define an enormous set of possibilities; the defaults
-    correspond to the SIGMORPHON 2017 data format.
     """
 
-    features_col: int
-    features_sep: str
-    features_idx: int
-
-    def __init__(self, *args, features_col=3, features_sep=";", **kwargs):
-        """Initializes the dataset.
-
-        Args:
-            filename (str): input filename.
-            tied_vocabulary (bool): whether or not to share the
-                source/target vocabularies.
-            source_col (int optional): 1-indexed column in TSV containing
-                source strings.
-            target_col (int, optional): 1-indexed column in TSV containing
-                target strings.
-            source_sep (str, optional): separator character between symbols in
-                source string. "" treats each character in source as a symbol.
-            target_sep (str, optional): separator character between symbols in
-                target string. "" treats each character in target as symbol.
-            features_col (int, optional): 1-indexed column in TSV containing
-                features labels.
-            features_sep (str, optional): separator character between symbols
-                in target string. "" treats each character in target as symbol.
-            **kwargs: passed to superclass constructor.
-        """
-        if features_col < 0:
-            raise Error(f"Invalid features column: {features_col}")
-        util.log_info("Including features")
-        self.features_col = features_col
-        self.features_sep = features_sep
-        self.features_idx = 0
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        assert self.config.has_features, "Expected features"
 
-    def _iter_samples(
-        self, filename: str
-    ) -> Iterator[Tuple[List[str], List[str], Optional[List[str]]]]:
-        """Yields specific input samples from a file.
-
-        Sames as in superclass, but also handles features.
-
-        Args:
-            filename (str): input file.
-
-        Yields:
-            Tuple[List[str], List[str], Optional[List[str]]]:
-                Source, Features, Target tuple. (Target is None
-                if self.target_col is 0).
-        """
-        with open(filename, "r") as source:
-            tsv_reader = csv.reader(source, delimiter="\t")
-            for row in tsv_reader:
-                source = self._get_cell(row, self.source_col, self.source_sep)
-                features = self._get_cell(
-                    row, self.features_col, self.features_sep
-                )
-                # Use unique encoding for features.
-                # This disambiguates from overlap with source.
-                features = [f"[{feature}]" for feature in features]
-                target = (
-                    self._get_cell(row, self.target_col, self.target_sep)
-                    if self.target_col
-                    else None
-                )
-                yield source, features, target
-
-    def _make_indices(self, tied_vocabulary: bool) -> None:
+    def _make_indices(self) -> None:
         """Generates unique indices dictionaries.
 
         Same as in superclass, but also handles features.
-
-        Args:
-            tied_vocabulary (bool): whether the source and target should
-                share a vocabulary.
         """
         # Ensures the idx of special symbols are identical in both vocabs.
         special_vocabulary = special.SPECIAL.copy()
-        target_vocabulary: Set[str] = set()
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
-        for source, features, target in self.samples:
-            source_vocabulary.update(source)
-            features_vocabulary.update(features)
-            # Only updates if target.
-            if self.target_col:
+        target_vocabulary: Set[str] = set()
+        if self.config.has_targets:
+            for source, features, target in self.samples:
+                source_vocabulary.update(source)
+                features_vocabulary.update(features)
                 target_vocabulary.update(target)
-        if tied_vocabulary:
-            source_vocabulary.update(target_vocabulary)
-            if self.target_col:
-                target_vocabulary.update(source_vocabulary)
+            if self.config.tied_vocabulary:
+                source_vocabulary.update(target_vocabulary)
+        else:
+            for source, features in self.samples:
+                source_vocabulary.update(source)
+                features_vocabulary.update(features)
         source_vocabulary = special_vocabulary + sorted(source_vocabulary)
         # Source and features vocab share embedding dict.
         # features_idx assists in indexing features.
@@ -540,7 +514,7 @@ class DatasetFeatures(DatasetNoFeatures):
         )
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
-            if self.target_col
+            if self.config.has_targets
             else None
         )
         return source_encoded, features_encoded, target_encoded
@@ -638,11 +612,10 @@ class DatasetFeatures(DatasetNoFeatures):
         self.features_idx = vocab["features_idx"]
 
 
-def get_dataset_cls(include_features: bool) -> torch.utils.data.Dataset:
+def get_dataset_cls(include_features: bool) -> data.Dataset:
     """Dataset factory.
 
     Args:
-        arch (str): the string label for the architecture.
         include_features (bool).
 
     Returns:

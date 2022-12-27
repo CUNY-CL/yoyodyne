@@ -332,20 +332,19 @@ def main(
         util.log_info(f"\t{arg}: {val!r}")
     pl.seed_everything(seed)
     device = util.get_device(gpu)
-    include_features = features_col != 0
-    if target_col == 0:
-        raise datasets.Error("target_col must be specified for training")
-    dataset_cls = datasets.get_dataset_cls(include_features)
-    train_set = dataset_cls(
-        train_data_path,
-        tied_vocabulary,
-        source_col,
-        target_col,
-        source_sep,
-        target_sep,
-        features_sep=features_sep,
+    config = datasets.DatasetConfig(
+        source_col=source_col,
         features_col=features_col,
+        target_col=target_col,
+        source_sep=source_sep,
+        features_sep=features_sep,
+        target_sep=target_sep,
+        tied_vocabulary=tied_vocabulary,
     )
+    if config.target_col == 0:
+        raise datasets.Error("target_col must be specified for training")
+    dataset_cls = datasets.get_dataset_cls(config.has_features)
+    train_set = dataset_cls(train_data_path, config)
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
     # PL logging.
@@ -376,7 +375,7 @@ def main(
     # TODO: dataloader indexing Dicts should probably be added to model state.
     train_set.write_index(trainer.loggers[0].log_dir, lang)
     collator_cls = collators.get_collator_cls(
-        arch, include_features, include_targets=True
+        arch, config.has_features, include_targets=True
     )
     collator = collator_cls(train_set.pad_idx)
     train_loader = data.DataLoader(
@@ -386,16 +385,7 @@ def main(
         shuffle=True,
         num_workers=dataloader_workers,
     )
-    eval_set = dataset_cls(
-        dev_data_path,
-        tied_vocabulary,
-        source_col,
-        target_col,
-        source_sep,
-        target_sep,
-        features_col=features_col,
-        features_sep=features_sep,
-    )
+    eval_set = dataset_cls(dev_data_path, config)
     eval_set.load_index(trainer.loggers[0].log_dir, lang)
     eval_loader = data.DataLoader(
         eval_set,
@@ -404,9 +394,8 @@ def main(
         shuffle=False,
         num_workers=dataloader_workers,
     )
-
     evaluator = evaluators.Evaluator(device=device)
-    model_cls = models.get_model_cls(arch, attn, include_features)
+    model_cls = models.get_model_cls(arch, attn, config.has_features)
     if train_from is not None:
         util.log_info(f"Loading model from {train_from}")
         model = model_cls.load_from_checkpoint(train_from).to(device)
@@ -471,7 +460,7 @@ def main(
             source_sep,
             target_sep,
             features_sep,
-            include_features,
+            config.has_features,
             gpu,
         )
 
