@@ -25,9 +25,9 @@ but differs on several key points of design:
 -   It is for small-vocabulary sequence-to-sequence generation, and therefore
     includes no affordances for machine translation or language modeling.
     Because of this:
-    -  It has no plugin interface and the architectures provided are intended
-       to be reasonably exhaustive.
-    -  There is little need for data preprocessing; it works with TSV files.
+    -   It has no plugin interface and the architectures provided are intended
+        to be reasonably exhaustive.
+    -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle this feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
@@ -42,14 +42,9 @@ First install dependencies:
 
 Then install:
 
-    python setup.py install
+    pip install .
 
-Or:
-
-    python setup.py develop
-
-The latter creates a Python module in your environment that updates as you
-update the code. It can then be imported like a regular Python module:
+It can then be imported like a regular Python module:
 
 ```python
 import yoyodyne
@@ -57,9 +52,8 @@ import yoyodyne
 
 ## Usage
 
-For examples, see [`experiments`](experiments). See
-[`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for all
-model options.
+See [`yoyodyne-predict --help`](yoyodyne/predict.py) and
+[`yoyodyne-train --help`](yoyodyne/train.py).
 
 ## Architectures
 
