@@ -108,7 +108,7 @@ def write_predictions(
 
 
 @click.command()
-@click.option("--lang", required=True)
+@click.option("--experiment", required=True)
 @click.option("--data-path", required=True)
 @click.option("--source-col", type=int, default=1)
 @click.option("--target-col", type=int, default=2)
@@ -151,7 +151,7 @@ def write_predictions(
 @click.option("--bidirectional/--no-bidirectional", type=bool, default=True)
 @click.option("--gpu/--no-gpu", default=True)
 def main(
-    lang,
+    experiment,
     data_path,
     source_col,
     target_col,
@@ -173,7 +173,7 @@ def main(
     """Prediction.
 
     Args:
-        lang (_type_): _description_
+        experiment (_type_): _description_
         data_path (_type_): _description_
         source_col (_type_): _description_
         target_col (_type_): _description_
@@ -210,7 +210,7 @@ def main(
         features_col=features_col,
         features_sep=features_sep,
     )
-    test_set.load_index(results_path, lang)
+    test_set.load_index(results_path, experiment)
     util.log_info(f"Source vocabulary: {test_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {test_set.target_symbol2i}")
     collator_cls = collators.get_collator_cls(
