@@ -132,7 +132,6 @@ def make_pl_callbacks(
 
 
 @click.command()
-@click.option("--lang", required=True)
 @click.option("--train-data-path", required=True)
 @click.option("--dev-data-path", required=True)
 @click.option("--dev-predictions-path")
@@ -150,7 +149,7 @@ def make_pl_callbacks(
 @click.option("--tied-vocabulary/--no-tied-vocabulary", default=True)
 @click.option("--output-path", required=True)
 @click.option("--dataloader-workers", type=int, default=1)
-@click.option("--experiment-name", required=True)
+@click.option("--experiment", required=True)
 @click.option("--seed", type=int, default=time.time_ns())
 @click.option("--epochs", type=int, default=20)
 @click.option(
@@ -229,7 +228,6 @@ def make_pl_callbacks(
 @click.option("--gpu/--no-gpu", default=True)
 @click.option("--wandb/--no-wandb", default=False)
 def main(
-    lang,
     train_data_path,
     dev_data_path,
     dev_predictions_path,
@@ -242,7 +240,7 @@ def main(
     features_sep,
     output_path,
     dataloader_workers,
-    experiment_name,
+    experiment,
     seed,
     epochs,
     arch,
@@ -279,7 +277,6 @@ def main(
     """Training.
 
     Args:
-        lang (_type_): _description_
         train_data_path (_type_): _description_
         dev_data_path (_type_): _description_
         dev_predictions_path (_type_): _description_
@@ -293,7 +290,7 @@ def main(
         output_path (_type_): _description_
         dataset (_type_): _description_
         dataloader_workers (_type_): _description_
-        experiment_name (_type_): _description_
+        experiment (_type_): _description_
         seed (_type_): _description_
         epochs (_type_): _description_
         arch (_type_): _description_
@@ -349,11 +346,9 @@ def main(
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
     # PL logging.
-    logger = [loggers.CSVLogger(output_path, name=experiment_name)]
+    logger = [loggers.CSVLogger(output_path, name=experiment)]
     if wandb:
-        logger.append(
-            loggers.WandbLogger(project=experiment_name, log_model="all")
-        )
+        logger.append(loggers.WandbLogger(project=experiment, log_model="all"))
     # ckp_callback is used later for logging the best checkpoint path.
     ckp_callback, pl_callbacks = make_pl_callbacks(
         patience=patience, save_top_k=save_top_k
@@ -374,7 +369,7 @@ def main(
     # So we can write indices to it before PL creates it.
     os.makedirs(trainer.loggers[0].log_dir, exist_ok=True)
     # TODO: dataloader indexing Dicts should probably be added to model state.
-    train_set.write_index(trainer.loggers[0].log_dir, lang)
+    train_set.write_index(trainer.loggers[0].log_dir, experiment)
     collator_cls = collators.get_collator_cls(
         arch, include_features, include_targets=True
     )
@@ -396,7 +391,7 @@ def main(
         features_col=features_col,
         features_sep=features_sep,
     )
-    eval_set.load_index(trainer.loggers[0].log_dir, lang)
+    eval_set.load_index(trainer.loggers[0].log_dir, experiment)
     eval_loader = data.DataLoader(
         eval_set,
         collate_fn=collator,
