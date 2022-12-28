@@ -320,6 +320,8 @@ class DatasetFeatures(DatasetNoFeatures):
     specified in a similar way to source and target.
     """
 
+    features_idx: int
+
     def _make_indices(self) -> None:
         """Generates unique indices dictionaries.
 
