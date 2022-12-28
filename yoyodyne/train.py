@@ -148,7 +148,7 @@ def make_pl_callbacks(
 @click.option(
     "--features-col",
     type=int,
-    default=0,
+    default=3,
     help="0 indicates no feature column should be used",
 )
 @click.option("--source-sep", type=str, default="")
