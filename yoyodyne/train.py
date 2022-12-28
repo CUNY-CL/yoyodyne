@@ -10,7 +10,15 @@ import torch
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
-from . import collators, datasets, evaluators, models, predict, util
+from . import (
+    collators,
+    dataconfig,
+    datasets,
+    evaluators,
+    models,
+    predict,
+    util,
+)
 
 
 def make_training_args(
@@ -140,7 +148,7 @@ def make_pl_callbacks(
 @click.option(
     "--features-col",
     type=int,
-    default=3,
+    default=0,
     help="0 indicates no feature column should be used",
 )
 @click.option("--source-sep", type=str, default="")
@@ -329,7 +337,7 @@ def main(
         util.log_info(f"\t{arg}: {val!r}")
     pl.seed_everything(seed)
     device = util.get_device(gpu)
-    config = datasets.DatasetConfig(
+    config = dataconfig.DataConfig(
         source_col=source_col,
         features_col=features_col,
         target_col=target_col,
@@ -339,7 +347,7 @@ def main(
         tied_vocabulary=tied_vocabulary,
     )
     if config.target_col == 0:
-        raise datasets.Error("target_col must be specified for training")
+        raise dataconfig.Error("target_col must be specified for training")
     dataset_cls = datasets.get_dataset_cls(config.has_features)
     train_set = dataset_cls(train_data_path, config)
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
@@ -449,13 +457,7 @@ def main(
             dev_predictions_path,
             arch,
             eval_batch_size,
-            source_col,
-            target_col,
-            features_col,
-            source_sep,
-            target_sep,
-            features_sep,
-            config.has_features,
+            config,
             gpu,
         )
 
