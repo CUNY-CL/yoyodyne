@@ -93,8 +93,7 @@ class DatasetConfig:
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
             for row in tsv_reader:
-                source = self._get_cell(row, self.source_col, self.source_sep)
-                yield source
+                yield self._get_cell(row, self.source_col, self.source_sep)
 
     def source_target_samples(
         self, filename: str
@@ -469,6 +468,7 @@ class DatasetFeatures(DatasetNoFeatures):
                 target_vocabulary.update(target)
             if self.config.tied_vocabulary:
                 source_vocabulary.update(target_vocabulary)
+                target_vocabulary.update(source_vocabulary)
         else:
             for source, features in self.samples:
                 source_vocabulary.update(source)
