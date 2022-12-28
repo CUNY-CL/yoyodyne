@@ -50,13 +50,13 @@ class DatasetConfig:
     def __post_init__(self) -> None:
         # This is automatically called after initialization.
         if self.source_col < 1:
-            raise Error(f"Invalid source column: {source_col}")
+            raise Error(f"Invalid source column: {self.source_col}")
         if self.target_col < 0:
-            raise Error(f"Invalid target column: {target_col}")
+            raise Error(f"Invalid target column: {self.target_col}")
         if self.target_col == 0:
             util.log_info("Ignoring targets in input")
         if self.features_col < 0:
-            raise Error(f"Invalid features column: {features_col}")
+            raise Error(f"Invalid features column: {self.features_col}")
         if self.features_col != 0:
             util.log_info("Including features")
 
