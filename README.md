@@ -25,9 +25,9 @@ but differs on several key points of design:
 -   It is for small-vocabulary sequence-to-sequence generation, and therefore
     includes no affordances for machine translation or language modeling.
     Because of this:
-    -  It has no plugin interface and the architectures provided are intended
-       to be reasonably exhaustive.
-    -  There is little need for data preprocessing; it works with TSV files.
+    -   It has no plugin interface and the architectures provided are intended
+        to be reasonably exhaustive.
+    -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle this feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
@@ -122,18 +122,22 @@ flag.
 
 ## Data format
 
-The default data format is based on the SIGMORPHON 2017 shared tasks:
+The default data format is a two-column TSV file in which the first column is
+the source string and the second the target string.
+
+    source   target
+
+To enable the use of a feature column, one specifies a (non-zero) argument to
+`--features-col`. For instance in the SIGMORPHON 2017 shared task, the first
+column is the source (a lemma), the second is the target (the inflection), and
+the third contains semi-colon delimited feature strings:
 
     source   target    feat1;feat2;...
 
-That is, the first column is the source (a lemma), the second is the target (the
-inflection), and the third contains semi-colon delimited feature strings.
+this format is specified by `--features-col 3`.
 
-For the SIGMORPHON 2016 shared task data format:
+Alternatively, for the SIGMORPHON 2016 shared task data format:
 
     source   feat1,feat2,...    target
 
-one instead specifies `--target-col 3 --features-col 2 --features-sep ,`
-
-Finally, to perform transductions without features (whether or not a feature
-column exists in the data), one specifies `--features-col 0`.
+this format is specified by `--features-col 2 --features-sep , --target-col 3`.
