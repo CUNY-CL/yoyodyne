@@ -110,13 +110,18 @@ def write_predictions(
 @click.command()
 @click.option("--experiment", required=True)
 @click.option("--data-path", required=True)
-@click.option("--source-col", type=int, default=1)
-@click.option("--target-col", type=int, default=2)
+@click.option(
+    "--source-col", type=int, default=1, help="1-based index for source column"
+)
+@click.option(
+    "--target-col", type=int, default=2, help="1-based index for target column"
+)
 @click.option(
     "--features-col",
     type=int,
-    default=3,
-    help="0 indicates that no feature column should be used",
+    default=0,
+    help="1-based index for features column; "
+    "0 indicates the model will not use features",
 )
 @click.option("--source-sep", type=str, default="")
 @click.option("--target-sep", type=str, default="")
