@@ -148,7 +148,7 @@ def write_predictions(
     "--beam-width", type=int, help="If specified, beam search is used"
 )
 @click.option(
-    "--attn/--no-attn",
+    "--attention/--no-attention",
     type=bool,
     default=True,
     help="Use attention (`lstm` only)",
@@ -171,7 +171,7 @@ def main(
     model_path,
     batch_size,
     beam_width,
-    attn,
+    attention,
     bidirectional,
     gpu,
 ):
@@ -192,7 +192,7 @@ def main(
         results_path (_type_): _description_
         model_path (_type_): _description_
         batch_size (_type_): _description_
-        attn (_type_): _description_
+        attention (_type_): _description_
         bidirectional (_type_): _description_
         beam_width (_type_): _description_
         gpu (_type_): _description_
@@ -229,7 +229,7 @@ def main(
         shuffle=False,
     )
     # Model.
-    model_cls = models.get_model_cls(arch, attn, include_features)
+    model_cls = models.get_model_cls(arch, attention, include_features)
     util.log_info(f"Loading model from {model_path}")
     model = model_cls.load_from_checkpoint(model_path).to(device)
     write_predictions(

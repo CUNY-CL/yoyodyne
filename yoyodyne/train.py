@@ -222,7 +222,7 @@ def make_pl_callbacks(
 )
 @click.option("--bidirectional/--no-bidirectional", type=bool, default=True)
 @click.option(
-    "--attn/--no-attn",
+    "--attention/--no-attention",
     type=bool,
     default=True,
     help="Use attention (`--arch lstm` only)",
@@ -272,7 +272,7 @@ def main(
     lr_scheduler,
     train_from,
     bidirectional,
-    attn,
+    attention,
     max_decode_len,
     save_top_k,
     eval_every,
@@ -322,7 +322,7 @@ def main(
         scheduler (_type_): _description_
         train_from (_type_): _description_
         bidirectional (_type_): _description_
-        attn (_type_): _description_
+        attention (_type_): _description_
         max_decode_len (_type_): _description_
         save_top_k (_type_): _description_
         eval_every (_type_): _description_
@@ -406,7 +406,7 @@ def main(
     )
 
     evaluator = evaluators.Evaluator(device=device)
-    model_cls = models.get_model_cls(arch, attn, include_features)
+    model_cls = models.get_model_cls(arch, attention, include_features)
     if train_from is not None:
         util.log_info(f"Loading model from {train_from}")
         model = model_cls.load_from_checkpoint(train_from).to(device)

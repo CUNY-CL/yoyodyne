@@ -365,9 +365,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             torch.Tensor: mask of shape length x length.
         """
-        return torch.triu(
-            torch.full((length, length), float("-inf")), diagonal=1
-        )
+        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
 
 
 class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):

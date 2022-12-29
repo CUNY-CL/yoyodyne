@@ -71,9 +71,9 @@ additional flags).
     It may be superior to the vanilla transformer when using features.
 -   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
     treated as a learned parameter. By default, the encoder is connected to the
-    decoder by an attention mechanism; one can disable this (with `--no-attn`),
-    in which case the last non-padding hidden state of the encoder is
-    concatenated with the decoder hidden state.
+    decoder by an attention mechanism; one can disable this (with
+    `--no-attention`), in which case the last non-padding hidden state of the
+    encoder is concatenated with the decoder hidden state.
 -   `pointer_generator_lstm`: This is an attentive pointer-generator with an
     LSTM backend. Since this model contains a copy mechanism, it may be superior
     to the `lstm` when the input and output vocabularies overlap significantly.
