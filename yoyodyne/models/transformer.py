@@ -20,7 +20,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     vocab_size: int
     hidden_size: int
     d_model: int
-    nhead: int
+    attention_heads: int
     max_seq_len: int
     enc_layers: int
     dec_layers: int
@@ -54,7 +54,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         vocab_size,
         embedding_size,
         hidden_size,
-        nhead,
+        attention_heads,
         max_seq_len,
         output_size,
         pad_idx,
@@ -81,7 +81,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             vocab_size (int).
             embedding_size (int).
             hidden_size (int).
-            nhead (int).
+            attention_heads (int).
             max_seq_len (int).
             output_size (int).
             pad_idx (int).
@@ -107,7 +107,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.d_model = embedding_size
-        self.nhead = nhead
+        self.attention_heads = attention_heads
         self.max_seq_len = max_seq_len
         self.enc_layers = enc_layers
         self.dec_layers = dec_layers
@@ -138,7 +138,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         enc_layer = nn.TransformerEncoderLayer(
             d_model=self.d_model,
             dim_feedforward=self.hidden_size,
-            nhead=self.nhead,
+            nhead=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
@@ -152,7 +152,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         dec_layer = nn.TransformerDecoderLayer(
             d_model=self.d_model,
             dim_feedforward=self.hidden_size,
-            nhead=self.nhead,
+            nhead=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
@@ -365,9 +365,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             torch.Tensor: mask of shape length x length.
         """
-        return torch.triu(
-            torch.full((length, length), float("-inf")), diagonal=1
-        )
+        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
 
 
 class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):

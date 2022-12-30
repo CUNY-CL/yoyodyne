@@ -25,9 +25,9 @@ but differs on several key points of design:
 -   It is for small-vocabulary sequence-to-sequence generation, and therefore
     includes no affordances for machine translation or language modeling.
     Because of this:
-    -  It has no plugin interface and the architectures provided are intended
-       to be reasonably exhaustive.
-    -  There is little need for data preprocessing; it works with TSV files.
+    -   It has no plugin interface and the architectures provided are intended
+        to be reasonably exhaustive.
+    -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle this feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
@@ -57,9 +57,8 @@ import yoyodyne
 
 ## Usage
 
-For examples, see [`experiments`](experiments). See
-[`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for all
-model options.
+See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py)
+for all model options.
 
 ## Architectures
 
@@ -71,9 +70,9 @@ additional flags).
     It may be superior to the vanilla transformer when using features.
 -   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
     treated as a learned parameter. By default, the encoder is connected to the
-    decoder by an attention mechanism; one can disable this (with `--no-attn`),
-    in which case the last non-padding hidden state of the encoder is
-    concatenated with the decoder hidden state.
+    decoder by an attention mechanism; one can disable this (with
+    `--no-attention`), in which case the last non-padding hidden state of the
+    encoder is concatenated with the decoder hidden state.
 -   `pointer_generator_lstm`: This is an attentive pointer-generator with an
     LSTM backend. Since this model contains a copy mechanism, it may be superior
     to the `lstm` when the input and output vocabularies overlap significantly.
@@ -86,7 +85,7 @@ additional flags).
     monotonic and when input and output vocabularies overlap significantly.
 -   `transformer`: This is a transformer encoder-decoder with positional
     encoding and layer normalization. The user may wish to specify the number of
-    attention heads (with `--nheads`; default: 4).
+    attention heads (with `--attention-heads`; default: 4).
 
 For all models, the user may also wish to specify:
 
@@ -122,18 +121,22 @@ flag.
 
 ## Data format
 
-The default data format is based on the SIGMORPHON 2017 shared tasks:
+The default data format is a two-column TSV file in which the first column is
+the source string and the second the target string.
+
+    source   target
+
+To enable the use of a feature column, one specifies a (non-zero) argument to
+`--features-col`. For instance in the SIGMORPHON 2017 shared task, the first
+column is the source (a lemma), the second is the target (the inflection), and
+the third contains semi-colon delimited feature strings:
 
     source   target    feat1;feat2;...
 
-That is, the first column is the source (a lemma), the second is the target (the
-inflection), and the third contains semi-colon delimited feature strings.
+this format is specified by `--features-col 3`.
 
-For the SIGMORPHON 2016 shared task data format:
+Alternatively, for the SIGMORPHON 2016 shared task data format:
 
     source   feat1,feat2,...    target
 
-one instead specifies `--target-col 3 --features-col 2 --features-sep ,`
-
-Finally, to perform transductions without features (whether or not a feature
-column exists in the data), one specifies `--features-col 0`.
+this format is specified by `--features-col 2 --features-sep , --target-col 3`.

@@ -26,7 +26,7 @@ def make_training_args(
     train_set: data.Dataset,
     embedding_size: int,
     hidden_size: int,
-    nhead: int,
+    attention_heads: int,
     max_seq_len: int,
     optimizer: torch.optim.Optimizer,
     beta1: float,
@@ -50,7 +50,7 @@ def make_training_args(
         train_set (data.Dataset): training dataset.
         embedding_size (int).
         hidden_size (int).
-        nhead (int).
+        attention_heads (int).
         max_seq_len (int): maximum input sequence length for transformer
             positional encoding.
         optimizer (optim.Optimizer).
@@ -94,7 +94,7 @@ def make_training_args(
         "warmup_steps": warmup_steps,
         "scheduler": lr_scheduler,
         "bidirectional": bidirectional,
-        "nhead": nhead,
+        "attention_heads": attention_heads,
         "max_seq_len": max_seq_len,
         "expert": expert,
     }
@@ -143,13 +143,18 @@ def make_pl_callbacks(
 @click.option("--train-data-path", required=True)
 @click.option("--dev-data-path", required=True)
 @click.option("--dev-predictions-path")
-@click.option("--source-col", type=int, default=1)
-@click.option("--target-col", type=int, default=2)
+@click.option(
+    "--source-col", type=int, default=1, help="1-based index for source column"
+)
+@click.option(
+    "--target-col", type=int, default=2, help="1-based index for target column"
+)
 @click.option(
     "--features-col",
     type=int,
-    default=3,
-    help="0 indicates no feature column should be used",
+    default=0,
+    help="1-based index for features column; "
+    "0 indicates the model will not use features",
 )
 @click.option("--source-sep", type=str, default="")
 @click.option("--target-sep", type=str, default="")
@@ -203,7 +208,7 @@ def make_pl_callbacks(
 @click.option("--enc-layers", type=int, default=1)
 @click.option("--dec-layers", type=int, default=1)
 @click.option("--max-seq-len", type=int, default=128)
-@click.option("--nhead", type=int, default=4)
+@click.option("--attention-heads", type=int, default=4)
 @click.option("--dropout", type=float, default=0.1)
 @click.option("--optimizer", default="adadelta")
 @click.option(
@@ -225,7 +230,7 @@ def make_pl_callbacks(
 )
 @click.option("--bidirectional/--no-bidirectional", type=bool, default=True)
 @click.option(
-    "--attn/--no-attn",
+    "--attention/--no-attention",
     type=bool,
     default=True,
     help="Use attention (`--arch lstm` only)",
@@ -267,7 +272,7 @@ def main(
     enc_layers,
     dec_layers,
     max_seq_len,
-    nhead,
+    attention_heads,
     optimizer,
     beta1,
     beta2,
@@ -275,7 +280,7 @@ def main(
     lr_scheduler,
     train_from,
     bidirectional,
-    attn,
+    attention,
     max_decode_len,
     save_top_k,
     eval_every,
@@ -317,7 +322,7 @@ def main(
         enc_layers (_type_): _description_
         dec_layers (_type_): _description_
         max_seq_len: (_type_) _description_
-        nhead (_type_): _description_
+        attention_heads (_type_): _description_
         optimizer (_type_): _description_
         beta1 (_type_): _description_
         beta2 (_type_): _description_
@@ -325,7 +330,7 @@ def main(
         scheduler (_type_): _description_
         train_from (_type_): _description_
         bidirectional (_type_): _description_
-        attn (_type_): _description_
+        attention (_type_): _description_
         max_decode_len (_type_): _description_
         save_top_k (_type_): _description_
         eval_every (_type_): _description_
@@ -398,7 +403,7 @@ def main(
         num_workers=dataloader_workers,
     )
     evaluator = evaluators.Evaluator(device=device)
-    model_cls = models.get_model_cls(arch, attn, config.has_features)
+    model_cls = models.get_model_cls(arch, attention, config.has_features)
     if train_from is not None:
         util.log_info(f"Loading model from {train_from}")
         model = model_cls.load_from_checkpoint(train_from).to(device)
@@ -410,7 +415,7 @@ def main(
             train_set=train_set,
             embedding_size=embedding_size,
             hidden_size=hidden_size,
-            nhead=nhead,
+            attention_heads=attention_heads,
             max_seq_len=max_seq_len,
             optimizer=optimizer,
             beta1=beta1,
