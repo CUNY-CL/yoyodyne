@@ -279,56 +279,7 @@ def main(
     gpu,
     wandb,
 ):
-    """Training.
-
-    Args:
-        train_data_path (_type_): _description_
-        dev_data_path (_type_): _description_
-        dev_predictions_path (_type_): _description_
-        source_col (_type_): _description_
-        target_col (_type_): _description_
-        features_col (_type_): _description_
-        source_sep (_type_): _description_
-        target_sep (_type_): _description_
-        features_sep (_type_): _description_
-        tied_vocabulary (_type_): _description_
-        output_path (_type_): _description_
-        dataset (_type_): _description_
-        dataloader_workers (_type_): _description_
-        experiment (_type_): _description_
-        seed (_type_): _description_
-        epochs (_type_): _description_
-        arch (_type_): _description_
-        oracle_em_epochs (_type_): _description_
-        oracle_factor (_type_): _description_
-        sed_params_path (_type_): _description_
-        patience (_type_): _description_
-        learning_rate (_type_): _description_
-        label_smoothing (_type_): _description_
-        gradient_clip (_type_): _description_
-        batch_size (_type_): _description_
-        eval_batch_size (_type_): _description_
-        embedding_size (_type_): _description_
-        hidden_size (_type_): _description_
-        dropout (_type_): _description_
-        encoder_layers (_type_): _description_
-        decoder_layers (_type_): _description_
-        max_seq_len: (_type_) _description_
-        attention_heads (_type_): _description_
-        optimizer (_type_): _description_
-        beta1 (_type_): _description_
-        beta2 (_type_): _description_
-        warmup_steps (_type_): _description_
-        scheduler (_type_): _description_
-        train_from (_type_): _description_
-        bidirectional (_type_): _description_
-        attention (_type_): _description_
-        max_decode_len (_type_): _description_
-        save_top_k (_type_): _description_
-        eval_every (_type_): _description_
-        gpu (_type_): _description_
-        wandb (_type_): _description_
-    """
+    """Trainer."""
     util.log_info("Arguments:")
     for arg, val in click.get_current_context().params.items():
         util.log_info(f"\t{arg}: {val!r}")

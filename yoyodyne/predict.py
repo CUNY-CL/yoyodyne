@@ -175,28 +175,7 @@ def main(
     bidirectional,
     gpu,
 ):
-    """Prediction.
-
-    Args:
-        experiment (_type_): _description_
-        data_path (_type_): _description_
-        source_col (_type_): _description_
-        target_col (_type_): _description_
-        features_col (_type_): _description_
-        source_sep (_type_): _description_
-        target_sep (_type_): _description_
-        features_sep (_type_): _description_
-        tied_vocabulary (_type_): _description_
-        output_path (_type_): _description_
-        arch (_type_): _description_
-        results_path (_type_): _description_
-        model_path (_type_): _description_
-        batch_size (_type_): _description_
-        attention (_type_): _description_
-        bidirectional (_type_): _description_
-        beam_width (_type_): _description_
-        gpu (_type_): _description_
-    """
+    """Predictor."""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     device = util.get_device(gpu)
     # TODO: Do not need to enforce once we have batch beam decoding.
