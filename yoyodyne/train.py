@@ -28,8 +28,8 @@ def make_training_args(
     evaluator: evaluators.Evaluator,
     max_decode_len: int,
     dropout: float,
-    enc_layers: int,
-    dec_layers: int,
+    encoder_layers: int,
+    decoder_layers: int,
     bidirectional: bool,
     label_smoothing: Optional[float],
     lr_scheduler: str,
@@ -53,8 +53,8 @@ def make_training_args(
         evaluator (evaluators.Evaluator).
         max_decode_len (int).
         dropout (float).
-        enc_layers (int).
-        dec_layers (int).
+        encoder_layers (int).
+        decoder_layers (int).
         bidirectional (bool).
         label_smoothing (float).
         lr_scheduler (str).
@@ -80,8 +80,8 @@ def make_training_args(
         "evaluator": evaluator,
         "max_decode_len": max_decode_len,
         "dropout": dropout,
-        "enc_layers": enc_layers,
-        "dec_layers": dec_layers,
+        "encoder_layers": encoder_layers,
+        "decoder_layers": decoder_layers,
         "label_smoothing": label_smoothing,
         "warmup_steps": warmup_steps,
         "scheduler": lr_scheduler,
@@ -197,8 +197,8 @@ def make_pl_callbacks(
 @click.option("--embedding-size", type=int, default=128)
 @click.option("--hidden-size", type=int, default=256)
 @click.option("--dropout", type=float, default=0.3)
-@click.option("--enc-layers", type=int, default=1)
-@click.option("--dec-layers", type=int, default=1)
+@click.option("--encoder-layers", type=int, default=1)
+@click.option("--decoder-layers", type=int, default=1)
 @click.option("--max-seq-len", type=int, default=128)
 @click.option("--attention-heads", type=int, default=4)
 @click.option("--dropout", type=float, default=0.1)
@@ -261,8 +261,8 @@ def main(
     embedding_size,
     hidden_size,
     dropout,
-    enc_layers,
-    dec_layers,
+    encoder_layers,
+    decoder_layers,
     max_seq_len,
     attention_heads,
     optimizer,
@@ -311,8 +311,8 @@ def main(
         embedding_size (_type_): _description_
         hidden_size (_type_): _description_
         dropout (_type_): _description_
-        enc_layers (_type_): _description_
-        dec_layers (_type_): _description_
+        encoder_layers (_type_): _description_
+        decoder_layers (_type_): _description_
         max_seq_len: (_type_) _description_
         attention_heads (_type_): _description_
         optimizer (_type_): _description_
@@ -428,8 +428,8 @@ def main(
             evaluator=evaluator,
             max_decode_len=max_decode_len,
             dropout=dropout,
-            enc_layers=enc_layers,
-            dec_layers=dec_layers,
+            encoder_layers=encoder_layers,
+            decoder_layers=decoder_layers,
             bidirectional=bidirectional,
             label_smoothing=label_smoothing,
             lr_scheduler=lr_scheduler,

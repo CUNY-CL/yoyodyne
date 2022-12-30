@@ -90,9 +90,9 @@ additional flags).
 
 For all models, the user may also wish to specify:
 
--   `--dec-layers` (default: 1): number of decoder layers
+-   `--decoder-layers` (default: 1): number of decoder layers
 -   `--embedding` (default: 128): embedding size
--   `--enc-layers` (default: 1): number of encoder layers
+-   `--encoder-layers` (default: 1): number of encoder layers
 -   `--hidden-size` (default: 256): hidden layer size
 
 By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
