@@ -57,9 +57,8 @@ import yoyodyne
 
 ## Usage
 
-For examples, see [`experiments`](experiments). See
-[`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for all
-model options.
+See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py)
+for all model options.
 
 ## Architectures
 
