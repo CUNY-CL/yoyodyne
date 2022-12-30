@@ -168,12 +168,12 @@ def make_pl_callbacks(
             "transformer",
         ]
     ),
-    required=True,
+    default="lstm",
 )
 @click.option(
     "--oracle-em-epochs",
     type=int,
-    default=0,
+    default=5,
     help="Number of EM epochs (`--arch transducer` only)",
 )
 @click.option(
@@ -189,20 +189,20 @@ def make_pl_callbacks(
     help="Path to SED parameters (`transducer` only)",
 )
 @click.option("--patience", type=int)
-@click.option("--learning-rate", type=float, required=True)
+@click.option("--learning-rate", type=float, default=0.001)
 @click.option("--label-smoothing", type=float)
-@click.option("--gradient-clip", type=float, default=0.0)
-@click.option("--batch-size", type=int, default=16)
-@click.option("--eval-batch-size", type=int, default=1)
+@click.option("--gradient-clip", type=float)
+@click.option("--batch-size", type=int, default=32)
+@click.option("--eval-batch-size", type=int, default=64)
 @click.option("--embedding-size", type=int, default=128)
-@click.option("--hidden-size", type=int, default=256)
-@click.option("--dropout", type=float, default=0.3)
+@click.option("--hidden-size", type=int, default=512)
+@click.option("--dropout", type=float, default=0.2)
 @click.option("--encoder-layers", type=int, default=1)
 @click.option("--decoder-layers", type=int, default=1)
 @click.option("--max-seq-len", type=int, default=128)
 @click.option("--attention-heads", type=int, default=4)
 @click.option("--dropout", type=float, default=0.1)
-@click.option("--optimizer", default="adadelta")
+@click.option("--optimizer", default="adam")
 @click.option(
     "--beta1",
     default=0.9,
@@ -215,7 +215,7 @@ def make_pl_callbacks(
     type=float,
     help="beta2 (`--optimizer adam` only)",
 )
-@click.option("--warmup-steps", default=1)
+@click.option("--warmup-steps", type=int)
 @click.option("--lr-scheduler")
 @click.option(
     "--train-from", help="Path to checkpoint to continue training from"
@@ -229,7 +229,7 @@ def make_pl_callbacks(
 )
 @click.option("--max-decode-len", type=int, default=128)
 @click.option("--save-top-k", type=int, default=1)
-@click.option("--eval-every", type=int, default=5)
+@click.option("--eval-every", type=int, default=2)
 @click.option("--gpu/--no-gpu", default=True)
 @click.option("--wandb/--no-wandb", default=False)
 def main(

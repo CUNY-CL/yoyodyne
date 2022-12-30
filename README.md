@@ -56,8 +56,8 @@ import yoyodyne
 
 ## Usage
 
-See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py)
-for all model options.
+See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for
+all model options.
 
 ## Architectures
 
@@ -91,7 +91,7 @@ For all models, the user may also wish to specify:
 -   `--decoder-layers` (default: 1): number of decoder layers
 -   `--embedding` (default: 128): embedding size
 -   `--encoder-layers` (default: 1): number of encoder layers
--   `--hidden-size` (default: 256): hidden layer size
+-   `--hidden-size` (default: 512): hidden layer size
 
 By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
 LSTM bidirectional encoder. One can disable this with the `--no-bidirectional`
@@ -99,24 +99,30 @@ flag.
 
 ## Training options
 
--   `--batch-size` (default: 16)
+-   `--batch-size` (default: 32)
 -   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
     (`--optimizer adam`)
 -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
     (`--optimizer adam`)
--   `--dropout` (default: .1): dropout probability
+-   `--dropout` (default: .2): dropout probability
 -   `--max-epochs` (default: 50)
--   `--gradient-clip` (default: 0.0)
+-   `--gradient-clip` (default: not enabled)
 -   `--label-smoothing` (default: not enabled)
--   `--learning-rate` (required)
+-   `--learning-rate` (default: .001)
 -   `--lr-scheduler` (default: not enabled)
--   `--optimizer` (default: "adadelta")
+-   `--optimizer` (default: "adam")
 -   `--patience` (default: not enabled)
 -   `--wandb` (default: False): enables [Weights &
     Biases](https://wandb.ai/site) tracking
--   `--warmup-steps` (default: 1): warm-up parameter for a linear warm-up
-    followed by inverse square root decay schedule (only valid with
+-   `--warmup-steps` (default: not enabled): warm-up parameter for a linear
+    warm-up followed by inverse square root decay schedule (only valid with
     `--lr-scheduler warmupinvsq`)
+
+**No neural model should be deployed without proper hyperparameter tuning.**
+However, the default options give a reasonable initial settings for an attentive
+biLSTM. For transformer-based architectures, experiment with multiple encoder
+and decoder layers, much larger batches, and the warmup + inverse square root
+decay scheduler.
 
 ## Data format
 
