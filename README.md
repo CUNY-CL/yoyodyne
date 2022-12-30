@@ -105,7 +105,7 @@ flag.
 -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
     (`--optimizer adam`)
 -   `--dropout` (default: .1): dropout probability
--   `--epochs` (default: 20)
+-   `--max-epochs` (default: 50)
 -   `--gradient-clip` (default: 0.0)
 -   `--label-smoothing` (default: not enabled)
 -   `--learning-rate` (required)

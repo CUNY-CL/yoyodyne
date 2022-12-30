@@ -156,7 +156,7 @@ def make_pl_callbacks(
 @click.option("--dataloader-workers", type=int, default=1)
 @click.option("--experiment", required=True)
 @click.option("--seed", type=int, default=time.time_ns())
-@click.option("--epochs", type=int, default=20)
+@click.option("--max-epochs", type=int, default=50)
 @click.option(
     "--arch",
     type=click.Choice(
@@ -247,7 +247,7 @@ def main(
     dataloader_workers,
     experiment,
     seed,
-    epochs,
+    max_epochs,
     arch,
     oracle_em_epochs,
     oracle_factor,
@@ -313,7 +313,7 @@ def main(
         accelerator="gpu" if gpu and torch.cuda.is_available() else "cpu",
         devices=1,
         logger=logger,
-        max_epochs=epochs,
+        max_epochs=max_epochs,
         gradient_clip_val=gradient_clip,
         check_val_every_n_epoch=eval_every,
         enable_checkpointing=True,
