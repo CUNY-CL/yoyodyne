@@ -18,7 +18,7 @@ def make_training_args(
     train_set: data.Dataset,
     embedding_size: int,
     hidden_size: int,
-    nhead: int,
+    attention_heads: int,
     max_seq_len: int,
     optimizer: torch.optim.Optimizer,
     beta1: float,
@@ -42,7 +42,7 @@ def make_training_args(
         train_set (data.Dataset): training dataset.
         embedding_size (int).
         hidden_size (int).
-        nhead (int).
+        attention_heads (int).
         max_seq_len (int): maximum input sequence length for transformer
             positional encoding.
         optimizer (optim.Optimizer).
@@ -86,7 +86,7 @@ def make_training_args(
         "warmup_steps": warmup_steps,
         "scheduler": lr_scheduler,
         "bidirectional": bidirectional,
-        "nhead": nhead,
+        "attention_heads": attention_heads,
         "max_seq_len": max_seq_len,
         "expert": expert,
     }
@@ -200,7 +200,7 @@ def make_pl_callbacks(
 @click.option("--enc-layers", type=int, default=1)
 @click.option("--dec-layers", type=int, default=1)
 @click.option("--max-seq-len", type=int, default=128)
-@click.option("--nhead", type=int, default=4)
+@click.option("--attention-heads", type=int, default=4)
 @click.option("--dropout", type=float, default=0.1)
 @click.option("--optimizer", default="adadelta")
 @click.option(
@@ -264,7 +264,7 @@ def main(
     enc_layers,
     dec_layers,
     max_seq_len,
-    nhead,
+    attention_heads,
     optimizer,
     beta1,
     beta2,
@@ -314,7 +314,7 @@ def main(
         enc_layers (_type_): _description_
         dec_layers (_type_): _description_
         max_seq_len: (_type_) _description_
-        nhead (_type_): _description_
+        attention_heads (_type_): _description_
         optimizer (_type_): _description_
         beta1 (_type_): _description_
         beta2 (_type_): _description_
@@ -418,7 +418,7 @@ def main(
             train_set=train_set,
             embedding_size=embedding_size,
             hidden_size=hidden_size,
-            nhead=nhead,
+            attention_heads=attention_heads,
             max_seq_len=max_seq_len,
             optimizer=optimizer,
             beta1=beta1,

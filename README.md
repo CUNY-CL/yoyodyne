@@ -86,7 +86,7 @@ additional flags).
     monotonic and when input and output vocabularies overlap significantly.
 -   `transformer`: This is a transformer encoder-decoder with positional
     encoding and layer normalization. The user may wish to specify the number of
-    attention heads (with `--nheads`; default: 4).
+    attention heads (with `--attention-heads`; default: 4).
 
 For all models, the user may also wish to specify:
 
