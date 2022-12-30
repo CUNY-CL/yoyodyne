@@ -145,3 +145,10 @@ Alternatively, for the SIGMORPHON 2016 shared task data format:
     source   feat1,feat2,...    target
 
 this format is specified by `--features-col 2 --features-sep , --target-col 3`.
+
+## Reserved symbols
+
+Yoyodyne reserves symbols of the form `<...>` for internal use.
+Feature-conditioned models also use `[...]` to avoid clashes between feature
+symbols and source and target symbols. Therefore, users should not provide any
+symbols of form `<...>` or `[...]`.
