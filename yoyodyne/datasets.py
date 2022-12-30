@@ -11,19 +11,7 @@ from . import dataconfig, special
 
 
 class DatasetNoFeatures(data.Dataset):
-    """Dataset object.
-
-    The user specifies:
-
-    * an input filename path
-    * the 1-based indices for the columns (defaults: source is 1, target is 2)
-    * separator characters used to split the input columns strings, with an
-      empty string used to indicate that the string should be split into
-      Unicode characters
-
-    These together define an enormous set of possibilities; the defaults
-    correspond to the SIGMORPHON 2017 data format.
-    """
+    """Dataset object without feature column."""
 
     filename: str
     config: dataconfig.DataConfig
@@ -314,11 +302,7 @@ class DatasetNoFeatures(data.Dataset):
 
 
 class DatasetFeatures(DatasetNoFeatures):
-    """Dataset object with separate features.
-
-    This accepts an additional secondary input of feature labels. Features are
-    specified in a similar way to source and target.
-    """
+    """Dataset object with feature column."""
 
     features_idx: int
 
