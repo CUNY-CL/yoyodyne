@@ -132,9 +132,11 @@ def make_pl_callbacks(
 
 
 @click.command()
-@click.option("--train-data-path", required=True)
-@click.option("--dev-data-path", required=True)
-@click.option("--dev-predictions-path")
+@click.option("--experiment", required=True)
+@click.option("--train", required=True)
+@click.option("--dev", required=True)
+@click.option("--model-dir", required=True)
+@click.option("--dev-predictions")
 @click.option(
     "--source-col", type=int, default=1, help="1-based index for source column"
 )
@@ -152,9 +154,7 @@ def make_pl_callbacks(
 @click.option("--target-sep", type=str, default="")
 @click.option("--features-sep", type=str, default=";")
 @click.option("--tied-vocabulary/--no-tied-vocabulary", default=True)
-@click.option("--output-path", required=True)
 @click.option("--dataloader-workers", type=int, default=1)
-@click.option("--experiment", required=True)
 @click.option("--seed", type=int, default=time.time_ns())
 @click.option("--max-epochs", type=int, default=50)
 @click.option(
@@ -233,9 +233,11 @@ def make_pl_callbacks(
 @click.option("--gpu/--no-gpu", default=True)
 @click.option("--wandb/--no-wandb", default=False)
 def main(
-    train_data_path,
-    dev_data_path,
-    dev_predictions_path,
+    experiment,
+    train,
+    dev,
+    model_dir,
+    dev_predictions,
     tied_vocabulary,
     source_col,
     target_col,
@@ -243,9 +245,7 @@ def main(
     source_sep,
     target_sep,
     features_sep,
-    output_path,
     dataloader_workers,
-    experiment,
     seed,
     max_epochs,
     arch,
@@ -290,7 +290,7 @@ def main(
         raise datasets.Error("target_col must be specified for training")
     dataset_cls = datasets.get_dataset_cls(include_features)
     train_set = dataset_cls(
-        train_data_path,
+        train,
         tied_vocabulary,
         source_col,
         target_col,
@@ -302,7 +302,7 @@ def main(
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
     # PL logging.
-    logger = [loggers.CSVLogger(output_path, name=experiment)]
+    logger = [loggers.CSVLogger(model_dir, name=experiment)]
     if wandb:
         logger.append(loggers.WandbLogger(project=experiment, log_model="all"))
     # ckp_callback is used later for logging the best checkpoint path.
@@ -317,7 +317,7 @@ def main(
         gradient_clip_val=gradient_clip,
         check_val_every_n_epoch=eval_every,
         enable_checkpointing=True,
-        default_root_dir=output_path,
+        default_root_dir=model_dir,
         callbacks=pl_callbacks,
         log_every_n_steps=int(len(train_set) / batch_size),
         num_sanity_val_steps=0,
@@ -337,8 +337,8 @@ def main(
         shuffle=True,
         num_workers=dataloader_workers,
     )
-    eval_set = dataset_cls(
-        dev_data_path,
+    dev_set = dataset_cls(
+        dev,
         tied_vocabulary,
         source_col,
         target_col,
@@ -347,22 +347,21 @@ def main(
         features_col=features_col,
         features_sep=features_sep,
     )
-    eval_set.load_index(trainer.loggers[0].log_dir, experiment)
-    eval_loader = data.DataLoader(
-        eval_set,
+    dev_set.load_index(trainer.loggers[0].log_dir, experiment)
+    dev_loader = data.DataLoader(
+        dev_set,
         collate_fn=collator,
         batch_size=eval_batch_size,
         shuffle=False,
         num_workers=dataloader_workers,
     )
-
     evaluator = evaluators.Evaluator(device=device)
     model_cls = models.get_model_cls(arch, attention, include_features)
     if train_from is not None:
         util.log_info(f"Loading model from {train_from}")
         model = model_cls.load_from_checkpoint(train_from).to(device)
         util.log_info("Training...")
-        trainer.fit(model, train_loader, eval_loader, ckpt_path=train_from)
+        trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
     else:
         training_args = make_training_args(
             arch=arch,
@@ -398,7 +397,7 @@ def main(
         util.log_info(f"Model: {model_cls.__name__}")
         util.log_info(f"Dataset: {dataset_cls.__name__}")
         util.log_info(f"Collator: {collator_cls.__name__}")
-        trainer.fit(model, train_loader, eval_loader)
+        trainer.fit(model, train_loader, dev_loader)
     util.log_info("Training complete")
     util.log_info(
         f"Best model checkpoint path: {ckp_callback.best_model_path}"
@@ -406,14 +405,14 @@ def main(
     # Writes development set predictions using the best checkpoint,
     # if a predictions path is specified.
     # TODO: Add beam-width option so we can make predictions with beam search.
-    if dev_predictions_path:
+    if dev_predictions:
         best_model = model_cls.load_from_checkpoint(
             ckp_callback.best_model_path
         ).to(device)
         predict.write_predictions(
             best_model,
-            eval_loader,
-            dev_predictions_path,
+            dev_loader,
+            dev_predictions,
             arch,
             eval_batch_size,
             source_col,
