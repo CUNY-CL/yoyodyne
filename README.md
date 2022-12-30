@@ -14,8 +14,7 @@ These models are implemented using PyTorch and PyTorch Lightning.
 While we provide classic `lstm` and `transformer` models, some of the provided
 models are particularly well-suited for problems where the source-target
 alignments are roughly monotonic (e.g., `transducer`) and/or where source and
-target vocabularies are not disjoint and substrings of the source are copied
-into the target (e.g., `pointer_generator_lstm`).
+target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
 
 ## Philosophy
 
@@ -57,9 +56,8 @@ import yoyodyne
 
 ## Usage
 
-For examples, see [`experiments`](experiments). See
-[`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for all
-model options.
+See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py)
+for all model options.
 
 ## Architectures
 
