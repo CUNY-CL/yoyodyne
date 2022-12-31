@@ -109,14 +109,14 @@ flag.
 -   `--gradient-clip` (default: not enabled)
 -   `--label-smoothing` (default: not enabled)
 -   `--learning-rate` (default: .001)
--   `--lr-scheduler` (default: not enabled)
+-   `--scheduler` (default: not enabled)
 -   `--optimizer` (default: "adam")
 -   `--patience` (default: not enabled)
 -   `--wandb` (default: False): enables [Weights &
     Biases](https://wandb.ai/site) tracking
 -   `--warmup-steps` (default: not enabled): warm-up parameter for a linear
     warm-up followed by inverse square root decay schedule (only valid with
-    `--lr-scheduler warmupinvsq`)
+    `--scheduler warmupinvsqr`)
 
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
