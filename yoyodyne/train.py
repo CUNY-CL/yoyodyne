@@ -2,7 +2,7 @@
 
 import os
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import click
 import pytorch_lightning as pl
@@ -11,86 +11,6 @@ from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
 from . import collators, datasets, evaluators, models, predict, util
-
-
-def make_training_args(
-    arch: str,
-    train_set: data.Dataset,
-    embedding_size: int,
-    hidden_size: int,
-    attention_heads: int,
-    max_seq_len: int,
-    optimizer: torch.optim.Optimizer,
-    beta1: float,
-    beta2: float,
-    warmup_steps: int,
-    learning_rate: float,
-    evaluator: evaluators.Evaluator,
-    max_decode_len: int,
-    dropout: float,
-    encoder_layers: int,
-    decoder_layers: int,
-    bidirectional: bool,
-    label_smoothing: Optional[float],
-    lr_scheduler: str,
-    expert: Optional[models.expert.Expert],
-) -> Dict:
-    """Prepares the training args for the specific architecture.
-
-    Args:
-        arch (str): the architecture.
-        train_set (data.Dataset): training dataset.
-        embedding_size (int).
-        hidden_size (int).
-        attention_heads (int).
-        max_seq_len (int): maximum input sequence length for transformer
-            positional encoding.
-        optimizer (optim.Optimizer).
-        beta1 (float).
-        beta2 (float).
-        warmup_steps (int).
-        learning_rate (float).
-        evaluator (evaluators.Evaluator).
-        max_decode_len (int).
-        dropout (float).
-        encoder_layers (int).
-        decoder_layers (int).
-        bidirectional (bool).
-        label_smoothing (float).
-        lr_scheduler (str).
-        expert (OptimalSubstitutionExpert).
-
-    Returns:
-        Dict: Dictionary of arguments.
-    """
-    args = {
-        "vocab_size": train_set.source_vocab_size,
-        "features_vocab_size": getattr(train_set, "features_vocab_size", -1),
-        "features_idx": getattr(train_set, "features_idx", -1),
-        "embedding_size": embedding_size,
-        "hidden_size": hidden_size,
-        "output_size": train_set.target_vocab_size,
-        "pad_idx": train_set.pad_idx,
-        "start_idx": train_set.start_idx,
-        "end_idx": train_set.end_idx,
-        "optim": optimizer,
-        "beta1": beta1,
-        "beta2": beta2,
-        "lr": learning_rate,
-        "evaluator": evaluator,
-        "max_decode_len": max_decode_len,
-        "dropout": dropout,
-        "encoder_layers": encoder_layers,
-        "decoder_layers": decoder_layers,
-        "label_smoothing": label_smoothing,
-        "warmup_steps": warmup_steps,
-        "scheduler": lr_scheduler,
-        "bidirectional": bidirectional,
-        "attention_heads": attention_heads,
-        "max_seq_len": max_seq_len,
-        "expert": expert,
-    }
-    return args
 
 
 def make_pl_callbacks(
@@ -216,7 +136,7 @@ def make_pl_callbacks(
     help="beta2 (`--optimizer adam` only)",
 )
 @click.option("--warmup-steps", type=int)
-@click.option("--lr-scheduler")
+@click.option("--scheduler")
 @click.option(
     "--train-from", help="Path to checkpoint to continue training from"
 )
@@ -269,7 +189,7 @@ def main(
     beta1,
     beta2,
     warmup_steps,
-    lr_scheduler,
+    scheduler,
     train_from,
     bidirectional,
     attention,
@@ -306,9 +226,28 @@ def main(
     if wandb:
         logger.append(loggers.WandbLogger(project=experiment, log_model="all"))
     # ckp_callback is used later for logging the best checkpoint path.
-    ckp_callback, pl_callbacks = make_pl_callbacks(
-        patience=patience, save_top_k=save_top_k
+    ckp_callback = callbacks.ModelCheckpoint(
+        save_top_k=save_top_k,
+        monitor="val_accuracy",
+        mode="max",
+        filename="model-{epoch:02d}-{val_accuracy:.2f}",
     )
+    trainer_callbacks = []
+    if patience is not None:
+        trainer_callbacks.append(
+            callbacks.early_stopping.EarlyStopping(
+                monitor="val_accuracy",
+                min_delta=0.00,
+                patience=patience,
+                verbose=False,
+                mode="max",
+            )
+        )
+    trainer_callbacks.append(ckp_callback)
+    trainer_callbacks.append(
+        callbacks.LearningRateMonitor(logging_interval="epoch")
+    )
+    trainer_callbacks.append(callbacks.TQDMProgressBar())
     trainer = pl.Trainer(
         accelerator="gpu" if gpu and torch.cuda.is_available() else "cpu",
         devices=1,
@@ -318,8 +257,8 @@ def main(
         check_val_every_n_epoch=eval_every,
         enable_checkpointing=True,
         default_root_dir=model_dir,
-        callbacks=pl_callbacks,
-        log_every_n_steps=int(len(train_set) / batch_size),
+        callbacks=trainer_callbacks,
+        log_every_n_steps=len(train_set) // batch_size,
         num_sanity_val_steps=0,
     )
     # So we can write indices to it before PL creates it.
@@ -363,26 +302,33 @@ def main(
         util.log_info("Training...")
         trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
     else:
-        training_args = make_training_args(
+        model = model_cls(
             arch=arch,
             train_set=train_set,
             embedding_size=embedding_size,
             hidden_size=hidden_size,
-            attention_heads=attention_heads,
-            max_seq_len=max_seq_len,
+            vocab_size=train_set.source_vocab_size,
+            features_vocab_size=getattr(train_set, "features_vocab_size", -1),
+            features_idx=getattr(train_set, "features_idx", -1),
+            output_size=train_set.target_vocab_size,
+            pad_idx=train_set.pad_idx,
+            start_idx=train_set.start_idx,
+            end_idx=train_set.end_idx,
             optimizer=optimizer,
             beta1=beta1,
             beta2=beta2,
-            warmup_steps=warmup_steps,
             learning_rate=learning_rate,
             evaluator=evaluator,
             max_decode_len=max_decode_len,
             dropout=dropout,
             encoder_layers=encoder_layers,
             decoder_layers=decoder_layers,
-            bidirectional=bidirectional,
             label_smoothing=label_smoothing,
-            lr_scheduler=lr_scheduler,
+            warmup_steps=warmup_steps,
+            scheduler=scheduler,
+            bidirectional=bidirectional,
+            attention_heads=attention_heads,
+            max_seq_len=max_seq_len,
             expert=models.expert.get_expert(
                 train_set,
                 epochs=oracle_em_epochs,
@@ -391,8 +337,7 @@ def main(
             )
             if arch in ["transducer"]
             else None,
-        )
-        model = model_cls(**training_args).to(device)
+        ).to(device)
         util.log_info("Training...")
         util.log_info(f"Model: {model_cls.__name__}")
         util.log_info(f"Dataset: {dataset_cls.__name__}")

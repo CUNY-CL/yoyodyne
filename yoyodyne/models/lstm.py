@@ -24,11 +24,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     encoder_layers: int
     decoder_layers: int
     pad_idx: int
-    optim_name: str
+    optimizer: str
     beta1: float
     beta2: float
     warmup_steps: int
-    lr: int
+    learning_rate: int
     evaluator: evaluators.Evaluator
     scheduler: str
     start_idx: int
@@ -54,6 +54,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
     def __init__(
         self,
+        *,
         vocab_size,
         embedding_size,
         hidden_size,
@@ -61,15 +62,15 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         pad_idx,
         start_idx,
         end_idx,
-        optim,
+        optimizer,
         beta1,
         beta2,
         warmup_steps,
-        lr,
+        learning_rate,
         scheduler,
         evaluator,
         max_decode_len,
-        dropout=0.1,
+        dropout=0.2,
         encoder_layers=1,
         decoder_layers=1,
         bidirectional=True,
@@ -87,11 +88,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             pad_idx (int).
             start_idx (int).
             end_idx (int).
-            optim (str).
+            optimizer (str).
             beta1 (float).
             beta2 (float).
             warmup_steps (int).
-            lr (float).
+            learning_rate (float).
             evaluator (evaluators.Evaluator).
             scheduler (str).
             max_decode_len (int).
@@ -109,11 +110,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.encoder_layers = encoder_layers
         self.decoder_layers = decoder_layers
         self.pad_idx = pad_idx
-        self.optim_name = optim
+        self.optimizer = optimizer
         self.beta1 = beta1
         self.beta2 = beta2
         self.warmup_steps = warmup_steps
-        self.lr = lr
+        self.learning_rate = learning_rate
         self.evaluator = evaluator
         self.scheduler = scheduler
         self.start_idx = start_idx

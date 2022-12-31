@@ -25,11 +25,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     encoder_layers: int
     decoder_layers: int
     pad_idx: int
-    optim_name: str
+    optimizer: str
     beta1: float
     beta2: float
     warmup_steps: int
-    lr: float
+    learning_rate: float
     evaluator: evaluators.Evaluator
     scheduler: str
     start_idx: int
@@ -60,15 +60,15 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         pad_idx,
         start_idx,
         end_idx,
-        optim,
+        optimizer,
         beta1,
         beta2,
         warmup_steps,
-        lr,
+        learning_rate,
         scheduler,
         evaluator,
         max_decode_len,
-        dropout=0.3,
+        dropout=0.2,
         encoder_layers=4,
         decoder_layers=4,
         label_smoothing=None,
@@ -91,7 +91,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             beta1 (float).
             beta2 (float).
             warmup_steps (int).
-            lr (float).
+            learning_rate (float).
             evaluator (evaluators.Evaluator).
             scheduler (str).
             max_decode_len (int).
@@ -112,11 +112,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.encoder_layers = encoder_layers
         self.decoder_layers = decoder_layers
         self.pad_idx = pad_idx
-        self.optim_name = optim
+        self.optimizer = optimizer
         self.beta1 = beta1
         self.beta2 = beta2
         self.warmup_steps = warmup_steps
-        self.lr = lr
+        self.learning_rate = learning_rate
         self.evaluator = evaluator
         self.scheduler = scheduler
         self.start_idx = start_idx
