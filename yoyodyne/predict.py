@@ -14,7 +14,7 @@ from . import collators, datasets, models, util
 def write_predictions(
     model: models.base.BaseEncoderDecoder,
     loader: torch.utils.data.DataLoader,
-    predictions: str,
+    output: str,
     arch: str,
     batch_size: int,
     source_col: int,
@@ -32,7 +32,7 @@ def write_predictions(
     Args:
         model (models.BaseEncoderDecoder).
         loader (torch.utils.data.DataLoader).
-        predictions (str).
+        output (str).
         arch (str).
         batch_size (int).
         source_col (int).
@@ -58,8 +58,8 @@ def write_predictions(
     predicted = tester.predict(model, dataloaders=loader)
     collator = loader.collate_fn
     dataset = loader.dataset
-    util.log_info(f"Writing predictions to {predictions}")
-    with open(predictions, "w") as sink:
+    util.log_info(f"Writing predictions to {output}")
+    with open(output, "w") as sink:
         tsv_writer = csv.writer(sink, delimiter="\t")
         row_template = [""] * max(source_col, target_col, features_col)
         for batch, pred_batch in zip(loader, predicted):
@@ -105,8 +105,8 @@ def write_predictions(
 
 @click.command()
 @click.option("--experiment", required=True)
-@click.option("--test", required=True)
-@click.option("--predictions", required=True)
+@click.option("--predict", required=True)
+@click.option("--output", required=True)
 @click.option("--model-dir", required=True)
 @click.option("--checkpoint", required=True)
 @click.option(
@@ -139,8 +139,6 @@ def write_predictions(
     ),
     required=True,
 )
-@click.option("--results-path", required=True)
-@click.option("--model-path", required=True)
 @click.option("--batch-size", type=int, default=1)
 @click.option(
     "--beam-width", type=int, help="If specified, beam search is used"
@@ -155,8 +153,8 @@ def write_predictions(
 @click.option("--gpu/--no-gpu", default=True)
 def main(
     experiment,
-    test,
-    predictions,
+    predict,
+    output,
     model_dir,
     checkpoint,
     source_col,
@@ -166,10 +164,7 @@ def main(
     target_sep,
     features_sep,
     tied_vocabulary,
-    output_path,
     arch,
-    results_path,
-    model_path,
     batch_size,
     beam_width,
     attention,
@@ -177,7 +172,7 @@ def main(
     gpu,
 ):
     """Predictor."""
-    os.makedirs(os.path.dirname(predictions), exist_ok=True)
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     device = util.get_device(gpu)
     # TODO: Do not need to enforce once we have batch beam decoding.
     if beam_width is not None:
@@ -186,7 +181,7 @@ def main(
     include_features = features_col != 0
     dataset_cls = datasets.get_dataset_cls(include_features)
     dataset = dataset_cls(
-        test,
+        predict,
         tied_vocabulary,
         source_col,
         0,  # Target columns unnecessary.
@@ -210,12 +205,12 @@ def main(
     )
     # Model.
     model_cls = models.get_model_cls(arch, attention, include_features)
-    util.log_info(f"Loading model from {model_path}")
+    util.log_info(f"Loading model from {checkpoint}")
     model = model_cls.load_from_checkpoint(checkpoint).to(device)
     write_predictions(
         model,
         loader,
-        predictions,
+        output,
         arch,
         batch_size,
         source_col,
