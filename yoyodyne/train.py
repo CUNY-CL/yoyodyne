@@ -2,7 +2,6 @@
 
 import os
 import time
-from typing import List, Optional, Tuple
 
 import click
 import pytorch_lightning as pl
@@ -11,44 +10,6 @@ from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
 from . import collators, datasets, evaluators, models, predict, util
-
-
-def make_pl_callbacks(
-    patience: Optional[int], save_top_k: int
-) -> Tuple[callbacks.Callback, List[callbacks.Callback]]:
-    """Makes the list of PL callbacks for the trainer.
-
-    Args:
-        patience (Optional[int]): patience for stopping training based on
-            validation accuracy.
-        save_top_k (int): how many of the top-k checkpoints to save.
-
-    Returns:
-        Tuple(callbacks.Callback, List[callbacks.Callback]): the checkpoint
-            callback for later use, and the list of all callbacks.
-    """
-    callback = []
-    if patience is not None:
-        callback.append(
-            callbacks.early_stopping.EarlyStopping(
-                monitor="val_accuracy",
-                min_delta=0.00,
-                patience=patience,
-                verbose=False,
-                mode="max",
-            )
-        )
-    ckp_callback = callbacks.ModelCheckpoint(
-        save_top_k=save_top_k,
-        monitor="val_accuracy",
-        mode="max",
-        filename="model-{epoch:02d}-{val_accuracy:.2f}",
-    )
-    callback.append(ckp_callback)
-    sched_callback = callbacks.LearningRateMonitor(logging_interval="epoch")
-    callback.append(sched_callback)
-    callback.append(callbacks.TQDMProgressBar())
-    return ckp_callback, callback
 
 
 @click.command()
@@ -232,7 +193,11 @@ def main(
         mode="max",
         filename="model-{epoch:02d}-{val_accuracy:.2f}",
     )
-    trainer_callbacks = []
+    trainer_callbacks = [
+        ckp_callback,
+        callbacks.LearningRateMonitor(logging_interval="epoch"),
+        callbacks.TQDMProgressBar(),
+    ]
     if patience is not None:
         trainer_callbacks.append(
             callbacks.early_stopping.EarlyStopping(
@@ -243,11 +208,6 @@ def main(
                 mode="max",
             )
         )
-    trainer_callbacks.append(ckp_callback)
-    trainer_callbacks.append(
-        callbacks.LearningRateMonitor(logging_interval="epoch")
-    )
-    trainer_callbacks.append(callbacks.TQDMProgressBar())
     trainer = pl.Trainer(
         accelerator="gpu" if gpu and torch.cuda.is_available() else "cpu",
         devices=1,
