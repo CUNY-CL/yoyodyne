@@ -14,8 +14,7 @@ These models are implemented using PyTorch and PyTorch Lightning.
 While we provide classic `lstm` and `transformer` models, some of the provided
 models are particularly well-suited for problems where the source-target
 alignments are roughly monotonic (e.g., `transducer`) and/or where source and
-target vocabularies are not disjoint and substrings of the source are copied
-into the target (e.g., `pointer_generator_lstm`).
+target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
 
 ## Philosophy
 
@@ -25,9 +24,9 @@ but differs on several key points of design:
 -   It is for small-vocabulary sequence-to-sequence generation, and therefore
     includes no affordances for machine translation or language modeling.
     Because of this:
-    -  It has no plugin interface and the architectures provided are intended
-       to be reasonably exhaustive.
-    -  There is little need for data preprocessing; it works with TSV files.
+    -   It has no plugin interface and the architectures provided are intended
+        to be reasonably exhaustive.
+    -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle this feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
@@ -57,9 +56,8 @@ import yoyodyne
 
 ## Usage
 
-For examples, see [`experiments`](experiments). See
-[`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for all
-model options.
+See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for
+all model options.
 
 ## Architectures
 
@@ -71,9 +69,9 @@ additional flags).
     It may be superior to the vanilla transformer when using features.
 -   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
     treated as a learned parameter. By default, the encoder is connected to the
-    decoder by an attention mechanism; one can disable this (with `--no-attn`),
-    in which case the last non-padding hidden state of the encoder is
-    concatenated with the decoder hidden state.
+    decoder by an attention mechanism; one can disable this (with
+    `--no-attention`), in which case the last non-padding hidden state of the
+    encoder is concatenated with the decoder hidden state.
 -   `pointer_generator_lstm`: This is an attentive pointer-generator with an
     LSTM backend. Since this model contains a copy mechanism, it may be superior
     to the `lstm` when the input and output vocabularies overlap significantly.
@@ -86,14 +84,14 @@ additional flags).
     monotonic and when input and output vocabularies overlap significantly.
 -   `transformer`: This is a transformer encoder-decoder with positional
     encoding and layer normalization. The user may wish to specify the number of
-    attention heads (with `--nheads`; default: 4).
+    attention heads (with `--attention-heads`; default: 4).
 
 For all models, the user may also wish to specify:
 
--   `--dec-layers` (default: 1): number of decoder layers
+-   `--decoder-layers` (default: 1): number of decoder layers
 -   `--embedding` (default: 128): embedding size
--   `--enc-layers` (default: 1): number of encoder layers
--   `--hidden-size` (default: 256): hidden layer size
+-   `--encoder-layers` (default: 1): number of encoder layers
+-   `--hidden-size` (default: 512): hidden layer size
 
 By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
 LSTM bidirectional encoder. One can disable this with the `--no-bidirectional`
@@ -101,39 +99,56 @@ flag.
 
 ## Training options
 
--   `--batch-size` (default: 16)
+-   `--batch-size` (default: 32)
 -   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
     (`--optimizer adam`)
 -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
     (`--optimizer adam`)
--   `--dropout` (default: .1): dropout probability
--   `--epochs` (default: 20)
--   `--gradient-clip` (default: 0.0)
+-   `--dropout` (default: .2): dropout probability
+-   `--max-epochs` (default: 50)
+-   `--gradient-clip` (default: not enabled)
 -   `--label-smoothing` (default: not enabled)
--   `--learning-rate` (required)
--   `--lr-scheduler` (default: not enabled)
--   `--optimizer` (default: "adadelta")
+-   `--learning-rate` (default: .001)
+-   `--scheduler` (default: not enabled)
+-   `--optimizer` (default: "adam")
 -   `--patience` (default: not enabled)
 -   `--wandb` (default: False): enables [Weights &
     Biases](https://wandb.ai/site) tracking
--   `--warmup-steps` (default: 1): warm-up parameter for a linear warm-up
-    followed by inverse square root decay schedule (only valid with
-    `--lr-scheduler warmupinvsq`)
+-   `--warmup-steps` (default: not enabled): warm-up parameter for a linear
+    warm-up followed by inverse square root decay schedule (only valid with
+    `--scheduler warmupinvsqr`)
+
+**No neural model should be deployed without proper hyperparameter tuning.**
+However, the default options give a reasonable initial settings for an attentive
+biLSTM. For transformer-based architectures, experiment with multiple encoder
+and decoder layers, much larger batches, and the warmup + inverse square root
+decay scheduler.
 
 ## Data format
 
-The default data format is based on the SIGMORPHON 2017 shared tasks:
+The default data format is a two-column TSV file in which the first column is
+the source string and the second the target string.
+
+    source   target
+
+To enable the use of a feature column, one specifies a (non-zero) argument to
+`--features-col`. For instance in the SIGMORPHON 2017 shared task, the first
+column is the source (a lemma), the second is the target (the inflection), and
+the third contains semi-colon delimited feature strings:
 
     source   target    feat1;feat2;...
 
-That is, the first column is the source (a lemma), the second is the target (the
-inflection), and the third contains semi-colon delimited feature strings.
+this format is specified by `--features-col 3`.
 
-For the SIGMORPHON 2016 shared task data format:
+Alternatively, for the SIGMORPHON 2016 shared task data format:
 
     source   feat1,feat2,...    target
 
-one instead specifies `--target-col 3 --features-col 2 --features-sep ,`
+this format is specified by `--features-col 2 --features-sep , --target-col 3`.
 
-Finally, to perform transductions without features (whether or not a feature
-column exists in the data), one specifies `--features-col 0`.
+## Reserved symbols
+
+Yoyodyne reserves symbols of the form `<...>` for internal use.
+Feature-conditioned models also use `[...]` to avoid clashes between feature
+symbols and source and target symbols. Therefore, users should not provide any
+symbols of form `<...>` or `[...]`.

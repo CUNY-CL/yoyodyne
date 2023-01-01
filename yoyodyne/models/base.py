@@ -204,10 +204,10 @@ class BaseEncoderDecoder(pl.LightningModule):
             "adam": optim.Adam,
             "sgd": optim.SGD,
         }
-        optimizer = optim_fac[self.optim_name]
-        kwargs = {"lr": self.lr}
-        if self.optim_name == "adam":
-            kwargs["betas"] = (self.beta1, self.beta2)
+        optimizer = optim_fac[self.optimizer]
+        kwargs = {"lr": self.learning_rate}
+        if self.optimizer == "adam":
+            kwargs["betas"] = self.beta1, self.beta2
         return [optimizer(self.parameters(), **kwargs)]
 
     def _get_lr_scheduler(
