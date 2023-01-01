@@ -1,5 +1,6 @@
 """Attention module class."""
 
+import math
 from typing import Tuple
 
 import torch
@@ -66,7 +67,7 @@ class Attention(nn.Module):
         attn_scores = self.score(hidden, encoder_outputs)
         # Masks the scores with -inf at each padded character so that softmax
         # computes a 0 towards the distribution for that cell.
-        attn_scores.data.masked_fill_(mask, -float("inf"))
+        attn_scores.data.masked_fill_(mask, -math.inf)
         # -> B x 1 x seq_len
         weights = nn.functional.softmax(attn_scores, dim=1).unsqueeze(1)
         # -> B x 1 x decoder_dim

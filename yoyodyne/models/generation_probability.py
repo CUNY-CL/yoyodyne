@@ -32,14 +32,14 @@ class GenerationProbability(nn.Module):
         self.bias.data.uniform_(-self.stdev, self.stdev)
 
     def forward(
-        self, h_attn: torch.Tensor, dec_hs: torch.Tensor, inp: torch.Tensor
+        self, h_attn: torch.Tensor, decoder_hs: torch.Tensor, inp: torch.Tensor
     ) -> torch.Tensor:
         """Computes Wh * ATTN_t + Ws * HIDDEN_t + Wy * Y_{t-1} + b.
 
         Args:
             h_attn (torch.Tensor): combined context vector over source and
                 features of shape B x 1 x attn_size.
-            dec_hs (torch.Tensor): decoder hidden state of shape
+            decoder_hs (torch.Tensor): decoder hidden state of shape
                 B x 1 x hidden_size.
             inp (torch.Tensor): decoder input of shape B x 1 x embedding_size.
 
@@ -47,7 +47,7 @@ class GenerationProbability(nn.Module):
             (torch.Tensor): generation probability of shape B.
         """
         # -> B x 1 x 1.
-        p_gen = self.W_attn(h_attn) + self.W_hs(dec_hs)
+        p_gen = self.W_attn(h_attn) + self.W_hs(decoder_hs)
         p_gen += self.W_inp(inp) + self.bias.expand(h_attn.size(0), 1, -1)
         # -> B.
         p_gen = torch.sigmoid(p_gen.squeeze(1))

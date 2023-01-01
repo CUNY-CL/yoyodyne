@@ -20,16 +20,16 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     vocab_size: int
     hidden_size: int
     d_model: int
-    nhead: int
+    attention_heads: int
     max_seq_len: int
-    enc_layers: int
-    dec_layers: int
+    encoder_layers: int
+    decoder_layers: int
     pad_idx: int
-    optim_name: str
+    optimizer: str
     beta1: float
     beta2: float
     warmup_steps: int
-    lr: float
+    learning_rate: float
     evaluator: evaluators.Evaluator
     scheduler: str
     start_idx: int
@@ -54,23 +54,23 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         vocab_size,
         embedding_size,
         hidden_size,
-        nhead,
+        attention_heads,
         max_seq_len,
         output_size,
         pad_idx,
         start_idx,
         end_idx,
-        optim,
+        optimizer,
         beta1,
         beta2,
         warmup_steps,
-        lr,
+        learning_rate,
         scheduler,
         evaluator,
         max_decode_len,
-        dropout=0.3,
-        enc_layers=4,
-        dec_layers=4,
+        dropout=0.2,
+        encoder_layers=4,
+        decoder_layers=4,
         label_smoothing=None,
         beam_width=None,
         **kwargs,
@@ -81,7 +81,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             vocab_size (int).
             embedding_size (int).
             hidden_size (int).
-            nhead (int).
+            attention_heads (int).
             max_seq_len (int).
             output_size (int).
             pad_idx (int).
@@ -91,13 +91,13 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             beta1 (float).
             beta2 (float).
             warmup_steps (int).
-            lr (float).
+            learning_rate (float).
             evaluator (evaluators.Evaluator).
             scheduler (str).
             max_decode_len (int).
             dropout (float, optional).
-            enc_layers (int, optional).
-            dec_layers (int, optional).
+            encoder_layers (int, optional).
+            decoder_layers (int, optional).
             label_smoothing (float, optional).
             beam_width (int, optional): if specified, beam search is used
                 during decoding.
@@ -107,16 +107,16 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.d_model = embedding_size
-        self.nhead = nhead
+        self.attention_heads = attention_heads
         self.max_seq_len = max_seq_len
-        self.enc_layers = enc_layers
-        self.dec_layers = dec_layers
+        self.encoder_layers = encoder_layers
+        self.decoder_layers = decoder_layers
         self.pad_idx = pad_idx
-        self.optim_name = optim
+        self.optimizer = optimizer
         self.beta1 = beta1
         self.beta2 = beta2
         self.warmup_steps = warmup_steps
-        self.lr = lr
+        self.learning_rate = learning_rate
         self.evaluator = evaluator
         self.scheduler = scheduler
         self.start_idx = start_idx
@@ -135,32 +135,32 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             self.d_model, self.pad_idx, self.max_seq_len
         )
         self.log_softmax = nn.LogSoftmax(dim=2)
-        enc_layer = nn.TransformerEncoderLayer(
+        encoder_layer = nn.TransformerEncoderLayer(
             d_model=self.d_model,
             dim_feedforward=self.hidden_size,
-            nhead=self.nhead,
+            nhead=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
             batch_first=True,
         )
         self.encoder = nn.TransformerEncoder(
-            encoder_layer=enc_layer,
-            num_layers=self.enc_layers,
+            encoder_layer=encoder_layer,
+            num_layers=self.encoder_layers,
             norm=nn.LayerNorm(self.d_model),
         )
-        dec_layer = nn.TransformerDecoderLayer(
+        decoder_layer = nn.TransformerDecoderLayer(
             d_model=self.d_model,
             dim_feedforward=self.hidden_size,
-            nhead=self.nhead,
+            nhead=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
             batch_first=True,
         )
         self.decoder = nn.TransformerDecoder(
-            decoder_layer=dec_layer,
-            num_layers=self.dec_layers,
+            decoder_layer=decoder_layer,
+            num_layers=self.decoder_layers,
             norm=nn.LayerNorm(self.d_model),
         )
         self.classifier = nn.Linear(self.d_model, output_size)
@@ -241,7 +241,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     def decode(
         self,
-        enc_hidden: torch.Tensor,
+        encoder_hidden: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
         target_mask: torch.Tensor,
@@ -249,8 +249,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """Decodes the logits for each step of the output sequence.
 
         Args:
-            enc_hidden (torch.Tensor): source encoder hidden state of shape
-                                   B x seq_len x hidden_size
+            encoder_hidden (torch.Tensor): source encoder hidden state, of
+                shape B x seq_len x hidden_size.
             source_mask (torch.Tensor): encoder hidden state mask.
             target (torch.Tensor): current state of targets, which may be the
                 full target, or previous decoded, of shape
@@ -267,28 +267,28 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             self.device
         )
         # -> B x seq_len x d_model
-        dec_hidden = self.decoder(
+        decoder_hidden = self.decoder(
             target_embedding,
-            enc_hidden,
+            encoder_hidden,
             tgt_mask=causal_mask,
             tgt_key_padding_mask=target_mask,
             memory_key_padding_mask=source_mask,
         )
         # -> B x seq_len x vocab_size.
-        output = self.classifier(dec_hidden)
+        output = self.classifier(decoder_hidden)
         output = self.log_softmax(output)
         return output
 
     def _decode_greedy(
-        self, enc_hidden: torch.Tensor, source_mask: torch.Tensor
+        self, encoder_hidden: torch.Tensor, source_mask: torch.Tensor
     ) -> torch.Tensor:
         # The output distributions to be returned.
         outputs = []
-        batch_size = enc_hidden.size(0)
+        batch_size = encoder_hidden.size(0)
         # The predicted symbols at each iteration.
         preds = [
             torch.tensor(
-                [self.start_idx for _ in range(enc_hidden.size(0))],
+                [self.start_idx for _ in range(encoder_hidden.size(0))],
                 device=self.device,
             )
         ]
@@ -302,7 +302,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             )
             target_mask = target_mask == 0
             output = self.decode(
-                enc_hidden, source_mask, target_tensor, target_mask
+                encoder_hidden, source_mask, target_tensor, target_mask
             )
             # We only care about the last prediction in the sequence.
             last_output = output[:, -1, :]
@@ -342,16 +342,18 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = torch.cat(
                 (starts == self.pad_idx, target_mask), dim=1
             )
-            enc_hidden = self.encode(source, source_mask)
-            output = self.decode(enc_hidden, source_mask, target, target_mask)
+            encoder_hidden = self.encode(source, source_mask)
+            output = self.decode(
+                encoder_hidden, source_mask, target, target_mask
+            )
             # -> B x vocab_size x seq_len
             output = output.transpose(1, 2)[:, :, :-1]
         # No targets given at inference.
         elif len(batch) == 2:
             source, source_mask = batch
-            enc_hidden = self.encode(source, source_mask)
+            encoder_hidden = self.encode(source, source_mask)
             # -> B x vocab_size x seq_len.
-            output = self._decode_greedy(enc_hidden, source_mask)
+            output = self._decode_greedy(encoder_hidden, source_mask)
         else:
             raise Error(f"Batch of {len(batch)} elements is invalid")
         return output
@@ -365,9 +367,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             torch.Tensor: mask of shape length x length.
         """
-        return torch.triu(
-            torch.full((length, length), float("-inf")), diagonal=1
-        )
+        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
 
 
 class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):

@@ -80,13 +80,13 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             target_mask = None
         else:
             raise lstm.Error(f"Batch of {len(batch)} elements is invalid")
-        enc_out, _ = self.encode(source, source_mask)
+        encoder_out, _ = self.encode(source, source_mask)
         # Ignores start symbol.
-        enc_out = enc_out[:, 1:, :]
+        encoder_out = encoder_out[:, 1:, :]
         source = source[:, 1:]
         source_mask = source_mask[:, 1:]
         prediction, loss = self.decode(
-            enc_out,
+            encoder_out,
             source,
             source_mask,
             target=target,
@@ -96,7 +96,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
 
     def decode(
         self,
-        enc_out: torch.Tensor,
+        encoder_out: torch.Tensor,
         source: torch.Tensor,
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
@@ -107,7 +107,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         This essentially serves as a wrapper for looping decode_step.
 
         Args:
-            enc_out (torch.Tensor): input symbols of shape
+            encoder_out (torch.Tensor): input symbols of shape
                 B x seq_len x emb_size.
             source (torch.Tensor): encoded source input.
             source_mask (torch.Tensor): mask for source input.
@@ -158,7 +158,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             )
             # Decoding.
             logits, last_hiddens = self.decode_step(
-                enc_out,
+                encoder_out,
                 last_action,
                 last_hiddens,
                 alignment,
@@ -190,23 +190,24 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
 
     def decode_step(
         self,
-        enc_out: torch.Tensor,
+        encoder_out: torch.Tensor,
         last_act: torch.Tensor,
         last_hiddens: Tuple[torch.Tensor, torch.Tensor],
         alignment: torch.Tensor,
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Performs decoding step.
 
-        Per item in batch: chooses single symbol in enc_out using alignment.
-        Symbol is concatenated with last_act and then decoded to find logits.
+        Per item in batch: chooses single symbol in encoder_out using
+        alignment. The symbol is concatenated with last_act and then decoded
+        to find logits.
 
         Args:
-            enc_out (torch.Tensor): output from encoder of shape
+            encoder_out (torch.Tensor): output from encoder of shape
                 B x seq_len x emb_size.
             last_act (torch.Tensor): edit action from previous decode_step of
                 shape B x seq_len x emb_size.
             last_hiddens (Tuple[torch.Tensor, torch.Tensor]): previous hidden
-                states from the decoder, both of shape 1 x B x dec_dim.
+                states from the decoder, both of shape 1 x B x decoder_dim.
             alignment (torch.Tensor): index of encoding symbols for decoding,
                 per item in batch of shape B x seq_len.
 
@@ -215,15 +216,15 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 (logits, hidden_state) values.
         """
         # B x seq_len -> emb_size x 1 x B -> B x 1 x emb_size.
-        alignment_expand = alignment.expand(enc_out.size(-1), 1, -1).transpose(
-            0, -1
-        )
-        char_enc_out = torch.gather(enc_out, 1, alignment_expand)
+        alignment_expand = alignment.expand(
+            encoder_out.size(-1), 1, -1
+        ).transpose(0, -1)
+        char_encoder_out = torch.gather(encoder_out, 1, alignment_expand)
         previous_action_embedding = self.target_embeddings(last_act).unsqueeze(
             dim=1
         )
         decoder_input = torch.cat(
-            (char_enc_out, previous_action_embedding), dim=2
+            (char_encoder_out, previous_action_embedding), dim=2
         )
         decoder_output, (h1, c1) = self.decoder(decoder_input, last_hiddens)
         logits = self.classifier(decoder_output).squeeze(dim=1)
@@ -587,7 +588,7 @@ class TransducerFeatures(TransducerNoFeatures):
             + 1,  # For unk feature.
             self.hidden_size,
             dropout=self.dropout,
-            num_layers=self.dec_layers,
+            num_layers=self.decoder_layers,
             batch_first=True,
         )
 
@@ -618,9 +619,9 @@ class TransducerFeatures(TransducerNoFeatures):
             target_mask = None
         else:
             raise lstm.Error(f"Batch of {len(batch)} elements is invalid")
-        enc_out, _ = self.encode(source, source_mask)
+        encoder_out, _ = self.encode(source, source_mask)
         # Ignores start symbol.
-        enc_out = enc_out[:, 1:, :]
+        encoder_out = encoder_out[:, 1:, :]
         source = source[:, 1:]
         source_mask = source_mask[:, 1:]
         # Converts features to n-hot encoding.
@@ -643,11 +644,11 @@ class TransducerFeatures(TransducerNoFeatures):
                 one_hot_features[:, :, 1:], dim=1, keepdim=True
             )
         # B x 1 x n_feat -> B x seq_len x n_feat.
-        n_hot_features = n_hot_features.expand(-1, enc_out.size(1), -1)
+        n_hot_features = n_hot_features.expand(-1, encoder_out.size(1), -1)
         # Concatenates n-hot encoding onto each symbol.
-        enc_out_feat = torch.cat((enc_out, n_hot_features), dim=2)
+        encoder_out_feat = torch.cat((encoder_out, n_hot_features), dim=2)
         prediction, loss = self.decode(
-            enc_out_feat,
+            encoder_out_feat,
             source,
             source_mask,
             target=target,

@@ -29,13 +29,15 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
         # We use the inherited defaults for the source embeddings/encoder.
-        enc_size = self.hidden_size * self.num_directions
-        self.source_attention = attention.Attention(enc_size, self.hidden_size)
+        encoder_size = self.hidden_size * self.num_directions
+        self.source_attention = attention.Attention(
+            encoder_size, self.hidden_size
+        )
         # Overrides classifier to take larger input.
         self.classifier = nn.Linear(3 * self.hidden_size, self.output_size)
         self.generation_probability = (
             generation_probability.GenerationProbability(
-                self.embedding_size, self.hidden_size, enc_size
+                self.embedding_size, self.hidden_size, encoder_size
             )
         )
 
@@ -73,10 +75,10 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Sums over directions, keeping layers.
         # -> num_layers x B x hidden_size.
         H = H.view(
-            self.enc_layers, self.num_directions, H.size(1), H.size(2)
+            self.encoder_layers, self.num_directions, H.size(1), H.size(2)
         ).sum(axis=1)
         C = C.view(
-            self.enc_layers, self.num_directions, C.size(1), C.size(2)
+            self.encoder_layers, self.num_directions, C.size(1), C.size(2)
         ).sum(axis=1)
         return encoded, (H, C)
 
@@ -227,7 +229,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         )
         if self.beam_width is not None and self.beam_width > 1:
             # preds = self.beam_decode(
-            #     batch_size, x_mask, enc_out, beam_width=self.beam_width
+            #     batch_size, x_mask, encoder_out, beam_width=self.beam_width
             # )
             raise NotImplementedError
         else:
@@ -268,7 +270,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         self.feature_encoder = nn.LSTM(
             self.embedding_size,
             self.hidden_size,
-            num_layers=self.enc_layers,
+            num_layers=self.encoder_layers,
             dropout=self.dropout,
             batch_first=True,
             bidirectional=self.bidirectional,
@@ -276,16 +278,16 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Initializes the decoder.
         self.linear_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
         self.linear_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
-        enc_size = self.hidden_size * self.num_directions
+        encoder_size = self.hidden_size * self.num_directions
         self.feature_attention = attention.Attention(
-            enc_size, self.hidden_size
+            encoder_size, self.hidden_size
         )
         # Overrides decoder to be larger.
         self.decoder = nn.LSTM(
-            (2 * enc_size) + self.embedding_size,
+            2 * encoder_size + self.embedding_size,
             self.hidden_size,
             dropout=self.dropout,
-            num_layers=self.dec_layers,
+            num_layers=self.decoder_layers,
             batch_first=True,
         )
         # Overrides classifier to take larger input.
@@ -293,7 +295,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Overrides GenerationProbability to have larger hidden_size.
         self.generation_probability = (
             generation_probability.GenerationProbability(
-                self.embedding_size, self.hidden_size, 2 * enc_size
+                self.embedding_size, self.hidden_size, 2 * encoder_size
             )
         )
 
@@ -331,10 +333,10 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Sums over directions, keeping layers.
         # -> num_layers x B x hidden_size.
         H = H.view(
-            self.enc_layers, self.num_directions, H.size(1), H.size(2)
+            self.encoder_layers, self.num_directions, H.size(1), H.size(2)
         ).sum(axis=1)
         C = C.view(
-            self.enc_layers, self.num_directions, C.size(1), C.size(2)
+            self.encoder_layers, self.num_directions, C.size(1), C.size(2)
         ).sum(axis=1)
         return encoded, (H, C)
 
@@ -510,7 +512,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))
         if self.beam_width is not None and self.beam_width > 1:
             # preds = self.beam_decode(
-            #     batch_size, x_mask, enc_out, beam_width=self.beam_width
+            #     batch_size, x_mask, encoder_out, beam_width=self.beam_width
             # )
             raise NotImplementedError
         else:
