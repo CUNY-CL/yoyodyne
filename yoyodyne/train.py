@@ -5,7 +5,6 @@ import time
 
 import click
 import pytorch_lightning as pl
-import torch
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
@@ -111,8 +110,8 @@ from . import collators, datasets, evaluators, models, predict, util
 @click.option("--max-decode-len", type=int, default=128)
 @click.option("--save-top-k", type=int, default=1)
 @click.option("--eval-every", type=int, default=2)
-@click.option("--gpu/--no-gpu", default=True)
 @click.option("--wandb/--no-wandb", default=False)
+@click.option("--accelerator")
 def main(
     experiment,
     train,
@@ -157,15 +156,14 @@ def main(
     max_decode_len,
     save_top_k,
     eval_every,
-    gpu,
     wandb,
+    accelerator,
 ):
     """Trainer."""
     util.log_info("Arguments:")
     for arg, val in click.get_current_context().params.items():
         util.log_info(f"\t{arg}: {val!r}")
     pl.seed_everything(seed)
-    device = util.get_device(gpu)
     include_features = features_col != 0
     if target_col == 0:
         raise datasets.Error("target_col must be specified for training")
@@ -202,15 +200,14 @@ def main(
         trainer_callbacks.append(
             callbacks.early_stopping.EarlyStopping(
                 monitor="val_accuracy",
-                min_delta=0.00,
+                min_delta=0.0,
                 patience=patience,
                 verbose=False,
                 mode="max",
             )
         )
     trainer = pl.Trainer(
-        accelerator="gpu" if gpu and torch.cuda.is_available() else "cpu",
-        devices=1,
+        accelerator=accelerator,
         logger=logger,
         max_epochs=max_epochs,
         gradient_clip_val=gradient_clip,
@@ -254,11 +251,11 @@ def main(
         shuffle=False,
         num_workers=dataloader_workers,
     )
-    evaluator = evaluators.Evaluator(device=device)
+    evaluator = evaluators.Evaluator()
     model_cls = models.get_model_cls(arch, attention, include_features)
     if train_from is not None:
         util.log_info(f"Loading model from {train_from}")
-        model = model_cls.load_from_checkpoint(train_from).to(device)
+        model = model_cls.load_from_checkpoint(train_from)
         util.log_info("Training...")
         trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
     else:
@@ -297,7 +294,7 @@ def main(
             )
             if arch in ["transducer"]
             else None,
-        ).to(device)
+        )
         util.log_info("Training...")
         util.log_info(f"Model: {model_cls.__name__}")
         util.log_info(f"Dataset: {dataset_cls.__name__}")
@@ -313,12 +310,13 @@ def main(
     if dev_predictions:
         best_model = model_cls.load_from_checkpoint(
             ckp_callback.best_model_path
-        ).to(device)
+        )
         predict.write_predictions(
             best_model,
             dev_loader,
             dev_predictions,
             arch,
+            accelerator,
             eval_batch_size,
             source_col,
             target_col,
@@ -327,7 +325,6 @@ def main(
             target_sep,
             features_sep,
             include_features,
-            gpu,
         )
 
 

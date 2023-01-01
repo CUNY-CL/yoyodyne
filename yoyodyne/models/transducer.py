@@ -120,18 +120,18 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 performed during training, so these are returned.
         """
         batch_size = source_mask.size(dim=0)
-        input_length = (source_mask == 0).sum(dim=1).to(self.device)
+        input_length = (source_mask == 0).sum(dim=1)
         # Initializing values.
         alignment = torch.zeros(
-            (batch_size), device=self.device, dtype=torch.int64
+            batch_size, device=self.device, dtype=torch.int64
         )
         action_count = torch.zeros(
-            (batch_size), device=self.device, dtype=torch.int64
+            batch_size, device=self.device, dtype=torch.int64
         )
         last_action = torch.full(
             (batch_size,), self.actions.beg_idx, device=self.device
         )
-        loss = torch.zeros((batch_size), device=self.device)
+        loss = torch.zeros(batch_size, device=self.device)
         prediction = [[] for _ in range(batch_size)]
         # Converting encodings for prediction.
         if target is not None:
@@ -154,7 +154,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 break
             # Proceeds to make new edit; new action for all current decoding.
             action_count = torch.where(
-                not_complete, action_count + 1, action_count
+                not_complete.to(self.device), action_count + 1, action_count
             )
             # Decoding.
             logits, last_hiddens = self.decode_step(
@@ -191,21 +191,21 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     def decode_step(
         self,
         encoder_out: torch.Tensor,
-        last_act: torch.Tensor,
+        last_action: torch.Tensor,
         last_hiddens: Tuple[torch.Tensor, torch.Tensor],
         alignment: torch.Tensor,
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Performs decoding step.
 
         Per item in batch: chooses single symbol in encoder_out using
-        alignment. The symbol is concatenated with last_act and then decoded
-        to find logits.
+        alignment. The symbol is concatenated with last_action and then
+        decoded to compute logits.
 
         Args:
             encoder_out (torch.Tensor): output from encoder of shape
                 B x seq_len x emb_size.
-            last_act (torch.Tensor): edit action from previous decode_step of
-                shape B x seq_len x emb_size.
+            last_action (torch.Tensor): edit action from previous decode_step
+                of shape B x seq_len x emb_size.
             last_hiddens (Tuple[torch.Tensor, torch.Tensor]): previous hidden
                 states from the decoder, both of shape 1 x B x decoder_dim.
             alignment (torch.Tensor): index of encoding symbols for decoding,
@@ -220,9 +220,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             encoder_out.size(-1), 1, -1
         ).transpose(0, -1)
         char_encoder_out = torch.gather(encoder_out, 1, alignment_expand)
-        previous_action_embedding = self.target_embeddings(last_act).unsqueeze(
-            dim=1
-        )
+        previous_action_embedding = self.target_embeddings(
+            last_action
+        ).unsqueeze(dim=1)
         decoder_input = torch.cat(
             (char_encoder_out, previous_action_embedding), dim=2
         )
@@ -344,7 +344,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                             next_action.append(action[idx])
                         else:  # Already complete, so skip.
                             next_action.append(self.actions.end_idx)
-        return torch.IntTensor(next_action)
+        return torch.tensor(next_action, device=self.device, dtype=torch.int)
 
     # TODO: Merge action classes to remove need for this method.
     @staticmethod
@@ -371,7 +371,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 remapped_action = action
             else:
                 raise ActionError(
-                    f"Unknown action: {action, score}, "
+                    f"Unknown action: {action}, {score}, "
                     f"action_scores: {action_scores}"
                 )
             remapped_action_scores[remapped_action] = score
@@ -452,7 +452,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             torch.Tensor: new alignments for transduction.
         """
         alignment_update = torch.zeros(
-            (alignment.shape), device=self.device, dtype=torch.int64
+            alignment.shape, device=self.device, dtype=torch.int64
         )
         for i in range(len(source)):
             a = self.actions.decode(action[i])
@@ -516,11 +516,11 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         preds = self.convert_prediction(preds)
         # Processes for accuracy calculation.
         preds = self.evaluator.finalize_preds(
-            preds, self.end_idx, self.pad_idx, device="cpu"
+            preds, self.end_idx, self.pad_idx
         )
         target = batch[-2]
         return {
-            "val_accuracy": self.evaluator.get_accuracy(
+            "val_accuracy": self.evaluator.accuracy(
                 preds, target, self.pad_idx
             ),
             "val_loss": loss,
@@ -539,7 +539,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         for i, pred in enumerate(prediction):
             pad = [self.actions.end_idx] * (max_len - len(pred))
             pred.extend(pad)
-            prediction[i] = torch.IntTensor(pred, device="cpu")
+            prediction[i] = torch.tensor(pred, dtype=torch.int)
         return torch.stack(prediction)
 
     def on_train_epoch_start(self) -> None:

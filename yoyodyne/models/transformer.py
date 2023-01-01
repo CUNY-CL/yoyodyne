@@ -271,8 +271,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_embedding,
             encoder_hidden,
             tgt_mask=causal_mask,
-            tgt_key_padding_mask=target_mask,
             memory_key_padding_mask=source_mask,
+            tgt_key_padding_mask=target_mask,
         )
         # -> B x seq_len x vocab_size.
         output = self.classifier(decoder_hidden)
@@ -297,9 +297,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         for _ in range(self.max_decode_len):
             target_tensor = torch.stack(preds, dim=1)
             # Uses a dummy mask of all ones.
-            target_mask = torch.ones_like(
-                target_tensor, dtype=torch.float, device=self.device
-            )
+            target_mask = torch.ones_like(target_tensor, dtype=torch.float)
             target_mask = target_mask == 0
             output = self.decode(
                 encoder_hidden, source_mask, target_tensor, target_mask
@@ -333,8 +331,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             source, source_mask, target, target_mask = batch
             # Initializes the start symbol for decoding.
             starts = (
-                torch.LongTensor([self.start_idx])
-                .to(self.device)
+                torch.tensor(
+                    [self.start_idx], device=self.device, dtype=torch.long
+                )
                 .repeat(target.size(0))
                 .unsqueeze(1)
             )
@@ -358,7 +357,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             raise Error(f"Batch of {len(batch)} elements is invalid")
         return output
 
-    def generate_square_subsequent_mask(self, length: int) -> torch.Tensor:
+    @staticmethod
+    def generate_square_subsequent_mask(length: int) -> torch.Tensor:
         """Generates the target mask so the model cannot see future states.
 
         Args:
@@ -384,7 +384,7 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
 
     def __init__(self, *args, features_idx, **kwargs):
         super().__init__(*args, **kwargs)
-        # For distinguishing features vs character.
+        # Distinguishes features vs. character.
         self.features_idx = features_idx
         self.type_embedding = self.init_embeddings(
             2, self.embedding_size, self.pad_idx
