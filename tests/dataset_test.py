@@ -1,4 +1,3 @@
-import csv
 import pytest
 
 from yoyodyne import datasets
