@@ -15,23 +15,25 @@ jobs:
       - checkout
       - run:
           name: Install the full development requirements
-          working_directory: ~/project
           command: pip install --progress-bar off -r requirements.txt
       - run:
           name: Run flake8 check on modeling
-          working_directory: ~/project
           command: flake8 .
       - run:
           name: Run black check on modeling
-          working_directory: ~/project
           command: black --line-length 79 --check .
       - run:
           name: Build source distribution
-          working_directory: ~/project
           command: |
               pip install --progress-bar off --upgrade pip setuptools
               python setup.py sdist
               pip install dist/`ls dist/ | grep .tar.gz`
+      - run:
+          name: Run unit tests
+          command: |
+              pytest -vv tests --junitxml /tmp/testxml/report.xml
+      - store_test_results:
+          path: /tmp/testxml
   python3.10:
     <<: *template
     docker:
