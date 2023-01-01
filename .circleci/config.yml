@@ -31,7 +31,7 @@ jobs:
       - run:
           name: Run unit tests
           command: |
-              pytest -vv --junitxml /tmp/testxml/report.xml .
+              pytest -vv --junitxml /tmp/testxml/report.xml tests
       - store_test_results:
           path: /tmp/testxml
   python3.10:
