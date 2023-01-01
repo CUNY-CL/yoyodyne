@@ -388,7 +388,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         output_probs = nn.functional.softmax(output_probs, dim=2)
         # -> B x 1 x output_size.
         attention_probs = torch.zeros(
-            symbol.size(0), self.output_size
+            symbol.size(0), self.output_size, device=self.device
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
@@ -447,7 +447,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             target.size(1) if target is not None else self.max_decode_len
         )
         # Tracks when each sequence has decoded an EOS.
-        finished = torch.zeros(batch_size)
+        finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
             output, decoder_hiddens = self.decode_step(
