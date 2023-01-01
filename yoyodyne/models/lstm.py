@@ -21,14 +21,14 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     the encoder to the decoder hidden state."""
 
     vocab_size: int
-    enc_layers: int
-    dec_layers: int
+    encoder_layers: int
+    decoder_layers: int
     pad_idx: int
-    optim_name: str
+    optimizer: str
     beta1: float
     beta2: float
     warmup_steps: int
-    lr: int
+    learning_rate: int
     evaluator: evaluators.Evaluator
     scheduler: str
     start_idx: int
@@ -54,6 +54,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
     def __init__(
         self,
+        *,
         vocab_size,
         embedding_size,
         hidden_size,
@@ -61,17 +62,17 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         pad_idx,
         start_idx,
         end_idx,
-        optim,
+        optimizer,
         beta1,
         beta2,
         warmup_steps,
-        lr,
+        learning_rate,
         scheduler,
         evaluator,
         max_decode_len,
-        dropout=0.1,
-        enc_layers=2,
-        dec_layers=2,
+        dropout=0.2,
+        encoder_layers=1,
+        decoder_layers=1,
         bidirectional=True,
         label_smoothing=None,
         beam_width=None,
@@ -87,17 +88,17 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             pad_idx (int).
             start_idx (int).
             end_idx (int).
-            optim (str).
+            optimizer (str).
             beta1 (float).
             beta2 (float).
             warmup_steps (int).
-            lr (float).
+            learning_rate (float).
             evaluator (evaluators.Evaluator).
             scheduler (str).
             max_decode_len (int).
             dropout (float, optional).
-            enc_layers (int, optional).
-            dec_layers (int, optional).
+            encoder_layers (int, optional).
+            decoder_layers (int, optional).
             bidirectional (bool, optional).
             label_smoothing (float, optional).
             beam_width (int, optional): if specified, beam search is used
@@ -106,14 +107,14 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         """
         super().__init__()
         self.vocab_size = vocab_size
-        self.enc_layers = enc_layers
-        self.dec_layers = dec_layers
+        self.encoder_layers = encoder_layers
+        self.decoder_layers = decoder_layers
         self.pad_idx = pad_idx
-        self.optim_name = optim
+        self.optimizer = optimizer
         self.beta1 = beta1
         self.beta2 = beta2
         self.warmup_steps = warmup_steps
-        self.lr = lr
+        self.learning_rate = learning_rate
         self.evaluator = evaluator
         self.scheduler = scheduler
         self.start_idx = start_idx
@@ -134,21 +135,21 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.encoder = nn.LSTM(
             self.embedding_size,
             self.hidden_size,
-            num_layers=enc_layers,
+            num_layers=encoder_layers,
             dropout=dropout,
             batch_first=True,
             bidirectional=self.bidirectional,
         )
-        enc_size = self.hidden_size * self.num_directions
+        encoder_size = self.hidden_size * self.num_directions
         # Initial hidden state whose parameters are shared across all examples.
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
         self.max_decode_len = max_decode_len
         self.decoder = nn.LSTM(
-            enc_size + self.embedding_size,
+            encoder_size + self.embedding_size,
             self.hidden_size,
             dropout=self.dropout,
-            num_layers=self.dec_layers,
+            num_layers=self.decoder_layers,
             batch_first=True,
         )
         self.classifier = nn.Linear(self.hidden_size, output_size)
@@ -184,7 +185,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         Args:
             source (torch.Tensor): input symbols of shape B x seq_len x 1
             mask (torch.Tensor): mask for the input symbols of shape
-                B x seq_len x 1
+                B x seq_len x 1.
 
         Returns:
             Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -211,8 +212,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self,
         symbol: torch.Tensor,
         last_hiddens: torch.Tensor,
-        enc_out: torch.Tensor,
-        enc_mask: torch.Tensor,
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes one step.
 
@@ -220,10 +221,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             symbol (torch.Tensor): previously decoded symbol of shape B x 1.
             last_hiddens (torch.Tensor): last hidden states from the decoder
                 of shape (1 x B x decoder_dim, 1 x B x decoder_dim).
-            enc_out (torch.Tensor): encoded input sequence of shape
+            encoder_out (torch.Tensor): encoded input sequence of shape
                 B x seq_len x encoder_dim.
-            enc_mask (torch.Tensor): mask for the encoded input batch of shape
-                B x seq_len.
+            encoder_mask (torch.Tensor): mask for the encoded input batch of
+                shape B x seq_len.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: tuple of scores and hiddens.
@@ -234,19 +235,21 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         last_h0, last_c0 = last_hiddens
         # Get the index of the last unmasked tensor.
         # -> B.
-        last_enc_out_idxs = (~enc_mask).sum(dim=1) - 1
+        last_encoder_out_idxs = (~encoder_mask).sum(dim=1) - 1
         # -> B x 1 x 1.
-        last_enc_out_idxs = last_enc_out_idxs.view([enc_out.size(0)] + [1, 1])
+        last_encoder_out_idxs = last_encoder_out_idxs.view(
+            [encoder_out.size(0)] + [1, 1]
+        )
         # -> 1 x 1 x encoder_dim. This indexes the last non-padded dimension.
-        last_enc_out_idxs = last_enc_out_idxs.expand(
-            [-1, -1, enc_out.size(-1)]
+        last_encoder_out_idxs = last_encoder_out_idxs.expand(
+            [-1, -1, encoder_out.size(-1)]
         )
         # -> B x 1 x encoder_dim.
-        last_enc_out = torch.gather(enc_out, 1, last_enc_out_idxs)
+        last_encoder_out = torch.gather(encoder_out, 1, last_encoder_out_idxs)
         # The input to decoder LSTM is the embedding concatenated to the
         # weighted, encoded, inputs.
         output, hiddens = self.decoder(
-            torch.cat((embedded, last_enc_out), 2), (last_h0, last_c0)
+            torch.cat((embedded, last_encoder_out), 2), (last_h0, last_c0)
         )
         output = self.dropout_layer(output)
         # Classifies into output vocab.
@@ -271,15 +274,15 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 initialization.
         """
         return (
-            self.h0.repeat(self.enc_layers, batch_size, 1),
-            self.c0.repeat(self.enc_layers, batch_size, 1),
+            self.h0.repeat(self.encoder_layers, batch_size, 1),
+            self.c0.repeat(self.encoder_layers, batch_size, 1),
         )
 
     def decode(
         self,
         batch_size: int,
-        enc_mask: torch.Tensor,
-        enc_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+        encoder_out: torch.Tensor,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
@@ -289,14 +292,14 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             batch_size (int).
-            enc_mask (torch.Tensor): mask for the batch of encoded inputs.
-            enc_out (torch.Tensor): batch of encoded inputs.
-            target (torch.Tensor, optional): target symbols. If None, then we
+            encoder_mask (torch.Tensor): mask for the batch of encoded inputs.
+            encoder_out (torch.Tensor): batch of encoded inputs.
+            target (torch.Tensor, optional): target symbols; if None, then we
                 decode greedily with 'student forcing'.
 
         Returns:
             preds (torch.Tensor): tensor of predictions of shape
-                (sequence_length, batch_size, output_size)
+                sequence_length x batch_size x output_size.
         """
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
@@ -317,7 +320,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         for t in range(num_steps):
             # pred: B x 1 x output_size.
             output, decoder_hiddens = self.decode_step(
-                decoder_input, decoder_hiddens, enc_out, enc_mask
+                decoder_input, decoder_hiddens, encoder_out, encoder_mask
             )
             preds.append(output.squeeze(1))
             # If we have a target (training) then the next input is the gold
@@ -341,8 +344,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     def beam_decode(
         self,
         batch_size: int,
-        enc_mask: torch.Tensor,
-        enc_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+        encoder_out: torch.Tensor,
         beam_width: int,
         n: int = 1,
         return_confidences: bool = False,
@@ -353,8 +356,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             batch_size (int).
-            enc_mask (torch.Tensor).
-            enc_out (torch.Tensor): encoded inputs.
+            encoder_mask (torch.Tensor).
+            encoder_out (torch.Tensor): encoded inputs.
             beam_width (int): size of the beam.
             n (int): number of hypotheses to return.
             return_confidences (bool, optional): additionally return the
@@ -369,7 +372,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 "Beam search is not implemented for batch_size > 1"
             )
         # Initializes hidden states for decoder LSTM.
-        decoder_hiddens = self.init_hiddens(enc_out.size(0))
+        decoder_hiddens = self.init_hiddens(encoder_out.size(0))
         # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
         for t in range(self.max_decode_len):
@@ -404,7 +407,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                     .unsqueeze(1)
                 )
                 preds, decoder_hiddens = self.decode_step(
-                    decoder_input, decoder_hiddens, enc_out, enc_mask
+                    decoder_input, decoder_hiddens, encoder_out, encoder_mask
                 )
                 likelihoods.append(
                     (
@@ -483,13 +486,16 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         else:
             raise Error(f"Batch of {len(batch)} elements is invalid")
         batch_size = source.size(0)
-        enc_out, _ = self.encode(source, source_mask)
+        encoder_out, _ = self.encode(source, source_mask)
         if self.beam_width is not None and self.beam_width > 1:
             preds = self.beam_decode(
-                batch_size, source_mask, enc_out, beam_width=self.beam_width
+                batch_size,
+                source_mask,
+                encoder_out,
+                beam_width=self.beam_width,
             )
         else:
-            preds = self.decode(batch_size, source_mask, enc_out, target)
+            preds = self.decode(batch_size, source_mask, encoder_out, target)
         # -> B x output_size x seq_len.
         preds = preds.transpose(0, 1).transpose(1, 2)
         return preds
@@ -503,15 +509,15 @@ class LSTMEncoderDecoderAttention(LSTMEncoderDecoder):
     def __init__(self, *args, **kwargs):
         """Initializes the encoder-decoder with attention."""
         super().__init__(*args, **kwargs)
-        enc_size = self.hidden_size * self.num_directions
-        self.attention = attention.Attention(enc_size, self.hidden_size)
+        encoder_size = self.hidden_size * self.num_directions
+        self.attention = attention.Attention(encoder_size, self.hidden_size)
 
     def decode_step(
         self,
         symbol: torch.Tensor,
         last_hiddens: Tuple[torch.Tensor, torch.Tensor],
-        enc_out: torch.Tensor,
-        enc_mask: torch.Tensor,
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes one step.
 
@@ -520,9 +526,9 @@ class LSTMEncoderDecoderAttention(LSTMEncoderDecoder):
             last_hiddens (Tuple[torch.Tensor, torch.Tensor]): last hidden
                 states from the decoder of shape
                 (1 x B x decoder_dim, 1 x B x decoder_dim).
-            enc_out (torch.Tensor): encoded input sequence of shape
+            encoder_out (torch.Tensor): encoded input sequence of shape
                 B x seq_len x encoder_dim.
-            enc_mask (torch.Tensor): mask for the encoded input batch of
+            encoder_mask (torch.Tensor): mask for the encoded input batch of
                 shape B x seq_len.
 
         Returns:
@@ -533,7 +539,9 @@ class LSTMEncoderDecoderAttention(LSTMEncoderDecoder):
         embedded = self.dropout_layer(embedded)
         # -> 1 x B x decoder_dim.
         last_h0, last_c0 = last_hiddens
-        context, _ = self.attention(last_h0.transpose(0, 1), enc_out, enc_mask)
+        context, _ = self.attention(
+            last_h0.transpose(0, 1), encoder_out, encoder_mask
+        )
         output, hiddens = self.decoder(
             torch.cat((embedded, context), 2), (last_h0, last_c0)
         )

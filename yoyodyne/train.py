@@ -3,7 +3,7 @@
 import argparse
 import os
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -23,15 +23,6 @@ def train(seed: Optional[int]) -> str:
         (str) path to the best model checkpoint.
     """
     pl.seed_everything(seed)
-
-
-
-def main(args: argparse.Namespace) -> None:
-    util.log_info("Arguments:")
-    for argument, value in vars(args).items():
-        util.log_info(f"\t{argument}: {value!r}")
-    best_model_path = train(args.seed)
-    util.log_info(f"Best model: {best_model_path}")
 
 
 if __name__ == "__main__":
@@ -271,7 +262,7 @@ if __name__ == "__main__":
         help="Disable weights &^ Biases logging (log-in required)",
     )
     # Among the things this adds, the following are likely to be useful to users:
-    # --accelerator
+    # --accelerator (
     # --check-val-every-n-epoch
     # --devices
     # --gradient-clip-val
@@ -282,3 +273,7 @@ if __name__ == "__main__":
     # --max-time
     pl.Trainer.add_argparse_args(parser)
     main(parser.parse_args())
+
+
+if __name__ == "__main__":
+    main()

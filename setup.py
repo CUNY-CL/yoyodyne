@@ -48,7 +48,7 @@ def main() -> None:
         python_requires=">=3.9",
         install_requires=[
             "click>=8.1.3",
-            "pytorch-lightning==1.6.4",
+            "pytorch-lightning>=1.6.4",
             "maxwell>=0.2.0",
             "numpy>=1.20.1",
             "scipy>=1.6",

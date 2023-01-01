@@ -16,13 +16,13 @@ from .transformer import (
 
 
 def get_model_cls(
-    arch: str, attn: str, include_features: bool
+    arch: str, attention: bool, include_features: bool
 ) -> pl.LightningModule:
     """Model factory.
 
     Args:
         arch (str).
-        attn (str).
+        attention (bool).
         include_features (bool).
 
     Raises:
@@ -44,10 +44,12 @@ def get_model_cls(
         if include_features
         else TransducerNoFeatures,
         "transformer": TransformerEncoderDecoder,
-        "lstm": LSTMEncoderDecoderAttention if attn else LSTMEncoderDecoder,
+        "lstm": LSTMEncoderDecoderAttention
+        if attention
+        else LSTMEncoderDecoder,
     }
     if arch in ["lstm", "pointer_generator_lstm", "transformer"]:
-        util.log_info(f"Attention: {attn}")
+        util.log_info(f"Attention: {attention}")
     try:
         kls = model_fac[arch]
         return kls
