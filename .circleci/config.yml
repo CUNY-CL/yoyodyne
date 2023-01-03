@@ -1,40 +1,43 @@
-version: 2
-
-workflows:
-  version: 2
-  test:
-    jobs:
-      - python3.9
-      - python3.10
+version: 2.1
 
 jobs:
-  python3.9: &template
+  pre-build:
+    description: A check that needs to be done on only one supported Python version
+    parameters:
+      command-run:
+        type: string
     docker:
-      - image: python:3.9
+      - image: cimg/python:3.10
     steps:
       - checkout
       - run:
-          name: Install the full development requirements
-          command: pip install --progress-bar off -r requirements.txt
+          command: pip install -r requirements.txt
       - run:
-          name: Run flake8 check on modeling
-          command: flake8 .
-      - run:
-          name: Run black check on modeling
-          command: black --line-length 79 --check .
-      - run:
-          name: Build source distribution
-          command: |
-              pip install --progress-bar off --upgrade pip setuptools
-              python setup.py sdist
-              pip install dist/`ls dist/ | grep .tar.gz`
-      - run:
-          name: Run unit tests
-          command: |
-              pytest -vv --junitxml /tmp/testxml/report.xml tests
-      - store_test_results:
-          path: /tmp/testxml
-  python3.10:
-    <<: *template
+          command: << parameters.command-run >>
+
+  build-python:
+    parameters:
+      python-version:
+        type: string
     docker:
-      - image: python:3.10
+      - image: cimg/python:<< parameters.python-version >>
+        #auth:
+        #  username: $DOCKERHUB_USERNAME
+        #  password: $DOCKERHUB_PASSWORD
+    steps:
+      - checkout
+      - run:
+          name: Build source distribution and install package from it
+          command: |
+              pip install -r requirements.txt && \
+              python -m build && \
+              pip install dist/`ls dist/ | grep .whl`
+      - run:
+          name: Show installed Python packages
+          command: pip list -v
+      - run:
+          name: Run tests
+          command: |
+              pytest -vv tests --junitxml /tmp/testxml/report.xml
+      - store_test_results:
+          path: /tmp/testxml/
