@@ -151,8 +151,8 @@ class DataConfig:
         row = [""] * max(self.source_col, self.target_col, self.features_col)
         # -1 because we're using base-1 indexing.
         row[self.source_col - 1] = self.source_sep.join(source)
-        row[self.target_col - 1] = self.target_sep.join(source)
+        row[self.target_col - 1] = self.target_sep.join(target)
         if self.has_features:
             assert features is not None, "Expected features"
-            row[self.features_col - 1] = self.features_sep.join(source)
+            row[self.features_col - 1] = self.features_sep.join(features)
         return row
