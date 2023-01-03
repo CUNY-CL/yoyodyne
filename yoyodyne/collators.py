@@ -121,7 +121,7 @@ class SourceTargetCollator(SourceCollator):
     def __call__(
         self, batch: List[torch.Tensor]
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Pads source and targets.
+        """Pads source and target.
 
         Args:
             batch (List[torch.Tensor]).
@@ -210,24 +210,28 @@ class SourceFeaturesTargetCollator(SourceFeaturesCollator):
         return True
 
 
-def get_collator_cls(
-    arch: str, include_features: bool, include_targets: bool
+def get_collator(
+    pad_idx: int, *, arch: str, include_features: bool, include_target: bool
 ) -> Collator:
     """Collator factory.
 
     Args:
+        pad_idx (int).
         arch (str).
         include_features (bool).
-        include_targets (bool).
+        include_target (bool).
 
     Returns:
         Collator.
     """
     if include_features and arch in ["pointer_generator_lstm", "transducer"]:
-        return (
+        collator_cls = (
             SourceFeaturesTargetCollator
-            if include_targets
+            if include_target
             else SourceFeaturesCollator
         )
     else:
-        return SourceTargetCollator if include_targets else SourceCollator
+        collator_cls = (
+            SourceTargetCollator if include_target else SourceCollator
+        )
+    return collator_cls(pad_idx)

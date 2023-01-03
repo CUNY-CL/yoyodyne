@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 import torch
 from torch.utils import data
 
-from . import special, util
+from . import special
 
 
 class Error(Exception):
@@ -41,16 +41,16 @@ class DatasetNoFeatures(data.Dataset):
     source_i2symbol: List[str]
     target_symbol2i: Dict[str, int]
     target_i2symbol: List[str]
-    no_target: bool
 
     def __init__(
         self,
         filename,
+        *,
         tied_vocabulary,
-        source_col=1,
-        target_col=2,
-        source_sep="",
-        target_sep="",
+        source_col,
+        target_col,
+        source_sep,
+        target_sep,
         **kwargs,
     ):
         """Initializes the dataset.
@@ -59,21 +59,19 @@ class DatasetNoFeatures(data.Dataset):
             filename (str): input filename.
             tied_vocabulary (bool): whether the source and target should
                 share a vocabulary.
-            source_col (int, optional): 1-indexed column in TSV containing
+            source_col (int): 1-indexed column in TSV containing
                 source strings.
-            target_col (int, optional): 1-indexed column in TSV containing
+            target_col (int): 1-indexed column in TSV containing
                 target strings.
-            source_sep (str, optional): separator character between symbols in
-                source string. "" treats each character in source as a symbol.
-            target_sep (str, optional): separator character between symbols in
-                target string. "" treats each character in target as a symbol.
+            source_sep (str): separator character between symbols in source
+                string. "" treats each character in source as a symbol.
+            target_sep (str): separator character between symbols in target
+                string. "" treats each character in target as a symbol.
             **kwargs: ignored.
         """
         if source_col < 1:
             raise Error(f"Invalid source column: {source_col}")
         self.source_col = source_col
-        if target_col == 0:
-            util.log_info("Ignoring targets in input")
         if target_col < 0:
             raise Error(f"Invalid target column: {target_col}")
         self.target_col = target_col
@@ -107,9 +105,8 @@ class DatasetNoFeatures(data.Dataset):
             filename (str): input file.
 
         Yields:
-            Tuple[List[str], Optional[List[str]]]: Tuple
-                of source and target string. (Target string
-                is None if self.target_col is 0).
+            Tuple[List[str], Optional[List[str]]]: source and target
+            string; target is None if self.target_col is 0.
         """
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
@@ -194,10 +191,7 @@ class DatasetNoFeatures(data.Dataset):
             "target_symbol2i": self.target_symbol2i,
             "target_i2symbol": self.target_i2symbol,
         }
-        self._write_pkl(
-            vocab,
-            os.path.join(outdir, f"{filename}_vocab.pkl"),
-        )
+        self._write_pkl(vocab, os.path.join(outdir, f"{filename}_vocab.pkl"))
 
     def load_index(self, indir: str, filename: str) -> None:
         """Loads character mappings.
@@ -224,7 +218,6 @@ class DatasetNoFeatures(data.Dataset):
         Args:
             symbol2i (Dict).
             word (List[str]): word to be encoded.
-            unk (int): default idx to return if symbol is outside symbol2i.
             add_start_tag (bool, optional): whether the sequence should be
                 prepended with a start tag.
             add_end_tag (bool, optional): whether the sequence should be
@@ -293,7 +286,7 @@ class DatasetNoFeatures(data.Dataset):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of source indices, returns a list of characters.
+        """Given a tensor of source indices, returns lists of characters.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -318,7 +311,7 @@ class DatasetNoFeatures(data.Dataset):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of target indices, returns a list of characters.
+        """Given a tensor of target indices, returns lists of characters.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -414,38 +407,33 @@ class DatasetFeatures(DatasetNoFeatures):
     features_sep: str
     features_idx: int
 
-    def __init__(self, *args, features_col=3, features_sep=";", **kwargs):
+    def __init__(
+        self,
+        *args,
+        features_col,
+        features_sep,
+        **kwargs,
+    ):
         """Initializes the dataset.
 
         Args:
-            filename (str): input filename.
-            tied_vocabulary (bool): whether or not to share the
-                source/target vocabularies.
-            source_col (int optional): 1-indexed column in TSV containing
-                source strings.
-            target_col (int, optional): 1-indexed column in TSV containing
-                target strings.
-            source_sep (str, optional): separator character between symbols in
-                source string. "" treats each character in source as a symbol.
-            target_sep (str, optional): separator character between symbols in
-                target string. "" treats each character in target as symbol.
-            features_col (int, optional): 1-indexed column in TSV containing
-                features labels.
-            features_sep (str, optional): separator character between symbols
-                in target string. "" treats each character in target as symbol.
+            features_col (int): 1-indexed column in TSV containing features
+                labels.
+            features_sep (str): separator character between symbols in target
+                string. "" treats each character in target as symbol.
             **kwargs: passed to superclass constructor.
         """
         if features_col < 0:
             raise Error(f"Invalid features column: {features_col}")
-        util.log_info("Including features")
         self.features_col = features_col
         self.features_sep = features_sep
         self.features_idx = 0
         super().__init__(*args, **kwargs)
 
     def _iter_samples(
-        self, filename: str
-    ) -> Iterator[Tuple[List[str], List[str], Optional[List[str]]]]:
+        self,
+        filename: str,
+    ) -> Iterator[Tuple[List[str], List[str], Optional[List[str]],]]:
         """Yields specific input samples from a file.
 
         Sames as in superclass, but also handles features.
@@ -454,9 +442,9 @@ class DatasetFeatures(DatasetNoFeatures):
             filename (str): input file.
 
         Yields:
-            Tuple[List[str], List[str], Optional[List[str]]]:
-                Source, Features, Target tuple. (Target is None
-                if self.target_col is 0).
+            Tuple[List[str], List[str], Optional[List[str]]]: source,
+                feature, and target tuple; target is None if self.target_col
+                is 0.
         """
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
@@ -465,8 +453,8 @@ class DatasetFeatures(DatasetNoFeatures):
                 features = self._get_cell(
                     row, self.features_col, self.features_sep
                 )
-                # Use unique encoding for features.
-                # This disambiguates from overlap with source.
+                # Use unique encoding for features. This disambiguates from
+                # overlap with source.
                 features = [f"[{feature}]" for feature in features]
                 target = (
                     self._get_cell(row, self.target_col, self.target_sep)
@@ -519,7 +507,8 @@ class DatasetFeatures(DatasetNoFeatures):
         self.target_i2symbol = list(self.target_symbol2i.keys())
 
     def __getitem__(
-        self, idx: int
+        self,
+        idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Retrieves item by index.
 
@@ -532,12 +521,7 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_symbol2i, source)
-        features_encoded = self.encode(
-            self.source_symbol2i,
-            features,
-            add_start_tag=False,
-            add_end_tag=False,
-        )
+        features_encoded = self.encode_features(features)
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
             if self.target_col
@@ -551,7 +535,7 @@ class DatasetFeatures(DatasetNoFeatures):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of source indices, returns a list of characters.
+        """Given a tensor of source indices, returns lists of characters.
 
         Overriding to prevent use of features encoding.
 
@@ -567,7 +551,9 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking features vocab.
         indices = torch.where(
-            indices < self.features_idx, indices, self.pad_idx
+            indices < self.features_idx,
+            indices,
+            self.pad_idx,
         )
         return self._decode(
             indices,
@@ -582,10 +568,9 @@ class DatasetFeatures(DatasetNoFeatures):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of feature indices, returns a list of characters.
+        """Given a tensor of feature indices, returns lists of characters.
 
-        This is simply an alias for using decode_source for features that
-        manages the use of a separate SPECIAL vocabulary for features.
+        This is simply an alias for using decode_source for features.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -599,16 +584,9 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking source vocab.
         indices = torch.where(
-            (indices >= self.features_idx) | (indices < len(self.special_idx)),
-            indices,
-            self.pad_idx,
+            indices >= self.features_idx, indices, self.pad_idx
         )
-        return self._decode(
-            indices,
-            decoder=self.source_i2symbol,
-            symbols=symbols,
-            special=special,
-        )
+        return super().decode_source(indices, symbols=symbols, special=special)
 
     @property
     def features_vocab_size(self) -> int:
@@ -623,10 +601,7 @@ class DatasetFeatures(DatasetNoFeatures):
             "target_i2symbol": self.target_i2symbol,
             "features_idx": self.features_idx,
         }
-        self._write_pkl(
-            vocab,
-            os.path.join(outdir, f"{filename}_vocab.pkl"),
-        )
+        self._write_pkl(vocab, os.path.join(outdir, f"{filename}_vocab.pkl"))
 
     def load_index(self, indir: str, filename: str) -> None:
         # Overwrites method to load features encoding.
@@ -638,14 +613,40 @@ class DatasetFeatures(DatasetNoFeatures):
         self.features_idx = vocab["features_idx"]
 
 
-def get_dataset_cls(include_features: bool) -> torch.utils.data.Dataset:
+def get_dataset(
+    filename: str,
+    *,
+    tied_vocabulary: bool = True,
+    source_col: int = 1,
+    target_col: int = 2,
+    features_col: int = 3,
+    source_sep: str = "",
+    target_sep: str = "",
+    features_sep: str = ";",
+) -> data.Dataset:
     """Dataset factory.
 
     Args:
-        arch (str): the string label for the architecture.
-        include_features (bool).
+        filename (str).
+        tied_vocabulary (bool).
+        source_col (int).
+        target_col (int).
+        features_col (int).
+        source_sep (str).
+        target_sep (str).
+        features_sep (str).
 
     Returns:
-        data.Dataset: the desired dataset class.
+        data.Dataset: the dataset.
     """
-    return DatasetFeatures if include_features else DatasetNoFeatures
+    dataset_cls = DatasetFeatures if features_col != 0 else DatasetNoFeatures
+    return dataset_cls(
+        filename,
+        tied_vocabulary=tied_vocabulary,
+        source_col=source_col,
+        target_col=target_col,
+        features_col=features_col,
+        source_sep=source_sep,
+        target_sep=target_sep,
+        features_sep=features_sep,
+    )
