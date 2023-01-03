@@ -10,6 +10,12 @@ from torch.utils import data
 from . import dataconfig, special
 
 
+class Error(Exception):
+    """Module-specific exception."""
+
+    pass
+
+
 class DatasetNoFeatures(data.Dataset):
     """Dataset object without feature column."""
 
@@ -104,10 +110,7 @@ class DatasetNoFeatures(data.Dataset):
             "target_symbol2i": self.target_symbol2i,
             "target_i2symbol": self.target_i2symbol,
         }
-        self._write_pkl(
-            vocab,
-            os.path.join(outdir, f"{filename}_vocab.pkl"),
-        )
+        self._write_pkl(vocab, os.path.join(outdir, f"{filename}_vocab.pkl"))
 
     def load_index(self, indir: str, filename: str) -> None:
         """Loads character mappings.
@@ -134,7 +137,6 @@ class DatasetNoFeatures(data.Dataset):
         Args:
             symbol2i (Dict).
             word (List[str]): word to be encoded.
-            unk (int): default idx to return if symbol is outside symbol2i.
             add_start_tag (bool, optional): whether the sequence should be
                 prepended with a start tag.
             add_end_tag (bool, optional): whether the sequence should be
@@ -203,7 +205,7 @@ class DatasetNoFeatures(data.Dataset):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of source indices, returns a list of characters.
+        """Given a tensor of source indices, returns lists of characters.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -228,7 +230,7 @@ class DatasetNoFeatures(data.Dataset):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of target indices, returns a list of characters.
+        """Given a tensor of target indices, returns lists of characters.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -348,7 +350,8 @@ class DatasetFeatures(DatasetNoFeatures):
         self.target_i2symbol = list(self.target_symbol2i.keys())
 
     def __getitem__(
-        self, idx: int
+        self,
+        idx: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
         """Retrieves item by index.
 
@@ -361,12 +364,7 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_symbol2i, source)
-        features_encoded = self.encode(
-            self.source_symbol2i,
-            features,
-            add_start_tag=False,
-            add_end_tag=False,
-        )
+        features_encoded = self.encode_features(features)
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
             if self.config.has_targets
@@ -380,7 +378,7 @@ class DatasetFeatures(DatasetNoFeatures):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of source indices, returns a list of characters.
+        """Given a tensor of source indices, returns lists of characters.
 
         Overriding to prevent use of features encoding.
 
@@ -396,7 +394,9 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking features vocab.
         indices = torch.where(
-            indices < self.features_idx, indices, self.pad_idx
+            indices < self.features_idx,
+            indices,
+            self.pad_idx,
         )
         return self._decode(
             indices,
@@ -411,10 +411,9 @@ class DatasetFeatures(DatasetNoFeatures):
         symbols: bool = True,
         special: bool = True,
     ) -> List[List[str]]:
-        """Given a tensor of feature indices, returns a list of characters.
+        """Given a tensor of feature indices, returns lists of characters.
 
-        This is simply an alias for using decode_source for features that
-        manages the use of a separate SPECIAL vocabulary for features.
+        This is simply an alias for using decode_source for features.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
@@ -428,16 +427,9 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking source vocab.
         indices = torch.where(
-            (indices >= self.features_idx) | (indices < len(self.special_idx)),
-            indices,
-            self.pad_idx,
+            indices >= self.features_idx, indices, self.pad_idx
         )
-        return self._decode(
-            indices,
-            decoder=self.source_i2symbol,
-            symbols=symbols,
-            special=special,
-        )
+        return super().decode_source(indices, symbols=symbols, special=special)
 
     @property
     def features_vocab_size(self) -> int:
@@ -452,10 +444,7 @@ class DatasetFeatures(DatasetNoFeatures):
             "target_i2symbol": self.target_i2symbol,
             "features_idx": self.features_idx,
         }
-        self._write_pkl(
-            vocab,
-            os.path.join(outdir, f"{filename}_vocab.pkl"),
-        )
+        self._write_pkl(vocab, os.path.join(outdir, f"{filename}_vocab.pkl"))
 
     def load_index(self, indir: str, filename: str) -> None:
         # Overwrites method to load features encoding.
@@ -474,6 +463,16 @@ def get_dataset_cls(include_features: bool) -> data.Dataset:
         include_features (bool).
 
     Returns:
-        data.Dataset: the desired dataset class.
+        data.Dataset: the dataset.
     """
-    return DatasetFeatures if include_features else DatasetNoFeatures
+    dataset_cls = DatasetFeatures if features_col != 0 else DatasetNoFeatures
+    return dataset_cls(
+        filename,
+        tied_vocabulary=tied_vocabulary,
+        source_col=source_col,
+        target_col=target_col,
+        features_col=features_col,
+        source_sep=source_sep,
+        target_sep=target_sep,
+        features_sep=features_sep,
+    )
