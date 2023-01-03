@@ -249,7 +249,7 @@ def main(
     dev_loader = data.DataLoader(
         dev_set,
         collate_fn=collator,
-        batch_size=batch_size,
+        batch_size=2 * batch_size,  # Because we're not collecting gradients.
         shuffle=False,
         num_workers=dataloader_workers,
     )
