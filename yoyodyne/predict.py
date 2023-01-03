@@ -13,8 +13,8 @@ from . import collators, dataconfig, datasets, models, util
 
 def write_predictions(
     model: models.base.BaseEncoderDecoder,
-    data_loader: torch.utils.data.DataLoader,
-    output_path: str,
+    loader: torch.utils.data.DataLoader,
+    output: str,
     arch: str,
     batch_size: int,
     config: dataconfig.DataConfig,
@@ -25,8 +25,8 @@ def write_predictions(
 
     Args:
         model (models.BaseEncoderDecoder).
-        data_loader (torch.utils.data.DataLoader).
-        output_path (str).
+        loader (torch.utils.data.DataLoader).
+        output (str).
         arch (str).
         batch_size (int).
         config (dataconfig.DataConfig).
@@ -43,13 +43,12 @@ def write_predictions(
         max_epochs=0,  # Silences a warning.
     )
     util.log_info("Predicting...")
-    predicted = tester.predict(model, dataloaders=data_loader)
-    util.log_info(f"Writing to {output_path}")
-    collator = data_loader.collate_fn
-    test_set = data_loader.dataset
-    with open(output_path, "w") as sink:
+    predicted = tester.predict(model, dataloaders=loader)
+    dataset = loader.dataset
+    util.log_info(f"Writing to {output}")
+    with open(output, "w") as sink:
         tsv_writer = csv.writer(sink, delimiter="\t")
-        for batch, pred_batch in zip(data_loader, predicted):
+        for batch, pred_batch in zip(loader, predicted):
             if arch != "transducer":
                 # -> B x seq_len x vocab_size
                 pred_batch = pred_batch.transpose(1, 2)
@@ -59,19 +58,19 @@ def write_predictions(
                     _, pred_batch = torch.max(pred_batch, dim=2)
             # Uses CPU because PL seems to always return CPU tensors.
             pred_batch = model.evaluator.finalize_preds(
-                pred_batch, test_set.end_idx, test_set.pad_idx, "cpu"
+                pred_batch, dataset.end_idx, dataset.pad_idx, "cpu"
             )
-            prediction_strs = test_set.decode_target(
+            prediction_strs = dataset.decode_target(
                 pred_batch,
                 symbols=True,
                 special=False,
             )
-            source_strs = test_set.decode_source(
+            source_strs = dataset.decode_source(
                 batch[0], symbols=True, special=False
             )
-            features_batch = batch[2] if collator.has_features else batch[0]
+            features_batch = batch[2] if config.has_features else batch[0]
             features_strs = (
-                test_set.decode_features(
+                dataset.decode_features(
                     features_batch, symbols=True, special=False
                 )
                 if config.has_features
@@ -87,20 +86,27 @@ def write_predictions(
 
 @click.command()
 @click.option("--experiment", required=True)
-@click.option("--data-path", required=True)
-@click.option("--source-col", type=int, default=1)
-@click.option("--target-col", type=int, default=2)
+@click.option("--predict", required=True)
+@click.option("--output", required=True)
+@click.option("--model-dir", required=True)
+@click.option("--checkpoint", required=True)
+@click.option(
+    "--source-col", type=int, default=1, help="1-based index for source column"
+)
+@click.option(
+    "--target-col", type=int, default=2, help="1-based index for target column"
+)
 @click.option(
     "--features-col",
     type=int,
-    default=3,
-    help="0 indicates that no feature column should be used",
+    default=0,
+    help="1-based index for features column; "
+    "0 indicates the model will not use features",
 )
 @click.option("--source-sep", type=str, default="")
 @click.option("--target-sep", type=str, default="")
 @click.option("--features-sep", type=str, default=";")
 @click.option("--tied-vocabulary", default=True)
-@click.option("--output-path", required=True)
 @click.option(
     "--arch",
     type=click.Choice(
@@ -114,14 +120,12 @@ def write_predictions(
     ),
     required=True,
 )
-@click.option("--results-path", required=True)
-@click.option("--model-path", required=True)
 @click.option("--batch-size", type=int, default=1)
 @click.option(
     "--beam-width", type=int, help="If specified, beam search is used"
 )
 @click.option(
-    "--attn/--no-attn",
+    "--attention/--no-attention",
     type=bool,
     default=True,
     help="Use attention (`lstm` only)",
@@ -130,7 +134,10 @@ def write_predictions(
 @click.option("--gpu/--no-gpu", default=True)
 def main(
     experiment,
-    data_path,
+    predict,
+    output,
+    model_dir,
+    checkpoint,
     source_col,
     target_col,
     features_col,
@@ -138,39 +145,15 @@ def main(
     target_sep,
     features_sep,
     tied_vocabulary,
-    output_path,
     arch,
-    results_path,
-    model_path,
     batch_size,
     beam_width,
-    attn,
+    attention,
     bidirectional,
     gpu,
 ):
-    """Prediction.
-
-    Args:
-        experiment (_type_): _description_
-        data_path (_type_): _description_
-        source_col (_type_): _description_
-        target_col (_type_): _description_
-        features_col (_type_): _description_
-        source_sep (_type_): _description_
-        target_sep (_type_): _description_
-        features_sep (_type_): _description_
-        tied_vocabulary (_type_): _description_
-        output_path (_type_): _description_
-        arch (_type_): _description_
-        results_path (_type_): _description_
-        model_path (_type_): _description_
-        batch_size (_type_): _description_
-        attn (_type_): _description_
-        bidirectional (_type_): _description_
-        beam_width (_type_): _description_
-        gpu (_type_): _description_
-    """
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    """Predictor."""
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     device = util.get_device(gpu)
     config = dataconfig.DataConfig(
         source_col=source_col,
@@ -186,28 +169,28 @@ def main(
         util.log_info("Decoding with beam search; forcing batch size to 1")
         batch_size = 1
     dataset_cls = datasets.get_dataset_cls(config.has_features)
-    test_set = dataset_cls(data_path, config)
-    test_set.load_index(results_path, experiment)
-    util.log_info(f"Source vocabulary: {test_set.source_symbol2i}")
-    util.log_info(f"Target vocabulary: {test_set.target_symbol2i}")
+    dataset = dataset_cls(predict, config)
+    dataset.load_index(model_dir, experiment)
+    util.log_info(f"Source vocabulary: {dataset.source_symbol2i}")
+    util.log_info(f"Target vocabulary: {dataset.target_symbol2i}")
     collator_cls = collators.get_collator_cls(
         arch, config.has_features, include_targets=False
     )
-    collator = collator_cls(test_set.pad_idx)
-    data_loader = data.DataLoader(
-        test_set,
+    collator = collator_cls(dataset.pad_idx)
+    loader = data.DataLoader(
+        dataset,
         collate_fn=collator,
         batch_size=batch_size,
         shuffle=False,
     )
     # Model.
-    model_cls = models.get_model_cls(arch, attn, config.has_features)
-    util.log_info(f"Loading model from {model_path}")
-    model = model_cls.load_from_checkpoint(model_path).to(device)
+    model_cls = models.get_model_cls(arch, attention, config.has_features)
+    util.log_info(f"Loading model from {checkpoint}")
+    model = model_cls.load_from_checkpoint(checkpoint).to(device)
     write_predictions(
         model,
-        data_loader,
-        output_path,
+        loader,
+        output,
         arch,
         batch_size,
         config,
