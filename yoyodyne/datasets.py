@@ -584,9 +584,7 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking source vocab.
         indices = torch.where(
-            (indices >= self.features_idx) | (indices == self.pad_idx),
-            indices,
-            self.pad_idx,
+            indices >= self.features_idx, indices, self.pad_idx
         )
         return super().decode_source(indices, symbols=symbols, special=special)
 
