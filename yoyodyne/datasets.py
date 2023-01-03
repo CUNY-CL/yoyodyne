@@ -465,14 +465,4 @@ def get_dataset_cls(include_features: bool) -> data.Dataset:
     Returns:
         data.Dataset: the dataset.
     """
-    dataset_cls = DatasetFeatures if features_col != 0 else DatasetNoFeatures
-    return dataset_cls(
-        filename,
-        tied_vocabulary=tied_vocabulary,
-        source_col=source_col,
-        target_col=target_col,
-        features_col=features_col,
-        source_sep=source_sep,
-        target_sep=target_sep,
-        features_sep=features_sep,
-    )
+    return DatasetFeatures if include_features else DatasetNoFeatures
