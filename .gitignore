@@ -1,4 +1,5 @@
 *.egg-info/
 *.py[cdo]
 __pycache__/
+build/
 dist/
