@@ -42,14 +42,9 @@ First install dependencies:
 
 Then install:
 
-    python setup.py install
+    pip install .
 
-Or:
-
-    python setup.py develop
-
-The latter creates a Python module in your environment that updates as you
-update the code. It can then be imported like a regular Python module:
+It can then be imported like a regular Python module:
 
 ```python
 import yoyodyne
@@ -57,8 +52,8 @@ import yoyodyne
 
 ## Usage
 
-See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for
-all model options.
+See [`yoyodyne-predict --help`](yoyodyne/predict.py) and
+[`yoyodyne-train --help`](yoyodyne/train.py).
 
 ## Data format
 

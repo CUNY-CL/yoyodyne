@@ -4,6 +4,7 @@ import os
 import time
 
 import click
+import numpy
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
@@ -35,7 +36,9 @@ from . import collators, datasets, evaluators, models, predict, util
 @click.option("--features-sep", type=str, default=";")
 @click.option("--tied-vocabulary/--no-tied-vocabulary", default=True)
 @click.option("--dataloader-workers", type=int, default=1)
-@click.option("--seed", type=int, default=time.time_ns())
+@click.option(
+    "--seed", type=int, default=time.time_ns() % numpy.iinfo(numpy.uint32).max
+)
 @click.option("--max-epochs", type=int, default=50)
 @click.option(
     "--arch",
