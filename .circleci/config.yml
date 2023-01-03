@@ -35,9 +35,28 @@ jobs:
       - run:
           name: Show installed Python packages
           command: pip list -v
-      - run:
-          name: Run tests
-          command: |
-              pytest -vv tests --junitxml /tmp/testxml/report.xml
-      - store_test_results:
-          path: /tmp/testxml/
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - pre-build:
+          name: black
+          command-run: black --line-length=79 --check .
+      - pre-build:
+          name: flake8
+          command-run: flake8 .
+      - pre-build:
+          name: twine
+          command-run: |
+            python -m build && \
+            twine check dist/`ls dist/ | grep .tar.gz` && \
+            twine check dist/`ls dist/ | grep .whl`
+      - build-python:
+          requires:
+            - black
+            - flake8
+            - twine
+          matrix:
+            parameters:
+              python-version: ["3.9", "3.10"]
