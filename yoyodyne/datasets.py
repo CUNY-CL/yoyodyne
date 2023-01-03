@@ -453,6 +453,9 @@ class DatasetFeatures(DatasetNoFeatures):
                 features = self._get_cell(
                     row, self.features_col, self.features_sep
                 )
+                # Use unique encoding for features. This disambiguates from
+                # overlap with source.
+                features = [f"[{feature}]" for feature in features]
                 target = (
                     self._get_cell(row, self.target_col, self.target_sep)
                     if self.target_col
