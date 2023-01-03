@@ -48,7 +48,7 @@ class DatasetNoFeatures(data.Dataset):
         special_vocabulary = special.SPECIAL.copy()
         target_vocabulary: Set[str] = set()
         source_vocabulary: Set[str] = set()
-        if self.config.has_targets:
+        if self.config.has_target:
             for source, target in self.samples:
                 source_vocabulary.update(source)
                 target_vocabulary.update(target)
@@ -297,7 +297,7 @@ class DatasetNoFeatures(data.Dataset):
         source_encoded = self.encode(self.source_symbol2i, source)
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
-            if self.config.has_targets
+            if self.config.has_target
             else None
         )
         return source_encoded, target_encoded
@@ -318,7 +318,7 @@ class DatasetFeatures(DatasetNoFeatures):
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
-        if self.config.has_targets:
+        if self.config.has_target:
             for source, features, target in self.samples:
                 source_vocabulary.update(source)
                 features_vocabulary.update(features)
@@ -367,7 +367,7 @@ class DatasetFeatures(DatasetNoFeatures):
         features_encoded = self.encode_features(features)
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
-            if self.config.has_targets
+            if self.config.has_target
             else None
         )
         return source_encoded, features_encoded, target_encoded
@@ -456,13 +456,15 @@ class DatasetFeatures(DatasetNoFeatures):
         self.features_idx = vocab["features_idx"]
 
 
-def get_dataset_cls(include_features: bool) -> data.Dataset:
+def get_dataset(filename: str, config: dataconfig.DataConfig) -> data.Dataset:
     """Dataset factory.
 
     Args:
-        include_features (bool).
+        filename (str): input filename.
+        config (dataconfig.DataConfig): dataset configuration.
 
     Returns:
         data.Dataset: the dataset.
     """
-    return DatasetFeatures if include_features else DatasetNoFeatures
+    cls = DatasetFeatures if config.has_features else DatasetNoFeatures
+    return cls(filename, config)

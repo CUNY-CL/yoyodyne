@@ -74,7 +74,7 @@ class DataConfig:
     # Source is always present.
 
     @property
-    def has_targets(self) -> bool:
+    def has_target(self) -> bool:
         return self.target_col != 0
 
     @property
@@ -120,13 +120,13 @@ class DataConfig:
         if self.has_features:
             return (
                 self.source_features_target_samples(filename)
-                if self.has_targets
+                if self.has_target
                 else self.source_features_samples(filename)
             )
         else:
             return (
                 self.source_target_samples(filename)
-                if self.has_targets
+                if self.has_target
                 else self.source_samples(filename)
             )
 

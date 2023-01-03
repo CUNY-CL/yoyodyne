@@ -5,6 +5,8 @@ from typing import Iterable, List, Tuple
 import torch
 from torch.nn import functional
 
+from . import dataconfig
+
 
 class Collator:
     """Base class for other collators.
@@ -211,27 +213,29 @@ class SourceFeaturesTargetCollator(SourceFeaturesCollator):
 
 
 def get_collator(
-    pad_idx: int, *, arch: str, include_features: bool, include_target: bool
+    pad_idx: int, config: dataconfig.DataConfig, arch: str
 ) -> Collator:
     """Collator factory.
 
     Args:
         pad_idx (int).
+        config (dataconfig.DataConfig):
         arch (str).
-        include_features (bool).
-        include_target (bool).
 
     Returns:
         Collator.
     """
-    if include_features and arch in ["pointer_generator_lstm", "transducer"]:
+    if config.has_features and arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]:
         collator_cls = (
             SourceFeaturesTargetCollator
-            if include_target
+            if config.has_target
             else SourceFeaturesCollator
         )
     else:
         collator_cls = (
-            SourceTargetCollator if include_target else SourceCollator
+            SourceTargetCollator if config.has_target else SourceCollator
         )
     return collator_cls(pad_idx)

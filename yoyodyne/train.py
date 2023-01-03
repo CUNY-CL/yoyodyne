@@ -186,8 +186,7 @@ def main(
     )
     if config.target_col == 0:
         raise dataconfig.Error("target_col must be specified for training")
-    dataset_cls = datasets.get_dataset_cls(config.has_features)
-    train_set = dataset_cls(train, config)
+    train_set = datasets.get_dataset(train, config)
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
     # PL logging.
@@ -231,12 +230,9 @@ def main(
     )
     # So we can write indices to it before PL creates it.
     os.makedirs(trainer.loggers[0].log_dir, exist_ok=True)
-    # TODO: dataloader indexing Dicts should probably be added to model state.
     train_set.write_index(trainer.loggers[0].log_dir, experiment)
-    collator_cls = collators.get_collator_cls(
-        arch, config.has_features, include_targets=True
-    )
-    collator = collator_cls(train_set.pad_idx)
+    collator = collators.get_collator(train_set.pad_idx, config, arch)
+    # TODO: dataloader indexing Dicts should probably be added to model state.
     train_loader = data.DataLoader(
         train_set,
         collate_fn=collator,
@@ -244,7 +240,7 @@ def main(
         shuffle=True,
         num_workers=dataloader_workers,
     )
-    dev_set = dataset_cls(dev, config)
+    dev_set = datasets.get_dataset(dev, config)
     dev_set.load_index(trainer.loggers[0].log_dir, experiment)
     dev_loader = data.DataLoader(
         dev_set,
@@ -298,9 +294,9 @@ def main(
             else None,
         ).to(device)
         util.log_info("Training...")
-        util.log_info(f"Model: {model_cls.__name__}")
-        util.log_info(f"Dataset: {dataset_cls.__name__}")
-        util.log_info(f"Collator: {collator_cls.__name__}")
+        util.log_info(f"Model: {model.__class__.__name__}")
+        util.log_info(f"Dataset: {train_set.__class__.__name__}")
+        util.log_info(f"Collator: {collator.__class__.__name__}")
         trainer.fit(model, train_loader, dev_loader)
     util.log_info("Training complete")
     util.log_info(
