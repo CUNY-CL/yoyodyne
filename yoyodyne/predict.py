@@ -16,6 +16,7 @@ def write_predictions(
     loader: torch.utils.data.DataLoader,
     output: str,
     arch: str,
+    accelerator: str,
     batch_size: int,
     config: dataconfig.DataConfig,
     gpu: bool,
@@ -28,18 +29,16 @@ def write_predictions(
         loader (torch.utils.data.DataLoader).
         output (str).
         arch (str).
+        accelerator (str).
         batch_size (int).
         config (dataconfig.DataConfig).
-        gpu (bool).
         beam_width (int, optional).
     """
     model.beam_width = beam_width
     model.eval()
     # Test loop.
-    accelerator = "gpu" if gpu and torch.cuda.is_available() else "cpu"
     tester = pl.Trainer(
         accelerator=accelerator,
-        devices=1,
         max_epochs=0,  # Silences a warning.
     )
     util.log_info("Predicting...")
@@ -56,9 +55,8 @@ def write_predictions(
                     pred_batch = pred_batch.squeeze(2)
                 else:
                     _, pred_batch = torch.max(pred_batch, dim=2)
-            # Uses CPU because PL seems to always return CPU tensors.
             pred_batch = model.evaluator.finalize_preds(
-                pred_batch, dataset.end_idx, dataset.pad_idx, "cpu"
+                pred_batch, dataset.end_idx, dataset.pad_idx
             )
             prediction_strs = dataset.decode_target(
                 pred_batch,
@@ -132,7 +130,7 @@ def write_predictions(
     help="Use attention (`lstm` only)",
 )
 @click.option("--bidirectional/--no-bidirectional", type=bool, default=True)
-@click.option("--gpu/--no-gpu", default=True)
+@click.option("--accelerator")
 def main(
     experiment,
     predict,
@@ -151,11 +149,10 @@ def main(
     beam_width,
     attention,
     bidirectional,
-    gpu,
+    accelerator,
 ):
     """Predictor."""
     os.makedirs(os.path.dirname(output), exist_ok=True)
-    device = util.get_device(gpu)
     config = dataconfig.DataConfig(
         source_col=source_col,
         features_col=features_col,
@@ -164,7 +161,6 @@ def main(
         features_sep=features_sep,
         target_sep=target_sep,
         tied_vocabulary=tied_vocabulary,
-    )
     # TODO: Do not need to enforce once we have batch beam decoding.
     if beam_width is not None:
         util.log_info("Decoding with beam search; forcing batch size to 1")
@@ -187,12 +183,13 @@ def main(
     # Model.
     model_cls = models.get_model_cls(arch, attention, config.has_features)
     util.log_info(f"Loading model from {checkpoint}")
-    model = model_cls.load_from_checkpoint(checkpoint).to(device)
+    model = model_cls.load_from_checkpoint(checkpoint)
     write_predictions(
         model,
         loader,
         output,
         arch,
+        accelerator,
         batch_size,
         config,
         gpu,
