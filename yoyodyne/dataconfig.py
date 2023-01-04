@@ -132,7 +132,7 @@ class DataConfig:
 
     # Writer help.
 
-    def row(
+    def make_row(
         self,
         source: List[str],
         target: List[str],

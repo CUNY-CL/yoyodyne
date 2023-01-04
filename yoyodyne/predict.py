@@ -79,8 +79,9 @@ def write_predictions(
             for source, prediction, features in zip(
                 source_strs, prediction_strs, features_strs
             ):
-                row = config.row(source, prediction, features)
-                tsv_writer.writerow(row)
+                tsv_writer.writerow(
+                    config.make_row(source, prediction, features)
+                )
     util.log_info("Prediction complete")
 
 
