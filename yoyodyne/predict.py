@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 import torch
 from torch.utils import data
 
-from . import collators, datasets, models, util
+from . import collators, dataconfig, datasets, models, util
 
 
 def write_predictions(
@@ -18,13 +18,7 @@ def write_predictions(
     arch: str,
     accelerator: str,
     batch_size: int,
-    source_col: int,
-    target_col: int,
-    features_col: int,
-    source_sep: str,
-    target_sep: str,
-    features_sep: str,
-    include_features: bool,
+    config: dataconfig.DataConfig,
     beam_width: int = None,
 ) -> None:
     """Writes predictions to output file.
@@ -36,13 +30,7 @@ def write_predictions(
         arch (str).
         accelerator (str).
         batch_size (int).
-        source_col (int).
-        target_col (int).
-        features_col (int).
-        source_sep (str).
-        target_sep (str).
-        features_sep (str).
-        include_features (bool).
+        config (dataconfig.DataConfig).
         beam_width (int, optional).
     """
     model.beam_width = beam_width
@@ -54,12 +42,10 @@ def write_predictions(
     )
     util.log_info("Predicting...")
     predicted = tester.predict(model, dataloaders=loader)
-    collator = loader.collate_fn
     dataset = loader.dataset
-    util.log_info(f"Writing predictions to {output}")
+    util.log_info(f"Writing to {output}")
     with open(output, "w") as sink:
         tsv_writer = csv.writer(sink, delimiter="\t")
-        row_template = [""] * max(source_col, target_col, features_col)
         for batch, pred_batch in zip(loader, predicted):
             if arch != "transducer":
                 # -> B x seq_len x vocab_size
@@ -79,24 +65,20 @@ def write_predictions(
             source_strs = dataset.decode_source(
                 batch[0], symbols=True, special=False
             )
-            features_batch = batch[2] if collator.has_features else batch[0]
+            features_batch = batch[2] if config.has_features else batch[0]
             features_strs = (
                 dataset.decode_features(
                     features_batch, symbols=True, special=False
                 )
-                if include_features
+                if config.has_features
                 else [None for _ in range(batch_size)]
             )
             for source, prediction, features in zip(
                 source_strs, prediction_strs, features_strs
             ):
-                row = row_template.copy()
-                # -1 because we're using base-1 indexing.
-                row[source_col - 1] = source_sep.join(source)
-                row[target_col - 1] = target_sep.join(prediction)
-                if include_features:
-                    row[features_col - 1] = features_sep.join(features)
-                tsv_writer.writerow(row)
+                tsv_writer.writerow(
+                    config.make_row(source, prediction, features)
+                )
     util.log_info("Prediction complete")
 
 
@@ -170,27 +152,26 @@ def main(
 ):
     """Predictor."""
     os.makedirs(os.path.dirname(output), exist_ok=True)
+    config = dataconfig.DataConfig(
+        source_col=source_col,
+        features_col=features_col,
+        target_col=target_col,
+        source_sep=source_sep,
+        features_sep=features_sep,
+        target_sep=target_sep,
+        tied_vocabulary=tied_vocabulary,
+    )
     # TODO: Do not need to enforce once we have batch beam decoding.
     if beam_width is not None:
         util.log_info("Decoding with beam search; forcing batch size to 1")
         batch_size = 1
-    include_features = features_col != 0
-    dataset_cls = datasets.get_dataset_cls(include_features)
-    dataset = dataset_cls(
-        predict,
-        tied_vocabulary,
-        source_col,
-        0,  # Target columns unnecessary.
-        source_sep,
-        target_sep,
-        features_col=features_col,
-        features_sep=features_sep,
-    )
+    dataset_cls = datasets.get_dataset_cls(config.has_features)
+    dataset = dataset_cls(predict, config)
     dataset.load_index(model_dir, experiment)
     util.log_info(f"Source vocabulary: {dataset.source_symbol2i}")
     util.log_info(f"Target vocabulary: {dataset.target_symbol2i}")
     collator_cls = collators.get_collator_cls(
-        arch, include_features, include_targets=False
+        arch, config.has_features, include_targets=False
     )
     collator = collator_cls(dataset.pad_idx)
     loader = data.DataLoader(
@@ -200,7 +181,7 @@ def main(
         shuffle=False,
     )
     # Model.
-    model_cls = models.get_model_cls(arch, attention, include_features)
+    model_cls = models.get_model_cls(arch, attention, config.has_features)
     util.log_info(f"Loading model from {checkpoint}")
     model = model_cls.load_from_checkpoint(checkpoint)
     write_predictions(
@@ -210,13 +191,7 @@ def main(
         arch,
         accelerator,
         batch_size,
-        source_col,
-        target_col,
-        features_col,
-        source_sep,
-        target_sep,
-        features_sep,
-        include_features,
+        config,
         beam_width,
     )
 

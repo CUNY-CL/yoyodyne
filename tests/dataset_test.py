@@ -1,6 +1,6 @@
 import pytest
 
-from yoyodyne import datasets
+from yoyodyne import dataconfig, datasets
 
 
 @pytest.mark.parametrize(
@@ -9,5 +9,6 @@ from yoyodyne import datasets
 )
 def test_get_dataset(make_tsv_file, features_col, expected_cls):
     filename = make_tsv_file
-    dataset = datasets.get_dataset(filename, features_col=features_col)
+    config = dataconfig.DataConfig(features_col=features_col)
+    dataset = datasets.get_dataset(filename, config)
     assert type(dataset) is expected_cls

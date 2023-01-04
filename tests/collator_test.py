@@ -1,6 +1,6 @@
 import pytest
 
-from yoyodyne import collators
+from yoyodyne import collators, dataconfig
 
 
 @pytest.mark.parametrize(
@@ -52,10 +52,11 @@ from yoyodyne import collators
     ],
 )
 def test_get_collator(arch, include_features, include_target, expected_cls):
+    config = dataconfig.DataConfig(
+        features_col=3 if include_features else 0,
+        target_col=2 if include_target else 0,
+    )
     collator = collators.get_collator(
-        1,  # pad_idx, but it doesn't matter here.
-        arch=arch,
-        include_features=include_features,
-        include_target=include_target,
+        1, config, arch  # pad_idx, but it doesn't matter here.
     )
     assert type(collator) is expected_cls
