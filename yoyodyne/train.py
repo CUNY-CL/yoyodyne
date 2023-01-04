@@ -173,9 +173,19 @@ def main(
     for arg, val in click.get_current_context().params.items():
         util.log_info(f"\t{arg}: {val!r}")
     pl.seed_everything(seed)
+    config = dataconfig.DataConfig(
+        source_col=source_col,
+        features_col=features_col,
+        target_col=target_col,
+        source_sep=source_sep,
+        target_sep=target_sep,
+        features_sep=features_sep,
+        tied_vocabulary=tied_vocabulary,
+    )
     if config.target_col == 0:
         raise dataconfig.Error("target_col must be specified for training")
     train_set = datasets.get_dataset(train, config)
+    dev_set = datasets.get_dataset(dev, config)
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
     # PL logging.
@@ -216,11 +226,10 @@ def main(
         log_every_n_steps=len(train_set) // batch_size,
         num_sanity_val_steps=0,
     )
-    # So we can write indices to it before PL creates it.
     os.makedirs(trainer.loggers[0].log_dir, exist_ok=True)
     train_set.write_index(trainer.loggers[0].log_dir, experiment)
+    dev_set.load_index(trainer.loggers[0].log_dir, experiment)
     collator = collators.get_collator(train_set.pad_idx, config, arch)
-    # TODO: dataloader indexing Dicts should probably be added to model state.
     train_loader = data.DataLoader(
         train_set,
         collate_fn=collator,
@@ -228,8 +237,6 @@ def main(
         shuffle=True,
         num_workers=dataloader_workers,
     )
-    dev_set = datasets.get_dataset(dev, config)
-    dev_set.load_index(trainer.loggers[0].log_dir, experiment)
     dev_loader = data.DataLoader(
         dev_set,
         collate_fn=collator,
@@ -237,7 +244,6 @@ def main(
         shuffle=False,
         num_workers=dataloader_workers,
     )
-    evaluator = evaluators.Evaluator()
     model_cls = models.get_model_cls(arch, attention, config.has_features)
     if train_from is not None:
         util.log_info(f"Loading model from {train_from}")
@@ -261,7 +267,7 @@ def main(
             beta1=beta1,
             beta2=beta2,
             learning_rate=learning_rate,
-            evaluator=evaluator,
+            evaluator=evaluators.Evaluator(),
             max_decode_len=max_decode_len,
             dropout=dropout,
             encoder_layers=encoder_layers,
@@ -302,7 +308,7 @@ def main(
             dev_loader,
             dev_predictions,
             arch,
-            batch_size,
+            batch_size * 2,
             config,
         )
 

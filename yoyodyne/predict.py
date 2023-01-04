@@ -19,7 +19,6 @@ def write_predictions(
     accelerator: str,
     batch_size: int,
     config: dataconfig.DataConfig,
-    gpu: bool,
     beam_width: int = None,
 ) -> None:
     """Writes predictions to output file.
@@ -161,6 +160,7 @@ def main(
         features_sep=features_sep,
         target_sep=target_sep,
         tied_vocabulary=tied_vocabulary,
+    )
     # TODO: Do not need to enforce once we have batch beam decoding.
     if beam_width is not None:
         util.log_info("Decoding with beam search; forcing batch size to 1")
@@ -192,7 +192,6 @@ def main(
         accelerator,
         batch_size,
         config,
-        gpu,
         beam_width,
     )
 

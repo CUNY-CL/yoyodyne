@@ -365,7 +365,12 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_symbol2i, source)
-        features_encoded = self.encode_features(features)
+        features_encoded = self.encode(
+            self.source_symbol2i,
+            features,
+            add_start_tag=False,
+            add_end_tag=False,
+        )
         target_encoded = (
             self.encode(self.target_symbol2i, target, add_start_tag=False)
             if self.config.has_target
