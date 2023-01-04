@@ -306,8 +306,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Feed in the first decoder input, as a start tag.
         # -> B x 1.
         decoder_input = (
-            torch.LongTensor([self.start_idx])
-            .to(self.device)
+            torch.tensor(
+                [self.start_idx], device=self.device, dtype=torch.long
+            )
             .repeat(batch_size)
             .unsqueeze(1)
         )
@@ -316,7 +317,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             target.size(1) if target is not None else self.max_decode_len
         )
         # Tracks when each sequence has decoded an EOS.
-        finished = torch.zeros(batch_size).to(self.device)
+        finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
             output, decoder_hiddens = self.decode_step(
@@ -401,11 +402,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                     continue
                 # Feeds in the first decoder input, as a start tag.
                 # -> batch_size x 1
-                decoder_input = (
-                    torch.LongTensor([beam_idxs[-1]])
-                    .to(self.device)
-                    .unsqueeze(1)
-                )
+                decoder_input = torch.tensor(
+                    [beam_idxs[-1]], device=self.device, dtype=torch.long
+                ).unsqueeze(1)
                 preds, decoder_hiddens = self.decode_step(
                     decoder_input, decoder_hiddens, encoder_out, encoder_mask
                 )

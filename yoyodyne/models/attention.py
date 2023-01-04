@@ -64,12 +64,12 @@ class Attention(nn.Module):
         # B  x seq_len x decoder_dim.
         hidden = hidden.repeat(1, encoder_outputs.size(1), 1)
         # Gets the scores of each time step in the output.
-        attn_scores = self.score(hidden, encoder_outputs)
+        attention_scores = self.score(hidden, encoder_outputs)
         # Masks the scores with -inf at each padded character so that softmax
         # computes a 0 towards the distribution for that cell.
-        attn_scores.data.masked_fill_(mask, -math.inf)
+        attention_scores.data.masked_fill_(mask, -math.inf)
         # -> B x 1 x seq_len
-        weights = nn.functional.softmax(attn_scores, dim=1).unsqueeze(1)
+        weights = nn.functional.softmax(attention_scores, dim=1).unsqueeze(1)
         # -> B x 1 x decoder_dim
         weighted = torch.bmm(weights, encoder_outputs)
         return weighted, weights

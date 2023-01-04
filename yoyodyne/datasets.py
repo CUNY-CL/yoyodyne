@@ -232,8 +232,9 @@ class DatasetNoFeatures(data.Dataset):
         sequence.extend(word)
         if add_end_tag:
             sequence.append(special.END)
-        return torch.LongTensor(
-            [symbol2i.get(symbol, self.unk_idx) for symbol in sequence]
+        return torch.tensor(
+            [symbol2i.get(symbol, self.unk_idx) for symbol in sequence],
+            dtype=torch.long,
         )
 
     def _decode(
