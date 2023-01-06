@@ -29,10 +29,12 @@ but differs on several key points of design:
         to be reasonably exhaustive.
     -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
-    architecture-specific code to handle this feature information.
+    architecture-specific code to handle feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 -   🚧 UNDER CONSTRUCTION 🚧: Releases are made regularly.
+-   It uses validation accuracy (not loss) for model selection and early
+    stoppping.
 
 ## Install
 
@@ -134,35 +136,33 @@ flag.
 
 A non-exhaustive list includes:
 
-* Accelerators:
-    -   `--accelerator` (default: "cpu")
-* Batch size:
+-   Batch size:
     -   `--batch_size` (default: 32)
-* Regularization:
+-   Regularization:
     -   `--label_smoothing` (default: not enabled)
     -   `--dropout` (default: .2)
     -   `--gradient_clip_val` (default: not enabled)
-* Optimizer:
+-   Optimizer:
     -   `--learning_rate` (default: .001)
     -   `--optimizer` (default: "adam")
-    -   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam
-        optimizer (`--optimizer adam`)
+    -   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
+        (`--optimizer adam`)
     -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam
-	optimizer (`--optimizer adam`)
+        optimizer (`--optimizer adam`)
     -   `--scheduler` (default: not enabled)
     -   `--warmup_steps` (default: not enabled): warm-up parameter for a linear
         warm-up followed by inverse square root decay schedule (only valid with
         `--scheduler warmupinvsqrt`)
-* Duration:
-    -  `--max_epochs`
-    -  `--min_epochs`
-    -  `--max_steps`
-    -  `--min_steps`
-    -  `--max_time`
-    -  `--patience`
-* Seeding: 
-    -  `--seed`
-* [Weights & Biases](https://wandb.ai/site)
+-   Duration:
+    -   `--max_epochs`
+    -   `--min_epochs`
+    -   `--max_steps`
+    -   `--min_steps`
+    -   `--max_time`
+    -   `--patience`
+-   Seeding:
+    -   `--seed`
+-   [Weights & Biases](https://wandb.ai/site)
     -   `--wandb` (default: False): enables Weights & Biases tracking.
 
 **No neural model should be deployed without proper hyperparameter tuning.**
@@ -170,3 +170,11 @@ However, the default options give a reasonable initial settings for an attentive
 biLSTM. For transformer-based architectures, experiment with multiple encoder
 and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
+
+## Accelerators
+
+By default Yoyodyne runs on CPU. One can specify accelerators using the
+`--accelerators` flag. For instance `--accelerators gpu` will use a local
+CUDA-enabled GPU. [Other
+accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
+may also be supported but not all have been tested yet.
