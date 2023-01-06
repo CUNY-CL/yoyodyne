@@ -108,7 +108,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         embedded = self.dropout_layer(embedded)
         # -> 1 x B x decoder_dim.
         last_h, last_c = last_hiddens
-        source_context, source_attn_weights = self.source_attention(
+        source_context, source_attention_weights = self.source_attention(
             last_h.transpose(0, 1), source_enc, source_mask
         )
         _, (h, c) = self.decoder(
@@ -121,21 +121,21 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
         # -> B x 1 x output_size.
-        attn_probs = torch.zeros(
+        attention_probs = torch.zeros(
             symbol.size(0), self.output_size, device=self.device
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x output_size.
-        attn_probs.scatter_add_(
-            2, source_indices.unsqueeze(1), source_attn_weights
+        attention_probs.scatter_add_(
+            2, source_indices.unsqueeze(1), source_attention_weights
         )
         # Probability of generating (from output_probs).
         gen_probs = self.generation_probability(
             source_context, hidden, embedded
         ).unsqueeze(2)
         gen_scores = gen_probs * output_probs
-        ptr_scores = (1 - gen_probs) * attn_probs
+        ptr_scores = (1 - gen_probs) * attention_probs
         scores = gen_scores + ptr_scores
         # Puts scores in log space.
         scores = torch.log(scores)
@@ -166,17 +166,18 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Feeds in the first decoder input, as a start tag.
         # -> B x 1
         decoder_input = (
-            torch.LongTensor([self.start_idx])
-            .to(self.device)
+            torch.tensor(
+                [self.start_idx], device=self.device, dtype=torch.long
+            )
             .repeat(batch_size)
             .unsqueeze(1)
         )
         preds = []
         num_steps = (
-            target.size(1) if target is not None else self.max_decode_len
+            target.size(1) if target is not None else self.max_decode_length
         )
         # Tracks when each sequence has decoded an EOS.
-        finished = torch.zeros(batch_size).to(self.device)
+        finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
             output, decoder_hiddens = self.decode_step(
@@ -370,7 +371,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         embedded = self.dropout_layer(embedded)
         # -> 1 x B x decoder_dim.
         last_h, last_c = last_hiddens
-        source_context, source_attn_weights = self.source_attention(
+        source_context, source_attention_weights = self.source_attention(
             last_h.transpose(0, 1), source_enc, source_mask
         )
         feature_context, _ = self.feature_attention(
@@ -386,21 +387,21 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
         # -> B x 1 x output_size.
-        attn_probs = torch.zeros(
+        attention_probs = torch.zeros(
             symbol.size(0), self.output_size, device=self.device
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x output_size.
-        attn_probs.scatter_add_(
-            2, source_indices.unsqueeze(1), source_attn_weights
+        attention_probs.scatter_add_(
+            2, source_indices.unsqueeze(1), source_attention_weights
         )
         # Probability of generating (from output_probs).
         gen_probs = self.generation_probability(
             context, hidden, embedded
         ).unsqueeze(2)
         gen_scores = gen_probs * output_probs
-        ptr_scores = (1 - gen_probs) * attn_probs
+        ptr_scores = (1 - gen_probs) * attention_probs
         scores = gen_scores + ptr_scores
         # Puts scores in log space.
         scores = torch.log(scores)
@@ -435,17 +436,18 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Feeds in the first decoder input, as a start tag.
         # -> B x 1
         decoder_input = (
-            torch.LongTensor([self.start_idx])
-            .to(self.device)
+            torch.tensor(
+                [self.start_idx], device=self.device, dtype=torch.long
+            )
             .repeat(batch_size)
             .unsqueeze(1)
         )
         preds = []
         num_steps = (
-            target.size(1) if target is not None else self.max_decode_len
+            target.size(1) if target is not None else self.max_decode_length
         )
         # Tracks when each sequence has decoded an EOS.
-        finished = torch.zeros(batch_size).to(self.device)
+        finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
             output, decoder_hiddens = self.decode_step(

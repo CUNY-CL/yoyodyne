@@ -11,16 +11,6 @@ class Error(Exception):
 class Evaluator:
     """Evaluates predictions."""
 
-    device: torch.device
-
-    def __init__(self, device):
-        """Initizalizes the evaluator.
-
-        Args:
-            device (torch.device).
-        """
-        self.device = device
-
     def val_accuracy(
         self,
         preds: torch.Tensor,
@@ -49,11 +39,11 @@ class Evaluator:
         # Gets the max val at each dim2 in preds.
         vals, preds = torch.max(preds, dim=2)
         # Finalizes the preds.
-        preds = self.finalize_preds(preds, end_idx, pad_idx, self.device)
-        return self.get_accuracy(preds, golds, pad_idx)
+        preds = self.finalize_preds(preds, end_idx, pad_idx)
+        return self.accuracy(preds, golds, pad_idx)
 
     @staticmethod
-    def get_accuracy(
+    def accuracy(
         preds: torch.Tensor,
         golds: torch.Tensor,
         pad_idx: int,
@@ -64,8 +54,10 @@ class Evaluator:
             num_pads = (0, golds.size(1) - preds.size(1))
             preds = functional.pad(preds, num_pads, "constant", pad_idx)
         # Gets the count of exactly matching tensors in the batch.
-        # -> B x max_seq_len
-        corr_count = torch.where((preds == golds).all(dim=1))[0].size()[0]
+        # -> B x max_seq_len.
+        corr_count = torch.where((preds.to(golds.device) == golds).all(dim=1))[
+            0
+        ].size()[0]
         # Gets the batch size (total_count).
         total_count = preds.size(0)
         return corr_count / total_count
@@ -75,7 +67,6 @@ class Evaluator:
         preds: torch.Tensor,
         end_idx: int,
         pad_idx: int,
-        device: torch.device,
     ) -> torch.Tensor:
         """Finalizes predictions.
 
@@ -87,7 +78,6 @@ class Evaluator:
             preds (torch.Tensor): prediction tensor.
             end_idx (int).
             pad_idx (int).
-            device (torch.device).
 
         Returns:
             torch.Tensor: finalized predictions.
@@ -110,10 +100,14 @@ class Evaluator:
             # torch.split will result in an error, so we change these 0's to
             # 1's, which will make the entire sequence EOS as intended.
             EOS[EOS == 0] = 1
-            chars, *extras = torch.split(x, EOS)
+            chars, *_ = torch.split(x, EOS)
             # Replaces everything after with PAD, to replace erroneous decoding
             # While waiting on the entire batch to finish.
-            pads = torch.ones(len(x) - len(chars), device=device) * pad_idx
+            pads = (
+                torch.ones(len(x) - len(chars), device=chars.device) * pad_idx
+            )
             pads[0] = end_idx
-            preds[i] = torch.cat((chars, pads))
+            # Making an in-place udpate to an inference tensor.
+            with torch.inference_mode():
+                preds[i] = torch.cat((chars, pads))
         return preds

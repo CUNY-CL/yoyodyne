@@ -16,14 +16,14 @@ from .transformer import (
 
 
 def get_model_cls(
-    arch: str, attention: bool, include_features: bool
+    arch: str, attention: bool, has_features: bool
 ) -> pl.LightningModule:
     """Model factory.
 
     Args:
         arch (str).
         attention (bool).
-        include_features (bool).
+        has_features (bool).
 
     Raises:
         NotImplementedError.
@@ -37,21 +37,18 @@ def get_model_cls(
             FeatureInvariantTransformerEncoderDecoder,
         "pointer_generator_lstm":
             PointerGeneratorLSTMEncoderDecoderFeatures
-            if include_features
+            if has_features
             else PointerGeneratorLSTMEncoderDecoderNoFeatures,
         # fmt: on
         "transducer": TransducerFeatures
-        if include_features
+        if has_features
         else TransducerNoFeatures,
         "transformer": TransformerEncoderDecoder,
         "lstm": LSTMEncoderDecoderAttention
         if attention
         else LSTMEncoderDecoder,
     }
-    if arch in ["lstm", "pointer_generator_lstm", "transformer"]:
-        util.log_info(f"Attention: {attention}")
     try:
-        kls = model_fac[arch]
-        return kls
+        return model_fac[arch]
     except KeyError:
         raise NotImplementedError(f"Architecture {arch} not found")

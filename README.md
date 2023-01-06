@@ -9,7 +9,8 @@ versions](https://img.shields.io/pypi/pyversions/yoyodyne.svg)](https://pypi.org
 Yoyodyne provides neural models for small-vocabulary sequence-to-sequence
 generation with and without feature conditioning.
 
-These models are implemented using PyTorch and PyTorch Lightning.
+These models are implemented using [PyTorch](https://pytorch.org/) and
+[Lightning](https://www.pytorchlightning.ai/).
 
 While we provide classic `lstm` and `transformer` models, some of the provided
 models are particularly well-suited for problems where the source-target
@@ -41,14 +42,9 @@ First install dependencies:
 
 Then install:
 
-    python setup.py install
+    pip install .
 
-Or:
-
-    python setup.py develop
-
-The latter creates a Python module in your environment that updates as you
-update the code. It can then be imported like a regular Python module:
+It can then be imported like a regular Python module:
 
 ```python
 import yoyodyne
@@ -56,73 +52,8 @@ import yoyodyne
 
 ## Usage
 
-See [`train.py`](yoyodyne/train.py) and [`predict.py`](yoyodyne/predict.py) for
-all model options.
-
-## Architectures
-
-The user specifies the model using the `--arch` flag (and in some cases
-additional flags).
-
--   `feature_invariant_transformer`: This is a variant of the `transformer`
-    which uses a learned embedding to distinguish input symbols from features.
-    It may be superior to the vanilla transformer when using features.
--   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
-    treated as a learned parameter. By default, the encoder is connected to the
-    decoder by an attention mechanism; one can disable this (with
-    `--no-attention`), in which case the last non-padding hidden state of the
-    encoder is concatenated with the decoder hidden state.
--   `pointer_generator_lstm`: This is an attentive pointer-generator with an
-    LSTM backend. Since this model contains a copy mechanism, it may be superior
-    to the `lstm` when the input and output vocabularies overlap significantly.
--   `transducer`: This is a transducer with an LSTM backend. On model creation,
-    expectation maximization is used to learn a sequence of edit operations, and
-    imitation learning is used to train the model to implement the oracle
-    policy, with roll-in controlled by the `--oracle-factor` flag (default: 1).
-    Since this model assumes monotonic alignment, it may be superior to
-    attentive models when the alignment between input and output is roughly
-    monotonic and when input and output vocabularies overlap significantly.
--   `transformer`: This is a transformer encoder-decoder with positional
-    encoding and layer normalization. The user may wish to specify the number of
-    attention heads (with `--attention-heads`; default: 4).
-
-For all models, the user may also wish to specify:
-
--   `--decoder-layers` (default: 1): number of decoder layers
--   `--embedding` (default: 128): embedding size
--   `--encoder-layers` (default: 1): number of encoder layers
--   `--hidden-size` (default: 512): hidden layer size
-
-By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
-LSTM bidirectional encoder. One can disable this with the `--no-bidirectional`
-flag.
-
-## Training options
-
--   `--batch-size` (default: 32)
--   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
-    (`--optimizer adam`)
--   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
-    (`--optimizer adam`)
--   `--dropout` (default: .2): dropout probability
--   `--max-epochs` (default: 50)
--   `--gradient-clip` (default: not enabled)
--   `--label-smoothing` (default: not enabled)
--   `--learning-rate` (default: .001)
--   `--scheduler` (default: not enabled)
--   `--optimizer` (default: "adam")
--   `--patience` (default: not enabled)
--   `--wandb` (default: False): enables [Weights &
-    Biases](https://wandb.ai/site) tracking
--   `--warmup-steps` (default: not enabled): warm-up parameter for a linear
-    warm-up followed by inverse square root decay schedule (only valid with
-    `--scheduler warmupinvsqr`)
-
-**No neural model should be deployed without proper hyperparameter tuning.**
-However, the default options give a reasonable initial settings for an attentive
-biLSTM. For transformer-based architectures, experiment with multiple encoder
-and decoder layers, much larger batches, and the warmup + inverse square root
-decay scheduler.
+See [`yoyodyne-predict --help`](yoyodyne/predict.py) and
+[`yoyodyne-train --help`](yoyodyne/train.py).
 
 ## Data format
 
@@ -152,3 +83,90 @@ Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
 symbols of form `<...>` or `[...]`.
+
+## Acceleration
+
+[Hardware
+accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
+can be used during training or prediction. In addition to CPU (the default) and
+GPU (`--accelerator gpu`), Yoyodyne also supports proprietary ASICs such as
+TPUs.
+
+## Architectures
+
+The user specifies the model using the `--arch` flag (and in some cases
+additional flags).
+
+-   `feature_invariant_transformer`: This is a variant of the `transformer`
+    which uses a learned embedding to distinguish input symbols from features.
+    It may be superior to the vanilla transformer when using features.
+-   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
+    treated as a learned parameter. By default, the encoder is connected to the
+    decoder by an attention mechanism; one can disable this (with
+    `--no_attention`), in which case the last non-padding hidden state of the
+    encoder is concatenated with the decoder hidden state.
+-   `pointer_generator_lstm`: This is an attentive pointer-generator with an
+    LSTM backend. Since this model contains a copy mechanism, it may be superior
+    to the `lstm` when the input and output vocabularies overlap significantly.
+-   `transducer`: This is a transducer with an LSTM backend. On model creation,
+    expectation maximization is used to learn a sequence of edit operations, and
+    imitation learning is used to train the model to implement the oracle
+    policy, with roll-in controlled by the `--oracle-factor` flag (default: 1).
+    Since this model assumes monotonic alignment, it may be superior to
+    attentive models when the alignment between input and output is roughly
+    monotonic and when input and output vocabularies overlap significantly.
+-   `transformer`: This is a transformer encoder-decoder with positional
+    encoding and layer normalization. The user may wish to specify the number of
+    attention heads (with `--attention-heads`; default: 4).
+
+For all models, the user may also wish to specify:
+
+-   `--decoder_layers` (default: 1): number of decoder layers
+-   `--embedding` (default: 128): embedding size
+-   `--encoder_layers` (default: 1): number of encoder layers
+-   `--hidden_size` (default: 512): hidden layer size
+
+By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
+LSTM bidirectional encoder. One can disable this with the `--no_bidirectional`
+flag.
+
+## Training options
+
+A non-exhaustive list includes:
+
+* Accelerators:
+-   `--accelerator` (default: "cpu")
+* Batch size:
+-   `--batch_size` (default: 32)
+* Regularization:
+-   `--label_smoothing` (default: not enabled)
+-   `--dropout` (default: .2)
+-   `--gradient_clip_val` (default: not enabled)
+* Optimizer:
+-   `--learning_rate` (default: .001)
+-   `--optimizer` (default: "adam")
+-   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
+    (`--optimizer adam`)
+-   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
+    (`--optimizer adam`)
+-   `--scheduler` (default: not enabled)
+-   `--warmup_steps` (default: not enabled): warm-up parameter for a linear
+    warm-up followed by inverse square root decay schedule (only valid with
+    `--scheduler warmupinvsqrt`)
+* Duration:
+-  `--max_epochs`
+-  `--min_epochs`
+-  `--max_steps`
+-  `--min_steps`
+-  `--max_time`
+-  `--patience`
+* Seeding: 
+-  `--seed`
+* [Weights & Biases](https://wandb.ai/site)
+-   `--wandb` (default: False): enables Weights & Biases tracking.
+
+**No neural model should be deployed without proper hyperparameter tuning.**
+However, the default options give a reasonable initial settings for an attentive
+biLSTM. For transformer-based architectures, experiment with multiple encoder
+and decoder layers, much larger batches, and the warmup + inverse square root
+decay scheduler.

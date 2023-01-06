@@ -45,7 +45,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     encoder: nn.LSTM
     h0: nn.Parameter
     c0: nn.Parameter
-    max_decode_len: int
+    max_decode_length: int
     decoder: nn.LSTM
     classifier: nn.Linear
     log_softmax: nn.LogSoftmax
@@ -69,7 +69,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         learning_rate,
         scheduler,
         evaluator,
-        max_decode_len,
+        max_decode_length,
         dropout=0.2,
         encoder_layers=1,
         decoder_layers=1,
@@ -95,7 +95,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             learning_rate (float).
             evaluator (evaluators.Evaluator).
             scheduler (str).
-            max_decode_len (int).
+            max_decode_length (int).
             dropout (float, optional).
             encoder_layers (int, optional).
             decoder_layers (int, optional).
@@ -144,7 +144,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Initial hidden state whose parameters are shared across all examples.
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
-        self.max_decode_len = max_decode_len
+        self.max_decode_length = max_decode_length
         self.decoder = nn.LSTM(
             encoder_size + self.embedding_size,
             self.hidden_size,
@@ -306,17 +306,18 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Feed in the first decoder input, as a start tag.
         # -> B x 1.
         decoder_input = (
-            torch.LongTensor([self.start_idx])
-            .to(self.device)
+            torch.tensor(
+                [self.start_idx], device=self.device, dtype=torch.long
+            )
             .repeat(batch_size)
             .unsqueeze(1)
         )
         preds = []
         num_steps = (
-            target.size(1) if target is not None else self.max_decode_len
+            target.size(1) if target is not None else self.max_decode_length
         )
         # Tracks when each sequence has decoded an EOS.
-        finished = torch.zeros(batch_size).to(self.device)
+        finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
             output, decoder_hiddens = self.decode_step(
@@ -375,7 +376,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         decoder_hiddens = self.init_hiddens(encoder_out.size(0))
         # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
-        for t in range(self.max_decode_len):
+        for t in range(self.max_decode_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x output_size possibilities
             likelihoods = []
@@ -401,11 +402,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                     continue
                 # Feeds in the first decoder input, as a start tag.
                 # -> batch_size x 1
-                decoder_input = (
-                    torch.LongTensor([beam_idxs[-1]])
-                    .to(self.device)
-                    .unsqueeze(1)
-                )
+                decoder_input = torch.tensor(
+                    [beam_idxs[-1]], device=self.device, dtype=torch.long
+                ).unsqueeze(1)
                 preds, decoder_hiddens = self.decode_step(
                     decoder_input, decoder_hiddens, encoder_out, encoder_mask
                 )

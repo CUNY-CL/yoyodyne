@@ -225,7 +225,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             return []
         # TODO: Implement multiple options.
         scheduler_fac = {
-            "warmupinvsqr": schedulers.WarmupInverseSquareRootSchedule
+            "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule
         }
         scheduler = scheduler_fac[self.scheduler](
             optimizer=optimizer, warmup_steps=self.warmup_steps
