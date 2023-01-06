@@ -49,6 +49,8 @@ def get_model_cls(
         else LSTMEncoderDecoder,
     }
     try:
-        return model_fac[arch]
+        model_cls = model_fac[arch]
+        util.log_info(f"Model: {model_cls.__name__}")
+        return model_cls
     except KeyError:
         raise NotImplementedError(f"Architecture {arch} not found")
