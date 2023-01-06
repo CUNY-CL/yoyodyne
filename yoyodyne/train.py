@@ -256,6 +256,7 @@ def train(
     model: pl.LightningModule,
     train_loader: data.DataLoader,
     dev_loader: data.DataLoader,
+    train_from: Optional[str] = None,
 ) -> str:
     """Trains the model.
 
@@ -264,11 +265,12 @@ def train(
          model (pl.LightningModule).
          train_loader (data.DataLoader).
          dev_loader (data.DataLoader).
+         train_from (str, optional).
 
     Returns:
         (str) Path to best checkpoint.
     """
-    trainer.fit(model, train_loader, dev_loader)
+    trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
     ckp_callback = trainer.callbacks[-1]
     assert type(ckp_callback) is callbacks.ModelCheckpoint
     return ckp_callback.best_model_path
@@ -295,6 +297,10 @@ def main() -> None:
         "--model_dir",
         required=True,
         help="Path to output model directory",
+    )
+    parser.add_argument(
+        "--train_from",
+        help="Path to ckpt file to resume training from",
     )
     # Data configuration arguments.
     parser.add_argument(
@@ -575,5 +581,7 @@ def main() -> None:
         train_set, dev_set, args.arch, args.batch_size
     )
     model = make_model(train_set, **vars(args))
-    best_checkpoint = train(trainer, model, train_loader, dev_loader)
+    best_checkpoint = train(
+        trainer, model, train_loader, dev_loader, args.train_from
+    )
     util.log_info(f"Best model: {best_checkpoint}")
