@@ -109,9 +109,13 @@ class DataConfig:
             tsv_reader = csv.reader(source, delimiter="\t")
             for row in tsv_reader:
                 source = self._get_cell(row, self.source_col, self.source_sep)
-                features = self._get_cell(
-                    row, self.features_col, self.features_sep
-                )
+                # Avoids overlap with source.
+                features = [
+                    f"[{feature}]"
+                    for feature in self._get_cell(
+                        row, self.features_col, self.features_sep
+                    )
+                ]
                 target = self._get_cell(row, self.target_col, self.target_sep)
                 yield source, features, target
 
