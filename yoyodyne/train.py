@@ -101,7 +101,7 @@ from . import (
 )
 @click.option(
     "--beta2",
-    default="0.999",
+    default=0.999,
     type=float,
     help="beta2 (`--optimizer adam` only)",
 )
