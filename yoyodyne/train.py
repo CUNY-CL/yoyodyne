@@ -3,17 +3,13 @@
 import argparse
 import os
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
-from . import collators, datasets, evaluators, models, predict, util
-
-
-# We treat this as fixed.
-DATALOADER_WORKERS = 1
+from . import collators, dataconfig, datasets, evaluators, models, util
 
 
 class Error(Exception):
@@ -80,6 +76,7 @@ def make_trainer(
     model_dir: str,
     save_top_k: int,
     patience: Optional[int] = None,
+    wandb: bool = True,
     **kwargs,
 ) -> pl.Trainer:
     """Makes the trainer.
@@ -90,6 +87,7 @@ def make_trainer(
         patience (int, optional).
         save_top_k (int).
         wandb (bool).
+        **kwargs: passed to the trainer.
 
     Returns:
         pl.Trainer.
@@ -116,21 +114,21 @@ def _make_trainer_from_argparse(
     )
 
 
-def make_loaders(
+def make_datasets(
     train: str,
     dev: str,
-    arch: str,
-    batch_size: int,
-) -> Tuple[data.DataLoader, data.DataLoader]:
-    """Makes loaders.
+    config: dataconfig.DataConfig,
+    experiment: str,
+    log_dir: str,
+) -> Tuple[data.Dataset, data.Dataset]:
+    """Makes datasets.
 
     Args:
         train (str).
         dev (str).
         config (dataconfig.Dataconfig)
-        arch (str).
-        batch_size (int).
         experiment (str).
+        log_dir (str).
 
     Returns:
         Tuple[data.DataLoader, data.DataLoader].
@@ -141,8 +139,19 @@ def make_loaders(
     dev_set = datasets.get_dataset(dev, config)
     util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
     util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
-    train_set.write_index(trainer.loggers[0].log_dir, experiment)
-    dev_set.load_index(trainer.loggers[0].log_dir, experiment)
+    os.makedirs(log_dir, exist_ok=True)
+    train_set.write_index(log_dir, experiment)
+    dev_set.load_index(log_dir, experiment)
+    return train_set, dev_set
+
+
+def make_loaders(
+    train_set: data.Dataset,
+    dev_set: data.Dataset,
+    arch: str,
+    batch_size: int,
+) -> Tuple[data.DataLoader, data.DataLoader]:
+    """Makes loaders."""
     collator = collators.get_collator(
         train_set.pad_idx, train_set.config, arch
     )
@@ -151,22 +160,20 @@ def make_loaders(
         collate_fn=collator,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=DATALOADER_WORKERS,
+        num_workers=1,  # Our data loading is simple.
     )
     dev_loader = data.DataLoader(
         dev_set,
         collate_fn=collator,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=DATALOADER_WORKERS,
+        batch_size=2 * batch_size,  # Because we're not collecting gradients.
+        num_workers=1,
     )
     return train_loader, dev_loader
 
 
 def make_model(
     # Data arguments.
-    train_set: torch.Dataset,
-    train_from: str,
+    train_set: data.Dataset,
     *,
     # Architecture arguments.
     arch: str = "lstm",
@@ -191,18 +198,24 @@ def make_model(
     sed_params: Optional[str] = None,
     scheduler: Optional[str] = None,
     warmup_steps: int = 0,
+    **kwargs,  # Ignored.
 ) -> pl.LightningModule:
-    model_cls = models.get_model_cls(arch, attention, train_set.has_features)
-    if train_from is not None:
-        # Restart training.
-        util.log_info(f"Loading model from {train_from}")
-        return model_cls.load_from_checkpoint(train_from)
+    """Makes the model.
+
+    Args:
+        train_set (data.Dataset)
+
+        **kwargs: Ignored.
+    """
+    model_cls = models.get_model_cls(
+        arch, attention, train_set.config.has_features
+    )
     expert = (
         models.expert.get_expert(
             train_set,
             epochs=oracle_em_epochs,
             oracle_factor=oracle_factor,
-            sed_params_path=sed_params_path,
+            sed_params_path=sed_params,
         )
         if arch in ["transducer"]
         else None
@@ -255,12 +268,10 @@ def train(
     Returns:
         (str) Path to best checkpoint.
     """
-    util.log_info("Training...")
     trainer.fit(model, train_loader, dev_loader)
-    print(trainer.callback_metrics)
-    print(trainer.loggers)
-    util.log_info("Training complete")
-    return "FIXME"
+    ckp_callback = trainer.callbacks[-1]
+    assert type(ckp_callback) is callbacks.ModelCheckpoint
+    return ckp_callback.best_model_path
 
 
 def main() -> None:
@@ -285,7 +296,6 @@ def main() -> None:
         required=True,
         help="Path to output model directory",
     )
-    # FIXME: dev predictions.
     # Data configuration arguments.
     parser.add_argument(
         "--source_col",
@@ -408,13 +418,13 @@ def main() -> None:
         help="Dimensionality of the hidden layer(s). Default: %(default)s",
     )
     parser.add_argument(
-        "--max_decode_len",
+        "--max_decode_length",
         type=int,
         default=128,
         help="Maximum decoder string length. Default: %(default)s",
     )
     parser.add_argument(
-        "--max_sequence_len",
+        "--max_sequence_length",
         type=int,
         default=128,
         help="Maximum sequence length. Default: %(default)s",
@@ -454,6 +464,19 @@ def main() -> None:
         type=float,
         default=0.001,
         help="Learning rate. Default: %(default)s",
+    )
+    parser.add_argument(
+        "--max_decode_len",
+        type=int,
+        default=128,
+        help="Maximum decoding length. Default: %(default)s",
+    )
+    parser.add_argument(
+        "--max_sequence_len",
+        type=int,
+        default=128,
+        help="Maximum sequence length (Transformer architectures only). "
+        "Default: %(default)s",
     )
     parser.add_argument(
         "--oracle_em_epochs",
@@ -513,7 +536,7 @@ def main() -> None:
         help="Number of warmup steps (warmupinvsqrt scheduler only). "
         "Default: %(default)s",
     )
-    # Among the things this adds, the following are likely to be useful to users:
+    # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
     # --check_val_every_n_epoch
     # --devices (for multiple device support)
@@ -532,7 +555,6 @@ def main() -> None:
         util.log_info(f"\t{arg}: {val!r}")
     pl.seed_everything(args.seed)
     trainer = _make_trainer_from_argparse(args)
-    model = make_model(**vars(args))
     config = dataconfig.DataConfig(
         source_col=args.source_col,
         features_col=args.features_col,
@@ -542,7 +564,16 @@ def main() -> None:
         features_sep=args.features_sep,
         tied_vocabulary=args.tied_vocabulary,
     )
-    train_loader, dev_loader = make_loaders(
-        args.train, args.dev, config, args.arch, args.batch_size
+    train_set, dev_set = make_datasets(
+        args.train,
+        args.dev,
+        config,
+        args.experiment,
+        trainer.loggers[0].log_dir,
     )
-    train(trainer, model, train_loader, dev_loader)
+    train_loader, dev_loader = make_loaders(
+        train_set, dev_set, args.arch, args.batch_size
+    )
+    model = make_model(train_set, **vars(args))
+    best_checkpoint = train(trainer, model, train_loader, dev_loader)
+    util.log_info(f"Best model: {best_checkpoint}")
