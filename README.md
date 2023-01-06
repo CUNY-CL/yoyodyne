@@ -135,38 +135,38 @@ flag.
 A non-exhaustive list includes:
 
 * Accelerators:
--   `--accelerator` (default: "cpu")
+    -   `--accelerator` (default: "cpu")
 * Batch size:
--   `--batch_size` (default: 32)
+    -   `--batch_size` (default: 32)
 * Regularization:
--   `--label_smoothing` (default: not enabled)
--   `--dropout` (default: .2)
--   `--gradient_clip_val` (default: not enabled)
+    -   `--label_smoothing` (default: not enabled)
+    -   `--dropout` (default: .2)
+    -   `--gradient_clip_val` (default: not enabled)
 * Optimizer:
--   `--learning_rate` (default: .001)
--   `--optimizer` (default: "adam")
--   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
-    (`--optimizer adam`)
--   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
-    (`--optimizer adam`)
--   `--scheduler` (default: not enabled)
--   `--warmup_steps` (default: not enabled): warm-up parameter for a linear
-    warm-up followed by inverse square root decay schedule (only valid with
-    `--scheduler warmupinvsqrt`)
+    -   `--learning_rate` (default: .001)
+    -   `--optimizer` (default: "adam")
+    -   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam
+        optimizer (`--optimizer adam`)
+    -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam
+	optimizer (`--optimizer adam`)
+    -   `--scheduler` (default: not enabled)
+    -   `--warmup_steps` (default: not enabled): warm-up parameter for a linear
+        warm-up followed by inverse square root decay schedule (only valid with
+        `--scheduler warmupinvsqrt`)
 * Duration:
--  `--max_epochs`
--  `--min_epochs`
--  `--max_steps`
--  `--min_steps`
--  `--max_time`
--  `--patience`
+    -  `--max_epochs`
+    -  `--min_epochs`
+    -  `--max_steps`
+    -  `--min_steps`
+    -  `--max_time`
+    -  `--patience`
 * Seeding: 
--  `--seed`
+    -  `--seed`
 * [Weights & Biases](https://wandb.ai/site)
--   `--wandb` (default: False): enables Weights & Biases tracking.
+    -   `--wandb` (default: False): enables Weights & Biases tracking.
 
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
 biLSTM. For transformer-based architectures, experiment with multiple encoder
-and decoder layers, much larger batches, and the warmup + inverse square root
+and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
