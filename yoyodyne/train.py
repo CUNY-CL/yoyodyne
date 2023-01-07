@@ -204,8 +204,31 @@ def make_model(
 
     Args:
         train_set (data.Dataset)
+        arch (str).
+        attention (bool).
+        attention_heads (int).
+        bidirectional (bool).
+        decoder_layers (int).
+        embedding_size (int).
+        encoder_layers (int).
+        hidden_size (int).
+        max_decode_length (int).
+        max_sequence_length (int).
+        beta1 (float).
+        beta2 (float).
+        batch_size (int).
+        dropout (float).
+        learning_rate (float).
+        oracle_em_epochs (int).
+        oracle_factor (int).
+        optimizer (str).
+        sed_params (str, optional).
+        scheduler (str, optional).
+        warmup_steps (int, optional).
+        **kwargs: ignored.
 
-        **kwargs: Ignored.
+    Returns:
+        pl.LightningModule: model.
     """
     model_cls = models.get_model_cls(
         arch, attention, train_set.config.has_features
