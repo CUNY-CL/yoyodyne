@@ -65,7 +65,7 @@ def write_predictions(
                 symbols=True,
                 special=False,
             ):
-                print(sink, target_sep.join(prediction))
+                print(target_sep.join(prediction), file=sink)
     util.log_info("Prediction complete")
 
 
