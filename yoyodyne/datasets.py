@@ -2,44 +2,18 @@
 
 import abc
 import pickle
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import torch
 from torch.utils import data
 
-from . import dataconfig, special
+from . import dataconfig, symbols
 
 
 class Error(Exception):
     """Module-specific exception."""
 
     pass
-
-
-class SymbolMap:
-    """Tracks mapping from index to symbol and symbol to index."""
-
-    index2symbol: List[str]
-    symbol2index: Dict[str, int]
-
-    def __init__(self, symbols: Iterable[str]):
-        self._index2symbol = list(symbols)
-        self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
-
-    def __len__(self) -> int:
-        return len(self._index2symbol)
-
-    def index(self, symbol: str, unk_idx: Optional[int] = None) -> int:
-        """Looks up index by symbol."""
-        return self._symbol2index.get(symbol, unk_idx)
-
-    def symbol(self, index: int) -> str:
-        """Looks up symbol by index."""
-        return self._index2symbol[index]
-
-    def pprint(self) -> str:
-        """Pretty-prints the vocabulary."""
-        return ", ".join(f"{c!r}" for c in self._index2symbol)
 
 
 class BaseDataset(data.Dataset):
@@ -110,8 +84,8 @@ class DatasetNoFeatures(BaseDataset):
     filename: str
     config: dataconfig.DataConfig
     samples: List
-    source_map: SymbolMap
-    target_map: SymbolMap
+    source_map: symbols.SymbolMap
+    target_map: symbols.SymbolMap
 
     def __init__(
         self,
@@ -137,7 +111,7 @@ class DatasetNoFeatures(BaseDataset):
     def _make_index(self) -> Dict:
         """Generates index."""
         # Ensures the idx of special symbols are identical in both indexs.
-        special_vocabulary = special.SPECIAL.copy()
+        special_vocabulary = symbols.SPECIAL.copy()
         target_vocabulary: Set[str] = set()
         source_vocabulary: Set[str] = set()
         if self.config.has_target:
@@ -151,10 +125,10 @@ class DatasetNoFeatures(BaseDataset):
             for source in self.samples:
                 source_vocabulary.update(source)
         return {
-            "source_map": SymbolMap(
+            "source_map": symbols.SymbolMap(
                 special_vocabulary + sorted(source_vocabulary)
             ),
-            "target_map": SymbolMap(
+            "target_map": symbols.SymbolMap(
                 special_vocabulary + sorted(target_vocabulary)
             ),
         }
@@ -167,7 +141,7 @@ class DatasetNoFeatures(BaseDataset):
 
     def encode(
         self,
-        symbol_map: SymbolMap,
+        symbol_map: symbols.SymbolMap,
         word: List[str],
         add_start_tag: bool = True,
         add_end_tag: bool = True,
@@ -175,7 +149,7 @@ class DatasetNoFeatures(BaseDataset):
         """Encodes a sequence as a tensor of indices with word boundary IDs.
 
         Args:
-            symbol_map (SymbolMap).
+            symbol_map (symbols.SymbolMap).
             word (List[str]): word to be encoded.
             add_start_tag (bool, optional): whether the sequence should be
                 prepended with a start tag.
@@ -187,10 +161,10 @@ class DatasetNoFeatures(BaseDataset):
         """
         sequence = []
         if add_start_tag:
-            sequence.append(special.START)
+            sequence.append(symbols.START)
         sequence.extend(word)
         if add_end_tag:
-            sequence.append(special.END)
+            sequence.append(symbols.END)
         return torch.tensor(
             [symbol_map.index(symbol, self.unk_idx) for symbol in sequence],
             dtype=torch.long,
@@ -198,7 +172,7 @@ class DatasetNoFeatures(BaseDataset):
 
     def _decode(
         self,
-        symbol_map: SymbolMap,
+        symbol_map: symbols.SymbolMap,
         indices: torch.Tensor,
         symbols: bool,
         special: bool,
@@ -206,7 +180,7 @@ class DatasetNoFeatures(BaseDataset):
         """Decodes the tensor of indices into characters.
 
         Args:
-            symbol_map (SymbolMap).
+            symbol_map (symbols.SymbolMap).
             indices (torch.Tensor): 2d tensor of indices.
             symbols (bool): whether to include the regular symbols when
                 decoding the string.
@@ -300,19 +274,19 @@ class DatasetNoFeatures(BaseDataset):
 
     @property
     def pad_idx(self) -> int:
-        return self.source_map.index(special.PAD)
+        return self.source_map.index(symbols.PAD)
 
     @property
     def start_idx(self) -> int:
-        return self.source_map.index(special.START)
+        return self.source_map.index(symbols.START)
 
     @property
     def end_idx(self) -> int:
-        return self.source_map.index(special.END)
+        return self.source_map.index(symbols.END)
 
     @property
     def unk_idx(self) -> int:
-        return self.source_map.index(special.UNK)
+        return self.source_map.index(symbols.UNK)
 
     @property
     def special_idx(self) -> Set[int]:
@@ -355,7 +329,7 @@ class DatasetFeatures(DatasetNoFeatures):
         Same as in superclass, but also handles features.
         """
         # Ensures the idx of special symbols are identical in both indexs.
-        special_vocabulary = special.SPECIAL.copy()
+        special_vocabulary = symbols.SPECIAL.copy()
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
@@ -374,10 +348,10 @@ class DatasetFeatures(DatasetNoFeatures):
         source_vocabulary = special_vocabulary + sorted(source_vocabulary)
         return {
             # Source and features index share embedding dict.
-            "source_map": SymbolMap(
+            "source_map": symbols.SymbolMap(
                 source_vocabulary + sorted(features_vocabulary)
             ),
-            "target_map": SymbolMap(
+            "target_map": symbols.SymbolMap(
                 special_vocabulary + sorted(target_vocabulary)
             ),
             # features_idx assists in indexing features.
