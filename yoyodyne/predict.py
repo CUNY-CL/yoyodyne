@@ -120,7 +120,6 @@ def predict(
     model: pl.LightningModule,
     loader: data.DataLoader,
     output: str,
-    target_sep: str = "",
 ) -> None:
     """Predicts from the model.
 
@@ -133,6 +132,7 @@ def predict(
     """
     model.eval()  # TODO: is this necessary?
     dataset = loader.dataset
+    target_sep = dataset.config.target_sep
     util.log_info(f"Writing to {output}")
     os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w") as sink:
@@ -146,7 +146,7 @@ def predict(
                 # -> B x seq_len x vocab_size
                 batch = batch.transpose(1, 2)
                 _, batch = torch.max(batch, dim=2)
-            batch = model.evaluator.finalize_preds(
+            batch = model.evaluator.finalize_predictions(
                 batch, dataset.end_idx, dataset.pad_idx
             )
             for prediction in dataset.decode_target(
@@ -154,7 +154,7 @@ def predict(
                 symbols=True,
                 special=False,
             ):
-                print(sink, target_sep.join(prediction))
+                print(target_sep.join(prediction), file=sink)
 
 
 def main() -> None:
@@ -179,7 +179,7 @@ def main() -> None:
         "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
     )
     # Data configuration arguments.
-    config = dataconfig.DataConfig.add_argparse_args(parser)
+    dataconfig.DataConfig.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
     # Predicting arguments.
@@ -199,7 +199,7 @@ def main() -> None:
     trainer = _get_trainer_from_argparse_args(args)
     loader = _get_loader_from_argparse_args(args)
     model = _get_model_from_argparse_args(args)
-    predict(trainer, model, loader, args.output, config.target_sep)
+    predict(trainer, model, loader, args.output)
 
 
 if __name__ == "__main__":
