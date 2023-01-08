@@ -371,12 +371,11 @@ class DatasetFeatures(DatasetNoFeatures):
             for source, features in self.samples:
                 source_vocabulary.update(source)
                 features_vocabulary.update(features)
+        source_vocabulary = special_vocabulary + sorted(source_vocabulary)
         return {
             # Source and features index share embedding dict.
             "source_map": SymbolMap(
-                special_vocabulary
-                + source_vocabulary
-                + sorted(features_vocabulary)
+                source_vocabulary + sorted(features_vocabulary)
             ),
             "target_map": SymbolMap(
                 special_vocabulary + sorted(target_vocabulary)
