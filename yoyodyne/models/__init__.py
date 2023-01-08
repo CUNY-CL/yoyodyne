@@ -62,7 +62,9 @@ def get_model_cls_from_argparse_args(
     args: argparse.Namespace,
 ) -> pl.LightningModule:
     """Creates an instance from CLI arguments."""
-    return get_model_cls(args.arch, args.attention, args.has_features)
+    # TODO: hackish.
+    has_features = args.features_col != 0
+    return get_model_cls(args.arch, args.attention, has_features)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

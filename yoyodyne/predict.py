@@ -33,16 +33,14 @@ def _get_trainer_from_argparse_args(
 def get_dataset(
     predict: str,
     config: dataconfig.DataConfig,
-    experiment: str,
-    model_dir: str,
+    index: str,
 ) -> data.Dataset:
     """Creates the dataset.
 
     Args:
         predict (str).
         config (dataconfig.DataConfig).
-        experiment (str).
-        model_dir (str).
+        index (str).
 
     Returns:
         data.Dataset.
@@ -52,7 +50,7 @@ def get_dataset(
     # This does not work because the modules expect it to be present even if
     # they ignore it.
     dataset = datasets.get_dataset(predict, config)
-    dataset.load_index(model_dir, experiment)
+    dataset.read_index(index)
     return dataset
 
 
@@ -85,9 +83,7 @@ def _get_loader_from_argparse_args(
 ) -> data.DataLoader:
     """Creates the loader from CLI arguments."""
     config = dataconfig.DataConfig.from_argparse_args(args)
-    dataset = get_dataset(
-        args.predict, config, args.experiment, args.model_dir
-    )
+    dataset = get_dataset(args.predict, config, args.index)
     return get_loader(dataset, args.arch, args.batch_size)
 
 
@@ -174,7 +170,7 @@ def predict(
                 source_strs, prediction_strs, features_strs
             ):
                 tsv_writer.writerow(
-                    config.get_row(source, prediction, features)
+                    config.make_row(source, prediction, features)
                 )
 
 
@@ -195,12 +191,10 @@ def main() -> None:
         required=True,
         help="Path to prediction output data TSV",
     )
+    parser.add_argument("--index", required=True, help="Path to index (.pkl)")
     parser.add_argument(
-        "--model_dir",
-        required=True,
-        help="Path to output model directory",
+        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
     )
-    parser.add_argument("--checkpoint", help="Path to ckpt checkpoint")
     # Data configuration arguments.
     dataconfig.DataConfig.add_argparse_args(parser)
     # Architecture arguments.

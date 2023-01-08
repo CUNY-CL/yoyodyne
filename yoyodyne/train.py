@@ -118,8 +118,7 @@ def get_datasets(
     train: str,
     dev: str,
     config: dataconfig.DataConfig,
-    experiment: str,
-    model_dir: str,
+    index: str,
 ) -> Tuple[data.Dataset, data.Dataset]:
     """Creates the datasets.
 
@@ -127,8 +126,7 @@ def get_datasets(
         train (str).
         dev (str).
         config (dataconfig.DataConfig)
-        experiment (str).
-        model_dir (str).
+        index(str).
 
     Returns:
         Tuple[data.DataLoader, data.DataLoader].
@@ -136,17 +134,31 @@ def get_datasets(
     if config.target_col == 0:
         raise Error("target_col must be specified for training")
     train_set = datasets.get_dataset(train, config)
-    dev_set = datasets.get_dataset(dev, config)
-    util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
-    util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
-    os.makedirs(model_dir, exist_ok=True)
-    train_set.write_index(model_dir, experiment)
-    dev_set.load_index(model_dir, experiment)
+    dev_set = datasets.get_dataset(dev, config, train_set)
+    util.log_info(f"Source vocabulary: {train_set.source_map.pprint()}")
+    util.log_info(f"Target vocabulary: {train_set.target_map.pprint()}")
+    # Create it in case it doesn't exist already.
+    os.makedirs(os.path.dirname(index), exist_ok=True)
+    train_set.write_index(index)
+    dev_set.read_index(index)
     return train_set, dev_set
 
 
+def get_index(model_dir: str, experiment: str) -> str:
+    """Computes the index path.
+
+    Args:
+        model_dir (str).
+        experiment (str).
+
+    Returns:
+        str.
+    """
+    return f"{model_dir}/{experiment}/index.pkl"
+
+
 def _get_datasets_from_argparse_args(
-    args: argparse.Namespace,
+    args: argparse.Namespace, index: str
 ) -> Tuple[data.Dataset, data.Dataset]:
     """Creates the datasets from CLI arguments."""
     config = dataconfig.DataConfig.from_argparse_args(args)
@@ -154,8 +166,7 @@ def _get_datasets_from_argparse_args(
         args.train,
         args.dev,
         config,
-        args.experiment,
-        args.model_dir,
+        index,
     )
 
 
@@ -301,13 +312,15 @@ def train(
          model (pl.LightningModule).
          train_loader (data.DataLoader).
          dev_loader (data.DataLoader).
-         train_from (str, optional).
+         train_from (str, optional): if specified, starts training from this
+            checkpoint.
 
     Returns:
         (str) Path to best checkpoint.
     """
     trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
     ckp_callback = trainer.callbacks[-1]
+    # TODO: feels flimsy.
     assert type(ckp_callback) is callbacks.ModelCheckpoint
     return ckp_callback.best_model_path
 
@@ -391,7 +404,8 @@ def main() -> None:
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = _get_trainer_from_argparse_args(args)
-    train_set, dev_set = _get_datasets_from_argparse_args(args)
+    index = get_index(args.model_dir, args.experiment)
+    train_set, dev_set = _get_datasets_from_argparse_args(args, index)
     train_loader, dev_loader = get_loaders(
         train_set, dev_set, args.arch, args.batch_size
     )
@@ -399,7 +413,8 @@ def main() -> None:
     best_checkpoint = train(
         trainer, model, train_loader, dev_loader, args.train_from
     )
-    util.log_info(f"Best model: {best_checkpoint}")
+    util.log_info(f"Index: {index}")
+    util.log_info(f"Best checkpoint: {best_checkpoint}")
 
 
 if __name__ == "__main__":
