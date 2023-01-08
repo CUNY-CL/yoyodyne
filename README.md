@@ -139,8 +139,8 @@ A non-exhaustive list includes:
 -   Batch size:
     -   `--batch_size` (default: 32)
 -   Regularization:
-    -   `--label_smoothing` (default: not enabled)
     -   `--dropout` (default: .2)
+    -   `--label_smoothing` (default: not enabled)
     -   `--gradient_clip_val` (default: not enabled)
 -   Optimizer:
     -   `--learning_rate` (default: .001)
