@@ -5,11 +5,8 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from . import attention, base, lstm, generation_probability
-
-
-class Error(Exception):
-    pass
+from .. import batching
+from . import attention, lstm, generation_probability
 
 
 class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
@@ -44,29 +41,27 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
 
     def encode(
         self,
-        source: torch.Tensor,
-        source_mask: torch.Tensor,
+        source: batching.PaddedTensor,
         encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
         """Encodes the input.
 
         Args:
-            source (torch.Tensor).
-            source_mask (torch.Tensor).
+            source (batching.PaddedTensor).
             encoder (torch.nn.LSTM).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.source_embeddings(source)
+        embedded = self.source_embeddings(source.padded)
         embedded = self.dropout_layer(embedded)
-        lens = (source_mask == 0).sum(dim=1).to("cpu")
+        lens = (source.mask == 0).sum(dim=1).to("cpu")
         packed = nn.utils.rnn.pack_padded_sequence(
             embedded, lens, batch_first=True, enforce_sorted=False
         )
         # -> B x seq_len x encoder_dim,
         # (D*layers x B x hidden_size, D*layers x B x hidden_size)
-        packed_outs, (H, C) = self.encoder(packed)
+        packed_outs, (H, C) = encoder(packed)
         encoded, _ = torch.nn.utils.rnn.pad_packed_sequence(
             packed_outs,
             batch_first=True,
@@ -207,27 +202,19 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         predictions = torch.stack(predictions)
         return predictions
 
-    def forward(self, batch: base.Batch) -> torch.Tensor:
+    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (base.Batch): tuple of tensors in the batch.
+            batch (batching.PaddedBatch).
 
         Returns:
             torch.Tensor.
         """
-        # Training mode with targets.
-        if len(batch) == 4:
-            (source, source_mask, target, target_mask) = batch
-        # No targets given at inference.
-        elif len(batch) == 2:
-            source, source_mask = batch
-            target = None
-        else:
-            raise Error(f"Batch of {len(batch)} elements is invalid")
+        source = batch.source
         batch_size = source.size(0)
         source_encoded, (h_source, c_source) = self.encode(
-            source, source_mask, self.encoder
+            source, self.encoder
         )
         if self.beam_width is not None and self.beam_width > 1:
             # predictions = self.beam_decode(
@@ -238,10 +225,10 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             predictions = self.decode(
                 batch_size,
                 (h_source, c_source),
-                source,
+                source.padded,
                 source_encoded,
-                source_mask,
-                target,
+                source.mask,
+                batch.target,
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)
@@ -304,23 +291,21 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
 
     def encode(
         self,
-        source: torch.Tensor,
-        source_mask: torch.Tensor,
+        source: batching.PaddedTensor,
         encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
         """Encodes the input with the TransformerEncoder.
 
         Args:
-            source (torch.Tensor).
-            source_mask (torch.Tensor).
+            source (batching.PaddedTensor).
             encoder (torch.nn.LSTM).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.source_embeddings(source)
+        embedded = self.source_embeddings(source.padded)
         embedded = self.dropout_layer(embedded)
-        lens = (source_mask == 0).sum(dim=1).to("cpu")
+        lens = (source.mask == 0).sum(dim=1).to("cpu")
         packed = nn.utils.rnn.pack_padded_sequence(
             embedded, lens, batch_first=True, enforce_sorted=False
         )
@@ -480,37 +465,26 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         predictions = torch.stack(predictions)
         return predictions
 
-    def forward(self, batch: base.Batch) -> torch.Tensor:
+    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (base.Batch): tuple of tensors in the batch.
+            batch (batching.PaddedBatch).
 
         Returns:
             torch.Tensor.
         """
         # Training mode with targets.
-        if len(batch) == 6:
-            (
-                source,
-                source_mask,
-                features,
-                features_mask,
-                target,
-                target_mask,
-            ) = batch
-        # No targets given at inference.
-        elif len(batch) == 4:
-            source, source_mask, features, features_mask = batch
-            target = None
-        else:
-            raise Error(f"Batch of {len(batch)} elements is invalid")
-        batch_size = source.size(0)
+        source = batch.source
+        assert batch.has_features
+        features = batch.features
+        target = batch.target
+        batch_size = source.padded.size(0)
         source_encoded, (h_source, c_source) = self.encode(
-            source, source_mask, self.encoder
+            source, self.encoder
         )
         features_encoded, (h_features, c_features) = self.encode(
-            features, features_mask, self.feature_encoder
+            features, self.feature_encoder
         )
         h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))
@@ -523,12 +497,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             predictions = self.decode(
                 batch_size,
                 (h_0, c_0),
-                source,
+                source.padded,
                 source_encoded,
-                source_mask,
+                source.mask,
                 features_encoded,
-                features_mask,
-                target,
+                features.mask,
+                target.padded,
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)

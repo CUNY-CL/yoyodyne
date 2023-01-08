@@ -1,8 +1,9 @@
-"""Dataset classes."""
+"""Dataset classes and related utilities."""
 
 import abc
+import dataclasses
 import pickle
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import torch
 from torch.utils import data
@@ -14,6 +15,25 @@ class Error(Exception):
     """Module-specific exception."""
 
     pass
+
+
+@dataclasses.dataclass
+class Item:
+    """Source tensor, with optional features and target tensors.
+
+    This represents a single item or observation."""
+
+    source: torch.Tensor
+    features: Optional[torch.Tensor]
+    target: Optional[torch.Tensor]
+
+    @property
+    def has_features(self):
+        return self.features is not None
+
+    @property
+    def has_targets(self):
+        return self.targets is not None
 
 
 class BaseDataset(data.Dataset):
@@ -296,26 +316,24 @@ class DatasetNoFeatures(BaseDataset):
     def __len__(self) -> int:
         return len(self.samples)
 
-    def __getitem__(
-        self, idx: int
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.
 
         Args:
             idx (int).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: source/target sample to be
-                consumed by the model.
+            Item.
         """
         source, target = self.samples[idx]
         source_encoded = self.encode(self.source_map, source)
-        target_encoded = (
-            self.encode(self.target_map, target, add_start_tag=False)
-            if self.config.has_target
-            else None
-        )
-        return source_encoded, target_encoded
+        if self.config.has_target:
+            target_encoded = self.encode(
+                self.target_map, target, add_start_tag=False
+            )
+            return Item(source_encoded, target=target_encoded)
+        else:
+            return Item(source_encoded)
 
 
 class DatasetFeatures(DatasetNoFeatures):
@@ -364,18 +382,14 @@ class DatasetFeatures(DatasetNoFeatures):
         index["features_idx"] = self.features_idx
         return index
 
-    def __getitem__(
-        self,
-        idx: int,
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
+    def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.
 
         Args:
             idx (int).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                source/features/target sample to be consumed by the model.
+            Item.
         """
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.source_map, source)
@@ -385,12 +399,16 @@ class DatasetFeatures(DatasetNoFeatures):
             add_start_tag=False,
             add_end_tag=False,
         )
-        target_encoded = (
-            self.encode(self.target_map, target, add_start_tag=False)
-            if self.config.has_target
-            else None
-        )
-        return source_encoded, features_encoded, target_encoded
+        if self.config.has_target:
+            return Item(
+                source_encoded,
+                target=self.encode(
+                    self.target_map, target, add_start_tag=False
+                ),
+                features=features_encoded,
+            )
+        else:
+            return Item(source_encoded, features=features_encoded)
 
     def decode_source(
         self,

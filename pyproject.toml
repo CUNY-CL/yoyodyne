@@ -42,6 +42,3 @@ yoyodyne-train = "yoyodyne.train:main"
 
 [project.urls]
 homepage = "https://github.com/CUNY-CL/yoyodyne"
-
-[tool.setuptools.packages.find]
-where = ["."]

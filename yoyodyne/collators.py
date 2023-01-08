@@ -1,11 +1,10 @@
-"""Collators."""
+"""Collators and related utilities."""
 
-from typing import Iterable, List, Tuple
+from typing import List
 
 import torch
-from torch.nn import functional
 
-from . import dataconfig
+from . import batching, dataconfig, datasets
 
 
 class Collator:
@@ -14,228 +13,85 @@ class Collator:
     Pads according to the longest sequence in a batch of sequences."""
 
     pad_idx: int
+    has_target: bool
+    separate_features: bool
 
-    def __init__(self, pad_idx):
+    def __init__(self, pad_idx, has_target, separate_features):
         """Initializes the collator.
 
         Args:
             pad_idx (int).
+            has_target (bool).
+            separate_features (bool).
         """
         self.pad_idx = pad_idx
+        self.has_target = has_target
+        self.separate_features = separate_features
+
+    @classmethod
+    def from_config(
+        cls, pad_idx: int, config: dataconfig.DataConfig, arch: str
+    ) -> "Collator":
+        if config.has_features and arch in [
+            "pointer_generator_lstm",
+            "transducer",
+        ]:
+            return cls(pad_idx, config.has_target, separate_features=True)
+        else:
+            return cls(pad_idx, config.has_target, separate_features=False)
 
     @staticmethod
-    def max_len(batch: torch.Tensor) -> int:
+    def max_len(batch: List[torch.Tensor]) -> int:
         """Computes max length for a list of tensors.
 
         Args:
-            batch (List[, torch.Tensor, torch.Tensor]).
+            batch (List[torch.Tensor]).
 
         Returns:
             int.
         """
         return max(len(tensor) for tensor in batch)
 
-    @staticmethod
-    def concat_tuple(
-        b1: Iterable[torch.Tensor], b2: Iterable[torch.Tensor]
-    ) -> Tuple[torch.Tensor]:
-        """Concatenates all tensors in b1 to respective tensor in b2.
-
-        For joining source and feature tensors in batches.
-
-        Args:
-            b1 (Iterable[torch.Tensor]): Iterable of tensors.
-            b2 (Iterable[torch.Tensor]): Iterable of tensors.
-
-        Returns:
-            Tuple[torch.Tensor]: the concatenation of
-            parallel entries in b1 and b2.
-        """
-        return tuple(torch.cat((i, j)) for i, j in zip(b1, b2))
-
-    def pad_collate(
-        self, batch: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Pads the batch to the maximum sequence length in the batch.
-
-        Args:
-            batch torch.Tensor: A batch of samples.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor].
-        """
-        batch = torch.stack(
-            [self.pad_tensor(tensor, self.max_len(batch)) for tensor in batch]
+    def pad_source(
+        self, itemlist: List[datasets.Item]
+    ) -> batching.PaddedTensor:
+        return batching.PaddedTensor.from_tensorlist(
+            [item.source for item in itemlist], self.pad_idx
         )
-        batch_mask = batch == self.pad_idx
-        return batch, batch_mask
 
-    def pad_tensor(self, tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
-        """Pads a tensor.
+    def pad_source_features(
+        self,
+        itemlist: List[datasets.Item],
+    ) -> batching.PaddedTensor:
+        return batching.PaddedTensor.from_tensorlist(
+            batching.concatenate_source_and_features(itemlist), self.pad_idx
+        )
 
-        Args:
-            tensor (torch.Tensor).
-            pad_max (int): The desired length for the tensor.
+    def pad_features(
+        self,
+        itemlist: List[datasets.Item],
+    ) -> batching.PaddedTensor:
+        return batching.PaddedTensor.from_tensorlist(
+            [item.features for item in itemlist], self.pad_idx
+        )
 
-        Returns:
-            torch.Tensor.
-        """
-        padding = pad_max - len(tensor)
-        return functional.pad(tensor, (0, padding), "constant", self.pad_idx)
+    def pad_target(
+        self, itemlist: List[datasets.Item]
+    ) -> batching.PaddedTensor:
+        return batching.PaddedTensor.from_tensorlist(
+            [item.target for item in itemlist], self.pad_idx
+        )
 
-    @property
-    def has_features(self) -> bool:
-        return False
-
-    @staticmethod
-    def is_feature_batch(batch: List[torch.Tensor]) -> bool:
-        return False
-
-
-class SourceCollator(Collator):
-    def __call__(
-        self, batch: List[torch.Tensor]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Pads source.
-
-        Args:
-            batch (List[torch.Tensor]).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor].
-        """
-        # Checks if the dataloader passed features.
-        if self.is_feature_batch(batch):
-            source, features, _ = zip(*batch)
-            # Concatenates features with source.
-            source = self.concat_tuple(source, features)
+    def __call__(self, itemlist: List[datasets.Item]) -> batching.PaddedBatch:
+        padded_target = self.pad_target(itemlist) if self.has_target else None
+        if self.separate_features:
+            return batching.PaddedBatch(
+                self.pad_source(itemlist),
+                features=self.pad_features(itemlist),
+                target=padded_target,
+            )
         else:
-            source, _ = zip(*batch)
-        source_padded, source_mask = self.pad_collate(source)
-        return source_padded, source_mask
-
-    @staticmethod
-    def is_feature_batch(batch: List[torch.Tensor]) -> bool:
-        return len(batch[0]) == 3
-
-
-class SourceTargetCollator(SourceCollator):
-    def __call__(
-        self, batch: List[torch.Tensor]
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Pads source and target.
-
-        Args:
-            batch (List[torch.Tensor]).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor].
-        """
-        if self.is_feature_batch(batch):
-            source, features, target = zip(*batch)
-            # Concatenates features with source.
-            source = self.concat_tuple(source, features)
-        else:
-            source, target = zip(*batch)
-        source_padded, source_mask = self.pad_collate(source)
-        target_padded, target_mask = self.pad_collate(target)
-        return source_padded, source_mask, target_padded, target_mask
-
-
-class SourceFeaturesCollator(Collator):
-    def __call__(
-        self, batch: List[torch.Tensor]
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Pads source and features.
-
-        Args:
-            batch (List[torch.Tensor]).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor].
-        """
-        source, features, _ = zip(*batch)
-        source_padded, source_mask = self.pad_collate(source)
-        features_padded, features_mask = self.pad_collate(features)
-        return source_padded, source_mask, features_padded, features_mask
-
-    @property
-    def has_features(self) -> bool:
-        return True
-
-    @staticmethod
-    def is_feature_batch(batch: List[torch.Tensor]) -> bool:
-        return True
-
-
-class SourceFeaturesTargetCollator(SourceFeaturesCollator):
-    def __call__(
-        self, batch: List[torch.Tensor]
-    ) -> Tuple[
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-    ]:
-        """Pads source, features, and target.
-
-        Args:
-            batch (List[torch.Tensor]).
-
-        Returns:
-            Tuple[
-                torch.Tensor,
-                torch.Tensor,
-                torch.Tensor,
-                torch.Tensor,
-                torch.Tensor,
-                torch.Tensor
-            ]
-        """
-        source, features, target = zip(*batch)
-        source_padded, source_mask = self.pad_collate(source)
-        target_padded, target_mask = self.pad_collate(target)
-        features_padded, features_mask = self.pad_collate(features)
-        return (
-            source_padded,
-            source_mask,
-            features_padded,
-            features_mask,
-            target_padded,
-            target_mask,
-        )
-
-    @property
-    def has_features(self) -> bool:
-        return True
-
-
-def get_collator(
-    pad_idx: int, config: dataconfig.DataConfig, arch: str
-) -> Collator:
-    """Collator factory.
-
-    Args:
-        pad_idx (int).
-        config (dataconfig.DataConfig):
-        arch (str).
-
-    Returns:
-        Collator.
-    """
-    if config.has_features and arch in [
-        "pointer_generator_lstm",
-        "transducer",
-    ]:
-        collator_cls = (
-            SourceFeaturesTargetCollator
-            if config.has_target
-            else SourceFeaturesCollator
-        )
-    else:
-        collator_cls = (
-            SourceTargetCollator if config.has_target else SourceCollator
-        )
-    return collator_cls(pad_idx)
+            return batching.PaddedBatch(
+                self.pad_source_features(itemlist),
+                target=padded_target,
+            )

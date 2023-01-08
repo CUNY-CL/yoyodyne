@@ -177,7 +177,7 @@ def get_loaders(
     batch_size: int,
 ) -> Tuple[data.DataLoader, data.DataLoader]:
     """Creates the loaders."""
-    collator = collators.get_collator(
+    collator = collators.Collator.from_config(
         train_set.pad_idx, train_set.config, arch
     )
     train_loader = data.DataLoader(

@@ -431,11 +431,11 @@ def get_expert(
                 yields list version of source and target entries
                 in dataset.
         """
-        for source, *_, target in data:
+        for item in data:
             # Dataset encodes BOW and EOW symbols for source. EOW
             # for target. Removes these for SED training.
-            source = source.tolist()[1:-1]
-            target = target.tolist()[:-1]
+            source = item.source.tolist()[1:-1]
+            target = item.target.tolist()[:-1]
             actions.encode_actions(target)
             yield source, target
 
@@ -451,9 +451,9 @@ def get_expert(
             actions (ActionVocabulary): Vocabulary object
                 to encode actions for expert.
         """
-        for _, *_, target in data:
+        for item in data:
             # Ignores last symbol since EOW.
-            target = target.tolist()[:-1]
+            target = item.target.tolist()[:-1]
             actions.encode_actions(target)
 
     if sed_params_path:

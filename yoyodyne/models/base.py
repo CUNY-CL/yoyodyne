@@ -4,27 +4,13 @@ This also includes init_embeddings, which has to go somewhere.
 """
 
 import argparse
-from typing import Callable, Dict, Optional, Tuple, Union
+from typing import Callable, Dict, Optional
 
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import evaluators, schedulers, util
-
-# TODO: Eliminate this in #33.
-Batch = Union[
-    Tuple[torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-    Tuple[
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-    ],
-]
+from .. import batching, evaluators, schedulers, util
 
 
 class BaseEncoderDecoder(pl.LightningModule):
@@ -177,7 +163,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
     def training_step(
         self,
-        batch: Batch,
+        batch: batching.PaddedBatch,
         batch_idx: int,
     ) -> torch.Tensor:
         """Runs one step of training.
@@ -185,22 +171,22 @@ class BaseEncoderDecoder(pl.LightningModule):
         This is called by the PL Trainer.
 
         Args:
-            batch (Batch): tuple of src, src_mask, target, target_mask.
+            batch (batches.PaddedBatch)
             batch_idx (int).
 
         Returns:
             torch.Tensor: loss.
         """
         self.train()
-        targets = batch[-2]
         predictions = self(batch)
-        loss = self.loss_func(predictions, targets)
+        target_padded = batch.target.padded
+        loss = self.loss_func(predictions, target_padded)
         self.log("train_loss", loss, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(
         self,
-        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        batch: batching.PaddedBatch,
         batch_idx: int,
     ) -> Dict:
         """Runs one validation step.
@@ -208,22 +194,22 @@ class BaseEncoderDecoder(pl.LightningModule):
         This is called by the PL Trainer.
 
         Args:
-            batch (Batch): tuple of src, src_mask, target, target_mask.
+            batch (batches.PaddedBatch).
             batch_idx (int).
 
         Returns:
             Dict[str, float]: validation metrics.
         """
         self.eval()
-        y = batch[-2]
         # Greedy decoding.
-        predictions = self(batch[:-2])
+        predictions = self(batch)
+        target_padded = batch.target.padded
         accuracy = self.evaluator.val_accuracy(
-            predictions, y, self.end_idx, self.pad_idx
+            predictions, target_padded, self.end_idx, self.pad_idx
         )
-        # We rerun the model with teacher forcing so we can compute a loss....
+        # We rerun the model with teacher forcing so we can compute loss.
         # TODO: Update to run the model only once.
-        loss = self.loss_func(self(batch), y)
+        loss = self.loss_func(self(batch), target_padded)
         return {"val_accuracy": accuracy, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:

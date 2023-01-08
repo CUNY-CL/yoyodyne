@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 from torch import nn
 
+from .. import batching
 from . import attention, base
 
 
@@ -96,23 +97,22 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
 
     def encode(
-        self, source: torch.Tensor, mask: torch.Tensor
+        self, source: batching.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Encodes a batch of inputs.
+        """Encodes the input.
 
         Args:
-            source (torch.Tensor): input symbols of shape B x seq_len x 1
-            mask (torch.Tensor): mask for the input symbols of shape
-                B x seq_len x 1.
+            source (batching.PaddedTensor): source padded tensors and mask
+                for source, of shape B x seq_len x 1.
 
         Returns:
             Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
                 encoded timesteps, and the LSTM h0 and c0 cells.
         """
-        embedded = self.source_embeddings(source)
+        embedded = self.source_embeddings(source.padded)
         embedded = self.dropout_layer(embedded)
         # Packs embedded source symbols into a PackedSequence.
-        lens = (mask == 0).sum(dim=1).to("cpu")
+        lens = (source.mask == 0).sum(dim=1).to("cpu")
         packed = nn.utils.rnn.pack_padded_sequence(
             embedded, lens, batch_first=True, enforce_sorted=False
         )
@@ -384,36 +384,29 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         else:
             return predictions
 
-    def forward(self, batch: base.Batch) -> torch.Tensor:
+    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (base.Batch): batch of the input, input mask, output, and
-                output mask.
+            batch (batching.PaddedBatch).
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
                 (sequence_length, batch_size, output_size).
         """
-        if len(batch) == 4:
-            source, source_mask, target, target_mask = batch
-        elif len(batch) == 2:
-            source, source_mask = batch
-            target = None
-        else:
-            raise Error(f"Batch of {len(batch)} elements is invalid")
-        batch_size = source.size(0)
-        encoder_out, _ = self.encode(source, source_mask)
+        source = batch.source
+        batch_size = source.padded.size(0)
+        encoder_out, _ = self.encode(source)
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
                 batch_size,
-                source_mask,
+                source.mask,
                 encoder_out,
                 beam_width=self.beam_width,
             )
         else:
             predictions = self.decode(
-                batch_size, source_mask, encoder_out, target
+                batch_size, source.mask, encoder_out, batch.target.padded
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)

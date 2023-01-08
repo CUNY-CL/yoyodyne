@@ -6,6 +6,7 @@ import math
 import torch
 from torch import nn
 
+from .. import batching
 from . import base, positional_encoding
 
 
@@ -136,20 +137,17 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         out = self.dropout_layer(word_embedding + positional_embedding)
         return out
 
-    def encode(
-        self, source: torch.Tensor, source_mask: torch.Tensor
-    ) -> torch.Tensor:
+    def encode(self, source: batching.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
         Args:
-            source (torch.Tensor).
-            source_mask (torch.Tensor).
+            source (batching.PaddedTensor).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedding = self.source_embed(source)
-        return self.encoder(embedding, src_key_padding_mask=source_mask)
+        embedding = self.source_embed(source.padded)
+        return self.encoder(embedding, src_key_padding_mask=source.mask)
 
     def decode(
         self,
@@ -229,46 +227,40 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         # -> B x vocab_size x sequence_length
         return torch.stack(outputs).transpose(0, 1).transpose(1, 2)
 
-    def forward(self, batch: base.Batch) -> torch.Tensor:
+    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (Tuple[torch.Tensor, ...]): Tuple of tensors in the batch
-                of shape (source, source_mask, target, target_mask) during
-                training or shape (source, source_mask) during inference.
+            batch (batching.PaddedBatch).
 
         Returns:
             torch.Tensor.
         """
-        # Training mode with targets.
-        if len(batch) == 4:
-            source, source_mask, target, target_mask = batch
+        source = batch.source
+        if batch.has_target:
+            target = batch.target
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
                     [self.start_idx], device=self.device, dtype=torch.long
                 )
-                .repeat(target.size(0))
+                .repeat(target.padded.size(0))
                 .unsqueeze(1)
             )
-            target = torch.cat((starts, target), dim=1)
+            target_padded = torch.cat((starts, target.padded), dim=1)
             target_mask = torch.cat(
-                (starts == self.pad_idx, target_mask), dim=1
+                (starts == self.pad_idx, target.mask), dim=1
             )
-            encoder_hidden = self.encode(source, source_mask)
+            encoder_hidden = self.encode(source)
             output = self.decode(
-                encoder_hidden, source_mask, target, target_mask
+                encoder_hidden, source.mask, target_padded, target_mask
             )
             # -> B x vocab_size x sequence_length
             output = output.transpose(1, 2)[:, :, :-1]
-        # No targets given at inference.
-        elif len(batch) == 2:
-            source, source_mask = batch
-            encoder_hidden = self.encode(source, source_mask)
-            # -> B x vocab_size x sequence_length.
-            output = self._decode_greedy(encoder_hidden, source_mask)
         else:
-            raise Error(f"Batch of {len(batch)} elements is invalid")
+            encoder_hidden = self.encode(source)
+            # -> B x vocab_size x sequence_length.
+            output = self._decode_greedy(encoder_hidden, source.mask)
         return output
 
     @staticmethod

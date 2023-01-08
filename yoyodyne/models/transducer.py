@@ -8,7 +8,8 @@ import torch
 from maxwell import actions
 from torch import nn
 
-from . import base, expert, lstm
+from .. import batching
+from . import expert, lstm
 
 
 class ActionError(Exception):
@@ -58,38 +59,31 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         )
 
     def forward(
-        self, batch: base.Batch
+        self, batch: batching.PaddedBatch
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (base.Batch): batch of the input, input mask, output, and
-                output mask.
+            batch (batching.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor] of encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        if len(batch) == 4:
-            source, source_mask, target, target_mask = batch
-        elif len(batch) == 2:
-            source, source_mask = batch
-            target = None
-            target_mask = None
-        else:
-            raise lstm.Error(f"Batch of {len(batch)} elements is invalid")
-        encoder_out, _ = self.encode(source, source_mask)
+        source = batch.source
+        target = batch.target
+        encoder_out, _ = self.encode(source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
-        source = source[:, 1:]
-        source_mask = source_mask[:, 1:]
+        source_padded = source.padded[:, 1:]
+        source_mask = source.mask[:, 1:]
         prediction, loss = self.decode(
             encoder_out,
-            source,
+            source_padded,
             source_mask,
-            target=target,
-            target_mask=target_mask,
+            target=target.padded,
+            target_mask=target.mask,
         )
         return prediction, loss
 
@@ -593,52 +587,40 @@ class TransducerFeatures(TransducerNoFeatures):
             batch_first=True,
         )
 
-    def forward(self, batch: base.Batch) -> torch.Tensor:
+    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (base.Batch): batch of the input, input mask, output, and
-                output mask.
+            batch (batching.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        if len(batch) == 6:
-            (
-                source,
-                source_mask,
-                features,
-                features_mask,
-                target,
-                target_mask,
-            ) = batch
-        elif len(batch) == 4:
-            source, source_mask, features, features_mask = batch
-            target = None
-            target_mask = None
-        else:
-            raise lstm.Error(f"Batch of {len(batch)} elements is invalid")
-        encoder_out, _ = self.encode(source, source_mask)
+        source = batch.source
+        assert batch.has_features
+        features = batch.features
+        target = batch.target
+        encoder_out, _ = self.encode(source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
-        source = source[:, 1:]
-        source_mask = source_mask[:, 1:]
+        source_padded = source.padded[:, 1:]
+        source_mask = source.mask[:, 1:]
         # Converts features to n-hot encoding.
         with torch.no_grad():
             # Features are offset by features idx. Shifts one to encode
             # padding, replacing mask with first index.
-            features = torch.where(
-                features_mask, 0, features - self.features_idx + 1
+            features_padded = torch.where(
+                features.mask, 0, features.padded - self.features_idx + 1
             )
             # Features outside offset classified as unknown feature.
             # Idx is end of features vocab.
-            features[features < 0] = self.features_vocab_size + 1
+            features_padded[features_padded < 0] = self.features_vocab_size + 1
             # One hot embeddings are vocab size plus two for padding and
             # unknown.
             one_hot_features = nn.functional.one_hot(
-                features, self.features_vocab_size + 2
+                features_padded, self.features_vocab_size + 2
             )
             # Truncates pad at idx 0 then sum one_hots for n_hot vectors.
             n_hot_features = torch.sum(
@@ -650,10 +632,10 @@ class TransducerFeatures(TransducerNoFeatures):
         encoder_out_feat = torch.cat((encoder_out, n_hot_features), dim=2)
         prediction, loss = self.decode(
             encoder_out_feat,
-            source,
+            source_padded,
             source_mask,
-            target=target,
-            target_mask=target_mask,
+            target=target.padded,
+            target_mask=target.mask,
         )
         return prediction, loss
 
