@@ -1,6 +1,5 @@
 """Prediction."""
 
-import csv
 import os
 
 import click
@@ -8,18 +7,17 @@ import pytorch_lightning as pl
 import torch
 from torch.utils import data
 
-from . import collators, dataconfig, datasets, models, util
+from . import collators, datasets, models, util
 
 
 def write_predictions(
     model: models.base.BaseEncoderDecoder,
     loader: torch.utils.data.DataLoader,
     output: str,
-    arch: str,
     accelerator: str,
     batch_size: int,
-    config: dataconfig.DataConfig,
-    beam_width: int = None,
+    target_sep: str = "",
+    beam_width: Optional[int] = None,
 ) -> None:
     """Writes predictions to output file.
 
@@ -30,7 +28,7 @@ def write_predictions(
         arch (str).
         accelerator (str).
         batch_size (int).
-        config (dataconfig.DataConfig).
+        target_sep (str).
         beam_width (int, optional).
     """
     model.beam_width = beam_width
@@ -41,44 +39,32 @@ def write_predictions(
         max_epochs=0,  # Silences a warning.
     )
     util.log_info("Predicting...")
-    predicted = tester.predict(model, dataloaders=loader)
     dataset = loader.dataset
     util.log_info(f"Writing to {output}")
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w") as sink:
-        tsv_writer = csv.writer(sink, delimiter="\t")
-        for batch, pred_batch in zip(loader, predicted):
-            if arch != "transducer":
+        for batch in tester.predict(model, dataloaders=loader):
+            # TODO: can we move some of this into module `predict_step`
+            # methods? I do not understand why it lives here.
+            if not (
+                isinstance(model, models.TransducerNoFeatures)
+                or isinstance(model, models.TransducerFeatures)
+            ):
                 # -> B x seq_len x vocab_size
-                pred_batch = pred_batch.transpose(1, 2)
+                batch = batch.transpose(1, 2)
                 if beam_width is not None:
-                    pred_batch = pred_batch.squeeze(2)
+                    batch = batch.squeeze(2)
                 else:
-                    _, pred_batch = torch.max(pred_batch, dim=2)
-            pred_batch = model.evaluator.finalize_preds(
-                pred_batch, dataset.end_idx, dataset.pad_idx
+                    _, batch = torch.max(pred_batch, dim=2)
+            batch = model.evaluator.finalize_preds(
+                batch, dataset.end_idx, dataset.pad_idx
             )
-            prediction_strs = dataset.decode_target(
-                pred_batch,
+            for prediction in dataset.decode_target(
+                batch,
                 symbols=True,
                 special=False,
-            )
-            source_strs = dataset.decode_source(
-                batch[0], symbols=True, special=False
-            )
-            features_batch = batch[2] if config.has_features else batch[0]
-            features_strs = (
-                dataset.decode_features(
-                    features_batch, symbols=True, special=False
-                )
-                if config.has_features
-                else [None for _ in range(batch_size)]
-            )
-            for source, prediction, features in zip(
-                source_strs, prediction_strs, features_strs
             ):
-                tsv_writer.writerow(
-                    config.make_row(source, prediction, features)
-                )
+                print(sink, target_sep.join(prediction))
     util.log_info("Prediction complete")
 
 
@@ -151,7 +137,6 @@ def main(
     accelerator,
 ):
     """Predictor."""
-    os.makedirs(os.path.dirname(output), exist_ok=True)
     config = dataconfig.DataConfig(
         source_col=source_col,
         features_col=features_col,
@@ -188,10 +173,9 @@ def main(
         model,
         loader,
         output,
-        arch,
         accelerator,
         batch_size,
-        config,
+        config.target_sep,
         beam_width,
     )
 
