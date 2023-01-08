@@ -16,7 +16,7 @@ class ActionError(Exception):
 
 
 class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
-    """Transducer model.
+    """Transducer model with an LSTM backend and no features.
 
     After:
         Makarov, P., and Clematide, S. 2018. Imitation learning for neural
@@ -28,35 +28,34 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     """
 
     expert: expert.Expert
+    # Constructed inside __init__.
+    target_embeddings: nn.Embedding
 
     def __init__(
         self,
         expert,
-        *args,
         **kwargs,
     ):
-        """Initializes transducer model, using LSTM backend.
+        """Initializes transducer model.
 
         Args:
             expert (expert.Expert): oracle that guides training for transducer.
-            *args: passed to superclass.
             **kwargs: passed to superclass.
         """
         # Model specific variables.
         self.expert = expert  # Oracle to train model.
         self.actions = self.expert.actions
         self.substitutions = self.actions.substitutions
-        self.inserts = self.actions.insertions
+        self.insertions = self.actions.insertions
         # Alternate outputs than dataset targets.
         kwargs["output_size"] = len(expert.actions)
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         # Target embeddings use alternate padding.
         self.target_embeddings = self.init_embeddings(
             num_embeddings=self.output_size,
             embedding_size=self.embedding_size,
             pad_idx=self.actions.end_idx,
         )
-        self.save_hyperparameters()
 
     def forward(
         self, batch: base.Batch
@@ -278,7 +277,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             List[actions.Edit]: actions known by transducer.
         """
         valid_actions = [self.actions.end_idx]
-        valid_actions.extend(self.inserts)
+        valid_actions.extend(self.insertions)
         if not end_of_input:
             valid_actions.extend([self.actions.copy_idx, self.actions.del_idx])
             valid_actions.extend(self.substitutions)
@@ -473,8 +472,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 raise ActionError(f"Unknown action: {action}.")
         return alignment + alignment_update
 
+    @staticmethod
     def log_sum_softmax_loss(
-        self, logits: torch.Tensor, optimal_actions: List[int]
+        logits: torch.Tensor, optimal_actions: List[int]
     ) -> torch.Tensor:
         """Computes log loss.
 
@@ -494,8 +494,8 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
+    @staticmethod
     def loss_func(
-        self,
         prediction: Tuple[List[List[int]], torch.Tensor],
         target: torch.Tensor,
     ) -> torch.Tensor:
@@ -511,27 +511,27 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     def validation_step(
         self, batch: Tuple[torch.tensor], batch_idx: int
     ) -> Dict:
-        preds, loss = self.forward(batch)
+        predictions, loss = self.forward(batch)
         # Evaluation requires prediction as a tensor.
-        preds = self.convert_prediction(preds)
+        predictions = self.convert_prediction(predictions)
         # Processes for accuracy calculation.
-        preds = self.evaluator.finalize_preds(
-            preds, self.end_idx, self.pad_idx
+        predictions = self.evaluator.finalize_predictions(
+            predictions, self.end_idx, self.pad_idx
         )
         target = batch[-2]
         return {
             "val_accuracy": self.evaluator.accuracy(
-                preds, target, self.pad_idx
+                predictions, target, self.pad_idx
             ),
             "val_loss": loss,
         }
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
-        preds, loss = self.forward(
+        predictions, loss = self.forward(
             batch,
         )
         # Evaluation requires prediction tensor.
-        return self.convert_prediction(preds)
+        return self.convert_prediction(predictions)
 
     def convert_prediction(self, prediction: List[List[int]]) -> torch.Tensor:
         """Converts prediction values to tensor for evaluator compatibility."""
@@ -559,13 +559,14 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
 
 
 class TransducerFeatures(TransducerNoFeatures):
-    """Transducer model that encodes feature inputs."""
+    """Transducer model with an LSTM backend."""
 
+    # Indices.
     features_idx: int
     features_vocab_size: int
 
-    def __init__(self, features_vocab_size, features_idx, *args, **kwargs):
-        """Initializes transducer model. Uses LSTM backend.
+    def __init__(self, features_vocab_size, features_idx, **kwargs):
+        """Initializes transducer model.
 
         Functions equivalently to TransducerNoFeatures except concatenates
         n-hot encoding of feature values to encoded tensor.
@@ -577,10 +578,10 @@ class TransducerFeatures(TransducerNoFeatures):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
+        super().__init__(**kwargs)
         self.features_idx = features_idx
         self.features_vocab_size = features_vocab_size
-        super().__init__(*args, **kwargs)
-        # Re-initializes decoder to accomodate features.
+        # Overrides decoder to accomodate features.
         self.decoder = nn.LSTM(
             self.hidden_size * self.num_directions
             + self.embedding_size

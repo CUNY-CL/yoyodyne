@@ -22,12 +22,13 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         (Volume 1: Long Papers), pages 1073-1083.
     """
 
+    # Constructed inside __init__.
     source_attention: attention.Attention
     geneneration_probability: generation_probability.GenerationProbability
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         # We use the inherited defaults for the source embeddings/encoder.
         encoder_size = self.hidden_size * self.num_directions
         self.source_attention = attention.Attention(
@@ -172,7 +173,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             .repeat(batch_size)
             .unsqueeze(1)
         )
-        preds = []
+        predictions = []
         num_steps = (
             target.size(1) if target is not None else self.max_decode_length
         )
@@ -187,7 +188,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 source_enc,
                 source_mask,
             )
-            preds.append(output.squeeze(1))
+            predictions.append(output.squeeze(1))
             # If we have a target (training) then the next input is the gold
             # symbol for this step (teacher forcing).
             if target is not None:
@@ -203,8 +204,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 # Breaks when all batches predicted an END symbol.
                 if finished.all():
                     break
-        preds = torch.stack(preds)
-        return preds
+        predictions = torch.stack(predictions)
+        return predictions
 
     def forward(self, batch: base.Batch) -> torch.Tensor:
         """Runs the encoder-decoder.
@@ -229,12 +230,12 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             source, source_mask, self.encoder
         )
         if self.beam_width is not None and self.beam_width > 1:
-            # preds = self.beam_decode(
+            # predictions = self.beam_decode(
             #     batch_size, x_mask, encoder_out, beam_width=self.beam_width
             # )
             raise NotImplementedError
         else:
-            preds = self.decode(
+            predictions = self.decode(
                 batch_size,
                 (h_source, c_source),
                 source,
@@ -243,8 +244,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 target,
             )
         # -> B x output_size x seq_len.
-        preds = preds.transpose(0, 1).transpose(1, 2)
-        return preds
+        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        return predictions
 
 
 class PointerGeneratorLSTMEncoderDecoderFeatures(
@@ -259,14 +260,15 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         (Volume 1: Long Papers), pages 1073-1083.
     """
 
+    # Constructed inside __init__.
     feature_encoder: nn.LSTM
     linear_h: nn.Linear
     linear_c: nn.Linear
     feature_attention: attention.Attention
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         # We use the inherited defaults for the source embeddings/encoder.
         self.feature_encoder = nn.LSTM(
             self.embedding_size,
@@ -442,7 +444,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             .repeat(batch_size)
             .unsqueeze(1)
         )
-        preds = []
+        predictions = []
         num_steps = (
             target.size(1) if target is not None else self.max_decode_length
         )
@@ -459,7 +461,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 feature_enc,
                 feature_mask,
             )
-            preds.append(output.squeeze(1))
+            predictions.append(output.squeeze(1))
             # If we have a target (training) then the next input is the gold
             # symbol for this step (teacher forcing).
             if target is not None:
@@ -475,8 +477,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 # Breaks when all batches predicted an END symbol.
                 if finished.all():
                     break
-        preds = torch.stack(preds)
-        return preds
+        predictions = torch.stack(predictions)
+        return predictions
 
     def forward(self, batch: base.Batch) -> torch.Tensor:
         """Runs the encoder-decoder.
@@ -513,12 +515,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))
         if self.beam_width is not None and self.beam_width > 1:
-            # preds = self.beam_decode(
+            # predictions = self.beam_decode(
             #     batch_size, x_mask, encoder_out, beam_width=self.beam_width
             # )
             raise NotImplementedError
         else:
-            preds = self.decode(
+            predictions = self.decode(
                 batch_size,
                 (h_0, c_0),
                 source,
@@ -529,5 +531,5 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 target,
             )
         # -> B x output_size x seq_len.
-        preds = preds.transpose(0, 1).transpose(1, 2)
-        return preds
+        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        return predictions

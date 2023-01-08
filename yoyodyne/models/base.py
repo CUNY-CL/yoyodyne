@@ -3,13 +3,14 @@
 This also includes init_embeddings, which has to go somewhere.
 """
 
-from typing import Callable, Dict, Tuple, Union
+import argparse
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import schedulers, util
+from .. import evaluators, schedulers, util
 
 # TODO: Eliminate this in #33.
 Batch = Union[
@@ -27,6 +28,86 @@ Batch = Union[
 
 
 class BaseEncoderDecoder(pl.LightningModule):
+
+    # Indices.
+    pad_idx: int
+    start_idx: int
+    end_idx: int
+    # Sizes.
+    vocab_size: int
+    output_size: int
+    # Optimizer arguments.
+    beta1: float
+    beta2: float
+    optimizer: str
+    scheduler: Optional[str]
+    warmup_steps: int
+    # Regularization arguments.
+    dropout: float
+    label_smoothing: Optional[float]
+    # Decoding arguments.
+    beam_width: int
+    max_decode_length: int
+    # Model arguments.
+    decoder_layers: int
+    embedding_size: int
+    encoder_layers: int
+    hidden_size: int
+    # Constructed inside __init__.
+    dropout_layer: nn.Dropout
+    evaluator: evaluators.Evaluator
+    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+
+    def __init__(
+        self,
+        *,
+        pad_idx,
+        start_idx,
+        end_idx,
+        vocab_size,
+        output_size,
+        beta1=0.9,
+        beta2=0.999,
+        learning_rate=0.001,
+        optimizer="adam",
+        scheduler=None,
+        warmup_steps=0,
+        dropout=0.2,
+        label_smoothing=None,
+        beam_width=1,
+        max_decode_length=128,
+        decoder_layers=1,
+        embedding_size=128,
+        encoder_layers=1,
+        hidden_size=512,
+        **kwargs,  # Ignored.
+    ):
+        super().__init__()
+        self.pad_idx = pad_idx
+        self.start_idx = start_idx
+        self.end_idx = end_idx
+        self.vocab_size = vocab_size
+        self.output_size = output_size
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.learning_rate = learning_rate
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.warmup_steps = warmup_steps
+        self.dropout = dropout
+        self.label_smoothing = label_smoothing
+        self.beam_width = beam_width
+        self.max_decode_length = max_decode_length
+        self.decoder_layers = decoder_layers
+        self.embedding_size = embedding_size
+        self.encoder_layers = encoder_layers
+        self.hidden_size = hidden_size
+        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
+        self.evaluator = evaluators.Evaluator()
+        self.loss_func = self.get_loss_func("mean")
+        # Saves hyperparameters for PL checkpointing.
+        self.save_hyperparameters()
+
     @staticmethod
     def _xavier_embedding_initialization(
         num_embeddings: int, embedding_size: int, pad_idx: int
@@ -50,7 +131,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         )
         # Zeroes out pad embeddings.
         if pad_idx is not None:
-            nn.init.constant_(embedding_layer.weight[pad_idx], 0)
+            nn.init.constant_(embedding_layer.weight[pad_idx], 0.0)
         return embedding_layer
 
     @staticmethod
@@ -72,7 +153,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         embedding_layer = nn.Embedding(num_embeddings, embedding_size)
         # Zeroes out pad embeddings.
         if pad_idx is not None:
-            nn.init.constant_(embedding_layer.weight[pad_idx], 0)
+            nn.init.constant_(embedding_layer.weight[pad_idx], 0.0)
         return embedding_layer
 
     @staticmethod
@@ -112,8 +193,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         self.train()
         targets = batch[-2]
-        preds = self(batch)
-        loss = self.loss_func(preds, targets)
+        predictions = self(batch)
+        loss = self.loss_func(predictions, targets)
         self.log("train_loss", loss, on_step=False, on_epoch=True)
         return loss
 
@@ -135,10 +216,10 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         self.eval()
         y = batch[-2]
-        # Greedy decoding
-        preds = self(batch[:-2])
+        # Greedy decoding.
+        predictions = self(batch[:-2])
         accuracy = self.evaluator.val_accuracy(
-            preds, y, self.end_idx, self.pad_idx
+            predictions, y, self.end_idx, self.pad_idx
         )
         # We rerun the model with teacher forcing so we can compute a loss....
         # TODO: Update to run the model only once.
@@ -156,24 +237,24 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         keys = validation_step_outputs[0].keys()
         # Shortens name to do comprehension below.
-        # TODO(kbg): there has to be a more elegant way to do this.
+        # TODO: there has to be a more elegant way to do this.
         V = validation_step_outputs
         metrics = {k: sum([v[k] for v in V]) / len(V) for k in keys}
         for metric, value in metrics.items():
             self.log(metric, value, prog_bar=True)
         return metrics
 
-    def _get_predicted(self, preds: torch.Tensor) -> torch.Tensor:
+    def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
 
         Args:
-            preds (torch.Tensor): B x seq_len x vocab_size.
+            predictions (torch.Tensor): B x seq_len x vocab_size.
 
         Returns:
-            indices (torch.Tensor): indices of the argmax at each timestep.
+            torch.Tensor: indices of the argmax at each timestep.
         """
-        assert len(preds.size()) == 3
-        vals, indices = torch.max(preds, dim=2)
+        assert len(predictions.size()) == 3
+        _, indices = torch.max(predictions, dim=2)
         return indices
 
     def configure_optimizers(self) -> optim.Optimizer:
@@ -242,30 +323,29 @@ class BaseEncoderDecoder(pl.LightningModule):
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Returns the actual function used to compute loss.
 
-        At training time, this is be called to get the loss function.
-
         Args:
             reduction (str): reduction for the loss function (e.g., "mean").
 
         Returns:
-            loss_func (Callable[[torch.Tensor, torch.Tensor], torch.Tensor]):
-                configured loss function.
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
         """
         if self.label_smoothing is None:
             return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
         else:
 
             def _smooth_nllloss(
-                predict: torch.Tensor, target: torch.Tensor
+                predictions: torch.Tensor, target: torch.Tensor
             ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
                 """After:
+
                     https://github.com/NVIDIA/DeepLearningExamples/blob/
                     8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
                     ConvNets/image_classification/smoothing.py#L18
 
                 Args:
-                    predict (torch.Tensor): tensor of prediction distribution
-                        of shape B x vocab_size x seq_len.
+                    predictions (torch.Tensor): tensor of prediction
+                        distribution of shape B x vocab_size x seq_len.
                     target (torch.Tensor): tensor of golds of shape
                         B x seq_len.
 
@@ -273,16 +353,18 @@ class BaseEncoderDecoder(pl.LightningModule):
                     torch.Tensor: loss.
                 """
                 # -> (B * seq_len) x output_size
-                predict = predict.transpose(1, 2).reshape(-1, self.output_size)
+                predictions = predictions.transpose(1, 2).reshape(
+                    -1, self.output_size
+                )
                 # -> (B * seq_len) x 1
                 target = target.view(-1, 1)
                 non_pad_mask = target.ne(self.pad_idx)
                 # Gets the ordinary loss.
-                nll_loss = -predict.gather(dim=-1, index=target)[
+                nll_loss = -predictions.gather(dim=-1, index=target)[
                     non_pad_mask
                 ].mean()
                 # Gets the smoothed loss.
-                smooth_loss = -predict.sum(dim=-1, keepdim=True)[
+                smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
                     non_pad_mask
                 ].mean()
                 smooth_loss = smooth_loss / self.output_size
@@ -292,3 +374,96 @@ class BaseEncoderDecoder(pl.LightningModule):
                 return loss
 
             return _smooth_nllloss
+
+    @staticmethod
+    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+        """Adds shared configuration options to the argument parser.
+
+        These are only needed at training time.
+
+        Args:
+            parser (argparse.ArgumentParser).
+        """
+        # Optimizer arguments.
+        parser.add_argument(
+            "--beta1",
+            type=float,
+            default=0.9,
+            help="beta_1 (Adam optimizer only). Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--beta2",
+            type=float,
+            default=0.999,
+            help="beta_2 (Adam optimizer only). Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--learning_rate",
+            type=float,
+            default=0.001,
+            help="Learning rate. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--optimizer",
+            choices=["adadelta", "adam", "sgd"],
+            default="adam",
+            help="Optimizer. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--scheduler",
+            choices=["warmupinvsqrt"],
+            help="Learning rate scheduler",
+        )
+        parser.add_argument(
+            "--warmup_steps",
+            type=int,
+            default=0,
+            help="Number of warmup steps (warmupinvsqrt scheduler only). "
+            "Default: %(default)s.",
+        )
+        # Regularization arguments.
+        parser.add_argument(
+            "--dropout",
+            type=float,
+            default=0.2,
+            help="Dropout probability. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--label_smoothing",
+            type=float,
+            help="Coefficient for label smoothing.",
+        )
+        # Decoding arguments.
+        parser.add_argument(
+            "--max_decode_length",
+            type=int,
+            default=128,
+            help="Maximum decoder string length. Default: %(default)s.",
+        )
+        # TODO: add --beam_width.
+        # Model arguments.
+        parser.add_argument(
+            "--decoder_layers",
+            type=int,
+            default=1,
+            help="Number of decoder layers. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--embedding_size",
+            type=int,
+            default=128,
+            help="Dimensionality of embeddings. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--encoder_layers",
+            type=int,
+            default=1,
+            help="Number of encoder layers. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--hidden_size",
+            type=int,
+            default=512,
+            help="Dimensionality of the hidden layer(s). "
+            "Default: %(default)s.",
+        )

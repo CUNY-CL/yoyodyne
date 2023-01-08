@@ -33,7 +33,7 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         Args:
             optimizer (optim.Optimizer): optimizer.
             warmup_steps (int): number of warmup steps.
-            last_epoch (int, optional): last epoch for the scheduler.
+            last_epoch (int): last epoch for the scheduler.
         """
         self.warmup_steps = warmup_steps
         self.decay_factor = math.sqrt(warmup_steps)

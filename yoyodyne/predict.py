@@ -1,9 +1,9 @@
 """Prediction."""
 
+import argparse
 import csv
 import os
 
-import click
 import pytorch_lightning as pl
 import torch
 from torch.utils import data
@@ -11,54 +11,151 @@ from torch.utils import data
 from . import collators, dataconfig, datasets, models, util
 
 
-def write_predictions(
-    model: models.base.BaseEncoderDecoder,
-    loader: torch.utils.data.DataLoader,
-    output: str,
-    arch: str,
-    accelerator: str,
-    batch_size: int,
-    config: dataconfig.DataConfig,
-    beam_width: int = None,
-) -> None:
-    """Writes predictions to output file.
+def get_trainer(**kwargs) -> pl.Trainer:
+    """Creates the trainer.
 
     Args:
-        model (models.BaseEncoderDecoder).
-        loader (torch.utils.data.DataLoader).
-        output (str).
-        arch (str).
-        accelerator (str).
-        batch_size (int).
-        config (dataconfig.DataConfig).
-        beam_width (int, optional).
+        **kwargs: passed to the trainer.
+
+    Returns:
+        pl.Trainer.
     """
-    model.beam_width = beam_width
-    model.eval()
-    # Test loop.
-    tester = pl.Trainer(
-        accelerator=accelerator,
-        max_epochs=0,  # Silences a warning.
+    return pl.Trainer(max_epochs=0, **kwargs)
+
+
+def _get_trainer_from_argparse_args(
+    args: argparse.Namespace,
+) -> pl.Trainer:
+    """Creates the trainer from CLI arguments."""
+    return pl.Trainer.from_argparse_args(args, max_epochs=0)
+
+
+def get_dataset(
+    predict: str,
+    config: dataconfig.DataConfig,
+    experiment: str,
+    model_dir: str,
+) -> data.Dataset:
+    """Creates the dataset.
+
+    Args:
+        predict (str).
+        config (dataconfig.DataConfig).
+        experiment (str).
+        model_dir (str).
+
+    Returns:
+        data.Dataset.
+    """
+    # TODO: Since we don't care about the target column, we should be able to
+    # set config.source_col = 0 and avoid the overhead for parsing it.
+    # This does not work because the modules expect it to be present even if
+    # they ignore it.
+    dataset = datasets.get_dataset(predict, config)
+    dataset.load_index(model_dir, experiment)
+    return dataset
+
+
+def get_loader(
+    dataset: data.Dataset,
+    arch: str,
+    batch_size: int,
+) -> data.DataLoader:
+    """Creates the loader.
+
+    Args:
+        dataset (data.Dataset).
+        arch (str).
+        batch_size (int).
+
+    Returns:
+        data.DataLoader.
+    """
+    collator = collators.get_collator(dataset.pad_idx, dataset.config, arch)
+    return data.DataLoader(
+        dataset,
+        collate_fn=collator,
+        batch_size=batch_size,
+        num_workers=1,  # Our data loading is simple.
     )
-    util.log_info("Predicting...")
-    predicted = tester.predict(model, dataloaders=loader)
+
+
+def _get_loader_from_argparse_args(
+    args: argparse.Namespace,
+) -> data.DataLoader:
+    """Creates the loader from CLI arguments."""
+    config = dataconfig.DataConfig.from_argparse_args(args)
+    dataset = get_dataset(
+        args.predict, config, args.experiment, args.model_dir
+    )
+    return get_loader(dataset, args.arch, args.batch_size)
+
+
+def get_model(
+    arch: str,
+    attention: bool,
+    has_features: bool,
+    checkpoint: str,
+) -> pl.LightningModule:
+    """Creates the model from checkpoint.
+
+    Args:
+        arch (str).
+        attention (bool).
+        has_features (bool).
+        checkpoint (str).
+
+    Returns:
+        pl.Lightningmodule.
+    """
+    model_cls = models.get_model_cls(arch, attention, has_features)
+    return model_cls.load_from_checkpoint(checkpoint)
+
+
+def _get_model_from_argparse_args(
+    args: argparse.Namespace,
+) -> pl.LightningModule:
+    """Creates the model from CLI arguments."""
+    model_cls = models.get_model_cls_from_argparse_args(args)
+    return model_cls.load_from_checkpoint(args.checkpoint)
+
+
+def predict(
+    trainer: pl.Trainer,
+    model: pl.LightningModule,
+    loader: data.DataLoader,
+    output: str,
+) -> None:
+    """Predicts from the model.
+
+    Args:
+         trainer (pl.Trainer).
+         model (pl.LightningModule).
+         loader (data.DataLoader).
+         output (str)
+    """
+    model.eval()  # TODO: is this necessary?
+    predictions = trainer.predict(model, dataloaders=loader)
     dataset = loader.dataset
-    util.log_info(f"Writing to {output}")
+    config = dataset.config
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w") as sink:
         tsv_writer = csv.writer(sink, delimiter="\t")
-        for batch, pred_batch in zip(loader, predicted):
-            if arch != "transducer":
-                # -> B x seq_len x vocab_size
-                pred_batch = pred_batch.transpose(1, 2)
-                if beam_width is not None:
-                    pred_batch = pred_batch.squeeze(2)
-                else:
-                    _, pred_batch = torch.max(pred_batch, dim=2)
-            pred_batch = model.evaluator.finalize_preds(
-                pred_batch, dataset.end_idx, dataset.pad_idx
+        for batch, prediction_batch in zip(loader, predictions):
+            # TODO: Can we move some of this logic into the module
+            # `predict_step` methods? I do not understand why it lives here.
+            if not (
+                isinstance(model, models.TransducerNoFeatures)
+                or isinstance(model, models.TransducerFeatures)
+            ):
+                # -> B x seq_len x vocab_size.
+                prediction_batch = prediction_batch.transpose(1, 2)
+                _, prediction_batch = torch.max(prediction_batch, dim=2)
+            prediction_batch = model.evaluator.finalize_predictions(
+                prediction_batch, dataset.end_idx, dataset.pad_idx
             )
             prediction_strs = dataset.decode_target(
-                pred_batch,
+                prediction_batch,
                 symbols=True,
                 special=False,
             )
@@ -71,135 +168,65 @@ def write_predictions(
                     features_batch, symbols=True, special=False
                 )
                 if config.has_features
-                else [None for _ in range(batch_size)]
+                else [None for _ in range(loader.batch_size)]
             )
             for source, prediction, features in zip(
                 source_strs, prediction_strs, features_strs
             ):
                 tsv_writer.writerow(
-                    config.make_row(source, prediction, features)
+                    config.get_row(source, prediction, features)
                 )
-    util.log_info("Prediction complete")
 
 
-@click.command()
-@click.option("--experiment", required=True)
-@click.option("--predict", required=True)
-@click.option("--output", required=True)
-@click.option("--model-dir", required=True)
-@click.option("--checkpoint", required=True)
-@click.option(
-    "--source-col",
-    type=int,
-    default=1,
-    help="1-based index for source column",
-)
-@click.option(
-    "--target-col",
-    type=int,
-    default=2,
-    help="1-based index for target column",
-)
-@click.option(
-    "--features-col",
-    type=int,
-    default=0,
-    help="1-based index for features column; "
-    "0 indicates the model will not use features",
-)
-@click.option("--source-sep", type=str, default="")
-@click.option("--target-sep", type=str, default="")
-@click.option("--features-sep", type=str, default=";")
-@click.option("--tied-vocabulary", default=True)
-@click.option(
-    "--arch",
-    type=click.Choice(
-        [
-            "feature_invariant_transformer",
-            "lstm",
-            "pointer_generator_lstm",
-            "transducer",
-            "transformer",
-        ]
-    ),
-    required=True,
-)
-@click.option("--batch-size", type=int, default=1)
-@click.option(
-    "--beam-width", type=int, help="If specified, beam search is used"
-)
-@click.option(
-    "--attention/--no-attention",
-    type=bool,
-    default=True,
-    help="Use attention (`lstm` only)",
-)
-@click.option("--bidirectional/--no-bidirectional", type=bool, default=True)
-@click.option("--accelerator")
-def main(
-    experiment,
-    predict,
-    output,
-    model_dir,
-    checkpoint,
-    source_col,
-    target_col,
-    features_col,
-    source_sep,
-    target_sep,
-    features_sep,
-    tied_vocabulary,
-    arch,
-    batch_size,
-    beam_width,
-    attention,
-    bidirectional,
-    accelerator,
-):
+def main() -> None:
     """Predictor."""
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    config = dataconfig.DataConfig(
-        source_col=source_col,
-        features_col=features_col,
-        target_col=target_col,
-        source_sep=source_sep,
-        features_sep=features_sep,
-        target_sep=target_sep,
-        tied_vocabulary=tied_vocabulary,
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--experiment", required=True, help="Name of experiment"
     )
-    # TODO: Do not need to enforce once we have batch beam decoding.
-    if beam_width is not None:
-        util.log_info("Decoding with beam search; forcing batch size to 1")
-        batch_size = 1
-    dataset_cls = datasets.get_dataset_cls(config.has_features)
-    dataset = dataset_cls(predict, config)
-    dataset.load_index(model_dir, experiment)
-    util.log_info(f"Source vocabulary: {dataset.source_symbol2i}")
-    util.log_info(f"Target vocabulary: {dataset.target_symbol2i}")
-    collator_cls = collators.get_collator_cls(
-        arch, config.has_features, include_targets=False
+    # Path arguments.
+    parser.add_argument(
+        "--predict",
+        required=True,
+        help="Path to prediction input data TSV",
     )
-    collator = collator_cls(dataset.pad_idx)
-    loader = data.DataLoader(
-        dataset,
-        collate_fn=collator,
-        batch_size=batch_size,
-        shuffle=False,
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to prediction output data TSV",
     )
-    # Model.
-    model_cls = models.get_model_cls(arch, attention, config.has_features)
-    util.log_info(f"Loading model from {checkpoint}")
-    model = model_cls.load_from_checkpoint(checkpoint)
-    write_predictions(
-        model,
-        loader,
-        output,
-        arch,
-        accelerator,
-        batch_size,
-        config,
-        beam_width,
+    parser.add_argument(
+        "--model_dir",
+        required=True,
+        help="Path to output model directory",
     )
+    parser.add_argument("--checkpoint", help="Path to ckpt checkpoint")
+    # Data configuration arguments.
+    dataconfig.DataConfig.add_argparse_args(parser)
+    # Architecture arguments.
+    models.add_argparse_args(parser)
+    # Predicting arguments.
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=128,
+        help="Batch size. Default: %(default)s.",
+    )
+    # TODO: add --beam_width.
+    # Among the things this adds, the following are likely to be useful:
+    # --accelerator ("gpu" for GPU)
+    # --devices (for multiple device support)
+    pl.Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+    util.log_arguments(args)
+    trainer = _get_trainer_from_argparse_args(args)
+    loader = _get_loader_from_argparse_args(args)
+    model = _get_model_from_argparse_args(args)
+    # TODO: We right now assume that the input config and the output config
+    # are the same. However, this may not be desirable. It is an open question
+    # whether we ought to do anything about this. One possible solution is to
+    # generate only the target side and put aside the rest.
+    predict(trainer, model, loader, args.output)
 
 
 if __name__ == "__main__":
