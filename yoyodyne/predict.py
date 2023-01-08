@@ -69,9 +69,7 @@ def get_loader(
     Returns:
         data.DataLoader.
     """
-    collator = collators.Collator.from_config(
-        dataset.pad_idx, dataset.config, arch
-    )
+    collator = collators.Collator(dataset.pad_idx, dataset.config, arch)
     return data.DataLoader(
         dataset,
         collate_fn=collator,

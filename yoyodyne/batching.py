@@ -6,22 +6,6 @@ from typing import List, Optional
 import torch
 from torch.nn import functional
 
-from . import datasets
-
-
-def concatenate_source_and_features(
-    itemlist: List[datasets.Item],
-) -> List[torch.Tensor]:
-    """Concatenates source and feature tensors."""
-    return [
-        (
-            torch.cat((item.source, item.features))
-            if item.has_features
-            else item.source
-        )
-        for item in itemlist
-    ]
-
 
 @dataclasses.dataclass
 class UnpaddedBatch:
@@ -40,7 +24,6 @@ class UnpaddedBatch:
         return self.targets is not None
 
 
-@dataclasses.dataclass
 class PaddedTensor:
     """A tensor and its mask.
 
@@ -51,22 +34,21 @@ class PaddedTensor:
     padded: torch.Tensor
     mask: torch.Tensor
 
-    @classmethod
-    def from_tensorlist(
-        cls, tensorlist: List[torch.Tensor], pad_idx: int
-    ) -> "PaddedTensor":
-        """Constructs a padded tensor from a tensor list.
+    def __init__(self, tensorlist: List[torch.Tensor], pad_idx: int):
+        """Constructs the padded tensor from a list of tensors.
 
         Args:
             tensorlist (List[torch.Tensor]): a list of tensors.
             pad_idx (int): padding index.
         """
         max_len = max(len(tensor) for tensor in tensorlist)
-        padded = torch.stack(
-            [cls.pad_tensor(tensor, pad_idx, max_len) for tensor in tensorlist]
+        self.padded = torch.stack(
+            [
+                self.pad_tensor(tensor, pad_idx, max_len)
+                for tensor in tensorlist
+            ]
         )
-        mask = padded == pad_idx
-        return cls(padded, mask)
+        self.mask = self.padded == pad_idx
 
     @staticmethod
     def pad_tensor(

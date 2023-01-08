@@ -1,4 +1,4 @@
-"""Dataset classes and related utilities."""
+"""Datasets and related utilities."""
 
 import abc
 import dataclasses

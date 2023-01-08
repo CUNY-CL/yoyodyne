@@ -13,49 +13,44 @@ class Collator:
     Pads according to the longest sequence in a batch of sequences."""
 
     pad_idx: int
+    has_features: bool
     has_target: bool
     separate_features: bool
 
-    def __init__(self, pad_idx, has_target, separate_features):
+    def __init__(self, pad_idx, config: dataconfig.DataConfig, arch: str):
         """Initializes the collator.
 
         Args:
             pad_idx (int).
-            has_target (bool).
-            separate_features (bool).
+            config (dataconfig.DataConfig).
+            arch (str).
         """
         self.pad_idx = pad_idx
-        self.has_target = has_target
-        self.separate_features = separate_features
-
-    @classmethod
-    def from_config(
-        cls, pad_idx: int, config: dataconfig.DataConfig, arch: str
-    ) -> "Collator":
-        if config.has_features and arch in [
+        self.has_features = config.has_features
+        self.has_target = config.has_target
+        self.separate_features = config.has_features and arch in [
             "pointer_generator_lstm",
             "transducer",
-        ]:
-            return cls(pad_idx, config.has_target, separate_features=True)
-        else:
-            return cls(pad_idx, config.has_target, separate_features=False)
+        ]
 
     @staticmethod
-    def max_len(batch: List[torch.Tensor]) -> int:
-        """Computes max length for a list of tensors.
-
-        Args:
-            batch (List[torch.Tensor]).
-
-        Returns:
-            int.
-        """
-        return max(len(tensor) for tensor in batch)
+    def concatenate_source_and_features(
+        itemlist: List[datasets.Item],
+    ) -> List[torch.Tensor]:
+        """Concatenates source and feature tensors."""
+        return [
+            (
+                torch.cat((item.source, item.features))
+                if item.has_features
+                else item.source
+            )
+            for item in itemlist
+        ]
 
     def pad_source(
         self, itemlist: List[datasets.Item]
     ) -> batching.PaddedTensor:
-        return batching.PaddedTensor.from_tensorlist(
+        return batching.PaddedTensor(
             [item.source for item in itemlist], self.pad_idx
         )
 
@@ -63,22 +58,22 @@ class Collator:
         self,
         itemlist: List[datasets.Item],
     ) -> batching.PaddedTensor:
-        return batching.PaddedTensor.from_tensorlist(
-            batching.concatenate_source_and_features(itemlist), self.pad_idx
+        return batching.PaddedTensor(
+            self.concatenate_source_and_features(itemlist), self.pad_idx
         )
 
     def pad_features(
         self,
         itemlist: List[datasets.Item],
     ) -> batching.PaddedTensor:
-        return batching.PaddedTensor.from_tensorlist(
+        return batching.PaddedTensor(
             [item.features for item in itemlist], self.pad_idx
         )
 
     def pad_target(
         self, itemlist: List[datasets.Item]
     ) -> batching.PaddedTensor:
-        return batching.PaddedTensor.from_tensorlist(
+        return batching.PaddedTensor(
             [item.target for item in itemlist], self.pad_idx
         )
 
