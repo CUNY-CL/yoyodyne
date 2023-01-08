@@ -1,13 +1,14 @@
 """Prediction."""
 
 import os
+from typing import Optional
 
 import click
 import pytorch_lightning as pl
 import torch
 from torch.utils import data
 
-from . import collators, datasets, models, util
+from . import collators, dataconfig, datasets, models, util
 
 
 def write_predictions(
@@ -55,7 +56,7 @@ def write_predictions(
                 if beam_width is not None:
                     batch = batch.squeeze(2)
                 else:
-                    _, batch = torch.max(pred_batch, dim=2)
+                    _, batch = torch.max(batch, dim=2)
             batch = model.evaluator.finalize_preds(
                 batch, dataset.end_idx, dataset.pad_idx
             )
