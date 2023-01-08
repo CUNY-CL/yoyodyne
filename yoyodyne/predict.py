@@ -156,12 +156,15 @@ def predict(
                 special=False,
             )
             source_strs = dataset.decode_source(
-                batch[0], symbols=True, special=False
+                batch.source.padded, symbols=True, special=False
             )
-            features_batch = batch[2] if config.has_features else batch[0]
             features_strs = (
                 dataset.decode_features(
-                    features_batch, symbols=True, special=False
+                    batch.features.padded
+                    if batch.has_features
+                    else batch.source.padded,
+                    symbols=True,
+                    special=False,
                 )
                 if config.has_features
                 else [None for _ in range(loader.batch_size)]

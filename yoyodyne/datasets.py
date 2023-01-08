@@ -1,11 +1,16 @@
-"""Datasets and related utilities."""
+"""Datasets and related utilities.
+
+Anything which has-a tensor should inherit from nn.Module and run the
+superclass constructor, as that enables the Trainer to move them to the
+appropriate device.
+"""
 
 import abc
-import dataclasses
 import pickle
 from typing import Any, Dict, List, Optional, Set
 
 import torch
+from torch import nn
 from torch.utils import data
 
 from . import dataconfig, symbols
@@ -17,15 +22,20 @@ class Error(Exception):
     pass
 
 
-@dataclasses.dataclass
-class Item:
+class Item(nn.Module):
     """Source tensor, with optional features and target tensors.
 
     This represents a single item or observation."""
 
     source: torch.Tensor
-    features: Optional[torch.Tensor] = None
-    target: Optional[torch.Tensor] = None
+    features: Optional[torch.Tensor]
+    target: Optional[torch.Tensor]
+
+    def __init__(self, source, features=None, target=None):
+        super().__init__()
+        self.register_buffer("source", source)
+        self.register_buffer("features", features)
+        self.register_buffer("target", target)
 
     @property
     def has_features(self):

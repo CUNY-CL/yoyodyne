@@ -210,9 +210,9 @@ def get_model(
     max_decode_length: int = 128,
     max_sequence_length: int = 128,
     # Training arguments.
+    batch_size: int = 32,
     beta1: float = 0.9,
     beta2: float = 0.999,
-    batch_size: int = 32,
     dropout: float = 0.2,
     learning_rate: float = 0.001,
     oracle_em_epochs: int = 5,
@@ -237,6 +237,7 @@ def get_model(
         hidden_size (int).
         max_decode_length (int).
         max_sequence_length (int).
+        batch_size (int).
         beta1 (float).
         beta2 (float).
         batch_size (int).

@@ -212,7 +212,6 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             torch.Tensor.
         """
         source = batch.source
-        batch_size = source.size(0)
         source_encoded, (h_source, c_source) = self.encode(
             source, self.encoder
         )
@@ -223,12 +222,12 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             raise NotImplementedError
         else:
             predictions = self.decode(
-                batch_size,
+                len(batch),
                 (h_source, c_source),
                 source.padded,
                 source_encoded,
                 source.mask,
-                batch.target,
+                batch.target.padded,
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)
@@ -474,12 +473,10 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         Returns:
             torch.Tensor.
         """
-        # Training mode with targets.
         source = batch.source
         assert batch.has_features
         features = batch.features
         target = batch.target
-        batch_size = source.padded.size(0)
         source_encoded, (h_source, c_source) = self.encode(
             source, self.encoder
         )
@@ -495,7 +492,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             raise NotImplementedError
         else:
             predictions = self.decode(
-                batch_size,
+                len(batch),
                 (h_0, c_0),
                 source.padded,
                 source_encoded,

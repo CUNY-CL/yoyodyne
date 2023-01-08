@@ -181,7 +181,13 @@ class BaseEncoderDecoder(pl.LightningModule):
         predictions = self(batch)
         target_padded = batch.target.padded
         loss = self.loss_func(predictions, target_padded)
-        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            on_step=False,
+            on_epoch=True,
+        )
         return loss
 
     def validation_step(

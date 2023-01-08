@@ -376,7 +376,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 break
         # Returns the top-n hypotheses.
         histories = heapq.nlargest(n, hypotheses)
-        predictions = torch.tensor([h[1] for h in histories])
+        predictions = torch.tensor([h[1] for h in histories], self.device)
         # Converts shape to that of `decode`: seq_len x B x output_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
         if return_confidences:
@@ -395,18 +395,17 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 (sequence_length, batch_size, output_size).
         """
         source = batch.source
-        batch_size = source.padded.size(0)
         encoder_out, _ = self.encode(source)
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
-                batch_size,
+                len(batch),
                 source.mask,
                 encoder_out,
                 beam_width=self.beam_width,
             )
         else:
             predictions = self.decode(
-                batch_size, source.mask, encoder_out, batch.target.padded
+                len(batch), source.mask, encoder_out, batch.target.padded
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)
