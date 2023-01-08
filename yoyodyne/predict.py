@@ -1,7 +1,6 @@
 """Prediction."""
 
 import argparse
-import csv
 import os
 
 import pytorch_lightning as pl
@@ -121,6 +120,7 @@ def predict(
     model: pl.LightningModule,
     loader: data.DataLoader,
     output: str,
+    target_sep: str = "",
 ) -> None:
     """Predicts from the model.
 
@@ -128,53 +128,33 @@ def predict(
          trainer (pl.Trainer).
          model (pl.LightningModule).
          loader (data.DataLoader).
-         output (str)
+         output (str).
+         target_sep (str).
     """
     model.eval()  # TODO: is this necessary?
-    predictions = trainer.predict(model, dataloaders=loader)
     dataset = loader.dataset
-    config = dataset.config
+    util.log_info(f"Writing to {output}")
     os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, "w") as sink:
-        tsv_writer = csv.writer(sink, delimiter="\t")
-        for batch, prediction_batch in zip(loader, predictions):
-            # TODO: Can we move some of this logic into the module
-            # `predict_step` methods? I do not understand why it lives here.
+        for batch in trainer.predict(model, dataloaders=loader):
+            # TODO: can we move some of this into module `predict_step`
+            # methods? I do not understand why it lives here.
             if not (
                 isinstance(model, models.TransducerNoFeatures)
                 or isinstance(model, models.TransducerFeatures)
             ):
-                # -> B x seq_len x vocab_size.
-                prediction_batch = prediction_batch.transpose(1, 2)
-                _, prediction_batch = torch.max(prediction_batch, dim=2)
-            prediction_batch = model.evaluator.finalize_predictions(
-                prediction_batch, dataset.end_idx, dataset.pad_idx
+                # -> B x seq_len x vocab_size
+                batch = batch.transpose(1, 2)
+                _, batch = torch.max(batch, dim=2)
+            batch = model.evaluator.finalize_preds(
+                batch, dataset.end_idx, dataset.pad_idx
             )
-            prediction_strs = dataset.decode_target(
-                prediction_batch,
+            for prediction in dataset.decode_target(
+                batch,
                 symbols=True,
                 special=False,
-            )
-            source_strs = dataset.decode_source(
-                batch.source.padded, symbols=True, special=False
-            )
-            features_strs = (
-                dataset.decode_features(
-                    batch.features.padded
-                    if batch.has_features
-                    else batch.source.padded,
-                    symbols=True,
-                    special=False,
-                )
-                if config.has_features
-                else [None for _ in range(loader.batch_size)]
-            )
-            for source, prediction, features in zip(
-                source_strs, prediction_strs, features_strs
             ):
-                tsv_writer.writerow(
-                    config.make_row(source, prediction, features)
-                )
+                print(sink, target_sep.join(prediction))
 
 
 def main() -> None:
@@ -199,7 +179,7 @@ def main() -> None:
         "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
     )
     # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
+    config = dataconfig.DataConfig.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
     # Predicting arguments.
@@ -219,11 +199,7 @@ def main() -> None:
     trainer = _get_trainer_from_argparse_args(args)
     loader = _get_loader_from_argparse_args(args)
     model = _get_model_from_argparse_args(args)
-    # TODO: We right now assume that the input config and the output config
-    # are the same. However, this may not be desirable. It is an open question
-    # whether we ought to do anything about this. One possible solution is to
-    # generate only the target side and put aside the rest.
-    predict(trainer, model, loader, args.output)
+    predict(trainer, model, loader, args.output, config.target_sep)
 
 
 if __name__ == "__main__":
