@@ -503,7 +503,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         return loss
 
     def validation_step(
-        self, batch: Tuple[torch.tensor], batch_idx: int
+        self, batch: batching.PaddedBatch, batch_idx: int
     ) -> Dict:
         predictions, loss = self.forward(batch)
         # Evaluation requires prediction as a tensor.
@@ -512,10 +512,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         predictions = self.evaluator.finalize_predictions(
             predictions, self.end_idx, self.pad_idx
         )
-        target = batch[-2]
         return {
             "val_accuracy": self.evaluator.accuracy(
-                predictions, target, self.pad_idx
+                predictions, batch.target.padded, self.pad_idx
             ),
             "val_loss": loss,
         }

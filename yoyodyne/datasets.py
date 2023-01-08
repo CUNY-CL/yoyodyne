@@ -24,8 +24,8 @@ class Item:
     This represents a single item or observation."""
 
     source: torch.Tensor
-    features: Optional[torch.Tensor]
-    target: Optional[torch.Tensor]
+    features: Optional[torch.Tensor] = None
+    target: Optional[torch.Tensor] = None
 
     @property
     def has_features(self):
