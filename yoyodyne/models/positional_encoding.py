@@ -17,17 +17,19 @@ class PositionalEncoding(nn.Module):
 
     pad_idx: int
 
-    def __init__(self, d_model: int, pad_idx, max_len: int = 100):
+    def __init__(self, d_model: int, pad_idx, max_sequence_length: int = 128):
         """
         Args:
             d_model (int).
             pad_idx (int).
-            max_len (int, optional).
+            max_sequence_length (int).
         """
         super(PositionalEncoding, self).__init__()
         self.pad_idx = pad_idx
-        positional_encoding = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        positional_encoding = torch.zeros(max_sequence_length, d_model)
+        position = torch.arange(
+            0, max_sequence_length, dtype=torch.float
+        ).unsqueeze(1)
         scale_factor = -math.log(10000.0) / d_model
         div_term = torch.exp(
             torch.arange(0, d_model, 2).float() * scale_factor

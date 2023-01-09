@@ -1,5 +1,7 @@
 """Model classes and lookup function."""
 
+import argparse
+
 import pytorch_lightning as pl
 
 from .. import util
@@ -16,14 +18,14 @@ from .transformer import (
 
 
 def get_model_cls(
-    arch: str, attention: bool, include_features: bool
+    arch: str, attention: bool, has_features: bool
 ) -> pl.LightningModule:
     """Model factory.
 
     Args:
         arch (str).
         attention (bool).
-        include_features (bool).
+        has_features (bool).
 
     Raises:
         NotImplementedError.
@@ -37,21 +39,61 @@ def get_model_cls(
             FeatureInvariantTransformerEncoderDecoder,
         "pointer_generator_lstm":
             PointerGeneratorLSTMEncoderDecoderFeatures
-            if include_features
+            if has_features
             else PointerGeneratorLSTMEncoderDecoderNoFeatures,
         # fmt: on
         "transducer": TransducerFeatures
-        if include_features
+        if has_features
         else TransducerNoFeatures,
         "transformer": TransformerEncoderDecoder,
         "lstm": LSTMEncoderDecoderAttention
         if attention
         else LSTMEncoderDecoder,
     }
-    if arch in ["lstm", "pointer_generator_lstm", "transformer"]:
-        util.log_info(f"Attention: {attention}")
     try:
-        kls = model_fac[arch]
-        return kls
+        model_cls = model_fac[arch]
+        util.log_info(f"Model: {model_cls.__name__}")
+        return model_cls
     except KeyError:
         raise NotImplementedError(f"Architecture {arch} not found")
+
+
+def get_model_cls_from_argparse_args(
+    args: argparse.Namespace,
+) -> pl.LightningModule:
+    """Creates an instance from CLI arguments."""
+    # TODO: hackish.
+    has_features = args.features_col != 0
+    return get_model_cls(args.arch, args.attention, has_features)
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds model options to an argument parser.
+
+    We only add the ones needed to look up the model class itself, with
+    more specific arguments specified in ../train.py.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--arch",
+        choices=[
+            "feature_invariant_transformer",
+            "lstm",
+            "pointer_generator_lstm",
+            "transducer",
+            "transformer",
+        ],
+        default="lstm",
+        help="Model architecture to use",
+    )
+    parser.add_argument(
+        "--attention",
+        action="store_true",
+        default=True,
+        help="Uses attention (LSTM architecture only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--no_attention", action="store_false", dest="attention"
+    )

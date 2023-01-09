@@ -8,6 +8,7 @@ Class stores valid edit actions for given dataset.
 """
 
 import abc
+import argparse
 import dataclasses
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
@@ -394,7 +395,7 @@ class Expert(abc.ABC):
 
 def get_expert(
     train_data: data.Dataset,
-    epochs: int = 10,
+    epochs: int = 5,
     oracle_factor: int = 1,
     sed_params_path: str = None,
 ) -> Expert:
@@ -430,11 +431,11 @@ def get_expert(
                 yields list version of source and target entries
                 in dataset.
         """
-        for source, *_, target in data:
+        for item in data:
             # Dataset encodes BOW and EOW symbols for source. EOW
             # for target. Removes these for SED training.
-            source = source.tolist()[1:-1]
-            target = target.tolist()[:-1]
+            source = item.source.tolist()[1:-1]
+            target = item.target.tolist()[:-1]
             actions.encode_actions(target)
             yield source, target
 
@@ -450,9 +451,9 @@ def get_expert(
             actions (ActionVocabulary): Vocabulary object
                 to encode actions for expert.
         """
-        for _, *_, target in data:
+        for item in data:
             # Ignores last symbol since EOW.
-            target = target.tolist()[:-1]
+            target = item.target.tolist()[:-1]
             actions.encode_actions(target)
 
     if sed_params_path:
@@ -469,3 +470,32 @@ def get_expert(
         )
     util.log_info(f"Action vocabulary: {actions}")
     return Expert(actions, sed_aligner, oracle_factor=oracle_factor)
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds expert configuration options to the argument parser.
+
+    These are only needed at training time.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--oracle_em_epochs",
+        type=int,
+        default=5,
+        help="Number of EM epochs "
+        "(transducer architecture only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--oracle_factor",
+        type=int,
+        default=1,
+        help="Roll-in schedule parameter "
+        "(transducer architecture only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--sed_path",
+        type=str,
+        help="Path to input SED parameters (transducer architecture only)",
+    )
