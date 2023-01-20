@@ -151,7 +151,7 @@ def predict(
             )
             for prediction in dataset.decode_target(
                 batch,
-                symbols=True,
+                special=True,
                 special=False,
             ):
                 print(target_sep.join(prediction), file=sink)

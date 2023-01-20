@@ -8,7 +8,7 @@ import torch
 from maxwell import actions
 from torch import nn
 
-from .. import batching
+from .. import batches
 from . import expert, lstm
 
 
@@ -59,12 +59,12 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         )
 
     def forward(
-        self, batch: batching.PaddedBatch
+        self, batch: batches.PaddedBatch
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (batching.PaddedBatch).
+            batch (batches.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor] of encoded prediction values
@@ -503,7 +503,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         return loss
 
     def validation_step(
-        self, batch: batching.PaddedBatch, batch_idx: int
+        self, batch: batches.PaddedBatch, batch_idx: int
     ) -> Dict:
         predictions, loss = self.forward(batch)
         # Evaluation requires prediction as a tensor.
@@ -586,11 +586,11 @@ class TransducerFeatures(TransducerNoFeatures):
             batch_first=True,
         )
 
-    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
+    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (batching.PaddedBatch).
+            batch (batches.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values

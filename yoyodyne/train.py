@@ -1,7 +1,6 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-import os
 
 from typing import List, Optional, Tuple
 
@@ -104,7 +103,14 @@ def get_trainer(
 def _get_trainer_from_argparse_args(
     args: argparse.Namespace,
 ) -> pl.Trainer:
-    """Creates the trainer from CLI arguments."""
+    """Creates the trainer from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        pl.Trainer.
+    """
     return pl.Trainer.from_argparse_args(
         args,
         callbacks=_get_callbacks(args.save_top_k, args.patience),
@@ -118,66 +124,64 @@ def get_datasets(
     train: str,
     dev: str,
     config: dataconfig.DataConfig,
-    index: str,
-) -> Tuple[data.Dataset, data.Dataset]:
+) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
     """Creates the datasets.
 
     Args:
         train (str).
         dev (str).
         config (dataconfig.DataConfig)
-        index(str).
 
     Returns:
-        Tuple[data.DataLoader, data.DataLoader].
+        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
+            development datasets.
     """
     if config.target_col == 0:
         raise Error("target_col must be specified for training")
     train_set = datasets.get_dataset(train, config)
-    dev_set = datasets.get_dataset(dev, config, train_set)
-    util.log_info(f"Source vocabulary: {train_set.source_map.pprint()}")
-    util.log_info(f"Target vocabulary: {train_set.target_map.pprint()}")
-    # Create it in case it doesn't exist already.
-    os.makedirs(os.path.dirname(index), exist_ok=True)
-    train_set.write_index(index)
-    dev_set.read_index(index)
+    dev_set = datasets.get_dataset(dev, config, train_set.index)
+    util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
+    util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
     return train_set, dev_set
 
 
-def get_index(model_dir: str, experiment: str) -> str:
-    """Computes the index path.
+def _get_datasets_from_argparse_args(
+    args: argparse.Namespace,
+) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
+    """Creates the datasets from CLI arguments.
 
     Args:
-        model_dir (str).
-        experiment (str).
+        args (argparse.Namespace).
 
     Returns:
-        str.
+        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
+            development datasets.
     """
-    return f"{model_dir}/{experiment}/index.pkl"
-
-
-def _get_datasets_from_argparse_args(
-    args: argparse.Namespace, index: str
-) -> Tuple[data.Dataset, data.Dataset]:
-    """Creates the datasets from CLI arguments."""
     config = dataconfig.DataConfig.from_argparse_args(args)
-    return get_datasets(
-        args.train,
-        args.dev,
-        config,
-        index,
-    )
+    return get_datasets(args.train, args.dev, config)
 
 
 def get_loaders(
-    train_set: data.Dataset,
-    dev_set: data.Dataset,
+    train_set: datasets.BaseDataset,
+    dev_set: datasets.BaseDataset,
     arch: str,
     batch_size: int,
 ) -> Tuple[data.DataLoader, data.DataLoader]:
-    """Creates the loaders."""
-    collator = collators.Collator(train_set.pad_idx, train_set.config, arch)
+    """Creates the loaders.
+
+    Args:
+        train_set (datasets.BaseDataset).
+        dev_set (datasets.BaseDataset).
+        arch (str).
+        batch_size (int).
+
+    Returns:
+        Tuple[data.DataLoader, data.DataLoader]: the training and development
+            loaders.
+    """
+    collator = collators.Collator(
+        train_set.index.pad_idx, train_set.config, arch
+    )
     train_loader = data.DataLoader(
         train_set,
         collate_fn=collator,
@@ -196,7 +200,7 @@ def get_loaders(
 
 def get_model(
     # Data arguments.
-    train_set: data.Dataset,
+    train_set: datasets.BaseDataset,
     *,
     # Architecture arguments.
     arch: str = "lstm",
@@ -226,7 +230,7 @@ def get_model(
     """Creates the model.
 
     Args:
-        train_set (data.Dataset)
+        train_set (datasets.BaseDataset)
         arch (str).
         attention (bool).
         attention_heads (int).
@@ -252,7 +256,7 @@ def get_model(
         **kwargs: ignored.
 
     Returns:
-        pl.LightningModule: model.
+        pl.LightningModule.
     """
     model_cls = models.get_model_cls(
         arch, attention, train_set.config.has_features
@@ -278,21 +282,23 @@ def get_model(
         dropout=dropout,
         embedding_size=embedding_size,
         encoder_layers=encoder_layers,
-        end_idx=train_set.end_idx,
+        end_idx=train_set.index.end_idx,
         expert=expert,
-        features_vocab_size=getattr(train_set, "features_vocab_size", -1),
-        features_idx=getattr(train_set, "features_idx", -1),
+        features_vocab_size=getattr(
+            train_set.index, "features_vocab_size", -1
+        ),
+        features_idx=getattr(train_set.index, "features_idx", -1),
         hidden_size=hidden_size,
         learning_rate=learning_rate,
         max_decode_length=max_decode_length,
         max_sequence_length=max_sequence_length,
         optimizer=optimizer,
-        output_size=train_set.target_vocab_size,
-        pad_idx=train_set.pad_idx,
+        output_size=train_set.index.target_vocab_size,
+        pad_idx=train_set.index.pad_idx,
         scheduler=scheduler,
-        start_idx=train_set.start_idx,
+        start_idx=train_set.index.start_idx,
         train_set=train_set,
-        vocab_size=train_set.source_vocab_size,
+        vocab_size=train_set.index.source_vocab_size,
         warmup_steps=warmup_steps,
     )
 
@@ -315,13 +321,26 @@ def train(
             checkpoint.
 
     Returns:
-        (str) Path to best checkpoint.
+        str: path to best checkpoint.
     """
     trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
     ckp_callback = trainer.callbacks[-1]
     # TODO: feels flimsy.
     assert type(ckp_callback) is callbacks.ModelCheckpoint
     return ckp_callback.best_model_path
+
+
+def get_index(model_dir: str, experiment: str) -> str:
+    """Computes the index path.
+
+    Args:
+        model_dir (str).
+        experiment (str).
+
+    Returns:
+        str.
+    """
+    return f"{model_dir}/{experiment}/index.pkl"
 
 
 def main() -> None:
@@ -403,8 +422,7 @@ def main() -> None:
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = _get_trainer_from_argparse_args(args)
-    index = get_index(args.model_dir, args.experiment)
-    train_set, dev_set = _get_datasets_from_argparse_args(args, index)
+    train_set, dev_set = _get_datasets_from_argparse_args(args)
     train_loader, dev_loader = get_loaders(
         train_set, dev_set, args.arch, args.batch_size
     )
@@ -412,6 +430,8 @@ def main() -> None:
     best_checkpoint = train(
         trainer, model, train_loader, dev_loader, args.train_from
     )
+    index = get_index(args.model_dir, args.experiment)
+    train_set.index.write(index)
     util.log_info(f"Index: {index}")
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 

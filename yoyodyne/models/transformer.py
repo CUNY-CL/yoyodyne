@@ -6,7 +6,7 @@ import math
 import torch
 from torch import nn
 
-from .. import batching
+from .. import batches
 from . import base, positional_encoding
 
 
@@ -137,11 +137,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         out = self.dropout_layer(word_embedding + positional_embedding)
         return out
 
-    def encode(self, source: batching.PaddedTensor) -> torch.Tensor:
+    def encode(self, source: batches.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
         Args:
-            source (batching.PaddedTensor).
+            source (batches.PaddedTensor).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
@@ -227,11 +227,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         # -> B x vocab_size x sequence_length
         return torch.stack(outputs).transpose(0, 1).transpose(1, 2)
 
-    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
+    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (batching.PaddedBatch).
+            batch (batches.PaddedBatch).
 
         Returns:
             torch.Tensor.

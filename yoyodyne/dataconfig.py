@@ -26,11 +26,11 @@ class DataConfig:
             target strings.
         features_col (int, optional): 1-indexed column in TSV containing
             features strings.
-        source_sep (str, optional): separator character between symbols in
+        source_sep (str, optional): separator character between special in
             source string. "" treats each character in source as a symbol.
-        target_sep (str, optional): separator character between symbols in
+        target_sep (str, optional): separator character between special in
             target string. "" treats each character in target as a symbol.
-        features_sep (str, optional): separator character between symbols in
+        features_sep (str, optional): separator character between special in
             features string. "" treats each character in features as a symbol.
         tied_vocabulary (bool, optional): whether the source and target
             should share a vocabulary.
@@ -79,7 +79,7 @@ class DataConfig:
               the column is split into characters instead.
 
         Returns:
-           List[str]: symbols from that cell.
+           List[str]: special from that cell.
         """
         cell = row[col - 1]  # -1 because we're using one-based indexing.
         return list(cell) if not sep else cell.split(sep)
@@ -201,7 +201,7 @@ class DataConfig:
             "--source_sep",
             type=str,
             default="",
-            help="String used to split source string into symbols; "
+            help="String used to split source string into special; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
         )
@@ -209,7 +209,7 @@ class DataConfig:
             "--target_sep",
             type=str,
             default="",
-            help="String used to split target string into symbols; "
+            help="String used to split target string into special; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
         )
@@ -217,7 +217,7 @@ class DataConfig:
             "--features_sep",
             type=str,
             default=";",
-            help="String used to split features string into symbols; "
+            help="String used to split features string into special; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
         )

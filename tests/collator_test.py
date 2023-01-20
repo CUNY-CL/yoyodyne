@@ -34,7 +34,7 @@ def test_get_collator(
         target_col=2 if has_target else 0,
     )
     collator = collators.Collator(
-        1,  # pad_idx,
+        1,  # pad_idx, but it doesn't matter here.
         config,
         arch,
     )

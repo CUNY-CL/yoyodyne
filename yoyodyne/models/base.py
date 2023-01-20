@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import batching, evaluators, schedulers, util
+from .. import batches, evaluators, schedulers, util
 
 
 class BaseEncoderDecoder(pl.LightningModule):
@@ -163,7 +163,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
     def training_step(
         self,
-        batch: batching.PaddedBatch,
+        batch: batches.PaddedBatch,
         batch_idx: int,
     ) -> torch.Tensor:
         """Runs one step of training.
@@ -192,7 +192,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
     def validation_step(
         self,
-        batch: batching.PaddedBatch,
+        batch: batches.PaddedBatch,
         batch_idx: int,
     ) -> Dict:
         """Runs one validation step.

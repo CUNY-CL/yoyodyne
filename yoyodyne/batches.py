@@ -1,9 +1,8 @@
 """Batching, padding, and related utilities.
 
-Anything which has-a tensor should inherit from nn.Module and run the
-superclass constructor, as that enables the Trainer to move them to the
-appropriate device. Furthermore, we register the tensors as buffers.
-"""
+Anything which has a tensor member should inherit from nn.Module, run the
+superclass constructor, and register the tensor as a buffer. This enables the
+Trainer to move them to the appropriate device."""
 
 from typing import List, Optional
 
@@ -15,8 +14,7 @@ class PaddedTensor(nn.Module):
     """A tensor and its mask.
 
     This is ordinarily used for padding a tensor list, so it represents
-    one of (source, target, features) for a batch.
-    """
+    one of (source, target, features) for a batch."""
 
     padded: torch.Tensor
     mask: torch.Tensor
@@ -73,6 +71,16 @@ class PaddedTensor(nn.Module):
 
     def __len__(self) -> int:
         return len(self.padded)
+
+    def lengths(self) -> torch.Tensor:
+        """Computes the lengths of all the strings in the tensor.
+
+        By convention we seem to want this tensor on CPU.
+
+        Returns:
+            torch.Tensor.
+        """
+        return (self.mask == 0).sum(dim=1).to("cpu")
 
 
 class PaddedBatch(nn.Module):

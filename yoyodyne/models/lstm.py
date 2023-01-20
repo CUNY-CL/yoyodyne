@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import batching
+from .. import batches
 from . import attention, base
 
 
@@ -97,12 +97,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
 
     def encode(
-        self, source: batching.PaddedTensor
+        self, source: batches.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Encodes the input.
 
         Args:
-            source (batching.PaddedTensor): source padded tensors and mask
+            source (batches.PaddedTensor): source padded tensors and mask
                 for source, of shape B x seq_len x 1.
 
         Returns:
@@ -112,9 +112,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         embedded = self.source_embeddings(source.padded)
         embedded = self.dropout_layer(embedded)
         # Packs embedded source symbols into a PackedSequence.
-        lens = (source.mask == 0).sum(dim=1).to("cpu")
         packed = nn.utils.rnn.pack_padded_sequence(
-            embedded, lens, batch_first=True, enforce_sorted=False
+            embedded, source.lengths(), batch_first=True, enforce_sorted=False
         )
         # -> B x seq_len x encoder_dim, (h0, c0).
         packed_outs, (H, C) = self.encoder(packed)
@@ -384,11 +383,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         else:
             return predictions
 
-    def forward(self, batch: batching.PaddedBatch) -> torch.Tensor:
+    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (batching.PaddedBatch).
+            batch (batches.PaddedBatch).
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
