@@ -89,6 +89,18 @@ class DatasetNoFeatures(BaseDataset):
         self.samples = list(self.config.samples(filename))
         self.index = index if index is not None else self._make_index()
 
+    @staticmethod
+    def read_index(path: str) -> indexes.IndexNoFeatures:
+        """Helper for loading index.
+
+        Args:
+            path (str).
+
+        Returns:
+            indexes.IndexNoFeatures.
+        """
+        return indexes.IndexNoFeatures.read(path)
+
     def _make_index(self) -> indexes.IndexNoFeatures:
         """Generates index."""
         source_vocabulary: Set[str] = set()
@@ -229,7 +241,7 @@ class DatasetNoFeatures(BaseDataset):
             List[List[str]]: decoded symbols.
         """
         return self._decode(
-            self.target_map,
+            self.index.target_map,
             indices,
             symbols=symbols,
             special=special,
@@ -262,6 +274,18 @@ class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
 
     index: indexes.IndexFeatures
+
+    @staticmethod
+    def read_index(path: str) -> indexes.IndexFeatures:
+        """Helper for loading index.
+
+        Args:
+            path (str).
+
+        Returns:
+            indexes.IndexNoFeatures.
+        """
+        return indexes.IndexFeatures.read(path)
 
     def _make_index(self) -> indexes.IndexFeatures:
         """Generates index.
@@ -378,18 +402,20 @@ class DatasetFeatures(DatasetNoFeatures):
 def get_dataset(
     filename: str,
     config: dataconfig.DataConfig,
-    other: Optional[BaseDataset] = None,
+    index: Optional[str] = None,
 ) -> data.Dataset:
     """Dataset factory.
 
     Args:
         filename (str): input filename.
         config (dataconfig.DataConfig): dataset configuration.
-        other (BaseDataset, optional): if provided, use the index from this
-            dataset rather than recomputing one.
+        index (str, optional): path to an input index file.
 
     Returns:
         data.Dataset: the dataset.
     """
     cls = DatasetFeatures if config.has_features else DatasetNoFeatures
-    return cls(filename, config, other)
+    if index is not None:
+        return cls(filename, config, cls.read_index(index))
+    else:
+        return cls(filename, config)

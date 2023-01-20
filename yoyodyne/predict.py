@@ -48,8 +48,7 @@ def get_dataset(
     # set config.source_col = 0 and avoid the overhead for parsing it.
     # This does not work because the modules expect it to be present even if
     # they ignore it.
-    dataset = datasets.get_dataset(predict, config)
-    dataset.read_index(index)
+    dataset = datasets.get_dataset(predict, config, index)
     return dataset
 
 
@@ -68,7 +67,7 @@ def get_loader(
     Returns:
         data.DataLoader.
     """
-    collator = collators.Collator(dataset.pad_idx, dataset.config, arch)
+    collator = collators.Collator(dataset.index.pad_idx, dataset.config, arch)
     return data.DataLoader(
         dataset,
         collate_fn=collator,
@@ -147,11 +146,11 @@ def predict(
                 batch = batch.transpose(1, 2)
                 _, batch = torch.max(batch, dim=2)
             batch = model.evaluator.finalize_predictions(
-                batch, dataset.end_idx, dataset.pad_idx
+                batch, dataset.index.end_idx, dataset.index.pad_idx
             )
             for prediction in dataset.decode_target(
                 batch,
-                special=True,
+                symbols=True,
                 special=False,
             ):
                 print(target_sep.join(prediction), file=sink)
