@@ -4,7 +4,7 @@ import argparse
 
 from .. import util
 from .base import BaseEncoderDecoder
-from .lstm import LSTMEncoderDecoder, LSTMEncoderDecoderAttention
+from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoderFeatures,
     PointerGeneratorLSTMEncoderDecoderNoFeatures,
@@ -16,14 +16,11 @@ from .transformer import (
 )
 
 
-def get_model_cls(
-    arch: str, attention: bool, has_features: bool
-) -> BaseEncoderDecoder:
+def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
     """Model factory.
 
     Args:
         arch (str).
-        attention (bool).
         has_features (bool).
 
     Raises:
@@ -33,6 +30,12 @@ def get_model_cls(
         BaseEncoderDecoder.
     """
     model_fac = {
+        "attentive_lstm": AttentiveLSTMEncoderDecoder,
+        "lstm": LSTMEncoderDecoder,
+        "transducer": TransducerFeatures
+        if has_features
+        else TransducerNoFeatures,
+        "transformer": TransformerEncoderDecoder,
         # fmt: off
         "feature_invariant_transformer":
             FeatureInvariantTransformerEncoderDecoder,
@@ -41,13 +44,6 @@ def get_model_cls(
             if has_features
             else PointerGeneratorLSTMEncoderDecoderNoFeatures,
         # fmt: on
-        "transducer": TransducerFeatures
-        if has_features
-        else TransducerNoFeatures,
-        "transformer": TransformerEncoderDecoder,
-        "lstm": LSTMEncoderDecoderAttention
-        if attention
-        else LSTMEncoderDecoder,
     }
     try:
         model_cls = model_fac[arch]
@@ -71,7 +67,7 @@ def get_model_cls_from_argparse_args(
     Returns:
         BaseEncoderDecoder.
     """
-    return get_model_cls(args.arch, args.attention, args.features_col != 0)
+    return get_model_cls(args.arch, args.features_col != 0)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -86,21 +82,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--arch",
         choices=[
+            "attentive_lstm",
             "feature_invariant_transformer",
             "lstm",
             "pointer_generator_lstm",
             "transducer",
             "transformer",
         ],
-        default="lstm",
+        default="attentive_lstm",
         help="Model architecture to use",
-    )
-    parser.add_argument(
-        "--attention",
-        action="store_true",
-        default=True,
-        help="Uses attention (LSTM architecture only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--no_attention", action="store_false", dest="attention"
     )

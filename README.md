@@ -99,14 +99,15 @@ TPUs.
 The user specifies the model using the `--arch` flag (and in some cases
 additional flags).
 
+-   `attentive_lstm`: This is an LSTM encoder-decoder, with the initial hidden
+    state treated as a learned parameter, and the encoder connected to the
+    decoder by an attention mechanism.
 -   `feature_invariant_transformer`: This is a variant of the `transformer`
     which uses a learned embedding to distinguish input symbols from features.
     It may be superior to the vanilla transformer when using features.
--   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
-    treated as a learned parameter. By default, the encoder is connected to the
-    decoder by an attention mechanism; one can disable this (with
-    `--no_attention`), in which case the last non-padding hidden state of the
-    encoder is concatenated with the decoder hidden state.
+-   `lstm`: This is similar to the attentive LSTM, but instead of an attention
+    mechanism, the last non-padding hidden state of the encoder is concatenated
+    with the decoder hidden state.
 -   `pointer_generator_lstm`: This is an attentive pointer-generator with an
     LSTM backend. Since this model contains a copy mechanism, it may be superior
     to the `lstm` when the input and output vocabularies overlap significantly.
