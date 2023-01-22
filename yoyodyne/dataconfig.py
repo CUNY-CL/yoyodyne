@@ -4,7 +4,7 @@ import argparse
 import csv
 import dataclasses
 import inspect
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterator, List, Tuple
 
 from . import util
 
