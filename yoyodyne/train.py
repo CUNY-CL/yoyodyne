@@ -226,7 +226,7 @@ def get_model(
     scheduler: Optional[str] = None,
     warmup_steps: int = 0,
     **kwargs,  # Ignored.
-) -> pl.LightningModule:
+) -> models.BaseEncoderDecoder:
     """Creates the model.
 
     Args:
@@ -256,7 +256,7 @@ def get_model(
         **kwargs: ignored.
 
     Returns:
-        pl.LightningModule.
+        models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(
         arch, attention, train_set.config.has_features
@@ -305,7 +305,7 @@ def get_model(
 
 def train(
     trainer: pl.Trainer,
-    model: pl.LightningModule,
+    model: models.BaseEncoderDecoder,
     train_loader: data.DataLoader,
     dev_loader: data.DataLoader,
     train_from: Optional[str] = None,
@@ -314,7 +314,7 @@ def train(
 
     Args:
          trainer (pl.Trainer).
-         model (pl.LightningModule).
+         model (models.BaseEncoderDecoder).
          train_loader (data.DataLoader).
          dev_loader (data.DataLoader).
          train_from (str, optional): if specified, starts training from this
@@ -374,9 +374,9 @@ def main() -> None:
     # Architecture arguments.
     models.add_argparse_args(parser)
     # Architecture-specific arguments.
-    models.base.BaseEncoderDecoder.add_argparse_args(parser)
-    models.lstm.LSTMEncoderDecoder.add_argparse_args(parser)
-    models.transformer.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.LSTMEncoderDecoder.add_argparse_args(parser)
+    models.TransformerEncoderDecoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:

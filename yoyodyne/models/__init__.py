@@ -2,9 +2,8 @@
 
 import argparse
 
-import pytorch_lightning as pl
-
 from .. import util
+from .base import BaseEncoderDecoder
 from .lstm import LSTMEncoderDecoder, LSTMEncoderDecoderAttention
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoderFeatures,
@@ -19,7 +18,7 @@ from .transformer import (
 
 def get_model_cls(
     arch: str, attention: bool, has_features: bool
-) -> pl.LightningModule:
+) -> BaseEncoderDecoder:
     """Model factory.
 
     Args:
@@ -31,7 +30,7 @@ def get_model_cls(
         NotImplementedError.
 
     Returns:
-        pl.LightningModule.
+        BaseEncoderDecoder.
     """
     model_fac = {
         # fmt: off
@@ -60,11 +59,19 @@ def get_model_cls(
 
 def get_model_cls_from_argparse_args(
     args: argparse.Namespace,
-) -> pl.LightningModule:
-    """Creates an instance from CLI arguments."""
-    # TODO: hackish.
-    has_features = args.features_col != 0
-    return get_model_cls(args.arch, args.attention, has_features)
+) -> BaseEncoderDecoder:
+    """Creates a model from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Raises:
+        NotImplementedError.
+
+    Returns:
+        BaseEncoderDecoder.
+    """
+    return get_model_cls(args.arch, args.attention, args.features_col != 0)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

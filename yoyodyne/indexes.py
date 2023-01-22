@@ -47,33 +47,13 @@ class SymbolMap:
         return ", ".join(f"{c!r}" for c in self._index2symbol)
 
 
-class IndexNoFeatures:
-    """Container for symbol maps.
-
-    For consistency, one is recommended to lexicographically sort the
-    vocabularies ahead of time."""
-
-    source_map: SymbolMap
-    target_map: SymbolMap
-
-    def __init__(
-        self,
-        source_vocabulary: List[str],
-        target_vocabulary: List[str],
-    ):
-        """Initializes the index.
-
-        Args:
-            source_vocabulary (List[str]).
-            target_vocabulary (List[str]).
-        """
-        self.source_map = SymbolMap(source_vocabulary)
-        self.target_map = SymbolMap(target_vocabulary)
+class BaseIndex:
+    """Container for symbol maps."""
 
     # Serialization support.
 
     @classmethod
-    def read(cls, path: str) -> None:
+    def read(cls, path: str):
         """Loads symbol mappings.
 
         Args:
@@ -94,6 +74,31 @@ class IndexNoFeatures:
         """
         with open(path, "wb") as sink:
             pickle.dump(vars(self), sink)
+
+
+class IndexNoFeatures(BaseIndex):
+    """Container for symbol maps.
+
+    For consistency, one is recommended to lexicographically sort the
+    vocabularies ahead of time."""
+
+    source_map: SymbolMap
+    target_map: SymbolMap
+
+    def __init__(
+        self,
+        source_vocabulary: List[str],
+        target_vocabulary: List[str],
+    ):
+        """Initializes the index.
+
+        Args:
+            source_vocabulary (List[str]).
+            target_vocabulary (List[str]).
+        """
+        super().__init__()
+        self.source_map = SymbolMap(source_vocabulary)
+        self.target_map = SymbolMap(target_vocabulary)
 
     @property
     def source_vocab_size(self) -> int:

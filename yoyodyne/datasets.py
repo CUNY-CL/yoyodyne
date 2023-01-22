@@ -5,7 +5,7 @@ superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
 import abc
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Union
 
 import torch
 from torch import nn
@@ -187,7 +187,7 @@ class DatasetNoFeatures(BaseDataset):
             is_special_char = c in self.index.special_idx
             if special:
                 include |= is_special_char
-            if special:
+            if symbols:
                 # Symbols will be anything that is not SPECIAL.
                 include |= not is_special_char
             return include
@@ -308,7 +308,9 @@ class DatasetFeatures(DatasetNoFeatures):
                 source_vocabulary.update(source)
                 features_vocabulary.update(features)
         return indexes.IndexFeatures(
-            sorted(source), sorted(features), sorted(target)
+            sorted(source_vocabulary),
+            sorted(features_vocabulary),
+            sorted(target_vocabulary),
         )
 
     def __getitem__(self, idx: int) -> Item:
@@ -323,7 +325,7 @@ class DatasetFeatures(DatasetNoFeatures):
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.index.source_map, source)
         features_encoded = self.encode(
-            self.source_map,
+            self.index.source_map,
             features,
             add_start_tag=False,
             add_end_tag=False,
@@ -402,20 +404,20 @@ class DatasetFeatures(DatasetNoFeatures):
 def get_dataset(
     filename: str,
     config: dataconfig.DataConfig,
-    index: Optional[str] = None,
+    index: Optional[Union[indexes.BaseIndex, str]] = None,
 ) -> data.Dataset:
     """Dataset factory.
 
     Args:
         filename (str): input filename.
         config (dataconfig.DataConfig): dataset configuration.
-        index (str, optional): path to an input index file.
+        index (Union[index.BaseIndex, str], optional): input index file,
+            or path to index.pkl file.
 
     Returns:
         data.Dataset: the dataset.
     """
     cls = DatasetFeatures if config.has_features else DatasetNoFeatures
-    if index is not None:
-        return cls(filename, config, cls.read_index(index))
-    else:
-        return cls(filename, config)
+    if index is not None and not isinstance(index, indexes.BaseIndex):
+        index = cls.read_index(index)
+    return cls(filename, config, index)

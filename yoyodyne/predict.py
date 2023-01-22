@@ -25,7 +25,14 @@ def get_trainer(**kwargs) -> pl.Trainer:
 def _get_trainer_from_argparse_args(
     args: argparse.Namespace,
 ) -> pl.Trainer:
-    """Creates the trainer from CLI arguments."""
+    """Creates the trainer from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Return:
+        pl.Trainer.
+    """
     return pl.Trainer.from_argparse_args(args, max_epochs=0)
 
 
@@ -33,7 +40,7 @@ def get_dataset(
     predict: str,
     config: dataconfig.DataConfig,
     index: str,
-) -> data.Dataset:
+) -> datasets.BaseDataset:
     """Creates the dataset.
 
     Args:
@@ -42,18 +49,21 @@ def get_dataset(
         index (str).
 
     Returns:
-        data.Dataset.
+        datasets.BaseDataset.
     """
     # TODO: Since we don't care about the target column, we should be able to
     # set config.source_col = 0 and avoid the overhead for parsing it.
     # This does not work because the modules expect it to be present even if
     # they ignore it.
-    dataset = datasets.get_dataset(predict, config, index)
+    dataset = datasets.get_dataset(predict, config)
+    # TODO: This doesn't actually save us any work, because we've already
+    # computed the index one time.
+    dataset.index = dataset.read_index(index)
     return dataset
 
 
 def get_loader(
-    dataset: data.Dataset,
+    dataset: datasets.BaseDataset,
     arch: str,
     batch_size: int,
 ) -> data.DataLoader:
@@ -79,7 +89,14 @@ def get_loader(
 def _get_loader_from_argparse_args(
     args: argparse.Namespace,
 ) -> data.DataLoader:
-    """Creates the loader from CLI arguments."""
+    """Creates the loader from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        data.DataLoader.
+    """
     config = dataconfig.DataConfig.from_argparse_args(args)
     dataset = get_dataset(args.predict, config, args.index)
     return get_loader(dataset, args.arch, args.batch_size)
@@ -90,7 +107,7 @@ def get_model(
     attention: bool,
     has_features: bool,
     checkpoint: str,
-) -> pl.LightningModule:
+) -> models.BaseEncoderDecoder:
     """Creates the model from checkpoint.
 
     Args:
@@ -100,7 +117,7 @@ def get_model(
         checkpoint (str).
 
     Returns:
-        pl.Lightningmodule.
+        models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(arch, attention, has_features)
     return model_cls.load_from_checkpoint(checkpoint)
@@ -108,8 +125,15 @@ def get_model(
 
 def _get_model_from_argparse_args(
     args: argparse.Namespace,
-) -> pl.LightningModule:
-    """Creates the model from CLI arguments."""
+) -> models.BaseEncoderDecoder:
+    """Creates the model from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        models.BaseEncoderDecoder.
+    """
     model_cls = models.get_model_cls_from_argparse_args(args)
     return model_cls.load_from_checkpoint(args.checkpoint)
 

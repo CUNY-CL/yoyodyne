@@ -58,7 +58,7 @@ class DataConfig:
             util.log_info("Including features")
 
     @classmethod
-    def from_argparse_args(cls, args, **kwargs) -> "DataConfig":
+    def from_argparse_args(cls, args, **kwargs):
         """Creates an instance from CLI arguments."""
         params = vars(args)
         valid_kwargs = inspect.signature(cls.__init__).parameters
