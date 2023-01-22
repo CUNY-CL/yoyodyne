@@ -35,12 +35,14 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     def __init__(
         self,
         expert,
+        *args,
         **kwargs,
     ):
         """Initializes transducer model.
 
         Args:
             expert (expert.Expert): oracle that guides training for transducer.
+            *args: passed to superclass.
             **kwargs: passed to superclass.
         """
         # Model specific variables.
@@ -50,7 +52,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         self.insertions = self.actions.insertions
         # Alternate outputs than dataset targets.
         kwargs["output_size"] = len(expert.actions)
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         # Target embeddings use alternate padding.
         self.target_embeddings = self.init_embeddings(
             num_embeddings=self.output_size,
@@ -71,19 +73,17 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        source = batch.source
-        target = batch.target
-        encoder_out, _ = self.encode(source)
+        encoder_out, _ = self.encode(batch.source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
-        source_padded = source.padded[:, 1:]
-        source_mask = source.mask[:, 1:]
+        source_padded = batch.source.padded[:, 1:]
+        source_mask = batch.source.mask[:, 1:]
         prediction, loss = self.decode(
             encoder_out,
             source_padded,
             source_mask,
-            target=target.padded,
-            target_mask=target.mask,
+            target=batch.target.padded,
+            target_mask=batch.target.mask,
         )
         return prediction, loss
 
@@ -463,7 +463,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             elif isinstance(a, actions.End):
                 prediction[i].append(self.end_idx)
             else:
-                raise ActionError(f"Unknown action: {action}.")
+                raise ActionError(f"Unknown action: {action}")
         return alignment + alignment_update
 
     @staticmethod
@@ -495,9 +495,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     ) -> torch.Tensor:
         """Returns loss value for prediction.
 
-        Transducer already produces prediction strings and calculates loss
+        This model already produces prediction strings and calculates loss
         during training. This simply serves as a wrapper to allow compatibility
-        with training_step in superclass.
+        with training_step in the superclass.
         """
         _, loss = prediction
         return loss
@@ -554,24 +554,22 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
 class TransducerFeatures(TransducerNoFeatures):
     """Transducer model with an LSTM backend."""
 
-    # Indices.
     features_idx: int
     features_vocab_size: int
 
-    def __init__(self, features_vocab_size, features_idx, **kwargs):
+    def __init__(self, features_idx, features_vocab_size, *args, **kwargs):
         """Initializes transducer model.
 
         Functions equivalently to TransducerNoFeatures except concatenates
         n-hot encoding of feature values to encoded tensor.
 
         Args:
-            features_idx (int): index in data.source_symbol2i that marks
-                start of feature encodings.
+            features_idx (int): index marking the start of feature encodings.
             features_vocab_size (int): size of features vocab.
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         self.features_idx = features_idx
         self.features_vocab_size = features_vocab_size
         # Overrides decoder to accomodate features.
@@ -597,27 +595,25 @@ class TransducerFeatures(TransducerNoFeatures):
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        source = batch.source
-        assert batch.has_features
-        features = batch.features
-        target = batch.target
-        encoder_out, _ = self.encode(source)
+        encoder_out, _ = self.encode(batch.source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
-        source_padded = source.padded[:, 1:]
-        source_mask = source.mask[:, 1:]
+        source_padded = batch.source.padded[:, 1:]
+        source_mask = batch.source.mask[:, 1:]
         # Converts features to n-hot encoding.
         with torch.no_grad():
-            # Features are offset by features idx. Shifts one to encode
+            # Features are offset by features idx; we shift one to encode
             # padding, replacing mask with first index.
             features_padded = torch.where(
-                features.mask, 0, features.padded - self.features_idx + 1
+                batch.features.mask,
+                0,
+                batch.features.padded - self.features_idx + 1,
             )
-            # Features outside offset classified as unknown feature.
-            # Idx is end of features vocab.
+            # Features outside offset classified as unknown feature. The index
+            # is the end of the features vocabulary.
             features_padded[features_padded < 0] = self.features_vocab_size + 1
-            # One hot embeddings are vocab size plus two for padding and
-            # unknown.
+            # The size of the one-hot embeddings are the vocab size plus two
+            # for padding and unknown.
             one_hot_features = nn.functional.one_hot(
                 features_padded, self.features_vocab_size + 2
             )
@@ -633,8 +629,8 @@ class TransducerFeatures(TransducerNoFeatures):
             encoder_out_feat,
             source_padded,
             source_mask,
-            target=target.padded,
-            target_mask=target.mask,
+            target=batch.target.padded,
+            target_mask=batch.target.mask,
         )
         return prediction, loss
 

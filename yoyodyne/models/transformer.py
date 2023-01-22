@@ -32,7 +32,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     def __init__(
         self,
-        *,
+        *args,
         attention_heads=4,
         max_sequence_length=128,
         **kwargs,
@@ -42,9 +42,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         Args:
             attention_heads (int).
             max_sequence_length (int).
+            *args: passed to superclass.
             **kwargs: passed to superclass.
         """
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
         self.max_sequence_length = max_sequence_length
         self.esq = math.sqrt(self.embedding_size)
@@ -236,31 +237,29 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             torch.Tensor.
         """
-        source = batch.source
         if batch.has_target:
-            target = batch.target
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
                     [self.start_idx], device=self.device, dtype=torch.long
                 )
-                .repeat(target.padded.size(0))
+                .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
             )
-            target_padded = torch.cat((starts, target.padded), dim=1)
+            target_padded = torch.cat((starts, batch.target.padded), dim=1)
             target_mask = torch.cat(
-                (starts == self.pad_idx, target.mask), dim=1
+                (starts == self.pad_idx, batch.target.mask), dim=1
             )
-            encoder_hidden = self.encode(source)
+            encoder_hidden = self.encode(batch.source)
             output = self.decode(
-                encoder_hidden, source.mask, target_padded, target_mask
+                encoder_hidden, batch.source.mask, target_padded, target_mask
             )
             # -> B x vocab_size x sequence_length
             output = output.transpose(1, 2)[:, :, :-1]
         else:
-            encoder_hidden = self.encode(source)
+            encoder_hidden = self.encode(batch.source)
             # -> B x vocab_size x sequence_length.
-            output = self._decode_greedy(encoder_hidden, source.mask)
+            output = self._decode_greedy(encoder_hidden, batch.source.mask)
         return output
 
     @staticmethod
@@ -314,8 +313,8 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
     # Constructed inside __init__.
     type_embedding: nn.Embedding
 
-    def __init__(self, *, features_idx, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, features_idx, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Distinguishes features vs. character.
         self.features_idx = features_idx
         self.type_embedding = self.init_embeddings(

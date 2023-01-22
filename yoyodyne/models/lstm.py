@@ -35,17 +35,18 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
     def __init__(
         self,
-        *,
+        *args,
         bidirectional=True,
         **kwargs,
     ):
         """Initializes the encoder-decoder without attention.
 
         Args:
+            *args: passed to superclass.
             bidirectional (bool).
             **kwargs: passed to superclass.
         """
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         self.bidirectional = bidirectional
         self.source_embeddings = self.init_embeddings(
             self.vocab_size, self.embedding_size, self.pad_idx
@@ -393,18 +394,17 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             predictions (torch.Tensor): tensor of predictions of shape
                 (sequence_length, batch_size, output_size).
         """
-        source = batch.source
-        encoder_out, _ = self.encode(source)
+        encoder_out, _ = self.encode(batch.source)
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
                 len(batch),
-                source.mask,
+                batch.source.mask,
                 encoder_out,
                 beam_width=self.beam_width,
             )
         else:
             predictions = self.decode(
-                len(batch), source.mask, encoder_out, batch.target.padded
+                len(batch), batch.source.mask, encoder_out, batch.target.padded
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)
@@ -436,9 +436,9 @@ class LSTMEncoderDecoderAttention(LSTMEncoderDecoder):
 
     attention: attention.Attention
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initializes the encoder-decoder with attention."""
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         encoder_size = self.hidden_size * self.num_directions
         self.attention = attention.Attention(encoder_size, self.hidden_size)
 

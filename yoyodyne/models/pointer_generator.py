@@ -23,9 +23,9 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
     source_attention: attention.Attention
     geneneration_probability: generation_probability.GenerationProbability
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         # We use the inherited defaults for the source embeddings/encoder.
         encoder_size = self.hidden_size * self.num_directions
         self.source_attention = attention.Attention(
@@ -210,9 +210,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         Returns:
             torch.Tensor.
         """
-        source = batch.source
         source_encoded, (h_source, c_source) = self.encode(
-            source, self.encoder
+            batch.source, self.encoder
         )
         if self.beam_width is not None and self.beam_width > 1:
             # predictions = self.beam_decode(
@@ -223,9 +222,9 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             predictions = self.decode(
                 len(batch),
                 (h_source, c_source),
-                source.padded,
+                batch.source.padded,
                 source_encoded,
-                source.mask,
+                batch.source.mask,
                 batch.target.padded,
             )
         # -> B x output_size x seq_len.
@@ -251,9 +250,9 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     linear_c: nn.Linear
     feature_attention: attention.Attention
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
         # We use the inherited defaults for the source embeddings/encoder.
         self.feature_encoder = nn.LSTM(
             self.embedding_size,
@@ -474,15 +473,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         Returns:
             torch.Tensor.
         """
-        source = batch.source
         assert batch.has_features
-        features = batch.features
-        target = batch.target
         source_encoded, (h_source, c_source) = self.encode(
-            source, self.encoder
+            batch.source, self.encoder
         )
         features_encoded, (h_features, c_features) = self.encode(
-            features, self.feature_encoder
+            batch.features, self.feature_encoder
         )
         h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))
@@ -495,12 +491,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             predictions = self.decode(
                 len(batch),
                 (h_0, c_0),
-                source.padded,
+                batch.source.padded,
                 source_encoded,
-                source.mask,
-                features_encoded,
-                features.mask,
-                target.padded,
+                batch.source.mask,
+                batch.features_encoded,
+                batch.features.mask,
+                batch.target.padded,
             )
         # -> B x output_size x seq_len.
         predictions = predictions.transpose(0, 1).transpose(1, 2)

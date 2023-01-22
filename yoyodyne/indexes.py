@@ -151,7 +151,8 @@ class IndexFeatures(IndexNoFeatures):
         super().__init__(
             source_vocabulary + features_vocabulary, target_vocabulary
         )
-        self.features_idx = len(special.SPECIAL) + self.source_vocab_size
+        # self.features_idx = len(special.SPECIAL) + self.source_vocab_size
+        self.features_idx = self.source_vocab_size
 
     @property
     def features_vocab_size(self) -> int:

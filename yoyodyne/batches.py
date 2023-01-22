@@ -80,7 +80,7 @@ class PaddedTensor(nn.Module):
         Returns:
             torch.Tensor.
         """
-        return (self.mask == 0).sum(dim=1).to("cpu")
+        return (self.mask == 0).sum(dim=1).cpu()
 
 
 class PaddedBatch(nn.Module):
