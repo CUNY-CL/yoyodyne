@@ -10,10 +10,6 @@ from .. import batches
 from . import base, positional_encoding
 
 
-class Error(Exception):
-    pass
-
-
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     """Transformer encoder-decoder."""
 

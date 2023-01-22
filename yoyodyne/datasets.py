@@ -14,12 +14,6 @@ from torch.utils import data
 from . import dataconfig, indexes, special
 
 
-class Error(Exception):
-    """Module-specific exception."""
-
-    pass
-
-
 class Item(nn.Module):
     """Source tensor, with optional features and target tensors.
 

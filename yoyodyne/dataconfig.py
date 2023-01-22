@@ -26,11 +26,11 @@ class DataConfig:
             target strings.
         features_col (int, optional): 1-indexed column in TSV containing
             features strings.
-        source_sep (str, optional): separator character between special in
+        source_sep (str, optional): separator character between symbol in
             source string. "" treats each character in source as a symbol.
-        target_sep (str, optional): separator character between special in
+        target_sep (str, optional): separator character between symbol in
             target string. "" treats each character in target as a symbol.
-        features_sep (str, optional): separator character between special in
+        features_sep (str, optional): separator character between symbol in
             features string. "" treats each character in features as a symbol.
         tied_vocabulary (bool, optional): whether the source and target
             should share a vocabulary.
@@ -79,7 +79,7 @@ class DataConfig:
               the column is split into characters instead.
 
         Returns:
-           List[str]: special from that cell.
+           List[str]: symbol from that cell.
         """
         cell = row[col - 1]  # -1 because we're using one-based indexing.
         return list(cell) if not sep else cell.split(sep)
@@ -145,31 +145,6 @@ class DataConfig:
                 else self.source_samples(filename)
             )
 
-    def make_row(
-        self,
-        source: List[str],
-        target: List[str],
-        features: Optional[List[str]] = None,
-    ) -> List[str]:
-        """Returns a TSV-style row using the config.
-
-        Args:
-            source (List[str]).
-            target (List[str]).
-            features (List[str], optional).
-
-        Returns:
-            List[str].
-        """
-        row = [""] * max(self.source_col, self.target_col, self.features_col)
-        # -1 because we're using base-1 indexing.
-        row[self.source_col - 1] = self.source_sep.join(source)
-        row[self.target_col - 1] = self.target_sep.join(target)
-        if self.has_features:
-            assert features is not None, "Expected features"
-            row[self.features_col - 1] = self.features_sep.join(features)
-        return row
-
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         """Adds data configuration options to the argument parser.
@@ -201,7 +176,7 @@ class DataConfig:
             "--source_sep",
             type=str,
             default="",
-            help="String used to split source string into special; "
+            help="String used to split source string into symbols; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
         )
@@ -209,7 +184,7 @@ class DataConfig:
             "--target_sep",
             type=str,
             default="",
-            help="String used to split target string into special; "
+            help="String used to split target string into symbols; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
         )
@@ -217,7 +192,7 @@ class DataConfig:
             "--features_sep",
             type=str,
             default=";",
-            help="String used to split features string into special; "
+            help="String used to split features string into symbols; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
         )

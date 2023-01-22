@@ -11,10 +11,6 @@ from .. import batches
 from . import attention, base
 
 
-class Error(Exception):
-    pass
-
-
 class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     """LSTM encoder-decoder without attention.
 
