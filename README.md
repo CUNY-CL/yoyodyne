@@ -29,10 +29,12 @@ but differs on several key points of design:
         to be reasonably exhaustive.
     -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
-    architecture-specific code to handle this feature information.
+    architecture-specific code to handle feature information.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 -   🚧 UNDER CONSTRUCTION 🚧: Releases are made regularly.
+-   It uses validation accuracy (not loss) for model selection and early
+    stoppping.
 
 ## Install
 
@@ -103,7 +105,7 @@ additional flags).
 -   `lstm`: This is an LSTM encoder-decoder, with the initial hidden state
     treated as a learned parameter. By default, the encoder is connected to the
     decoder by an attention mechanism; one can disable this (with
-    `--no-attention`), in which case the last non-padding hidden state of the
+    `--no_attention`), in which case the last non-padding hidden state of the
     encoder is concatenated with the decoder hidden state.
 -   `pointer_generator_lstm`: This is an attentive pointer-generator with an
     LSTM backend. Since this model contains a copy mechanism, it may be superior
@@ -121,38 +123,58 @@ additional flags).
 
 For all models, the user may also wish to specify:
 
--   `--decoder-layers` (default: 1): number of decoder layers
+-   `--decoder_layers` (default: 1): number of decoder layers
 -   `--embedding` (default: 128): embedding size
--   `--encoder-layers` (default: 1): number of encoder layers
--   `--hidden-size` (default: 512): hidden layer size
+-   `--encoder_layers` (default: 1): number of encoder layers
+-   `--hidden_size` (default: 512): hidden layer size
 
 By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
-LSTM bidirectional encoder. One can disable this with the `--no-bidirectional`
+LSTM bidirectional encoder. One can disable this with the `--no_bidirectional`
 flag.
 
 ## Training options
 
--   `--batch-size` (default: 32)
--   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
-    (`--optimizer adam`)
--   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam optimizer
-    (`--optimizer adam`)
--   `--dropout` (default: .2): dropout probability
--   `--max-epochs` (default: 50)
--   `--gradient-clip` (default: not enabled)
--   `--label-smoothing` (default: not enabled)
--   `--learning-rate` (default: .001)
--   `--scheduler` (default: not enabled)
--   `--optimizer` (default: "adam")
--   `--patience` (default: not enabled)
--   `--wandb` (default: False): enables [Weights &
-    Biases](https://wandb.ai/site) tracking
--   `--warmup-steps` (default: not enabled): warm-up parameter for a linear
-    warm-up followed by inverse square root decay schedule (only valid with
-    `--scheduler warmupinvsqr`)
+A non-exhaustive list includes:
+
+-   Batch size:
+    -   `--batch_size` (default: 32)
+-   Regularization:
+    -   `--dropout` (default: .2)
+    -   `--label_smoothing` (default: not enabled)
+    -   `--gradient_clip_val` (default: not enabled)
+-   Optimizer:
+    -   `--learning_rate` (default: .001)
+    -   `--optimizer` (default: "adam")
+    -   `--beta1` (default: .9): $\beta_1$ hyperparameter for the Adam optimizer
+        (`--optimizer adam`)
+    -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam
+        optimizer (`--optimizer adam`)
+    -   `--scheduler` (default: not enabled)
+    -   `--warmup_steps` (default: not enabled): warm-up parameter for a linear
+        warm-up followed by inverse square root decay schedule (only valid with
+        `--scheduler warmupinvsqrt`)
+-   Duration:
+    -   `--max_epochs`
+    -   `--min_epochs`
+    -   `--max_steps`
+    -   `--min_steps`
+    -   `--max_time`
+    -   `--patience`
+-   Seeding:
+    -   `--seed`
+-   [Weights & Biases](https://wandb.ai/site)
+    -   `--wandb` (default: False): enables Weights & Biases tracking.
 
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
 biLSTM. For transformer-based architectures, experiment with multiple encoder
-and decoder layers, much larger batches, and the warmup + inverse square root
+and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
+
+## Accelerators
+
+By default Yoyodyne runs on CPU. One can specify accelerators using the
+`--accelerators` flag. For instance `--accelerators gpu` will use a local
+CUDA-enabled GPU. [Other
+accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
+may also be supported but not all have been tested yet.

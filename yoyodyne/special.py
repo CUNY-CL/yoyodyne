@@ -1,4 +1,4 @@
-"""Reserved symbols."""
+"""Symbol constants and utilities."""
 
 # These are all reserved for internal use.
 

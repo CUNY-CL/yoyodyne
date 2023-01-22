@@ -1,206 +1,59 @@
-"""Training."""
+"""Trains a sequence-to-sequence neural network."""
 
-import os
-import time
+import argparse
 
-import click
-import numpy
+from typing import List, Optional, Tuple
+
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
-from . import (
-    collators,
-    dataconfig,
-    datasets,
-    evaluators,
-    models,
-    predict,
-    util,
-)
+from . import collators, dataconfig, datasets, models, util
 
 
-@click.command()
-@click.option("--experiment", required=True)
-@click.option("--train", required=True)
-@click.option("--dev", required=True)
-@click.option("--model-dir", required=True)
-@click.option("--dev-predictions")
-@click.option(
-    "--source-col", type=int, default=1, help="1-based index for source column"
-)
-@click.option(
-    "--target-col", type=int, default=2, help="1-based index for target column"
-)
-@click.option(
-    "--features-col",
-    type=int,
-    default=0,
-    help="1-based index for features column; "
-    "0 indicates the model will not use features",
-)
-@click.option("--source-sep", type=str, default="")
-@click.option("--target-sep", type=str, default="")
-@click.option("--features-sep", type=str, default=";")
-@click.option("--tied-vocabulary/--no-tied-vocabulary", default=True)
-@click.option("--dataloader-workers", type=int, default=1)
-@click.option(
-    "--seed", type=int, default=time.time_ns() % numpy.iinfo(numpy.uint32).max
-)
-@click.option("--max-epochs", type=int, default=50)
-@click.option(
-    "--arch",
-    type=click.Choice(
-        [
-            "feature_invariant_transformer",
-            "lstm",
-            "pointer_generator_lstm",
-            "transducer",
-            "transformer",
-        ]
-    ),
-    default="lstm",
-)
-@click.option(
-    "--oracle-em-epochs",
-    type=int,
-    default=5,
-    help="Number of EM epochs (`--arch transducer` only)",
-)
-@click.option(
-    "--oracle-factor",
-    type=int,
-    default=1,
-    help="Roll-in schedule parameter (`--arch transducer` only)",
-)
-@click.option(
-    "--sed-params-path",
-    type=str,
-    default=None,
-    help="Path to SED parameters (`transducer` only)",
-)
-@click.option("--patience", type=int)
-@click.option("--learning-rate", type=float, default=0.001)
-@click.option("--label-smoothing", type=float)
-@click.option("--gradient-clip", type=float)
-@click.option("--batch-size", type=int, default=32)
-@click.option("--embedding-size", type=int, default=128)
-@click.option("--hidden-size", type=int, default=512)
-@click.option("--dropout", type=float, default=0.2)
-@click.option("--encoder-layers", type=int, default=1)
-@click.option("--decoder-layers", type=int, default=1)
-@click.option("--max-seq-len", type=int, default=128)
-@click.option("--attention-heads", type=int, default=4)
-@click.option("--dropout", type=float, default=0.1)
-@click.option("--optimizer", default="adam")
-@click.option(
-    "--beta1",
-    default=0.9,
-    type=float,
-    help="beta1 (`--optimizer adam` only)",
-)
-@click.option(
-    "--beta2",
-    default=0.999,
-    type=float,
-    help="beta2 (`--optimizer adam` only)",
-)
-@click.option("--warmup-steps", type=int)
-@click.option("--scheduler")
-@click.option(
-    "--train-from", help="Path to checkpoint to continue training from"
-)
-@click.option("--bidirectional/--no-bidirectional", type=bool, default=True)
-@click.option(
-    "--attention/--no-attention",
-    type=bool,
-    default=True,
-    help="Use attention (`--arch lstm` only)",
-)
-@click.option("--max-decode-len", type=int, default=128)
-@click.option("--save-top-k", type=int, default=1)
-@click.option("--eval-every", type=int, default=2)
-@click.option("--wandb/--no-wandb", default=False)
-@click.option("--accelerator")
-def main(
-    experiment,
-    train,
-    dev,
-    model_dir,
-    dev_predictions,
-    tied_vocabulary,
-    source_col,
-    target_col,
-    features_col,
-    source_sep,
-    target_sep,
-    features_sep,
-    dataloader_workers,
-    seed,
-    max_epochs,
-    arch,
-    oracle_em_epochs,
-    oracle_factor,
-    sed_params_path,
-    patience,
-    learning_rate,
-    label_smoothing,
-    gradient_clip,
-    batch_size,
-    embedding_size,
-    hidden_size,
-    dropout,
-    encoder_layers,
-    decoder_layers,
-    max_seq_len,
-    attention_heads,
-    optimizer,
-    beta1,
-    beta2,
-    warmup_steps,
-    scheduler,
-    train_from,
-    bidirectional,
-    attention,
-    max_decode_len,
-    save_top_k,
-    eval_every,
-    wandb,
-    accelerator,
-):
-    """Trainer."""
-    util.log_info("Arguments:")
-    for arg, val in click.get_current_context().params.items():
-        util.log_info(f"\t{arg}: {val!r}")
-    pl.seed_everything(seed)
-    config = dataconfig.DataConfig(
-        source_col=source_col,
-        features_col=features_col,
-        target_col=target_col,
-        source_sep=source_sep,
-        target_sep=target_sep,
-        features_sep=features_sep,
-        tied_vocabulary=tied_vocabulary,
-    )
-    if config.target_col == 0:
-        raise dataconfig.Error("target_col must be specified for training")
-    train_set = datasets.get_dataset(train, config)
-    dev_set = datasets.get_dataset(dev, config)
-    util.log_info(f"Source vocabulary: {train_set.source_symbol2i}")
-    util.log_info(f"Target vocabulary: {train_set.target_symbol2i}")
-    # PL logging.
-    logger = [loggers.CSVLogger(model_dir, name=experiment)]
+class Error(Exception):
+    pass
+
+
+def _get_logger(experiment: str, model_dir: str, wandb: bool) -> List:
+    """Creates the logger(s).
+
+    Args:
+        experiment (str).
+        model_dir (str).
+        wandb (bool).
+
+    Returns:
+        List: logger.
+    """
+    trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
     if wandb:
-        logger.append(loggers.WandbLogger(project=experiment, log_model="all"))
-    # ckp_callback is used later for logging the best checkpoint path.
-    ckp_callback = callbacks.ModelCheckpoint(
-        save_top_k=save_top_k,
-        monitor="val_accuracy",
-        mode="max",
-        filename="model-{epoch:02d}-{val_accuracy:.2f}",
-    )
+        trainer_logger.append(
+            loggers.WandbLogger(project=experiment, log_model="all")
+        )
+    return trainer_logger
+
+
+def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
+    """Creates the callbacks.
+
+    We will reach into the callback metrics list to picks ckp_callback to find
+    the best checkpoint path.
+
+    Args:
+        save_top_k (int).
+        patience (int, optional).
+
+    Returns:
+        List: callbacks.
+    """
     trainer_callbacks = [
-        ckp_callback,
+        callbacks.ModelCheckpoint(
+            save_top_k=save_top_k,
+            monitor="val_accuracy",
+            mode="max",
+            filename="model-{epoch:02d}-{val_accuracy:.2f}",
+        ),
         callbacks.LearningRateMonitor(logging_interval="epoch"),
         callbacks.TQDMProgressBar(),
     ]
@@ -214,103 +67,373 @@ def main(
                 mode="max",
             )
         )
-    trainer = pl.Trainer(
-        accelerator=accelerator,
-        logger=logger,
-        max_epochs=max_epochs,
-        gradient_clip_val=gradient_clip,
-        check_val_every_n_epoch=eval_every,
-        enable_checkpointing=True,
+    return trainer_callbacks
+
+
+def get_trainer(
+    experiment: str,
+    model_dir: str,
+    save_top_k: int,
+    patience: Optional[int] = None,
+    wandb: bool = True,
+    **kwargs,
+) -> pl.Trainer:
+    """Creates the trainer.
+
+    Args:
+        experiment (str).
+        model_dir (str).
+        patience (int, optional).
+        save_top_k (int).
+        wandb (bool).
+        **kwargs: passed to the trainer.
+
+    Returns:
+        pl.Trainer.
+    """
+    return pl.Trainer(
+        callbacks=_get_callbacks(save_top_k, patience),
         default_root_dir=model_dir,
-        callbacks=trainer_callbacks,
-        log_every_n_steps=len(train_set) // batch_size,
-        num_sanity_val_steps=0,
+        enable_checkpointing=True,
+        logger=_get_logger(experiment, model_dir, wandb),
+        **kwargs,
     )
-    os.makedirs(trainer.loggers[0].log_dir, exist_ok=True)
-    train_set.write_index(trainer.loggers[0].log_dir, experiment)
-    dev_set.load_index(trainer.loggers[0].log_dir, experiment)
-    collator = collators.get_collator(train_set.pad_idx, config, arch)
+
+
+def _get_trainer_from_argparse_args(
+    args: argparse.Namespace,
+) -> pl.Trainer:
+    """Creates the trainer from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        pl.Trainer.
+    """
+    return pl.Trainer.from_argparse_args(
+        args,
+        callbacks=_get_callbacks(args.save_top_k, args.patience),
+        default_root_dir=args.model_dir,
+        enable_checkpointing=True,
+        logger=_get_logger(args.experiment, args.model_dir, args.wandb),
+    )
+
+
+def get_datasets(
+    train: str,
+    dev: str,
+    config: dataconfig.DataConfig,
+) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
+    """Creates the datasets.
+
+    Args:
+        train (str).
+        dev (str).
+        config (dataconfig.DataConfig)
+
+    Returns:
+        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
+            development datasets.
+    """
+    if config.target_col == 0:
+        raise Error("target_col must be specified for training")
+    train_set = datasets.get_dataset(train, config)
+    dev_set = datasets.get_dataset(dev, config, train_set.index)
+    util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
+    util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
+    return train_set, dev_set
+
+
+def _get_datasets_from_argparse_args(
+    args: argparse.Namespace,
+) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
+    """Creates the datasets from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
+            development datasets.
+    """
+    config = dataconfig.DataConfig.from_argparse_args(args)
+    return get_datasets(args.train, args.dev, config)
+
+
+def get_loaders(
+    train_set: datasets.BaseDataset,
+    dev_set: datasets.BaseDataset,
+    arch: str,
+    batch_size: int,
+) -> Tuple[data.DataLoader, data.DataLoader]:
+    """Creates the loaders.
+
+    Args:
+        train_set (datasets.BaseDataset).
+        dev_set (datasets.BaseDataset).
+        arch (str).
+        batch_size (int).
+
+    Returns:
+        Tuple[data.DataLoader, data.DataLoader]: the training and development
+            loaders.
+    """
+    collator = collators.Collator(
+        train_set.index.pad_idx, train_set.config, arch
+    )
     train_loader = data.DataLoader(
         train_set,
         collate_fn=collator,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=dataloader_workers,
+        num_workers=1,  # Our data loading is simple.
     )
     dev_loader = data.DataLoader(
         dev_set,
         collate_fn=collator,
         batch_size=2 * batch_size,  # Because we're not collecting gradients.
-        shuffle=False,
-        num_workers=dataloader_workers,
+        num_workers=1,
     )
-    model_cls = models.get_model_cls(arch, attention, config.has_features)
-    if train_from is not None:
-        util.log_info(f"Loading model from {train_from}")
-        model = model_cls.load_from_checkpoint(train_from)
-        util.log_info("Training...")
-        trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
-    else:
-        model = model_cls(
-            arch=arch,
-            train_set=train_set,
-            embedding_size=embedding_size,
-            hidden_size=hidden_size,
-            vocab_size=train_set.source_vocab_size,
-            features_vocab_size=getattr(train_set, "features_vocab_size", -1),
-            features_idx=getattr(train_set, "features_idx", -1),
-            output_size=train_set.target_vocab_size,
-            pad_idx=train_set.pad_idx,
-            start_idx=train_set.start_idx,
-            end_idx=train_set.end_idx,
-            optimizer=optimizer,
-            beta1=beta1,
-            beta2=beta2,
-            learning_rate=learning_rate,
-            evaluator=evaluators.Evaluator(),
-            max_decode_len=max_decode_len,
-            dropout=dropout,
-            encoder_layers=encoder_layers,
-            decoder_layers=decoder_layers,
-            label_smoothing=label_smoothing,
-            warmup_steps=warmup_steps,
-            scheduler=scheduler,
-            bidirectional=bidirectional,
-            attention_heads=attention_heads,
-            max_seq_len=max_seq_len,
-            expert=models.expert.get_expert(
-                train_set,
-                epochs=oracle_em_epochs,
-                oracle_factor=oracle_factor,
-                sed_params_path=sed_params_path,
-            )
-            if arch in ["transducer"]
-            else None,
-        )
-        util.log_info("Training...")
-        util.log_info(f"Model: {model.__class__.__name__}")
-        util.log_info(f"Dataset: {train_set.__class__.__name__}")
-        util.log_info(f"Collator: {collator.__class__.__name__}")
-        trainer.fit(model, train_loader, dev_loader)
-    util.log_info("Training complete")
-    util.log_info(
-        f"Best model checkpoint path: {ckp_callback.best_model_path}"
+    return train_loader, dev_loader
+
+
+def get_model(
+    # Data arguments.
+    train_set: datasets.BaseDataset,
+    *,
+    # Architecture arguments.
+    arch: str = "lstm",
+    attention: bool = True,
+    attention_heads: int = 4,
+    bidirectional: bool = True,
+    decoder_layers: int = 1,
+    embedding_size: int = 128,
+    encoder_layers: int = 1,
+    hidden_size: int = 512,
+    max_decode_length: int = 128,
+    max_sequence_length: int = 128,
+    # Training arguments.
+    batch_size: int = 32,
+    beta1: float = 0.9,
+    beta2: float = 0.999,
+    dropout: float = 0.2,
+    learning_rate: float = 0.001,
+    oracle_em_epochs: int = 5,
+    oracle_factor: int = 1,
+    optimizer: str = "adam",
+    sed_params: Optional[str] = None,
+    scheduler: Optional[str] = None,
+    warmup_steps: int = 0,
+    **kwargs,  # Ignored.
+) -> models.BaseEncoderDecoder:
+    """Creates the model.
+
+    Args:
+        train_set (datasets.BaseDataset)
+        arch (str).
+        attention (bool).
+        attention_heads (int).
+        bidirectional (bool).
+        decoder_layers (int).
+        embedding_size (int).
+        encoder_layers (int).
+        hidden_size (int).
+        max_decode_length (int).
+        max_sequence_length (int).
+        batch_size (int).
+        beta1 (float).
+        beta2 (float).
+        batch_size (int).
+        dropout (float).
+        learning_rate (float).
+        oracle_em_epochs (int).
+        oracle_factor (int).
+        optimizer (str).
+        sed_params (str, optional).
+        scheduler (str, optional).
+        warmup_steps (int, optional).
+        **kwargs: ignored.
+
+    Returns:
+        models.BaseEncoderDecoder.
+    """
+    model_cls = models.get_model_cls(
+        arch, attention, train_set.config.has_features
     )
-    # Writes development set predictions using the best checkpoint,
-    # if a predictions path is specified.
-    # TODO: Add beam-width option so we can make predictions with beam search.
-    if dev_predictions:
-        best_model = model_cls.load_from_checkpoint(
-            ckp_callback.best_model_path
+    expert = (
+        models.expert.get_expert(
+            train_set,
+            epochs=oracle_em_epochs,
+            oracle_factor=oracle_factor,
+            sed_params_path=sed_params,
         )
-        predict.write_predictions(
-            best_model,
-            dev_loader,
-            dev_predictions,
-            arch,
-            batch_size * 2,
-            config,
-        )
+        if arch in ["transducer"]
+        else None
+    )
+    # Please pass all arguments by keyword and keep in lexicographic order.
+    return model_cls(
+        arch=arch,
+        attention_heads=attention_heads,
+        beta1=beta1,
+        beta2=beta2,
+        bidirectional=bidirectional,
+        decoder_layers=decoder_layers,
+        dropout=dropout,
+        embedding_size=embedding_size,
+        encoder_layers=encoder_layers,
+        end_idx=train_set.index.end_idx,
+        expert=expert,
+        features_vocab_size=getattr(
+            train_set.index, "features_vocab_size", -1
+        ),
+        features_idx=getattr(train_set.index, "features_idx", -1),
+        hidden_size=hidden_size,
+        learning_rate=learning_rate,
+        max_decode_length=max_decode_length,
+        max_sequence_length=max_sequence_length,
+        optimizer=optimizer,
+        output_size=train_set.index.target_vocab_size,
+        pad_idx=train_set.index.pad_idx,
+        scheduler=scheduler,
+        start_idx=train_set.index.start_idx,
+        train_set=train_set,
+        vocab_size=train_set.index.source_vocab_size,
+        warmup_steps=warmup_steps,
+    )
+
+
+def train(
+    trainer: pl.Trainer,
+    model: models.BaseEncoderDecoder,
+    train_loader: data.DataLoader,
+    dev_loader: data.DataLoader,
+    train_from: Optional[str] = None,
+) -> str:
+    """Trains the model.
+
+    Args:
+         trainer (pl.Trainer).
+         model (models.BaseEncoderDecoder).
+         train_loader (data.DataLoader).
+         dev_loader (data.DataLoader).
+         train_from (str, optional): if specified, starts training from this
+            checkpoint.
+
+    Returns:
+        str: path to best checkpoint.
+    """
+    trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
+    ckp_callback = trainer.callbacks[-1]
+    # TODO: feels flimsy.
+    assert type(ckp_callback) is callbacks.ModelCheckpoint
+    return ckp_callback.best_model_path
+
+
+def get_index(model_dir: str, experiment: str) -> str:
+    """Computes the index path.
+
+    Args:
+        model_dir (str).
+        experiment (str).
+
+    Returns:
+        str.
+    """
+    return f"{model_dir}/{experiment}/index.pkl"
+
+
+def main() -> None:
+    """Trainer."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--experiment", required=True, help="Name of experiment"
+    )
+    # Path arguments.
+    parser.add_argument(
+        "--train",
+        required=True,
+        help="Path to input training data TSV",
+    )
+    parser.add_argument(
+        "--dev",
+        required=True,
+        help="Path to input development data TSV",
+    )
+    parser.add_argument(
+        "--model_dir",
+        required=True,
+        help="Path to output model directory",
+    )
+    parser.add_argument(
+        "--train_from",
+        help="Path to ckpt checkpoint to resume training from",
+    )
+    # Data configuration arguments.
+    dataconfig.DataConfig.add_argparse_args(parser)
+    # Architecture arguments.
+    models.add_argparse_args(parser)
+    # Architecture-specific arguments.
+    models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.LSTMEncoderDecoder.add_argparse_args(parser)
+    models.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.expert.add_argparse_args(parser)
+    # Trainer arguments.
+    # Among the things this adds, the following are likely to be useful:
+    # --accelerator ("gpu" for GPU)
+    # --check_val_every_n_epoch
+    # --devices (for multiple device support)
+    # --gradient_clip_val
+    # --max_epochs
+    # --min_epochs
+    # --max_steps
+    # --min_steps
+    # --max_time
+    pl.Trainer.add_argparse_args(parser)
+    # Other training arguments.
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=128,
+        help="Batch size. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--patience", type=int, help="Patience for early stopping"
+    )
+    parser.add_argument(
+        "--save_top_k",
+        type=int,
+        default=1,
+        help="Number of checkpoints to save. Default: %(default)s.",
+    )
+    parser.add_argument("--seed", type=int, help="Random seed")
+    parser.add_argument(
+        "--wandb",
+        action="store_true",
+        default=False,
+        help="Use Weights & Biases logging (log-in required). Default: True.",
+    )
+    parser.add_argument(
+        "--no_wandb",
+        action="store_false",
+        dest="wandb",
+    )
+    args = parser.parse_args()
+    util.log_arguments(args)
+    pl.seed_everything(args.seed)
+    trainer = _get_trainer_from_argparse_args(args)
+    train_set, dev_set = _get_datasets_from_argparse_args(args)
+    train_loader, dev_loader = get_loaders(
+        train_set, dev_set, args.arch, args.batch_size
+    )
+    model = get_model(train_set, **vars(args))
+    best_checkpoint = train(
+        trainer, model, train_loader, dev_loader, args.train_from
+    )
+    index = get_index(args.model_dir, args.experiment)
+    train_set.index.write(index)
+    util.log_info(f"Index: {index}")
+    util.log_info(f"Best checkpoint: {best_checkpoint}")
 
 
 if __name__ == "__main__":

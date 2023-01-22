@@ -7,7 +7,7 @@ import pytest
 
 
 @pytest.fixture()
-def make_tsv_file(tmp_path):
+def make_trivial_tsv_file(tmp_path):
     path = tmp_path / "data.tsv"
     with open(path, "w") as sink:
         tsv_writer = csv.writer(sink, delimiter="\t")

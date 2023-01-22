@@ -8,7 +8,8 @@ import torch
 from maxwell import actions
 from torch import nn
 
-from . import base, expert, lstm
+from .. import batches
+from . import expert, lstm
 
 
 class ActionError(Exception):
@@ -16,7 +17,7 @@ class ActionError(Exception):
 
 
 class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
-    """Transducer model.
+    """Transducer model with an LSTM backend and no features.
 
     After:
         Makarov, P., and Clematide, S. 2018. Imitation learning for neural
@@ -28,6 +29,8 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     """
 
     expert: expert.Expert
+    # Constructed inside __init__.
+    target_embeddings: nn.Embedding
 
     def __init__(
         self,
@@ -35,7 +38,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         *args,
         **kwargs,
     ):
-        """Initializes transducer model, using LSTM backend.
+        """Initializes transducer model.
 
         Args:
             expert (expert.Expert): oracle that guides training for transducer.
@@ -46,7 +49,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         self.expert = expert  # Oracle to train model.
         self.actions = self.expert.actions
         self.substitutions = self.actions.substitutions
-        self.inserts = self.actions.insertions
+        self.insertions = self.actions.insertions
         # Alternate outputs than dataset targets.
         kwargs["output_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
@@ -56,41 +59,31 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             embedding_size=self.embedding_size,
             pad_idx=self.actions.end_idx,
         )
-        self.save_hyperparameters()
 
     def forward(
-        self, batch: base.Batch
+        self, batch: batches.PaddedBatch
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (base.Batch): batch of the input, input mask, output, and
-                output mask.
+            batch (batches.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor] of encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        if len(batch) == 4:
-            source, source_mask, target, target_mask = batch
-        elif len(batch) == 2:
-            source, source_mask = batch
-            target = None
-            target_mask = None
-        else:
-            raise lstm.Error(f"Batch of {len(batch)} elements is invalid")
-        encoder_out, _ = self.encode(source, source_mask)
+        encoder_out, _ = self.encode(batch.source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
-        source = source[:, 1:]
-        source_mask = source_mask[:, 1:]
+        source_padded = batch.source.padded[:, 1:]
+        source_mask = batch.source.mask[:, 1:]
         prediction, loss = self.decode(
             encoder_out,
-            source,
+            source_padded,
             source_mask,
-            target=target,
-            target_mask=target_mask,
+            target=batch.target.padded,
+            target_mask=batch.target.mask,
         )
         return prediction, loss
 
@@ -147,7 +140,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             ]
         # Start of decoding.
         last_hiddens = self.init_hiddens(batch_size)
-        for _ in range(self.max_decode_len):
+        for _ in range(self.max_decode_length):
             # Checks if completed all sequences.
             not_complete = last_action != self.actions.end_idx
             if not any(not_complete):
@@ -278,7 +271,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             List[actions.Edit]: actions known by transducer.
         """
         valid_actions = [self.actions.end_idx]
-        valid_actions.extend(self.inserts)
+        valid_actions.extend(self.insertions)
         if not end_of_input:
             valid_actions.extend([self.actions.copy_idx, self.actions.del_idx])
             valid_actions.extend(self.substitutions)
@@ -400,7 +393,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             target,
             alignment,
             prediction,
-            max_action_seq_len=self.max_decode_len,
+            max_action_seq_len=self.max_decode_length,
         )
         action_scores = self.remap_actions(raw_action_scores)
         optimal_value = min(action_scores.values())
@@ -470,11 +463,12 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             elif isinstance(a, actions.End):
                 prediction[i].append(self.end_idx)
             else:
-                raise ActionError(f"Unknown action: {action}.")
+                raise ActionError(f"Unknown action: {action}")
         return alignment + alignment_update
 
+    @staticmethod
     def log_sum_softmax_loss(
-        self, logits: torch.Tensor, optimal_actions: List[int]
+        logits: torch.Tensor, optimal_actions: List[int]
     ) -> torch.Tensor:
         """Computes log loss.
 
@@ -494,44 +488,43 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
+    @staticmethod
     def loss_func(
-        self,
         prediction: Tuple[List[List[int]], torch.Tensor],
         target: torch.Tensor,
     ) -> torch.Tensor:
         """Returns loss value for prediction.
 
-        Transducer already produces prediction strings and calculates loss
+        This model already produces prediction strings and calculates loss
         during training. This simply serves as a wrapper to allow compatibility
-        with training_step in superclass.
+        with training_step in the superclass.
         """
         _, loss = prediction
         return loss
 
     def validation_step(
-        self, batch: Tuple[torch.tensor], batch_idx: int
+        self, batch: batches.PaddedBatch, batch_idx: int
     ) -> Dict:
-        preds, loss = self.forward(batch)
+        predictions, loss = self.forward(batch)
         # Evaluation requires prediction as a tensor.
-        preds = self.convert_prediction(preds)
+        predictions = self.convert_prediction(predictions)
         # Processes for accuracy calculation.
-        preds = self.evaluator.finalize_preds(
-            preds, self.end_idx, self.pad_idx
+        predictions = self.evaluator.finalize_predictions(
+            predictions, self.end_idx, self.pad_idx
         )
-        target = batch[-2]
         return {
             "val_accuracy": self.evaluator.accuracy(
-                preds, target, self.pad_idx
+                predictions, batch.target.padded, self.pad_idx
             ),
             "val_loss": loss,
         }
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
-        preds, loss = self.forward(
+        predictions, loss = self.forward(
             batch,
         )
         # Evaluation requires prediction tensor.
-        return self.convert_prediction(preds)
+        return self.convert_prediction(predictions)
 
     def convert_prediction(self, prediction: List[List[int]]) -> torch.Tensor:
         """Converts prediction values to tensor for evaluator compatibility."""
@@ -559,28 +552,27 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
 
 
 class TransducerFeatures(TransducerNoFeatures):
-    """Transducer model that encodes feature inputs."""
+    """Transducer model with an LSTM backend."""
 
     features_idx: int
     features_vocab_size: int
 
-    def __init__(self, features_vocab_size, features_idx, *args, **kwargs):
-        """Initializes transducer model. Uses LSTM backend.
+    def __init__(self, features_idx, features_vocab_size, *args, **kwargs):
+        """Initializes transducer model.
 
         Functions equivalently to TransducerNoFeatures except concatenates
         n-hot encoding of feature values to encoded tensor.
 
         Args:
-            features_idx (int): index in data.source_symbol2i that marks
-                start of feature encodings.
+            features_idx (int): index marking the start of feature encodings.
             features_vocab_size (int): size of features vocab.
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
+        super().__init__(*args, **kwargs)
         self.features_idx = features_idx
         self.features_vocab_size = features_vocab_size
-        super().__init__(*args, **kwargs)
-        # Re-initializes decoder to accomodate features.
+        # Overrides decoder to accomodate features.
         self.decoder = nn.LSTM(
             self.hidden_size * self.num_directions
             + self.embedding_size
@@ -592,52 +584,38 @@ class TransducerFeatures(TransducerNoFeatures):
             batch_first=True,
         )
 
-    def forward(self, batch: base.Batch) -> torch.Tensor:
+    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (base.Batch): batch of the input, input mask, output, and
-                output mask.
+            batch (batches.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        if len(batch) == 6:
-            (
-                source,
-                source_mask,
-                features,
-                features_mask,
-                target,
-                target_mask,
-            ) = batch
-        elif len(batch) == 4:
-            source, source_mask, features, features_mask = batch
-            target = None
-            target_mask = None
-        else:
-            raise lstm.Error(f"Batch of {len(batch)} elements is invalid")
-        encoder_out, _ = self.encode(source, source_mask)
+        encoder_out, _ = self.encode(batch.source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
-        source = source[:, 1:]
-        source_mask = source_mask[:, 1:]
+        source_padded = batch.source.padded[:, 1:]
+        source_mask = batch.source.mask[:, 1:]
         # Converts features to n-hot encoding.
         with torch.no_grad():
-            # Features are offset by features idx. Shifts one to encode
+            # Features are offset by features idx; we shift one to encode
             # padding, replacing mask with first index.
-            features = torch.where(
-                features_mask, 0, features - self.features_idx + 1
+            features_padded = torch.where(
+                batch.features.mask,
+                0,
+                batch.features.padded - self.features_idx + 1,
             )
-            # Features outside offset classified as unknown feature.
-            # Idx is end of features vocab.
-            features[features < 0] = self.features_vocab_size + 1
-            # One hot embeddings are vocab size plus two for padding and
-            # unknown.
+            # Features outside offset classified as unknown feature. The index
+            # is the end of the features vocabulary.
+            features_padded[features_padded < 0] = self.features_vocab_size + 1
+            # The size of the one-hot embeddings are the vocab size plus two
+            # for padding and unknown.
             one_hot_features = nn.functional.one_hot(
-                features, self.features_vocab_size + 2
+                features_padded, self.features_vocab_size + 2
             )
             # Truncates pad at idx 0 then sum one_hots for n_hot vectors.
             n_hot_features = torch.sum(
@@ -649,10 +627,10 @@ class TransducerFeatures(TransducerNoFeatures):
         encoder_out_feat = torch.cat((encoder_out, n_hot_features), dim=2)
         prediction, loss = self.decode(
             encoder_out_feat,
-            source,
+            source_padded,
             source_mask,
-            target=target,
-            target_mask=target_mask,
+            target=batch.target.padded,
+            target_mask=batch.target.mask,
         )
         return prediction, loss
 

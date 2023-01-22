@@ -17,7 +17,6 @@ class Attention(nn.Module):
         Natural Language Processing, pages 1412-1421.
     """
 
-    encoder_outputs_size: int
     hidden_size: int
     M: nn.Linear
     V: nn.Linear
@@ -29,14 +28,10 @@ class Attention(nn.Module):
             encoder_outputs_size (int).
             hidden_size (int).
         """
-        super(Attention, self).__init__()
-        self.encoder_outputs_size = encoder_outputs_size
-        self.hidden_size = hidden_size
+        super().__init__()
         # MLP to run over encoder_outputs.
-        self.M = nn.Linear(
-            self.encoder_outputs_size + self.hidden_size, self.hidden_size
-        )
-        self.V = nn.Linear(self.hidden_size, 1)
+        self.M = nn.Linear(encoder_outputs_size + hidden_size, hidden_size)
+        self.V = nn.Linear(hidden_size, 1)
 
     def forward(
         self,

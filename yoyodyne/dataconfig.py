@@ -1,8 +1,10 @@
 """Dataset config class."""
 
+import argparse
 import csv
 import dataclasses
-from typing import Iterator, List, Optional, Tuple
+import inspect
+from typing import Iterator, List, Tuple
 
 from . import util
 
@@ -24,11 +26,11 @@ class DataConfig:
             target strings.
         features_col (int, optional): 1-indexed column in TSV containing
             features strings.
-        source_sep (str, optional): separator character between symbols in
+        source_sep (str, optional): separator character between symbol in
             source string. "" treats each character in source as a symbol.
-        target_sep (str, optional): separator character between symbols in
+        target_sep (str, optional): separator character between symbol in
             target string. "" treats each character in target as a symbol.
-        features_sep (str, optional): separator character between symbols in
+        features_sep (str, optional): separator character between symbol in
             features string. "" treats each character in features as a symbol.
         tied_vocabulary (bool, optional): whether the source and target
             should share a vocabulary.
@@ -55,6 +57,17 @@ class DataConfig:
         if self.features_col != 0:
             util.log_info("Including features")
 
+    @classmethod
+    def from_argparse_args(cls, args, **kwargs):
+        """Creates an instance from CLI arguments."""
+        params = vars(args)
+        valid_kwargs = inspect.signature(cls.__init__).parameters
+        dataconfig_kwargs = {
+            name: params[name] for name in valid_kwargs if name in params
+        }
+        dataconfig_kwargs.update(**kwargs)
+        return cls(**dataconfig_kwargs)
+
     @staticmethod
     def _get_cell(row: List[str], col: int, sep: str) -> List[str]:
         """Returns the split cell of a row.
@@ -66,7 +79,7 @@ class DataConfig:
               the column is split into characters instead.
 
         Returns:
-           List[str]: symbols from that cell.
+           List[str]: symbol from that cell.
         """
         cell = row[col - 1]  # -1 because we're using one-based indexing.
         return list(cell) if not sep else cell.split(sep)
@@ -80,8 +93,6 @@ class DataConfig:
     @property
     def has_features(self) -> bool:
         return self.features_col != 0
-
-    # Iterators over the data; just provide a filename path.
 
     def source_samples(self, filename: str) -> Iterator[List[str]]:
         """Yields source."""
@@ -134,29 +145,66 @@ class DataConfig:
                 else self.source_samples(filename)
             )
 
-    # Writer help.
-
-    def make_row(
-        self,
-        source: List[str],
-        target: List[str],
-        features: Optional[List[str]] = None,
-    ) -> List[str]:
-        """Returns a TSV-style row using the config.
+    @staticmethod
+    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+        """Adds data configuration options to the argument parser.
 
         Args:
-            source (List[str]).
-            target (List[str]).
-            features (List[str], optional).
-
-        Returns:
-            List[str].
+            parser (argparse.ArgumentParser).
         """
-        row = [""] * max(self.source_col, self.target_col, self.features_col)
-        # -1 because we're using base-1 indexing.
-        row[self.source_col - 1] = self.source_sep.join(source)
-        row[self.target_col - 1] = self.target_sep.join(target)
-        if self.has_features:
-            assert features is not None, "Expected features"
-            row[self.features_col - 1] = self.features_sep.join(features)
-        return row
+        parser.add_argument(
+            "--source_col",
+            type=int,
+            default=1,
+            help="1-based index for source column. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--target_col",
+            type=int,
+            default=2,
+            help="1-based index for target column. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--features_col",
+            type=int,
+            default=0,
+            help="1-based index for features column; "
+            "0 indicates the model will not use features. "
+            "Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--source_sep",
+            type=str,
+            default="",
+            help="String used to split source string into symbols; "
+            "an empty string indicates that each Unicode codepoint "
+            "is its own symbol. Default: %(default)r.",
+        )
+        parser.add_argument(
+            "--target_sep",
+            type=str,
+            default="",
+            help="String used to split target string into symbols; "
+            "an empty string indicates that each Unicode codepoint "
+            "is its own symbol. Default: %(default)r.",
+        )
+        parser.add_argument(
+            "--features_sep",
+            type=str,
+            default=";",
+            help="String used to split features string into symbols; "
+            "an empty string indicates that each Unicode codepoint "
+            "is its own symbol. Default: %(default)r.",
+        )
+        parser.add_argument(
+            "--tied_vocabulary",
+            action="store_true",
+            default=True,
+            help="Share source and target embeddings. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--no_tied_vocabulary",
+            action="store_false",
+            dest="tied_vocabulary",
+            default=True,
+        )
