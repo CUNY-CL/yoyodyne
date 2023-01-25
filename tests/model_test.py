@@ -4,34 +4,33 @@ from yoyodyne import models
 
 
 @pytest.mark.parametrize(
-    "arch, attn, include_features, expected_cls",
+    ["arch", "include_features", "expected_cls"],
     [
+        ("attentive_lstm", True, models.AttentiveLSTMEncoderDecoder),
+        ("attentive_lstm", False, models.AttentiveLSTMEncoderDecoder),
         (
             "feature_invariant_transformer",
             True,
-            True,
             models.FeatureInvariantTransformerEncoderDecoder,
         ),
-        ("lstm", True, False, models.LSTMEncoderDecoderAttention),
-        ("lstm", False, False, models.LSTMEncoderDecoder),
+        ("lstm", True, models.LSTMEncoderDecoder),
+        ("lstm", False, models.LSTMEncoderDecoder),
         (
             "pointer_generator_lstm",
-            True,
             True,
             models.PointerGeneratorLSTMEncoderDecoderFeatures,
         ),
         (
             "pointer_generator_lstm",
-            True,
             False,
             models.PointerGeneratorLSTMEncoderDecoderNoFeatures,
         ),
-        ("transducer", True, True, models.TransducerFeatures),
-        ("transducer", True, False, models.TransducerNoFeatures),
-        ("transformer", True, True, models.TransformerEncoderDecoder),
-        ("transformer", True, False, models.TransformerEncoderDecoder),
+        ("transducer", True, models.TransducerFeatures),
+        ("transducer", False, models.TransducerNoFeatures),
+        ("transformer", True, models.TransformerEncoderDecoder),
+        ("transformer", False, models.TransformerEncoderDecoder),
     ],
 )
-def test_get_model_cls(arch, attn, include_features, expected_cls):
-    model_cls = models.get_model_cls(arch, attn, include_features)
+def test_get_model_cls(arch, include_features, expected_cls):
+    model_cls = models.get_model_cls(arch, include_features)
     assert model_cls is expected_cls

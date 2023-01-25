@@ -203,8 +203,7 @@ def get_model(
     train_set: datasets.BaseDataset,
     *,
     # Architecture arguments.
-    arch: str = "lstm",
-    attention: bool = True,
+    arch: str = "attentive_lstm",
     attention_heads: int = 4,
     bidirectional: bool = True,
     decoder_layers: int = 1,
@@ -232,7 +231,6 @@ def get_model(
     Args:
         train_set (datasets.BaseDataset)
         arch (str).
-        attention (bool).
         attention_heads (int).
         bidirectional (bool).
         decoder_layers (int).
@@ -258,9 +256,7 @@ def get_model(
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(
-        arch, attention, train_set.config.has_features
-    )
+    model_cls = models.get_model_cls(arch, train_set.config.has_features)
     expert = (
         models.expert.get_expert(
             train_set,

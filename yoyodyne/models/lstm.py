@@ -427,7 +427,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
 
 
-class LSTMEncoderDecoderAttention(LSTMEncoderDecoder):
+class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
     """LSTM encoder-decoder with attention."""
 
     attention: attention.Attention
