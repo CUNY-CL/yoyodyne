@@ -27,7 +27,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     beta2: float
     optimizer: str
     scheduler: Optional[str]
-    warmup_steps: int
+    scheduler_kwargs: Optional[Dict]
     # Regularization arguments.
     dropout: float
     label_smoothing: Optional[float]
@@ -57,7 +57,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         learning_rate=0.001,
         optimizer="adam",
         scheduler=None,
-        warmup_steps=0,
+        scheduler_kwargs=None,
         dropout=0.2,
         label_smoothing=None,
         beam_width=1,
@@ -79,7 +79,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.learning_rate = learning_rate
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.warmup_steps = warmup_steps
+        self.scheduler_kwargs = scheduler_kwargs
         self.dropout = dropout
         self.label_smoothing = label_smoothing
         self.beam_width = beam_width
@@ -296,12 +296,16 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         if self.scheduler is None:
             return []
-        # TODO: Implement multiple options.
         scheduler_fac = {
-            "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule
+            "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
+            "lineardecay": optim.lr_scheduler.LinearLR,
         }
-        scheduler = scheduler_fac[self.scheduler](
-            optimizer=optimizer, warmup_steps=self.warmup_steps
+        scheduler_cls = scheduler_fac[self.scheduler]
+        scheduler = scheduler_cls(
+            **schedulers.filter_scheduler_kwargs(
+                scheduler_cls,
+                **dict(self.scheduler_kwargs, optimizer=optimizer)
+            ),
         )
         scheduler_cfg = {
             "scheduler": scheduler,
@@ -400,18 +404,6 @@ class BaseEncoderDecoder(pl.LightningModule):
             choices=["adadelta", "adam", "sgd"],
             default="adam",
             help="Optimizer. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--scheduler",
-            choices=["warmupinvsqrt"],
-            help="Learning rate scheduler",
-        )
-        parser.add_argument(
-            "--warmup_steps",
-            type=int,
-            default=0,
-            help="Number of warmup steps (warmupinvsqrt scheduler only). "
-            "Default: %(default)s.",
         )
         # Regularization arguments.
         parser.add_argument(
