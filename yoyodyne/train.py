@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
-from . import collators, dataconfig, datasets, models, util
+from . import collators, dataconfig, datasets, models, schedulers, util
 
 
 class Error(Exception):
@@ -223,8 +223,7 @@ def get_model(
     optimizer: str = "adam",
     sed_params: Optional[str] = None,
     scheduler: Optional[str] = None,
-    warmup_steps: int = 0,
-    **kwargs,  # Ignored.
+    **kwargs,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
 
@@ -250,8 +249,7 @@ def get_model(
         optimizer (str).
         sed_params (str, optional).
         scheduler (str, optional).
-        warmup_steps (int, optional).
-        **kwargs: ignored.
+        **kwargs
 
     Returns:
         models.BaseEncoderDecoder.
@@ -266,6 +264,9 @@ def get_model(
         )
         if arch in ["transducer"]
         else None
+    )
+    scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(
+        **kwargs
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
@@ -292,10 +293,10 @@ def get_model(
         output_size=train_set.index.target_vocab_size,
         pad_idx=train_set.index.pad_idx,
         scheduler=scheduler,
+        scheduler_kwargs=scheduler_kwargs,
         start_idx=train_set.index.start_idx,
         train_set=train_set,
         vocab_size=train_set.index.source_vocab_size,
-        warmup_steps=warmup_steps,
     )
 
 
@@ -369,6 +370,8 @@ def main() -> None:
     dataconfig.DataConfig.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
+    # Scheduler-specific arguments.
+    schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
