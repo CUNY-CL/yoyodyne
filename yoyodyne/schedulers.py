@@ -74,11 +74,6 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
 class LinearDecay(optim.lr_scheduler.LinearLR):
     """Linear decay scheduler."""
 
-    optimizer: optim.Optimizer
-    start_factor: float
-    end_factor: float
-    total_decay_steps: int
-
     def __init__(
         self,
         optimizer,
@@ -130,26 +125,26 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--start_factor",
         type=float,
         default=1 / 3,
-        help="The starting multiplier for the lr in LinearDecay. Default: %(default)s.",
+        help="The starting multiplier for the LR (lineardecay scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--end_factor",
         type=float,
         default=1.0,
-        help="The multiplier for the lr after total_decay_steps in LinearDecay. Default: %(default)s.",
+        help="The multiplier for the LR after total_decay_steps (lineardecay scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--total_decay_steps",
         type=int,
         default=5,
-        help="The number of iterations until the lr multiplier "
-        "reaches end_factor in LinearDecay. "
+        help="The number of iterations until the LR multiplier "
+        "reaches end_factor (lineardecay scheduler only). "
         "Default: %(default)s.",
     )
 
 
 def get_scheduler_kwargs_from_argparse_args(**kwargs) -> Dict:
-    """Get's the Dict of kwargs that will be used to instantiate the scheduler.
+    """Gets the Dict of kwargs that will be used to instantiate the scheduler.
 
     Returns:
         Dict: hyperparameters for the scheduler.

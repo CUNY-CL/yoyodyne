@@ -370,7 +370,7 @@ def main() -> None:
     dataconfig.DataConfig.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
-    # Scheduler-specific arguments
+    # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
