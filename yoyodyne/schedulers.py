@@ -124,13 +124,17 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--start_factor",
         type=float,
         default=1 / 3,
-        help="The starting multiplier for the LR (lineardecay scheduler only). Default: %(default)s.",
+        help="The starting multiplier for the LR "
+        "(lineardecay scheduler only). "
+        "Default: %(default)s.",
     )
     parser.add_argument(
         "--end_factor",
         type=float,
         default=1.0,
-        help="The multiplier for the LR after total_decay_steps (lineardecay scheduler only). Default: %(default)s.",
+        help="The multiplier for the LR after total_decay_steps "
+        "(lineardecay scheduler only). "
+        "Default: %(default)s.",
     )
     parser.add_argument(
         "--total_decay_steps",
