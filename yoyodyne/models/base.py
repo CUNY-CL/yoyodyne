@@ -298,14 +298,11 @@ class BaseEncoderDecoder(pl.LightningModule):
             return []
         scheduler_fac = {
             "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
-            "lineardecay": optim.lr_scheduler.LinearLR,
+            "lineardecay": schedulers.LinearDecay,
         }
         scheduler_cls = scheduler_fac[self.scheduler]
         scheduler = scheduler_cls(
-            **schedulers.filter_scheduler_kwargs(
-                scheduler_cls,
-                **dict(self.scheduler_kwargs, optimizer=optimizer)
-            ),
+            **dict(self.scheduler_kwargs, optimizer=optimizer)
         )
         scheduler_cfg = {
             "scheduler": scheduler,
