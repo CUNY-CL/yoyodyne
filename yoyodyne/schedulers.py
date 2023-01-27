@@ -9,7 +9,12 @@ from typing import Dict
 from torch import optim
 
 
-ALL_SCHEDULER_ARGS = ["warmup_steps", "start_factor", "end_factor", "total_decay_steps"]
+ALL_SCHEDULER_ARGS = [
+    "warmup_steps",
+    "start_factor",
+    "end_factor",
+    "total_decay_steps",
+]
 
 
 class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
@@ -73,7 +78,7 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
     start_factor: float
     end_factor: float
     total_decay_steps: int
-    
+
     def __init__(
         self,
         optimizer,
@@ -87,9 +92,9 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
         Args:
             optimizer (optim.Optimizer): optimizer.
             start_factor (float): the start_factor to multiply by the LR.
-            end_factor (float): the end_factor to multiply by the LR 
+            end_factor (float): the end_factor to multiply by the LR
                 after the total decay steps have finished.
-            total_decay_steps (int): number of steps to linearly update 
+            total_decay_steps (int): number of steps to linearly update
                 the multiplied factor until end_factor.
             **kwargs: ignored.
         """
