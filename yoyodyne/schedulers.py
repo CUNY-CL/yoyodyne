@@ -31,13 +31,12 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
     """
 
     warmup_steps: int
-    last_epoch: int
+    decay_factor: float
 
     def __init__(
         self,
         optimizer: optim.Optimizer,
         warmup_steps,
-        last_epoch=-1,
         **kwargs,
     ):
         """Initializes the LR scheduler.
@@ -45,14 +44,11 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         Args:
             optimizer (optim.Optimizer): optimizer.
             warmup_steps (int): number of warmup steps.
-            last_epoch (int): last epoch for the scheduler.
             **kwargs: ignored.
         """
         self.warmup_steps = warmup_steps
         self.decay_factor = math.sqrt(warmup_steps)
-        super(WarmupInverseSquareRootSchedule, self).__init__(
-            optimizer, self.lr_lambda, last_epoch=last_epoch
-        )
+        super().__init__(optimizer, self.lr_lambda)
 
     def lr_lambda(self, step: int) -> float:
         """Computes the learning rate lambda at a given step.
@@ -92,7 +88,7 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
                 the multiplied factor until end_factor.
             **kwargs: ignored.
         """
-        super(LinearDecay, self).__init__(
+        super().__init__(
             optimizer,
             total_iters=total_decay_steps,
             start_factor=start_factor,
@@ -124,25 +120,22 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--start_factor",
         type=float,
         default=1 / 3,
-        help="The starting multiplier for the LR "
-        "(lineardecay scheduler only). "
-        "Default: %(default)s.",
+        help="Starting multiplier for the LR (lineardecay scheduler "
+        "only). Default: %(default)s.",
     )
     parser.add_argument(
         "--end_factor",
         type=float,
         default=1.0,
-        help="The multiplier for the LR after total_decay_steps "
-        "(lineardecay scheduler only). "
-        "Default: %(default)s.",
+        help="Multiplier for the LR after --total_decay_steps (lineardecay "
+        "scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--total_decay_steps",
         type=int,
         default=5,
-        help="The number of iterations until the LR multiplier "
-        "reaches end_factor (lineardecay scheduler only). "
-        "Default: %(default)s.",
+        help="Number of iterations until the LR multiplier reaches "
+        "--end_factor (lineardecay scheduler only). Default: %(default)s.",
     )
 
 
