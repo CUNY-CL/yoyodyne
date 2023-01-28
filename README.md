@@ -129,9 +129,9 @@ For all models, the user may also wish to specify:
 -   `--encoder_layers` (default: 1): number of encoder layers
 -   `--hidden_size` (default: 512): hidden layer size
 
-By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
-LSTM bidirectional encoder. One can disable this with the `--no_bidirectional`
-flag.
+By default, the `attentive_lstm`, `lstm`, `pointer_generator_lstm`, and
+`transducer` models use an bidirectional encoder. One can disable this with the
+`--no_bidirectional` flag.
 
 ## Training options
 
