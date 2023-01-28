@@ -151,9 +151,6 @@ A non-exhaustive list includes:
     -   `--beta2` (default: .99): $\beta_2$ hyperparameter for the Adam
         optimizer (`--optimizer adam`)
     -   `--scheduler` (default: not enabled)
-    -   `--warmup_steps` (default: not enabled): warm-up parameter for a linear
-        warm-up followed by inverse square root decay schedule (only valid with
-        `--scheduler warmupinvsqrt`)
 -   Duration:
     -   `--max_epochs`
     -   `--min_epochs`
@@ -164,7 +161,7 @@ A non-exhaustive list includes:
 -   Seeding:
     -   `--seed`
 -   [Weights & Biases](https://wandb.ai/site):
-    -   `--wandb` (default: False): enables Weights & Biases tracking.
+    -   `--wandb` (default: False): enables Weights & Biases tracking
 
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
