@@ -86,14 +86,6 @@ Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
 symbols of form `<...>` or `[...]`.
 
-## Acceleration
-
-[Hardware
-accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
-can be used during training or prediction. In addition to CPU (the default) and
-GPU (`--accelerator gpu`), Yoyodyne also supports proprietary ASICs such as
-TPUs.
-
 ## Architectures
 
 The user specifies the model using the `--arch` flag (and in some cases
@@ -171,8 +163,9 @@ decay scheduler.
 
 ## Accelerators
 
-By default Yoyodyne runs on CPU. One can specify accelerators using the
-`--accelerators` flag. For instance `--accelerators gpu` will use a local
-CUDA-enabled GPU. [Other
+[Hardware
+accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
+can be used during training or prediction. In addition to CPU (the default) and
+GPU (`--accelerator gpu`), [other
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
 may also be supported but not all have been tested yet.
