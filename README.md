@@ -12,7 +12,7 @@ generation with and without feature conditioning.
 These models are implemented using [PyTorch](https://pytorch.org/) and
 [Lightning](https://www.pytorchlightning.ai/).
 
-While we provide classic `lstm` and `transformer` models, some of the provided
+While we provide classic LSTM and transformer models, some of the provided
 models are particularly well-suited for problems where the source-target
 alignments are roughly monotonic (e.g., `transducer`) and/or where source and
 target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
@@ -129,9 +129,9 @@ For all models, the user may also wish to specify:
 -   `--encoder_layers` (default: 1): number of encoder layers
 -   `--hidden_size` (default: 512): hidden layer size
 
-By default, the `lstm`, `pointer_generator_lstm`, and `transducer` models use an
-LSTM bidirectional encoder. One can disable this with the `--no_bidirectional`
-flag.
+By default, the `attentive_lstm`, `lstm`, `pointer_generator_lstm`, and
+`transducer` models use an bidirectional encoder. One can disable this with the
+`--no_bidirectional` flag.
 
 ## Training options
 
@@ -163,7 +163,7 @@ A non-exhaustive list includes:
     -   `--patience`
 -   Seeding:
     -   `--seed`
--   [Weights & Biases](https://wandb.ai/site)
+-   [Weights & Biases](https://wandb.ai/site):
     -   `--wandb` (default: False): enables Weights & Biases tracking.
 
 **No neural model should be deployed without proper hyperparameter tuning.**
