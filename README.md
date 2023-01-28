@@ -163,7 +163,7 @@ A non-exhaustive list includes:
     -   `--patience`
 -   Seeding:
     -   `--seed`
--   [Weights & Biases](https://wandb.ai/site)
+-   [Weights & Biases](https://wandb.ai/site):
     -   `--wandb` (default: False): enables Weights & Biases tracking.
 
 **No neural model should be deployed without proper hyperparameter tuning.**
