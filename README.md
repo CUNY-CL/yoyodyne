@@ -1,4 +1,5 @@
-# Yoyodyne 🪀
+Yoyodyne 🪀
+==========
 
 [![PyPI
 version](https://badge.fury.io/py/yoyodyne.svg)](https://pypi.org/project/yoyodyne)
@@ -17,7 +18,8 @@ models are particularly well-suited for problems where the source-target
 alignments are roughly monotonic (e.g., `transducer`) and/or where source and
 target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
 
-## Philosophy
+Philosophy
+----------
 
 Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 but differs on several key points of design:
@@ -36,7 +38,8 @@ but differs on several key points of design:
 -   It uses validation accuracy (not loss) for model selection and early
     stoppping.
 
-## Install
+Install
+-------
 
 First install dependencies:
 
@@ -48,16 +51,18 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-```python
+``` {.python}
 import yoyodyne
 ```
 
-## Usage
+Usage
+-----
 
 See [`yoyodyne-predict --help`](yoyodyne/predict.py) and
 [`yoyodyne-train --help`](yoyodyne/train.py).
 
-## Data format
+Data format
+-----------
 
 The default data format is a two-column TSV file in which the first column is
 the source string and the second the target string.
@@ -79,14 +84,40 @@ Alternatively, for the SIGMORPHON 2016 shared task data format:
 
 this format is specified by `--features-col 2 --features-sep , --target-col 3`.
 
-## Reserved symbols
+Model checkpointing
+-------------------
+
+Checkpointing is largely handled by
+[Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
+The path for model information, including checkpoints, is specified by a
+combination of `--model_dir` and `--experiment`, such that we build the path
+`model_dir/experiment_name/version_n`, where each run of an experiment with
+the same model_dir and experiment_name is namespaced with a new version number.
+Within a version, we store everything needed to reload a model, namely the
+hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`), and a
+directory of checkpoints (`model_dir/experiment_name/version_n/checkpoints`).
+
+By default, each run initializes a new model from scratch, unless the
+`--train_from` argument is specified. To continue training from a specific
+checkpoint, the **full path to the checkpoint** should be specified with for the
+`--train_from` argument. This creates a new version, but starts from the
+provided model checkpoint.
+
+During training, we save the best `--save_top_k` checkpoints (by default, 1)
+ranked according to accuray on the `--dev` set. For example, `--save_top_k 5`
+will save the top 5 most accurate models, according to the evaluation during
+training.
+
+Reserved symbols
+----------------
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
 symbols of form `<...>` or `[...]`.
 
-## Architectures
+Architectures
+-------------
 
 The user specifies the model using the `--arch` flag (and in some cases
 additional flags).
@@ -125,7 +156,8 @@ By default, the `attentive_lstm`, `lstm`, `pointer_generator_lstm`, and
 `transducer` models use an bidirectional encoder. One can disable this with the
 `--no_bidirectional` flag.
 
-## Training options
+Training options
+----------------
 
 A non-exhaustive list includes:
 
@@ -161,7 +193,8 @@ biLSTM. For transformer-based architectures, experiment with multiple encoder
 and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
 
-## Accelerators
+Accelerators
+------------
 
 [Hardware
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
