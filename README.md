@@ -91,11 +91,11 @@ Checkpointing is largely handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
 The path for model information, including checkpoints, is specified by a
 combination of `--model_dir` and `--experiment`, such that we build the path
-`model_dir/experiment_name/version_*n*`, where each run of an experiment with
+`model_dir/experiment_name/version_n`, where each run of an experiment with
 the same model_dir and experiment_name is namespaced with a new version number.
 Within a version, we store everything needed to reload a model, namely the
 hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`), and a
-directory of checkpoints (`model_dir/experiment_name/version_*n*/checkpoints`).
+directory of checkpoints (`model_dir/experiment_name/version_n/checkpoints`).
 
 By default, each run initializes a new model from scratch, unless the
 `--train_from` argument is specified. To continue training from a specific
