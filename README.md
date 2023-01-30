@@ -82,11 +82,11 @@ this format is specified by `--features-col 2 --features-sep , --target-col 3`.
 ## Model checkpointing
 
 Checkpointing is largely handled by [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html). The path for model information, including checkpoints, is specified by a combination of 
-`--model_dir` and `--experiment`, such that we build the path `model_dir/experiment_name/version_*n*`, where each run of an experiment with the same model_dir and experiment_name is namespaced with a new version number. Within a version, we store everything needed to reload a model, namely the hyperparameters (`model_dir/experiment_name/version_*n*/harapams.yaml`), and a directory of checkpoints (`model_dir/experiment_name/version_*n*/checkpoints`).
+`--model_dir` and `--experiment`, such that we build the path `model_dir/experiment_name/version_*n*`, where each run of an experiment with the same model_dir and experiment_name is namespaced with a new version number. Within a version, we store everything needed to reload a model, namely the hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`), and a directory of checkpoints (`model_dir/experiment_name/version_*n*/checkpoints`).
 
 By default, each run initializes a new model from scratch, unless the `--train_from` argument is specified. To continue training from a specific checkpoint, the **full path to the checkpoint** should be specified with for the `--train_from` argument. This creates a new version, but starts from the provided model checkpoint.
 
-During training, we save the best `--save_top_k` checkpoints according to accuracy on the `--dev` set. For example, `--save_top_k 5` will save the top 5 most accurate models, according to the evaluation during training.
+During training, we save the best `--save_top_k` checkpoints (by default, 1) ranked according to accuray on the `--dev` set. For example, `--save_top_k 5` will save the top 5 most accurate models, according to the evaluation during training.
 
 ## Reserved symbols
 
