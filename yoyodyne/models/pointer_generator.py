@@ -494,7 +494,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
-                batch.features_encoded,
+                features_encoded,
                 batch.features.mask,
                 batch.target.padded,
             )
