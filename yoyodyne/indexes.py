@@ -1,6 +1,7 @@
 """Indexes for symbols."""
 
 import pickle
+import os
 from typing import Dict, List, Optional, Set
 
 from . import special
@@ -72,6 +73,7 @@ class BaseIndex:
         Args:
             path (str): output path.
         """
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as sink:
             pickle.dump(vars(self), sink)
 
