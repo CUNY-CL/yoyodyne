@@ -14,7 +14,6 @@ from .. import batches, evaluators, schedulers, util
 
 
 class BaseEncoderDecoder(pl.LightningModule):
-
     # Indices.
     pad_idx: int
     start_idx: int
