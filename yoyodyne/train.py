@@ -295,7 +295,6 @@ def get_model(
         scheduler=scheduler,
         scheduler_kwargs=scheduler_kwargs,
         start_idx=train_set.index.start_idx,
-        train_set=train_set,
         vocab_size=train_set.index.source_vocab_size,
     )
 
