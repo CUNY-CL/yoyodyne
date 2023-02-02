@@ -137,13 +137,13 @@ additional flags).
 -   `transducer`: This is a transducer with an LSTM backend. On model creation,
     expectation maximization is used to learn a sequence of edit operations, and
     imitation learning is used to train the model to implement the oracle
-    policy, with roll-in controlled by the `--oracle-factor` flag (default: 1).
+    policy, with roll-in controlled by the `--oracle_factor` flag (default: 1).
     Since this model assumes monotonic alignment, it may be superior to
     attentive models when the alignment between input and output is roughly
     monotonic and when input and output vocabularies overlap significantly.
 -   `transformer`: This is a transformer encoder-decoder with positional
     encoding and layer normalization. The user may wish to specify the number of
-    attention heads (with `--attention-heads`; default: 4).
+    attention heads (with `--attention_heads`; default: 4).
 
 For all models, the user may also wish to specify:
 
