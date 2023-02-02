@@ -144,7 +144,7 @@ def _mkdir(output: str) -> None:
     Args:
         output (str): output to output file.
     """
-    dirname = os.output.dirname(output)
+    dirname = os.path.dirname(output)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
