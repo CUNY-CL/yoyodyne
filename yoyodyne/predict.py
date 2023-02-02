@@ -138,6 +138,17 @@ def _get_model_from_argparse_args(
     return model_cls.load_from_checkpoint(args.checkpoint)
 
 
+def _mkdir(output: str) -> None:
+    """Creates directory for output file if necessary.
+
+    Args:
+        output (str): output to output file.
+    """
+    dirname = os.path.dirname(output)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
+
+
 def predict(
     trainer: pl.Trainer,
     model: pl.LightningModule,
@@ -157,7 +168,7 @@ def predict(
     dataset = loader.dataset
     target_sep = dataset.config.target_sep
     util.log_info(f"Writing to {output}")
-    os.makedirs(os.path.dirname(output), exist_ok=True)
+    _mkdir(output)
     with open(output, "w") as sink:
         for batch in trainer.predict(model, dataloaders=loader):
             # TODO: can we move some of this into module `predict_step`
