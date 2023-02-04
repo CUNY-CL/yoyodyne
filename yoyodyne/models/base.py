@@ -32,7 +32,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     label_smoothing: Optional[float]
     # Decoding arguments.
     beam_width: int
-    max_decode_length: int
+    max_target_length: int
     # Model arguments.
     decoder_layers: int
     embedding_size: int
@@ -60,7 +60,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         dropout=0.2,
         label_smoothing=None,
         beam_width=1,
-        max_decode_length=128,
+        max_target_length=128,
         decoder_layers=1,
         embedding_size=128,
         encoder_layers=1,
@@ -82,7 +82,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.dropout = dropout
         self.label_smoothing = label_smoothing
         self.beam_width = beam_width
-        self.max_decode_length = max_decode_length
+        self.max_target_length = max_target_length
         self.decoder_layers = decoder_layers
         self.embedding_size = embedding_size
         self.encoder_layers = encoder_layers
@@ -415,7 +415,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         )
         # Decoding arguments.
         parser.add_argument(
-            "--max_decode_length",
+            "--max_target_length",
             type=int,
             default=128,
             help="Maximum decoder string length. Default: %(default)s.",

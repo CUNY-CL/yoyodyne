@@ -210,8 +210,8 @@ def get_model(
     embedding_size: int = 128,
     encoder_layers: int = 1,
     hidden_size: int = 512,
-    max_decode_length: int = 128,
-    max_sequence_length: int = 128,
+    max_target_length: int = 128,
+    max_source_length: int = 128,
     # Training arguments.
     batch_size: int = 32,
     beta1: float = 0.9,
@@ -236,8 +236,8 @@ def get_model(
         embedding_size (int).
         encoder_layers (int).
         hidden_size (int).
-        max_decode_length (int).
-        max_sequence_length (int).
+        max_target_length (int).
+        max_source_length (int).
         batch_size (int).
         beta1 (float).
         beta2 (float).
@@ -287,8 +287,8 @@ def get_model(
         features_idx=getattr(train_set.index, "features_idx", -1),
         hidden_size=hidden_size,
         learning_rate=learning_rate,
-        max_decode_length=max_decode_length,
-        max_sequence_length=max_sequence_length,
+        max_target_length=max_target_length,
+        max_source_length=max_source_length,
         optimizer=optimizer,
         output_size=train_set.index.target_vocab_size,
         pad_idx=train_set.index.pad_idx,
