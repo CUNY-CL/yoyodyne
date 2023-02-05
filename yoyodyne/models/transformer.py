@@ -15,7 +15,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     # Model arguments.
     attention_heads: int
-    max_sequence_length: int
+    max_source_length: int
     # Constructed inside __init__.
     esq: float
     source_embeddings: nn.Embedding
@@ -27,19 +27,23 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     classifier: nn.Linear
 
     def __init__(
-        self, *args, attention_heads=4, max_sequence_length=128, **kwargs,
+        self,
+        *args,
+        attention_heads=4,
+        max_source_length=128,
+        **kwargs,
     ):
         """Initializes the encoder-decoder with attention.
 
         Args:
             attention_heads (int).
-            max_sequence_length (int).
+            max_source_length (int).
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
         super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
-        self.max_sequence_length = max_sequence_length
+        self.max_source_length = max_source_length
         self.esq = math.sqrt(self.embedding_size)
         self.source_embeddings = self.init_embeddings(
             self.vocab_size, self.embedding_size, self.pad_idx
@@ -48,7 +52,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             self.output_size, self.embedding_size, self.pad_idx
         )
         self.positional_encoding = positional_encoding.PositionalEncoding(
-            self.embedding_size, self.pad_idx, self.max_sequence_length
+            self.embedding_size, self.pad_idx, self.max_source_length
         )
         self.log_softmax = nn.LogSoftmax(dim=2)
         encoder_layer = nn.TransformerEncoderLayer(
@@ -197,7 +201,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         ]
         # Tracking when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)
-        for _ in range(self.max_decode_length):
+        for _ in range(self.max_target_length):
             target_tensor = torch.stack(predictions, dim=1)
             # Uses a dummy mask of all ones.
             target_mask = torch.ones_like(target_tensor, dtype=torch.float)
@@ -283,7 +287,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             "(transformer-backed architectures only. Default: %(default)s.",
         )
         parser.add_argument(
-            "--max_sequence_length",
+            "--max_source_length",
             type=int,
             default=128,
             help="Maximum sequence length. Default: %(default)s.",

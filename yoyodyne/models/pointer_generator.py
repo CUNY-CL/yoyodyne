@@ -165,7 +165,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         )
         predictions = []
         num_steps = (
-            target.size(1) if target is not None else self.max_decode_length
+            target.size(1) if target is not None else self.max_target_length
         )
         # Tracks when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)
@@ -422,7 +422,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         )
         predictions = []
         num_steps = (
-            target.size(1) if target is not None else self.max_decode_length
+            target.size(1) if target is not None else self.max_target_length
         )
         # Tracks when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)

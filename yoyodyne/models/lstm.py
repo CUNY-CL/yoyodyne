@@ -225,7 +225,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
         predictions = []
         num_steps = (
-            target.size(1) if target is not None else self.max_decode_length
+            target.size(1) if target is not None else self.max_target_length
         )
         # Tracks when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)
@@ -287,7 +287,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         decoder_hiddens = self.init_hiddens(encoder_out.size(0))
         # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
-        for t in range(self.max_decode_length):
+        for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x output_size possibilities
             likelihoods = []
