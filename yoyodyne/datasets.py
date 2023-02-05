@@ -210,7 +210,10 @@ class DatasetNoFeatures(BaseDataset):
             List[List[str]]: decoded symbols.
         """
         return self._decode(
-            self.source_map, indices, symbols=symbols, special=special,
+            self.source_map,
+            indices,
+            symbols=symbols,
+            special=special,
         )
 
     def decode_target(
@@ -232,7 +235,10 @@ class DatasetNoFeatures(BaseDataset):
             List[List[str]]: decoded symbols.
         """
         return self._decode(
-            self.index.target_map, indices, symbols=symbols, special=special,
+            self.index.target_map,
+            indices,
+            symbols=symbols,
+            special=special,
         )
 
     def __len__(self) -> int:
@@ -351,10 +357,15 @@ class DatasetFeatures(DatasetNoFeatures):
         """
         # Masking features index.
         indices = torch.where(
-            indices < self.index.features_idx, indices, self.index.pad_idx,
+            indices < self.index.features_idx,
+            indices,
+            self.index.pad_idx,
         )
         return self._decode(
-            self.source_map, indices, symbols=symbols, special=special,
+            self.source_map,
+            indices,
+            symbols=symbols,
+            special=special,
         )
 
     def decode_features(

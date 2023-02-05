@@ -112,7 +112,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         embedding_layer = nn.Embedding(num_embeddings, embedding_size)
         # Xavier initialization.
         nn.init.normal_(
-            embedding_layer.weight, mean=0, std=embedding_size ** -0.5
+            embedding_layer.weight, mean=0, std=embedding_size**-0.5
         )
         # Zeroes out pad embeddings.
         if pad_idx is not None:
@@ -161,7 +161,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         raise NotImplementedError
 
     def training_step(
-        self, batch: batches.PaddedBatch, batch_idx: int,
+        self,
+        batch: batches.PaddedBatch,
+        batch_idx: int,
     ) -> torch.Tensor:
         """Runs one step of training.
 
@@ -188,7 +190,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: batches.PaddedBatch, batch_idx: int,
+        self,
+        batch: batches.PaddedBatch,
+        batch_idx: int,
     ) -> Dict:
         """Runs one validation step.
 
@@ -232,7 +236,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         return metrics
 
     def predict_step(
-        self, batch: batches.PaddedBatch, batch_idx: int,
+        self,
+        batch: batches.PaddedBatch,
+        batch_idx: int,
     ) -> torch.Tensor:
         """Runs one predict step.
 

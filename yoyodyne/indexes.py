@@ -87,7 +87,9 @@ class IndexNoFeatures(BaseIndex):
     target_map: SymbolMap
 
     def __init__(
-        self, source_vocabulary: List[str], target_vocabulary: List[str],
+        self,
+        source_vocabulary: List[str],
+        target_vocabulary: List[str],
     ):
         """Initializes the index.
 

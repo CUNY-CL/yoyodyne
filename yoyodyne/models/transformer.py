@@ -27,7 +27,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     classifier: nn.Linear
 
     def __init__(
-        self, *args, attention_heads=4, max_source_length=128, **kwargs,
+        self,
+        *args,
+        attention_heads=4,
+        max_source_length=128,
+        **kwargs,
     ):
         """Initializes the encoder-decoder with attention.
 

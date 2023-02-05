@@ -99,7 +99,9 @@ def get_trainer(
     )
 
 
-def _get_trainer_from_argparse_args(args: argparse.Namespace,) -> pl.Trainer:
+def _get_trainer_from_argparse_args(
+    args: argparse.Namespace,
+) -> pl.Trainer:
     """Creates the trainer from CLI arguments.
 
     Args:
@@ -118,7 +120,9 @@ def _get_trainer_from_argparse_args(args: argparse.Namespace,) -> pl.Trainer:
 
 
 def get_datasets(
-    train: str, dev: str, config: dataconfig.DataConfig,
+    train: str,
+    dev: str,
+    config: dataconfig.DataConfig,
 ) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
     """Creates the datasets.
 
@@ -342,16 +346,23 @@ def main() -> None:
     )
     # Path arguments.
     parser.add_argument(
-        "--train", required=True, help="Path to input training data TSV",
+        "--train",
+        required=True,
+        help="Path to input training data TSV",
     )
     parser.add_argument(
-        "--dev", required=True, help="Path to input development data TSV",
+        "--dev",
+        required=True,
+        help="Path to input development data TSV",
     )
     parser.add_argument(
-        "--model_dir", required=True, help="Path to output model directory",
+        "--model_dir",
+        required=True,
+        help="Path to output model directory",
     )
     parser.add_argument(
-        "--train_from", help="Path to ckpt checkpoint to resume training from",
+        "--train_from",
+        help="Path to ckpt checkpoint to resume training from",
     )
     # Data configuration arguments.
     dataconfig.DataConfig.add_argparse_args(parser)
@@ -400,7 +411,9 @@ def main() -> None:
         help="Use Weights & Biases logging (log-in required). Default: True.",
     )
     parser.add_argument(
-        "--no_wandb", action="store_false", dest="wandb",
+        "--no_wandb",
+        action="store_false",
+        dest="wandb",
     )
     args = parser.parse_args()
     util.log_arguments(args)

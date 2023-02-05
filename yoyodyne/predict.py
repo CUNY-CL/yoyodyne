@@ -21,7 +21,9 @@ def get_trainer(**kwargs) -> pl.Trainer:
     return pl.Trainer(max_epochs=0, **kwargs)
 
 
-def _get_trainer_from_argparse_args(args: argparse.Namespace,) -> pl.Trainer:
+def _get_trainer_from_argparse_args(
+    args: argparse.Namespace,
+) -> pl.Trainer:
     """Creates the trainer from CLI arguments.
 
     Args:
@@ -34,7 +36,9 @@ def _get_trainer_from_argparse_args(args: argparse.Namespace,) -> pl.Trainer:
 
 
 def get_dataset(
-    predict: str, config: dataconfig.DataConfig, index: str,
+    predict: str,
+    config: dataconfig.DataConfig,
+    index: str,
 ) -> datasets.BaseDataset:
     """Creates the dataset.
 
@@ -58,7 +62,9 @@ def get_dataset(
 
 
 def get_loader(
-    dataset: datasets.BaseDataset, arch: str, batch_size: int,
+    dataset: datasets.BaseDataset,
+    arch: str,
+    batch_size: int,
 ) -> data.DataLoader:
     """Creates the loader.
 
@@ -96,7 +102,10 @@ def _get_loader_from_argparse_args(
 
 
 def get_model(
-    arch: str, attention: bool, has_features: bool, checkpoint: str,
+    arch: str,
+    attention: bool,
+    has_features: bool,
+    checkpoint: str,
 ) -> models.BaseEncoderDecoder:
     """Creates the model from checkpoint.
 
@@ -164,7 +173,9 @@ def predict(
                 batch, dataset.index.end_idx, dataset.index.pad_idx
             )
             for prediction in dataset.decode_target(
-                batch, symbols=True, special=False,
+                batch,
+                symbols=True,
+                special=False,
             ):
                 print(target_sep.join(prediction), file=sink)
 
@@ -177,10 +188,14 @@ def main() -> None:
     )
     # Path arguments.
     parser.add_argument(
-        "--predict", required=True, help="Path to prediction input data TSV",
+        "--predict",
+        required=True,
+        help="Path to prediction input data TSV",
     )
     parser.add_argument(
-        "--output", required=True, help="Path to prediction output data TSV",
+        "--output",
+        required=True,
+        help="Path to prediction output data TSV",
     )
     parser.add_argument("--index", required=True, help="Path to index (.pkl)")
     parser.add_argument(

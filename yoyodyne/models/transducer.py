@@ -33,7 +33,10 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     target_embeddings: nn.Embedding
 
     def __init__(
-        self, expert, *args, **kwargs,
+        self,
+        expert,
+        *args,
+        **kwargs,
     ):
         """Initializes transducer model.
 
@@ -148,7 +151,10 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             )
             # Decoding.
             logits, last_hiddens = self.decode_step(
-                encoder_out, last_action, last_hiddens, alignment,
+                encoder_out,
+                last_action,
+                last_hiddens,
+                alignment,
             )
             # If given targets, asks expert for optimal actions.
             optim_action = (
@@ -511,7 +517,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         }
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
-        predictions, _ = self.forward(batch,)
+        predictions, _ = self.forward(
+            batch,
+        )
         # Evaluation requires prediction tensor.
         return self.convert_prediction(predictions)
 

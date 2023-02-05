@@ -33,7 +33,10 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
     decay_factor: float
 
     def __init__(
-        self, optimizer: optim.Optimizer, warmup_steps, **kwargs,
+        self,
+        optimizer: optim.Optimizer,
+        warmup_steps,
+        **kwargs,
     ):
         """Initializes the LR scheduler.
 
@@ -59,14 +62,19 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
             return self.decay_factor
         if step < self.warmup_steps:
             return float(step) / float(max(1, self.warmup_steps))
-        return self.decay_factor * step ** -0.5
+        return self.decay_factor * step**-0.5
 
 
 class LinearDecay(optim.lr_scheduler.LinearLR):
     """Linear decay scheduler."""
 
     def __init__(
-        self, optimizer, start_factor, end_factor, total_decay_steps, **kwargs,
+        self,
+        optimizer,
+        start_factor,
+        end_factor,
+        total_decay_steps,
+        **kwargs,
     ):
         """Initializes the LR scheduler.
 

@@ -30,7 +30,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     log_softmax: nn.LogSoftmax
 
     def __init__(
-        self, *args, bidirectional=True, **kwargs,
+        self,
+        *args,
+        bidirectional=True,
+        **kwargs,
     ):
         """Initializes the encoder-decoder without attention.
 
@@ -418,7 +421,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             "(LSTM-backed architectures only. Default: %(default)s.",
         )
         parser.add_argument(
-            "--no_bidirectional", action="store_false", dest="bidirectional",
+            "--no_bidirectional",
+            action="store_false",
+            dest="bidirectional",
         )
 
 
