@@ -45,20 +45,21 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
+        # Alternate outputs than dataset targets.
+        kwargs["output_size"] = len(expert.actions)
+        super().__init__(*args, **kwargs)
         # Model specific variables.
         self.expert = expert  # Oracle to train model.
         self.actions = self.expert.actions
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
-        # Alternate outputs than dataset targets.
-        kwargs["output_size"] = len(expert.actions)
-        super().__init__(*args, **kwargs)
         # Target embeddings use alternate padding.
         self.target_embeddings = self.init_embeddings(
             num_embeddings=self.output_size,
             embedding_size=self.embedding_size,
             pad_idx=self.actions.end_idx,
         )
+        self.loss_func = TransducerNoFeatures.loss_func
 
     def forward(
         self, batch: batches.PaddedBatch

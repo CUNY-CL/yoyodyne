@@ -1,7 +1,6 @@
 """Positional encoding."""
 
 import math
-
 from typing import Optional
 
 import torch

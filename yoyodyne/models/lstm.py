@@ -402,8 +402,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             predictions = self.decode(
                 len(batch), batch.source.mask, encoder_out, batch.target.padded
             )
-        # -> B x output_size x seq_len.
-        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        # -> B x seq_len x output_size.
+        predictions = predictions.transpose(0, 1)
         return predictions
 
     @staticmethod

@@ -34,8 +34,6 @@ class Evaluator:
                 "Preds batch size ({predictions.size(0)}) and "
                 "golds batch size ({golds.size(0)} do not match"
             )
-        # -> B x seq_len x vocab_size.
-        predictions = predictions.transpose(1, 2)
         # Gets the max val at each dim2 in predictions.
         vals, predictions = torch.max(predictions, dim=2)
         # Finalizes the predictions.

@@ -212,8 +212,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # We only care about the last prediction in the sequence.
             last_output = output[:, -1, :]
             outputs.append(last_output)
-            pred = self._get_predicted(last_output.unsqueeze(1))
-            predictions.append(pred.squeeze(1))
+            _, pred = torch.max(last_output, dim=1)
+            predictions.append(pred)
             # Updates to track which sequences have decoded an EOS.
             finished = torch.logical_or(
                 finished, (predictions[-1] == self.end_idx)
@@ -221,8 +221,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # Break when all batches predicted an EOS symbol.
             if finished.all():
                 break
-        # -> B x vocab_size x sequence_length
-        return torch.stack(outputs).transpose(0, 1).transpose(1, 2)
+        # -> B x sequence_length x vocab_size.
+        return torch.stack(outputs).transpose(0, 1)
 
     def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder.
@@ -250,11 +250,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             output = self.decode(
                 encoder_hidden, batch.source.mask, target_padded, target_mask
             )
-            # -> B x vocab_size x sequence_length
-            output = output.transpose(1, 2)[:, :, :-1]
+            # -> B x sequence_length x vocab_size.
+            output = output[:, :-1, :]
         else:
             encoder_hidden = self.encode(batch.source)
-            # -> B x vocab_size x sequence_length.
+            # -> B x sequence_length x vocab_size.
             output = self._decode_greedy(encoder_hidden, batch.source.mask)
         return output
 

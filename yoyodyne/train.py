@@ -1,7 +1,6 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-
 from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl

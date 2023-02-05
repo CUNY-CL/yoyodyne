@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from .. import batches
-from . import attention, lstm, generation_probability
+from . import attention, generation_probability, lstm
 
 
 class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
@@ -227,8 +227,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 batch.source.mask,
                 batch.target.padded,
             )
-        # -> B x output_size x seq_len.
-        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        # -> B x seq_len x output_size.
+        predictions = predictions.transpose(0, 1)
         return predictions
 
 
@@ -498,6 +498,6 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 batch.features.mask,
                 batch.target.padded,
             )
-        # -> B x output_size x seq_len.
-        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        # -> B x seq_len x output_size.
+        predictions = predictions.transpose(0, 1)
         return predictions

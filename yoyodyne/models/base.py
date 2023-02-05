@@ -235,6 +235,28 @@ class BaseEncoderDecoder(pl.LightningModule):
             self.log(metric, value, prog_bar=True)
         return metrics
 
+    def predict_step(
+        self,
+        batch: batches.PaddedBatch,
+        batch_idx: int,
+    ) -> torch.Tensor:
+        """Runs one predict step.
+
+        This is called by the PL Trainer.
+
+        Args:
+            batch (batches.PaddedBatch).
+            batch_idx (int).
+
+        Returns:
+            torch.Tensor: indices of the argmax at each timestep.
+        """
+        self.eval()
+        predictions = self(batch)
+        # Default tensor: B x seq_len x vocab_size.
+        greedy_predictions = self._get_predicted(predictions)
+        return greedy_predictions
+
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
 
@@ -323,7 +345,31 @@ class BaseEncoderDecoder(pl.LightningModule):
                 loss function.
         """
         if self.label_smoothing is None:
-            return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
+            loss_func = nn.NLLLoss(
+                ignore_index=self.pad_idx, reduction=reduction
+            )
+
+            def _transpose_nlloss(
+                predictions: torch.Tensor, target: torch.Tensor
+            ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+                """Wrapper for nlloss that transposes tensors.
+
+                nlloss requires tensor of B x vocab_size x seq_len. Since
+                    maintaining this across all models can cause confusion,
+                    transposition performed here through a wrapper.
+
+                Args:
+                    predictions (torch.Tensor): tensor of prediction
+                        distribution of shape B x seq_len x vocab_size.
+                    target (torch.Tensor): tensor of golds of shape
+                        B x seq_len.
+
+                Returns:
+                    torch.Tensor: loss.
+                """
+                return loss_func(predictions.transpose(1, 2), target)
+
+            return _transpose_nlloss
         else:
 
             def _smooth_nllloss(
@@ -345,9 +391,7 @@ class BaseEncoderDecoder(pl.LightningModule):
                     torch.Tensor: loss.
                 """
                 # -> (B * seq_len) x output_size
-                predictions = predictions.transpose(1, 2).reshape(
-                    -1, self.output_size
-                )
+                predictions = predictions.reshape(-1, self.output_size)
                 # -> (B * seq_len) x 1
                 target = target.view(-1, 1)
                 non_pad_mask = target.ne(self.pad_idx)
