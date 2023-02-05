@@ -63,7 +63,8 @@ class Collator:
         )
 
     def pad_source_features(
-        self, itemlist: List[datasets.Item],
+        self,
+        itemlist: List[datasets.Item],
     ) -> batches.PaddedTensor:
         """Pads concatenated source and features.
 
@@ -78,7 +79,8 @@ class Collator:
         )
 
     def pad_features(
-        self, itemlist: List[datasets.Item],
+        self,
+        itemlist: List[datasets.Item],
     ) -> batches.PaddedTensor:
         """Pads features.
 
@@ -125,5 +127,6 @@ class Collator:
             )
         else:
             return batches.PaddedBatch(
-                self.pad_source_features(itemlist), target=padded_target,
+                self.pad_source_features(itemlist),
+                target=padded_target,
             )
