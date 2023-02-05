@@ -488,16 +488,38 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
-    def get_loss_func(
+    def _get_loss_func(
         self, reduction: str
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Returns loss function for prediction.
+        # Prevents base construction of unused loss function.
+        return None
 
-        This model already produces prediction strings and calculates loss
-        during training. This simply serves as a wrapper to prevent
-        superclass from creating an unused loss function.
+    def training_step(
+        self, batch: batches.PaddedBatch, batch_idx: int
+    ) -> Dict:
+        """Runs one step of training.
+
+        This is called by the PL Trainer.
+
+        Args:
+            batch (batches.PaddedBatch)
+            batch_idx (int).
+
+        Returns:
+            torch.Tensor: loss.
         """
-        return lambda predictions, target: predictions[1]
+        # -> B x seq_len x output_size.
+        predictions = self(batch)
+        # Forward pass produces loss by default.
+        loss = predictions[1]
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            on_step=False,
+            on_epoch=True,
+        )
+        return loss
 
     def validation_step(
         self, batch: batches.PaddedBatch, batch_idx: int
