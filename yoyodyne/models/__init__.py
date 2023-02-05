@@ -5,15 +5,11 @@ import argparse
 from .. import util
 from .base import BaseEncoderDecoder
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
-from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoderFeatures,
-    PointerGeneratorLSTMEncoderDecoderNoFeatures,
-)
+from .pointer_generator import (PointerGeneratorLSTMEncoderDecoderFeatures,
+                                PointerGeneratorLSTMEncoderDecoderNoFeatures)
 from .transducer import TransducerFeatures, TransducerNoFeatures
-from .transformer import (
-    FeatureInvariantTransformerEncoderDecoder,
-    TransformerEncoderDecoder,
-)
+from .transformer import (FeatureInvariantTransformerEncoderDecoder,
+                          TransformerEncoderDecoder)
 
 
 def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:

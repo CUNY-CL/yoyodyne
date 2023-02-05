@@ -1,7 +1,7 @@
 """Transducer model class."""
 
 import math
-from typing import Dict, List, Optional, Tuple, Callable
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy
 import torch
