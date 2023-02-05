@@ -27,11 +27,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     classifier: nn.Linear
 
     def __init__(
-        self,
-        *args,
-        attention_heads=4,
-        max_sequence_length=128,
-        **kwargs,
+        self, *args, attention_heads=4, max_sequence_length=128, **kwargs,
     ):
         """Initializes the encoder-decoder with attention.
 
@@ -107,11 +103,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             symbols (torch.Tensor): batch of symbols to embed of shape
-                B x sequence_length.
+                B x seq_len.
 
         Returns:
             embedded (torch.Tensor): embedded tensor of shape
-                B x sequence_length x embed_dim.
+                B x seq_len x embed_dim.
         """
         word_embedding = self.esq * self.source_embeddings(symbols)
         positional_embedding = self.positional_encoding(symbols)
@@ -123,11 +119,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             symbols (torch.Tensor): batch of symbols to embed of shape
-                B x sequence_length.
+                B x seq_len.
 
         Returns:
             embedded (torch.Tensor): embedded tensor of shape
-                B x sequence_length x embed_dim.
+                B x seq_len x embed_dim.
         """
         word_embedding = self.esq * self.target_embeddings(symbols)
         positional_embedding = self.positional_encoding(symbols)
@@ -157,11 +153,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             encoder_hidden (torch.Tensor): source encoder hidden state, of
-                shape B x sequence_length x hidden_size.
+                shape B x seq_len x hidden_size.
             source_mask (torch.Tensor): encoder hidden state mask.
             target (torch.Tensor): current state of targets, which may be the
                 full target, or previous decoded, of shape
-                B x sequence_length x hidden_size.
+                B x seq_len x hidden_size.
             target_mask (torch.Tensor): target mask.
 
         Returns:
@@ -169,11 +165,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """
         target_embedding = self.target_embed(target)
         target_sequence_length = target_embedding.size(1)
-        # -> sequence_length x sequence_length.
+        # -> seq_len x seq_len.
         causal_mask = self.generate_square_subsequent_mask(
             target_sequence_length
         ).to(self.device)
-        # -> B x sequence_length x d_model
+        # -> B x seq_len x d_model
         decoder_hidden = self.decoder(
             target_embedding,
             encoder_hidden,
@@ -181,7 +177,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             memory_key_padding_mask=source_mask,
             tgt_key_padding_mask=target_mask,
         )
-        # -> B x sequence_length x vocab_size.
+        # -> B x seq_len x output_size.
         output = self.classifier(decoder_hidden)
         output = self.log_softmax(output)
         return output
@@ -221,7 +217,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # Break when all batches predicted an EOS symbol.
             if finished.all():
                 break
-        # -> B x sequence_length x vocab_size.
+        # -> B x seq_len x output_size.
         return torch.stack(outputs).transpose(0, 1)
 
     def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
@@ -250,11 +246,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             output = self.decode(
                 encoder_hidden, batch.source.mask, target_padded, target_mask
             )
-            # -> B x sequence_length x vocab_size.
+            # -> B x seq_len x output_size.
             output = output[:, :-1, :]
         else:
             encoder_hidden = self.encode(batch.source)
-            # -> B x sequence_length x vocab_size.
+            # -> B x seq_len x output_size.
             output = self._decode_greedy(encoder_hidden, batch.source.mask)
         return output
 
@@ -324,11 +320,11 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
 
         Args:
             symbols (torch.Tensor): batch of symbols to embed of shape
-                B x sequence_length.
+                B x seq_len.
 
         Returns:
             embedded (torch.Tensor): embedded tensor of shape
-                B x sequence_length x embed_dim.
+                B x seq_len x embed_dim.
         """
         # Distinguishes features and chars.
         char_mask = (symbols < self.features_idx).long()

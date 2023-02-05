@@ -1,7 +1,6 @@
 """Indexes for symbols."""
-
-import os
 import pickle
+import os
 from typing import Dict, List, Optional, Set
 
 from . import special
@@ -88,9 +87,7 @@ class IndexNoFeatures(BaseIndex):
     target_map: SymbolMap
 
     def __init__(
-        self,
-        source_vocabulary: List[str],
-        target_vocabulary: List[str],
+        self, source_vocabulary: List[str], target_vocabulary: List[str],
     ):
         """Initializes the index.
 

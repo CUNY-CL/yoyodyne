@@ -42,9 +42,7 @@ class Evaluator:
 
     @staticmethod
     def accuracy(
-        predictions: torch.Tensor,
-        golds: torch.Tensor,
-        pad_idx: int,
+        predictions: torch.Tensor, golds: torch.Tensor, pad_idx: int,
     ) -> float:
         if predictions.size(1) > golds.size(1):
             predictions = predictions[:, : golds.size(1)]
@@ -64,9 +62,7 @@ class Evaluator:
 
     @staticmethod
     def finalize_predictions(
-        predictions: torch.Tensor,
-        end_idx: int,
-        pad_idx: int,
+        predictions: torch.Tensor, end_idx: int, pad_idx: int,
     ) -> torch.Tensor:
         """Finalizes predictions.
 

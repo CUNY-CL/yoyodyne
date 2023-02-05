@@ -112,7 +112,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         embedding_layer = nn.Embedding(num_embeddings, embedding_size)
         # Xavier initialization.
         nn.init.normal_(
-            embedding_layer.weight, mean=0, std=embedding_size**-0.5
+            embedding_layer.weight, mean=0, std=embedding_size ** -0.5
         )
         # Zeroes out pad embeddings.
         if pad_idx is not None:
@@ -161,9 +161,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         raise NotImplementedError
 
     def training_step(
-        self,
-        batch: batches.PaddedBatch,
-        batch_idx: int,
+        self, batch: batches.PaddedBatch, batch_idx: int,
     ) -> torch.Tensor:
         """Runs one step of training.
 
@@ -190,9 +188,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         return loss
 
     def validation_step(
-        self,
-        batch: batches.PaddedBatch,
-        batch_idx: int,
+        self, batch: batches.PaddedBatch, batch_idx: int,
     ) -> Dict:
         """Runs one validation step.
 
@@ -236,9 +232,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         return metrics
 
     def predict_step(
-        self,
-        batch: batches.PaddedBatch,
-        batch_idx: int,
+        self, batch: batches.PaddedBatch, batch_idx: int,
     ) -> torch.Tensor:
         """Runs one predict step.
 
@@ -253,7 +247,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         self.eval()
         predictions = self(batch)
-        # Default tensor: B x seq_len x vocab_size.
+        # -> B x seq_len x output_size.
         greedy_predictions = self._get_predicted(predictions)
         return greedy_predictions
 
@@ -261,7 +255,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         """Picks the best index from the vocabulary.
 
         Args:
-            predictions (torch.Tensor): B x seq_len x vocab_size.
+            predictions (torch.Tensor): B x seq_len x output_size.
 
         Returns:
             torch.Tensor: indices of the argmax at each timestep.
@@ -354,13 +348,13 @@ class BaseEncoderDecoder(pl.LightningModule):
             ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
                 """Wrapper for nlloss that transposes tensors.
 
-                nlloss requires tensor of B x vocab_size x seq_len. Since
+                nlloss requires tensor of B x output_size x seq_len. Since
                     maintaining this across all models can cause confusion,
                     transposition performed here through a wrapper.
 
                 Args:
                     predictions (torch.Tensor): tensor of prediction
-                        distribution of shape B x seq_len x vocab_size.
+                        distribution of shape B x seq_len x output_size.
                     target (torch.Tensor): tensor of golds of shape
                         B x seq_len.
 
@@ -383,7 +377,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
                 Args:
                     predictions (torch.Tensor): tensor of prediction
-                        distribution of shape B x vocab_size x seq_len.
+                        distribution of shape B x output_size x seq_len.
                     target (torch.Tensor): tensor of golds of shape
                         B x seq_len.
 

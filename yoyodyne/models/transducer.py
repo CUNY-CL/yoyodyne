@@ -1,7 +1,7 @@
 """Transducer model class."""
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable
 
 import numpy
 import torch
@@ -33,10 +33,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     target_embeddings: nn.Embedding
 
     def __init__(
-        self,
-        expert,
-        *args,
-        **kwargs,
+        self, expert, *args, **kwargs,
     ):
         """Initializes transducer model.
 
@@ -59,7 +56,6 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             embedding_size=self.embedding_size,
             pad_idx=self.actions.end_idx,
         )
-        self.loss_func = TransducerNoFeatures.loss_func
 
     def forward(
         self, batch: batches.PaddedBatch
@@ -152,10 +148,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             )
             # Decoding.
             logits, last_hiddens = self.decode_step(
-                encoder_out,
-                last_action,
-                last_hiddens,
-                alignment,
+                encoder_out, last_action, last_hiddens, alignment,
             )
             # If given targets, asks expert for optimal actions.
             optim_action = (
@@ -239,7 +232,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
 
         Args:
             logits (torch.Tensor): logit values from decode_step of shape
-                B x output_size.
+                B x num_actions.
             alignment (torch.Tensor): index of encoding symbols for decoding,
                 per item in batch of shape B x seq_len.
             input_length (torch.Tensor): length of each item in batch.
@@ -489,19 +482,16 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
-    @staticmethod
-    def loss_func(
-        prediction: Tuple[List[List[int]], torch.Tensor],
-        target: torch.Tensor,
-    ) -> torch.Tensor:
-        """Returns loss value for prediction.
+    def get_loss_func(
+        self, reduction: str
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Returns loss function for prediction.
 
         This model already produces prediction strings and calculates loss
-        during training. This simply serves as a wrapper to allow compatibility
-        with training_step in the superclass.
+        during training. This simply serves as a wrapper to prevent
+        superclass from creating an unused loss function.
         """
-        _, loss = prediction
-        return loss
+        return lambda predictions, target: predictions[1]
 
     def validation_step(
         self, batch: batches.PaddedBatch, batch_idx: int
@@ -521,9 +511,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         }
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
-        predictions, loss = self.forward(
-            batch,
-        )
+        predictions, _ = self.forward(batch,)
         # Evaluation requires prediction tensor.
         return self.convert_prediction(predictions)
 

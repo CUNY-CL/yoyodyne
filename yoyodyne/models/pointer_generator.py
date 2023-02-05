@@ -33,16 +33,12 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         )
         # Overrides classifier to take larger input.
         self.classifier = nn.Linear(3 * self.hidden_size, self.output_size)
-        self.generation_probability = (
-            generation_probability.GenerationProbability(
-                self.embedding_size, self.hidden_size, encoder_size
-            )
+        self.generation_probability = generation_probability.GenerationProbability(  # noqa: E501
+            self.embedding_size, self.hidden_size, encoder_size
         )
 
     def encode(
-        self,
-        source: batches.PaddedTensor,
-        encoder: torch.nn.LSTM,
+        self, source: batches.PaddedTensor, encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
         """Encodes the input.
 
@@ -280,16 +276,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Overrides classifier to take larger input.
         self.classifier = nn.Linear(5 * self.hidden_size, self.output_size)
         # Overrides GenerationProbability to have larger hidden_size.
-        self.generation_probability = (
-            generation_probability.GenerationProbability(
-                self.embedding_size, self.hidden_size, 2 * encoder_size
-            )
+        self.generation_probability = generation_probability.GenerationProbability(  # noqa: E501
+            self.embedding_size, self.hidden_size, 2 * encoder_size
         )
 
     def encode(
-        self,
-        source: batches.PaddedTensor,
-        encoder: torch.nn.LSTM,
+        self, source: batches.PaddedTensor, encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
         """Encodes the input with the TransformerEncoder.
 

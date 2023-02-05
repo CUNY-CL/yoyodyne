@@ -30,10 +30,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     log_softmax: nn.LogSoftmax
 
     def __init__(
-        self,
-        *args,
-        bidirectional=True,
-        **kwargs,
+        self, *args, bidirectional=True, **kwargs,
     ):
         """Initializes the encoder-decoder without attention.
 
@@ -213,7 +210,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                sequence_length x batch_size x output_size.
+                seq_len x batch_size x output_size.
         """
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
@@ -339,8 +336,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in likelihoods:
-                # -> B x seq_len x outputs.
-                # This is 1 x 1 x outputs since we fixed batch size to 1.
+                # -> B x seq_len x output_size.
+                # This is 1 x 1 x output_size since we fixed batch size to 1.
                 # We squeeze off the fist 2 dimensions to get a tensor of
                 # output_size.
                 predictions = predictions.squeeze(0).squeeze(0)
@@ -388,7 +385,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                (sequence_length, batch_size, output_size).
+                (seq_len, batch_size, output_size).
         """
         encoder_out, _ = self.encode(batch.source)
         if self.beam_width is not None and self.beam_width > 1:
@@ -421,9 +418,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             "(LSTM-backed architectures only. Default: %(default)s.",
         )
         parser.add_argument(
-            "--no_bidirectional",
-            action="store_false",
-            dest="bidirectional",
+            "--no_bidirectional", action="store_false", dest="bidirectional",
         )
 
 
