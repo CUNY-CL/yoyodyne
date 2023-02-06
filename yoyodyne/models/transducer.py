@@ -508,9 +508,8 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         Returns:
             torch.Tensor: loss.
         """
-        # -> B x seq_len x output_size.
-        _, loss = self(batch)
         # Forward pass produces loss by default.
+        _, loss = self(batch)
         self.log(
             "train_loss",
             loss,
@@ -574,10 +573,8 @@ class TransducerFeatures(TransducerNoFeatures):
 
     features_idx: int
     features_vocab_size: int
-    transducer_feature_encoding: str
-    transducer_feature_method: str
 
-    def __init__(self, features_idx, features_vocab_size, transducer_feature_encoding="encode", transducer_feature_method="concat", *args, **kwargs):
+    def __init__(self, features_idx, features_vocab_size, *args, **kwargs):
         """Initializes transducer model.
 
         Functions equivalently to TransducerNoFeatures except concatenates
@@ -592,30 +589,12 @@ class TransducerFeatures(TransducerNoFeatures):
         super().__init__(*args, **kwargs)
         self.features_idx = features_idx
         self.features_vocab_size = features_vocab_size
-        # Transducer feature management.
-        self.feat_enc_method = transducer_feature_encoding
-        self.feature_encoder = None
-        # Overrides decoder to accomodate features. Expands by action embedding size.
-        decoder_input_size = self.hidden_size * self.num_directions + self.embedding_size
-        if self.feat_enc_method == "n_hot":
-            # Extend by number of features (plus unknown symbol).
-            decoder_input_size += self.features_vocab_size + 1
-        elif self.feat_enc_method == "encode":
-            # We're taking the outputs of an lstm feature_encoder.
-            decoder_input_size += self.hidden_size * self.num_directions
-            self.feature_encoder = nn.LSTM(
-                self.embedding_size,
-                self.hidden_size,
-                num_layers=self.encoder_layers,
-                dropout=self.dropout,
-                batch_first=True,
-                bidirectional=self.bidirectional,
-            )
-        else:
-            # Else we concatenate feature embedding of standard embedding size.
-            decoder_input_size += self.embedding_size
+        # Overrides decoder to accomodate features.
         self.decoder = nn.LSTM(
-            decoder_input_size,
+            self.hidden_size * self.num_directions
+            + self.embedding_size
+            + self.features_vocab_size
+            + 1,  # For unk feature.
             self.hidden_size,
             dropout=self.dropout,
             num_layers=self.decoder_layers,
@@ -638,56 +617,7 @@ class TransducerFeatures(TransducerNoFeatures):
         encoder_out = encoder_out[:, 1:, :]
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
-        encoder_out_feat = self.encode_features(batch, encoder_out, self.feat_enc_method)
-        prediction, loss = self.decode(
-            encoder_out_feat,
-            source_padded,
-            source_mask,
-            target=batch.target.padded,
-            target_mask=batch.target.mask,
-        )
-        return prediction, loss
-
-    def encode_features(self, batch: batches.PaddedBatch, encoder_out: torch.tensor, method: str):
-        print(method)
-        if method == "n_hot":
-            # Converts features to n-hot encoding.
-            encoded_feat = self.encode_n_hot(batch)
-        elif method == "embed":
-            # Embeds feature idx in embedding look-up table.
-            encoded_feat = self.source_embeddings(batch.features.padded)
-            encoded_feat = self.dropout_layer(encoded_feat)
-            # Average embeddings to maintain embedding size.
-            encoded_feat = torch.mean(encoded_feat, keepdim=True, dim=1)
-        elif method == "encode":
-            # Uses encoder to create embeddings.
-            encoded_feat, _ = self.encode_lstm(batch)
-        else:
-            assert False
-        # Broadcasts to concatenate to all symbol representations.
-        # B x 1 x n_feat -> B x seq_len x n_feat.
-        encoded_feat = encoded_feat.expand(-1, encoder_out.size(1), -1)
-        encoder_out_feat = torch.cat((encoder_out, encoded_feat), dim=2)
-        return encoder_out_feat
-
-    def encode_lstm(self, batch):
-        embedded = self.source_embeddings(batch.features.padded)
-        embedded = self.dropout_layer(embedded)
-        # Packs embedded source symbols into a PackedSequence.
-        packed = nn.utils.rnn.pack_padded_sequence(
-            embedded, batch.features.lengths(), batch_first=True, enforce_sorted=False
-        )
-        # -> B x seq_len x encoder_dim, (h0, c0).
-        packed_outs, (H, C) = self.feature_encoder(packed)
-        encoded, _ = nn.utils.rnn.pad_packed_sequence(
-            packed_outs,
-            batch_first=True,
-            padding_value=self.pad_idx,
-            total_length=None,
-        )
-        return encoded, (H, C)
-
-    def encode_n_hot(self, batch: batches.PaddedBatch)-> torch.tensor:
+        # Converts features to n-hot encoding.
         with torch.no_grad():
             # Features are offset by features idx; we shift one to encode
             # padding, replacing mask with first index.
@@ -708,7 +638,18 @@ class TransducerFeatures(TransducerNoFeatures):
             n_hot_features = torch.sum(
                 one_hot_features[:, :, 1:], dim=1, keepdim=True
             )
-        return n_hot_features
+        # B x 1 x n_feat -> B x seq_len x n_feat.
+        n_hot_features = n_hot_features.expand(-1, encoder_out.size(1), -1)
+        # Concatenates n-hot encoding onto each symbol.
+        encoder_out_feat = torch.cat((encoder_out, n_hot_features), dim=2)
+        prediction, loss = self.decode(
+            encoder_out_feat,
+            source_padded,
+            source_mask,
+            target=batch.target.padded,
+            target_mask=batch.target.mask,
+        )
+        return prediction, loss
 
 
 # TODO: Implement beam decoding.
