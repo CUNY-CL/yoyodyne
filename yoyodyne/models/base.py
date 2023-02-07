@@ -89,7 +89,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.hidden_size = hidden_size
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         self.evaluator = evaluators.Evaluator()
-        self.loss = self._get_loss_func("mean")
+        self.loss_func = self._get_loss_func("mean")
         # Saves hyperparameters for PL checkpointing.
         self.save_hyperparameters()
 
@@ -181,7 +181,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         target_padded = batch.target.padded
         # -> B x output_size x seq_len. For loss.
         predictions = predictions.transpose(1, 2)
-        loss = self.loss(predictions, target_padded)
+        loss = self.loss_func(predictions, target_padded)
         self.log(
             "train_loss",
             loss,
@@ -219,7 +219,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         forced_predictions = self(batch)
         # -> B x output_size x seq_len. For loss.
         forced_predictions = forced_predictions.transpose(1, 2)
-        loss = self.loss(forced_predictions, target_padded)
+        loss = self.loss_func(forced_predictions, target_padded)
         return {"val_accuracy": accuracy, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
@@ -257,7 +257,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             torch.Tensor: indices of the argmax at each timestep.
         """
         predictions = self(batch)
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x 1.
         greedy_predictions = self._get_predicted(predictions)
         return greedy_predictions
 

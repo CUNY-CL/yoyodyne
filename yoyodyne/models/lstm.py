@@ -339,7 +339,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in likelihoods:
-                # -> B x seq_len x output_size.
                 # This is 1 x 1 x output_size since we fixed batch size to 1.
                 # We squeeze off the fist 2 dimensions to get a tensor of
                 # output_size.
