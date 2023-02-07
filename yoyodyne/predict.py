@@ -4,7 +4,6 @@ import argparse
 import os
 
 import pytorch_lightning as pl
-import torch
 from torch.utils import data
 
 from . import collators, dataconfig, datasets, models, util
@@ -164,22 +163,12 @@ def predict(
          output (str).
          target_sep (str).
     """
-    model.eval()  # TODO: is this necessary?
     dataset = loader.dataset
     target_sep = dataset.config.target_sep
     util.log_info(f"Writing to {output}")
     _mkdir(output)
     with open(output, "w") as sink:
         for batch in trainer.predict(model, dataloaders=loader):
-            # TODO: can we move some of this into module `predict_step`
-            # methods? I do not understand why it lives here.
-            if not (
-                isinstance(model, models.TransducerNoFeatures)
-                or isinstance(model, models.TransducerFeatures)
-            ):
-                # -> B x seq_len x vocab_size
-                batch = batch.transpose(1, 2)
-                _, batch = torch.max(batch, dim=2)
             batch = model.evaluator.finalize_predictions(
                 batch, dataset.index.end_idx, dataset.index.pad_idx
             )

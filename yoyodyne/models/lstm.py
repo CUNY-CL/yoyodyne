@@ -213,7 +213,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                sequence_length x batch_size x output_size.
+                seq_len x batch_size x output_size.
         """
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
@@ -339,8 +339,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in likelihoods:
-                # -> B x seq_len x outputs.
-                # This is 1 x 1 x outputs since we fixed batch size to 1.
+                # This is 1 x 1 x output_size since we fixed batch size to 1.
                 # We squeeze off the fist 2 dimensions to get a tensor of
                 # output_size.
                 predictions = predictions.squeeze(0).squeeze(0)
@@ -388,7 +387,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                (sequence_length, batch_size, output_size).
+                (seq_len, batch_size, output_size).
         """
         encoder_out, _ = self.encode(batch.source)
         if self.beam_width is not None and self.beam_width > 1:
@@ -402,8 +401,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             predictions = self.decode(
                 len(batch), batch.source.mask, encoder_out, batch.target.padded
             )
-        # -> B x output_size x seq_len.
-        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        # -> B x seq_len x output_size.
+        predictions = predictions.transpose(0, 1)
         return predictions
 
     @staticmethod

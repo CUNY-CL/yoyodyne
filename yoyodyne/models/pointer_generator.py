@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from .. import batches
-from . import attention, lstm, generation_probability
+from . import attention, generation_probability, lstm
 
 
 class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
@@ -34,7 +34,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Overrides classifier to take larger input.
         self.classifier = nn.Linear(3 * self.hidden_size, self.output_size)
         self.generation_probability = (
-            generation_probability.GenerationProbability(
+            generation_probability.GenerationProbability(  # noqa: E501
                 self.embedding_size, self.hidden_size, encoder_size
             )
         )
@@ -227,8 +227,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 batch.source.mask,
                 batch.target.padded,
             )
-        # -> B x output_size x seq_len.
-        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        # -> B x seq_len x output_size.
+        predictions = predictions.transpose(0, 1)
         return predictions
 
 
@@ -281,7 +281,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         self.classifier = nn.Linear(5 * self.hidden_size, self.output_size)
         # Overrides GenerationProbability to have larger hidden_size.
         self.generation_probability = (
-            generation_probability.GenerationProbability(
+            generation_probability.GenerationProbability(  # noqa: E501
                 self.embedding_size, self.hidden_size, 2 * encoder_size
             )
         )
@@ -498,6 +498,6 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 batch.features.mask,
                 batch.target.padded,
             )
-        # -> B x output_size x seq_len.
-        predictions = predictions.transpose(0, 1).transpose(1, 2)
+        # -> B x seq_len x output_size.
+        predictions = predictions.transpose(0, 1)
         return predictions

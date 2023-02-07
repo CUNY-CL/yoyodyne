@@ -1,5 +1,4 @@
 """Indexes for symbols."""
-
 import pickle
 import os
 from typing import Dict, List, Optional, Set

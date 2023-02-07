@@ -41,7 +41,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
     evaluator: evaluators.Evaluator
-    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
         self,
@@ -89,7 +89,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.hidden_size = hidden_size
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         self.evaluator = evaluators.Evaluator()
-        self.loss_func = self.get_loss_func("mean")
+        self.loss_func = self._get_loss_func("mean")
         # Saves hyperparameters for PL checkpointing.
         self.save_hyperparameters()
 
@@ -176,9 +176,11 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             torch.Tensor: loss.
         """
-        self.train()
+        # -> B x seq_len x output_size.
         predictions = self(batch)
         target_padded = batch.target.padded
+        # -> B x output_size x seq_len. For loss.
+        predictions = predictions.transpose(1, 2)
         loss = self.loss_func(predictions, target_padded)
         self.log(
             "train_loss",
@@ -205,8 +207,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             Dict[str, float]: validation metrics.
         """
-        self.eval()
         # Greedy decoding.
+        # -> B x seq_len x output_size.
         predictions = self(batch)
         target_padded = batch.target.padded
         accuracy = self.evaluator.val_accuracy(
@@ -214,7 +216,10 @@ class BaseEncoderDecoder(pl.LightningModule):
         )
         # We rerun the model with teacher forcing so we can compute loss.
         # TODO: Update to run the model only once.
-        loss = self.loss_func(self(batch), target_padded)
+        forced_predictions = self(batch)
+        # -> B x output_size x seq_len. For loss.
+        forced_predictions = forced_predictions.transpose(1, 2)
+        loss = self.loss_func(forced_predictions, target_padded)
         return {"val_accuracy": accuracy, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
@@ -235,11 +240,32 @@ class BaseEncoderDecoder(pl.LightningModule):
             self.log(metric, value, prog_bar=True)
         return metrics
 
+    def predict_step(
+        self,
+        batch: batches.PaddedBatch,
+        batch_idx: int,
+    ) -> torch.Tensor:
+        """Runs one predict step.
+
+        This is called by the PL Trainer.
+
+        Args:
+            batch (batches.PaddedBatch).
+            batch_idx (int).
+
+        Returns:
+            torch.Tensor: indices of the argmax at each timestep.
+        """
+        predictions = self(batch)
+        # -> B x seq_len x 1.
+        greedy_predictions = self._get_predicted(predictions)
+        return greedy_predictions
+
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
 
         Args:
-            predictions (torch.Tensor): B x seq_len x vocab_size.
+            predictions (torch.Tensor): B x seq_len x output_size.
 
         Returns:
             torch.Tensor: indices of the argmax at each timestep.
@@ -310,7 +336,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         }
         return [scheduler_cfg]
 
-    def get_loss_func(
+    def _get_loss_func(
         self, reduction: str
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Returns the actual function used to compute loss.
@@ -325,47 +351,44 @@ class BaseEncoderDecoder(pl.LightningModule):
         if self.label_smoothing is None:
             return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
         else:
+            return self._smooth_nllloss
 
-            def _smooth_nllloss(
-                predictions: torch.Tensor, target: torch.Tensor
-            ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-                """After:
+    def _smooth_nllloss(
+        self, predictions: torch.Tensor, target: torch.Tensor
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """After:
 
-                    https://github.com/NVIDIA/DeepLearningExamples/blob/
-                    8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
-                    ConvNets/image_classification/smoothing.py#L18
+            https://github.com/NVIDIA/DeepLearningExamples/blob/
+            8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
+            ConvNets/image_classification/smoothing.py#L18
 
-                Args:
-                    predictions (torch.Tensor): tensor of prediction
-                        distribution of shape B x vocab_size x seq_len.
-                    target (torch.Tensor): tensor of golds of shape
-                        B x seq_len.
+        Args:
+            predictions (torch.Tensor): tensor of prediction
+                distribution of shape B x output_size x seq_len.
+            target (torch.Tensor): tensor of golds of shape
+                B x seq_len.
 
-                Returns:
-                    torch.Tensor: loss.
-                """
-                # -> (B * seq_len) x output_size
-                predictions = predictions.transpose(1, 2).reshape(
-                    -1, self.output_size
-                )
-                # -> (B * seq_len) x 1
-                target = target.view(-1, 1)
-                non_pad_mask = target.ne(self.pad_idx)
-                # Gets the ordinary loss.
-                nll_loss = -predictions.gather(dim=-1, index=target)[
-                    non_pad_mask
-                ].mean()
-                # Gets the smoothed loss.
-                smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
-                    non_pad_mask
-                ].mean()
-                smooth_loss = smooth_loss / self.output_size
-                # Combines both according to label smoothing weight.
-                loss = (1.0 - self.label_smoothing) * nll_loss
-                loss += self.label_smoothing * smooth_loss
-                return loss
-
-            return _smooth_nllloss
+        Returns:
+            torch.Tensor: loss.
+        """
+        # -> (B * seq_len) x output_size.
+        predictions = predictions.transpose(1, 2).reshape(-1, self.output_size)
+        # -> (B * seq_len) x 1.
+        target = target.view(-1, 1)
+        non_pad_mask = target.ne(self.pad_idx)
+        # Gets the ordinary loss.
+        nll_loss = -predictions.gather(dim=-1, index=target)[
+            non_pad_mask
+        ].mean()
+        # Gets the smoothed loss.
+        smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
+            non_pad_mask
+        ].mean()
+        smooth_loss = smooth_loss / self.output_size
+        # Combines both according to label smoothing weight.
+        loss = (1.0 - self.label_smoothing) * nll_loss
+        loss += self.label_smoothing * smooth_loss
+        return loss
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
