@@ -49,6 +49,12 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         self.decay_factor = math.sqrt(warmup_steps)
         super().__init__(optimizer, self.lr_lambda)
 
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"{self.optimizer}, {self.warmup_steps})"
+        )
+
     def lr_lambda(self, step: int) -> float:
         """Computes the learning rate lambda at a given step.
 
@@ -92,6 +98,13 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
             total_iters=total_decay_steps,
             start_factor=start_factor,
             end_factor=end_factor,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"{self.optimizer}, {self.start_factor}, "
+            f"{self.end_factor}, {self.total_decay_steps})"
         )
 
 
