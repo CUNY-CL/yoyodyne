@@ -51,7 +51,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` {.python}
+```python
 import yoyodyne
 ```
 
@@ -91,8 +91,8 @@ Checkpointing is largely handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
 The path for model information, including checkpoints, is specified by a
 combination of `--model_dir` and `--experiment`, such that we build the path
-`model_dir/experiment_name/version_n`, where each run of an experiment with
-the same model_dir and experiment_name is namespaced with a new version number.
+`model_dir/experiment_name/version_n`, where each run of an experiment with the
+same model\_dir and experiment\_name is namespaced with a new version number.
 Within a version, we store everything needed to reload a model, namely the
 hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`), and a
 directory of checkpoints (`model_dir/experiment_name/version_n/checkpoints`).
@@ -202,3 +202,13 @@ can be used during training or prediction. In addition to CPU (the default) and
 GPU (`--accelerator gpu`), [other
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
 may also be supported but not all have been tested yet.
+
+Precision
+---------
+
+By default, training uses 32-bit precision. However, the `--precision` flag
+allows the user to perfrom training with half precision (`16`) or with the
+[`bfloat16` half precision
+format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format), where
+supported by the accelerator. This may reduce the size of the model and batches
+in memory, allowing one to use larger batches.
