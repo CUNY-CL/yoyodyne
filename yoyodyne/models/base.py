@@ -284,11 +284,12 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         optimizer = self._get_optimizer()
         scheduler = self._get_lr_scheduler(optimizer[0])
-        util.log_info("Optimizer details:")
-        util.log_info(optimizer)
         if scheduler:
             util.log_info("Scheduler details:")
             util.log_info(scheduler)
+        else:
+            util.log_info("Optimizer details:")
+            util.log_info(optimizer)
         return optimizer, scheduler
 
     def _get_optimizer(self) -> optim.Optimizer:
