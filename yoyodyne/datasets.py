@@ -41,8 +41,8 @@ class Item(nn.Module):
         return self.features is not None
 
     @property
-    def has_targets(self):
-        return self.targets is not None
+    def has_target(self):
+        return self.target is not None
 
 
 class BaseDataset(data.Dataset):
