@@ -83,7 +83,7 @@ class Collator:
             msg += "decoding at inference time will likely be truncated. "
             msg += "Consider increasing `--max_target_length`."
             util.log_info(msg)
-   
+
     @staticmethod
     def concatenate_source_and_features(
         itemlist: List[datasets.Item],
@@ -110,7 +110,9 @@ class Collator:
             batches.PaddedTensor.
         """
         return batches.PaddedTensor(
-            [item.source for item in itemlist], self.pad_idx, self._source_length_error
+            [item.source for item in itemlist],
+            self.pad_idx,
+            self._source_length_error,
         )
 
     def pad_source_features(
@@ -126,7 +128,9 @@ class Collator:
             batches.PaddedTensor.
         """
         return batches.PaddedTensor(
-            self.concatenate_source_and_features(itemlist), self.pad_idx, self._source_length_error
+            self.concatenate_source_and_features(itemlist),
+            self.pad_idx,
+            self._source_length_error,
         )
 
     def pad_features(
@@ -157,7 +161,9 @@ class Collator:
             batches.PaddedTensor.
         """
         return batches.PaddedTensor(
-            [item.target for item in itemlist], self.pad_idx, self._target_length_warning
+            [item.target for item in itemlist],
+            self.pad_idx,
+            self._target_length_warning,
         )
 
     def __call__(self, itemlist: List[datasets.Item]) -> batches.PaddedBatch:

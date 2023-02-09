@@ -36,8 +36,8 @@ class PaddedTensor(nn.Module):
         Args:
             tensorlist (List[torch.Tensor]): a list of tensors.
             pad_idx (int): padding index.
-            length_msg_callback (Callable[[int], None]): callback for catching a violating 
-                tensor length.
+            length_msg_callback (Callable[[int], None]): callback for catching
+                a violating tensor length.
             pad_len (int, optional): desired length for padding.
 
         """
