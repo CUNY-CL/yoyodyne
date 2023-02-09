@@ -4,7 +4,11 @@ from typing import List
 
 import torch
 
-from . import batches, dataconfig, datasets
+from . import batches, dataconfig, datasets, util
+
+
+class LengthError(Exception):
+    pass
 
 
 class Collator:
@@ -16,22 +20,69 @@ class Collator:
     has_features: bool
     has_target: bool
     separate_features: bool
+    max_source_length: int
+    max_target_length: int
 
-    def __init__(self, pad_idx, config: dataconfig.DataConfig, arch: str):
+    def __init__(
+        self,
+        pad_idx,
+        config: dataconfig.DataConfig,
+        arch: str,
+        max_source_length: int,
+        max_target_length: int,
+    ):
         """Initializes the collator.
 
         Args:
             pad_idx (int).
             config (dataconfig.DataConfig).
             arch (str).
+            max_source_length (int).
+            max_target_length (int).
         """
         self.pad_idx = pad_idx
         self.has_features = config.has_features
         self.has_target = config.has_target
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
         self.separate_features = config.has_features and arch in [
             "pointer_generator_lstm",
             "transducer",
         ]
+
+    def _check_source_length(self, itemlist: List[datasets.Item]):
+        """Checks if a source length in the batch is greater than the
+        maximum allowed source length.
+
+        Args:
+            itemlist (List[datasets.Item]).
+
+        Raises:
+            LengthError.
+        """
+        batch_max_source_length = max([len(item.source) for item in itemlist])
+        if self.max_source_length < batch_max_source_length:
+            msg = f"The length of a source sample ({batch_max_source_length}) "
+            msg += "is greater than the allowed `--max_source_length` "
+            msg += f"({self.max_source_length})"
+            raise LengthError(msg)
+
+    def _check_target_length(self, itemlist: List[datasets.Item]):
+        """Checks if a target length in the batch is greater than the
+        maximum allowed target length for inference. Logs a warning suggesting
+        that this probably indicates the max_target_length is too short.
+
+        Args:
+            itemlist (List[datasets.Item]).
+        """
+        batch_max_target_length = max([len(item.target) for item in itemlist])
+        if self.max_target_length < batch_max_target_length:
+            msg = f"The length of a target sample ({batch_max_target_length}) "
+            msg += "is greater than the `--max_target_length` specified "
+            msg += f"({self.max_target_length}). This means that "
+            msg += "decoding at inference time will likely be truncated. "
+            msg += "Consider increasing `--max_target_length` "
+            util.log_warning(msg)
 
     @staticmethod
     def concatenate_source_and_features(
@@ -57,7 +108,11 @@ class Collator:
 
         Returns:
             batches.PaddedTensor.
+
+        Raises:
+            LengthError.
         """
+        self._check_source_length(itemlist)
         return batches.PaddedTensor(
             [item.source for item in itemlist], self.pad_idx
         )
@@ -73,7 +128,11 @@ class Collator:
 
         Returns:
             batches.PaddedTensor.
+
+        Raises:
+            LengthError.
         """
+        self._check_source_length(itemlist)
         return batches.PaddedTensor(
             self.concatenate_source_and_features(itemlist), self.pad_idx
         )
@@ -105,6 +164,7 @@ class Collator:
         Returns:
             batches.PaddedTensor.
         """
+        self._check_target_length(itemlist)
         return batches.PaddedTensor(
             [item.target for item in itemlist], self.pad_idx
         )

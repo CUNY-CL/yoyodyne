@@ -165,6 +165,8 @@ def get_loaders(
     dev_set: datasets.BaseDataset,
     arch: str,
     batch_size: int,
+    max_source_length: int,
+    max_target_length: int,
 ) -> Tuple[data.DataLoader, data.DataLoader]:
     """Creates the loaders.
 
@@ -173,13 +175,20 @@ def get_loaders(
         dev_set (datasets.BaseDataset).
         arch (str).
         batch_size (int).
+        max_source_length (int).
+        max_target_length (int).
 
     Returns:
         Tuple[data.DataLoader, data.DataLoader]: the training and development
             loaders.
     """
+
     collator = collators.Collator(
-        train_set.index.pad_idx, train_set.config, arch
+        train_set.index.pad_idx,
+        train_set.config,
+        arch,
+        max_source_length,
+        max_target_length,
     )
     train_loader = data.DataLoader(
         train_set,
@@ -424,7 +433,12 @@ def main() -> None:
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
     train_loader, dev_loader = get_loaders(
-        train_set, dev_set, args.arch, args.batch_size
+        train_set,
+        dev_set,
+        args.arch,
+        args.batch_size,
+        args.max_source_length,
+        args.max_target_length,
     )
     model = get_model(train_set, **vars(args))
     best_checkpoint = train(

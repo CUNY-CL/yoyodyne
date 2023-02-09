@@ -16,6 +16,18 @@ def log_info(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
+def log_warning(msg: str) -> None:
+    """Logs a warning msg to sys.stderr.
+
+    We can additionally consider logging to a file, or getting a handle to
+    the PL logger.
+
+    Args:
+        msg (str): the message to log.
+    """
+    log_info(Warning(msg))
+
+
 def log_arguments(args: argparse.Namespace) -> None:
     """Logs non-null arguments via log_info.
 
