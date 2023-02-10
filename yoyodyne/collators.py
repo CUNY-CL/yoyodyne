@@ -1,10 +1,11 @@
 """Collators and related utilities."""
 
+import argparse
 from typing import List
 
 import torch
 
-from . import batches, dataconfig, datasets, util
+from . import batches, dataconfig, datasets, defaults, util
 
 
 class LengthError(Exception):
@@ -12,9 +13,7 @@ class LengthError(Exception):
 
 
 class Collator:
-    """Base class for other collators.
-
-    Pads according to the longest sequence in a batch of sequences."""
+    """Pads data."""
 
     pad_idx: int
     has_features: bool
@@ -28,8 +27,8 @@ class Collator:
         pad_idx,
         config: dataconfig.DataConfig,
         arch: str,
-        max_source_length: int = 128,
-        max_target_length: int = 128,
+        max_source_length=defaults.MAX_SOURCE_LENGTH,
+        max_target_length=defaults.MAX_TARGET_LENGTH,
     ):
         """Initializes the collator.
 
@@ -187,3 +186,22 @@ class Collator:
                 self.pad_source_features(itemlist),
                 target=padded_target,
             )
+
+    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+        """Adds collator options to the argument parser.
+
+        Args:
+            parser (argparse.ArgumentParser).
+        """
+        parser.add_argument(
+            "--max_source_length",
+            type=int,
+            default=defaults.MAX_SOURCE_LENGTH,
+            help="Maximum source string length. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--max_target_length",
+            type=int,
+            default=defaults.MAX_TARGET_LENGTH,
+            help="Maximum target string length. Default: %(default)s.",
+        )

@@ -6,6 +6,8 @@ from typing import Optional
 import torch
 from torch import nn
 
+from .. import defaults
+
 
 class PositionalEncoding(nn.Module):
     """Positional encoding.
@@ -16,7 +18,12 @@ class PositionalEncoding(nn.Module):
 
     pad_idx: int
 
-    def __init__(self, d_model: int, pad_idx, max_source_length: int = 128):
+    def __init__(
+        self,
+        d_model: int,
+        pad_idx,
+        max_source_length: int = defaults.MAX_SOURCE_LENGTH,
+    ):
         """
         Args:
             d_model (int).

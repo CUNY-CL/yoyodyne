@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import batches
+from .. import batches, defaults
 from . import attention, base
 
 
@@ -32,7 +32,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     def __init__(
         self,
         *args,
-        bidirectional=True,
+        bidirectional=defaults.BIDIRECTIONAL,
         **kwargs,
     ):
         """Initializes the encoder-decoder without attention.
@@ -415,7 +415,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         parser.add_argument(
             "--bidirectional",
             action="store_true",
-            default=True,
+            default=defaults.BIDIRECTIONAL,
             help="Uses a bidirectional encoder "
             "(LSTM-backed architectures only. Default: %(default)s.",
         )

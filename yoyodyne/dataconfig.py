@@ -6,7 +6,7 @@ import dataclasses
 import inspect
 from typing import Iterator, List, Tuple
 
-from . import util
+from . import defaults, util
 
 
 class Error(Exception):
@@ -36,13 +36,13 @@ class DataConfig:
             should share a vocabulary.
     """
 
-    source_col: int = 1
-    target_col: int = 2
-    features_col: int = 0
-    source_sep: str = ""
-    target_sep: str = ""
-    features_sep: str = ";"
-    tied_vocabulary: bool = True
+    source_col: int = defaults.SOURCE_COL
+    target_col: int = defaults.TARGET_COL
+    features_col: int = defaults.FEATURES_COL
+    source_sep: str = defaults.SOURCE_SEP
+    target_sep: str = defaults.TARGET_SEP
+    features_sep: str = defaults.FEATURES_SEP
+    tied_vocabulary: bool = defaults.TIED_VOCABULARY
 
     def __post_init__(self) -> None:
         # This is automatically called after initialization.
@@ -155,19 +155,19 @@ class DataConfig:
         parser.add_argument(
             "--source_col",
             type=int,
-            default=1,
+            default=defaults.SOURCE_COL,
             help="1-based index for source column. Default: %(default)s.",
         )
         parser.add_argument(
             "--target_col",
             type=int,
-            default=2,
+            default=defaults.TARGET_COL,
             help="1-based index for target column. Default: %(default)s.",
         )
         parser.add_argument(
             "--features_col",
             type=int,
-            default=0,
+            default=defaults.FEATURES_COL,
             help="1-based index for features column; "
             "0 indicates the model will not use features. "
             "Default: %(default)s.",
@@ -175,7 +175,7 @@ class DataConfig:
         parser.add_argument(
             "--source_sep",
             type=str,
-            default="",
+            default=defaults.SOURCE_SEP,
             help="String used to split source string into symbols; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
@@ -183,7 +183,7 @@ class DataConfig:
         parser.add_argument(
             "--target_sep",
             type=str,
-            default="",
+            default=defaults.TARGET_SEP,
             help="String used to split target string into symbols; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
@@ -191,7 +191,7 @@ class DataConfig:
         parser.add_argument(
             "--features_sep",
             type=str,
-            default=";",
+            default=defaults.FEATURES_SEP,
             help="String used to split features string into symbols; "
             "an empty string indicates that each Unicode codepoint "
             "is its own symbol. Default: %(default)r.",
@@ -199,7 +199,7 @@ class DataConfig:
         parser.add_argument(
             "--tied_vocabulary",
             action="store_true",
-            default=True,
+            default=defaults.TIED_VOCABULARY,
             help="Share source and target embeddings. Default: %(default)s.",
         )
         parser.add_argument(
