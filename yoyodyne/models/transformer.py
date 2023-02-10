@@ -287,12 +287,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             help="Number of attention heads "
             "(transformer-backed architectures only. Default: %(default)s.",
         )
-        parser.add_argument(
-            "--max_source_length",
-            type=int,
-            default=defaults.MAX_SOURCE_LENGTH,
-            help="Maximum sequence length. Default: %(default)s.",
-        )
 
 
 class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
