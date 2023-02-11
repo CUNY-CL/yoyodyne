@@ -16,7 +16,7 @@ import numpy
 from maxwell import actions, sed
 from torch.utils import data
 
-from . import util
+from .. import defaults, util
 
 
 class Error(Exception):
@@ -220,7 +220,7 @@ class Expert(abc.ABC):
     oracle_factor: int
     roll_in: int
 
-    def __init__(self, actions, aligner, oracle_factor=1):
+    def __init__(self, actions, aligner, oracle_factor=defaults.ORACLE_FACTOR):
         """Oracle scores possible edit actions between prediction and target.
 
         Args:
@@ -395,8 +395,8 @@ class Expert(abc.ABC):
 
 def get_expert(
     train_data: data.Dataset,
-    epochs: int = 5,
-    oracle_factor: int = 1,
+    epochs: int = defaults.ORACLE_EM_EPOCHS,
+    oracle_factor: int = defaults.ORACLE_FACTOR,
     sed_params_path: str = None,
 ) -> Expert:
     """Generates expert object for training transducer.
@@ -483,14 +483,14 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--oracle_em_epochs",
         type=int,
-        default=5,
+        default=defaults.ORACLE_EM_EPOCHS,
         help="Number of EM epochs "
         "(transducer architecture only). Default: %(default)s.",
     )
     parser.add_argument(
         "--oracle_factor",
         type=int,
-        default=1,
+        default=defaults.ORACLE_FACTOR,
         help="Roll-in schedule parameter "
         "(transducer architecture only). Default: %(default)s.",
     )

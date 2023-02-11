@@ -6,7 +6,7 @@ import math
 import torch
 from torch import nn
 
-from .. import batches
+from .. import batches, defaults
 from . import base, positional_encoding
 
 
@@ -29,8 +29,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     def __init__(
         self,
         *args,
-        attention_heads=4,
-        max_source_length=128,
+        attention_heads=defaults.ATTENTION_HEADS,
+        max_source_length=defaults.MAX_SOURCE_LENGTH,
         **kwargs,
     ):
         """Initializes the encoder-decoder with attention.
@@ -283,15 +283,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         parser.add_argument(
             "--attention_heads",
             type=int,
-            default=4,
+            default=defaults.ATTENTION_HEADS,
             help="Number of attention heads "
             "(transformer-backed architectures only. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--max_source_length",
-            type=int,
-            default=128,
-            help="Maximum sequence length. Default: %(default)s.",
         )
 
 
