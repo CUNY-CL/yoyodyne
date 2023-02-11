@@ -27,8 +27,8 @@ class Collator:
         pad_idx,
         config: dataconfig.DataConfig,
         arch: str,
-        max_source_length=defaults.MAX_SOURCE_LENGTH,
-        max_target_length=defaults.MAX_TARGET_LENGTH,
+        max_source_length: int = defaults.MAX_SOURCE_LENGTH,
+        max_target_length: int = defaults.MAX_TARGET_LENGTH,
     ):
         """Initializes the collator.
 
@@ -36,8 +36,8 @@ class Collator:
             pad_idx (int).
             config (dataconfig.DataConfig).
             arch (str).
-            max_source_length (int). Default: 128.
-            max_target_length (int). Default: 128.
+            max_source_length (int).
+            max_target_length (int).
         """
         self.pad_idx = pad_idx
         self.has_features = config.has_features
