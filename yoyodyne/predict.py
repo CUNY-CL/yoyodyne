@@ -219,6 +219,8 @@ def main() -> None:
     )
     # Data configuration arguments.
     dataconfig.DataConfig.add_argparse_args(parser)
+    # Collator arguments.
+    collators.Collator.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
     # Predicting arguments.
