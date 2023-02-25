@@ -395,6 +395,7 @@ def main() -> None:
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
+    # --auto_lr_find
     # --accelerator ("gpu" for GPU)
     # --check_val_every_n_epoch
     # --devices (for multiple device support)
@@ -450,6 +451,12 @@ def main() -> None:
         args.max_target_length,
     )
     model = get_model(train_set, **vars(args))
+    # If requested, tune the LR, and log the suggested value, and exit.
+    if args.auto_lr_find:
+        result = trainer.tuner.lr_find(model, train_loader, dev_loader)
+        util.log_info(f"Best initial LR: {result.suggestion():.8f}")
+        return
+    # Otherwise, train and log the best checkpoint.
     best_checkpoint = train(
         trainer, model, train_loader, dev_loader, args.train_from
     )
