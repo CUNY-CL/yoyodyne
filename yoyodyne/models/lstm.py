@@ -288,7 +288,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 "Beam search is not implemented for batch_size > 1"
             )
         # Initializes hidden states for decoder LSTM.
-        decoder_hiddens = self.init_hiddens(encoder_out.size(0), self.decoder_layers)
+        decoder_hiddens = self.init_hiddens(
+            encoder_out.size(0), self.decoder_layers
+        )
         # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
