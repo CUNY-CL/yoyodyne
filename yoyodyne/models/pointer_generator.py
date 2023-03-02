@@ -54,7 +54,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             msg = f"encoder_layers needs to be the same as decoder_layers."
             msg += f" {self.encoder_layers} != {self.decoder_layers}."
             raise PointerGeneratorError(msg)
-        
+
     def encode(
         self,
         source: batches.PaddedTensor,
