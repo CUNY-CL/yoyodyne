@@ -365,10 +365,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         )
         # -> B x 1 x 4*hidden_size.
         context = torch.cat([source_context, feature_context], dim=2)
+        # num_layers x B x hidden_size
         _, (h, c) = self.decoder(
             torch.cat((embedded, context), 2), (last_h, last_c)
         )
-        hidden = h.transpose(0, 1)
+        # -> B x 1 x hidden_size
+        hidden = h[-1, :, :].unsqueeze(1)
         output_probs = self.classifier(torch.cat([hidden, context], dim=2))
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
