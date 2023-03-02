@@ -109,7 +109,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         _, (h, c) = self.decoder(
             torch.cat((embedded, source_context), 2), (last_h, last_c)
         )
-        hidden = h.transpose(0, 1)
+        # -> B x 1 x hidden_size
+        hidden = h[-1, :, :].unsqueeze(1)
         output_probs = self.classifier(
             torch.cat([hidden, source_context], dim=2)
         )
