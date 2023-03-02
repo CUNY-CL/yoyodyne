@@ -9,6 +9,10 @@ from .. import batches
 from . import attention, generation_probability, lstm
 
 
+class PointerGeneratorError(Exception):
+    pass
+
+
 class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
     """Pointer-generator model with an LSTM backend and no features.
 
@@ -26,6 +30,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
     def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
+        self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
         encoder_size = self.hidden_size * self.num_directions
         self.source_attention = attention.Attention(
@@ -39,6 +44,17 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             )
         )
 
+    def _check_layer_sizes(self):
+        """Checks that encoder and decoder layers are the same number.
+
+        Raises:
+            PointerGeneratorError: _description_
+        """
+        if self.encoder_layers != self.decoder_layers:
+            msg = f"encoder_layers needs to be the same as decoder_layers."
+            msg += f" {self.encoder_layers} != {self.decoder_layers}."
+            raise PointerGeneratorError(msg)
+        
     def encode(
         self,
         source: batches.PaddedTensor,
@@ -254,6 +270,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
+        self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
         self.feature_encoder = nn.LSTM(
             self.embedding_size,
