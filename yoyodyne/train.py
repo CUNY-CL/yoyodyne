@@ -451,7 +451,11 @@ def main() -> None:
         args.max_target_length,
     )
     model = get_model(train_set, **vars(args))
-    # If requested, tune the LR, and log the suggested value, and exit.
+    # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
+    # suggested value and then exits.
+    if args.auto_scale_batch_size:
+        raise Error("Batch auto-scaling is not supported")
+        return
     if args.auto_lr_find:
         result = trainer.tuner.lr_find(model, train_loader, dev_loader)
         util.log_info(f"Best initial LR: {result.suggestion():.8f}")
