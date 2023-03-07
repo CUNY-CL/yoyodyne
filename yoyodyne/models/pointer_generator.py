@@ -9,7 +9,7 @@ from .. import batches
 from . import attention, generation_probability, lstm
 
 
-class PointerGeneratorError(Exception):
+class Error(Exception):
     pass
 
 
@@ -48,12 +48,12 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         """Checks that encoder and decoder layers are the same number.
 
         Raises:
-            PointerGeneratorError: _description_
+            Error.
         """
         if self.encoder_layers != self.decoder_layers:
             msg = "encoder_layers needs to be the same as decoder_layers."
             msg += f" {self.encoder_layers} != {self.decoder_layers}."
-            raise PointerGeneratorError(msg)
+            raise Error(msg)
 
     def encode(
         self,
