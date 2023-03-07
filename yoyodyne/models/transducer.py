@@ -139,7 +139,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 for t, tmask in zip(target, target_mask)
             ]
         # Start of decoding.
-        last_hiddens = self.init_hiddens(batch_size)
+        last_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
         for _ in range(self.max_target_length):
             # Checks if completed all sequences.
             not_complete = last_action != self.actions.end_idx
