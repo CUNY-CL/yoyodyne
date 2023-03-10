@@ -133,13 +133,16 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
         # -> B x 1 x output_size.
-        attention_probs = torch.zeros(
-            symbol.size(0), self.output_size, device=self.device
+        ptr_probs = torch.zeros(
+            symbol.size(0),
+            self.output_size,
+            device=self.device,
+            dtype=source_attention_weights.dtype,
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x output_size.
-        attention_probs.scatter_add_(
+        ptr_probs.scatter_add_(
             2, source_indices.unsqueeze(1), source_attention_weights
         )
         # Probability of generating (from output_probs).
@@ -147,7 +150,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             source_context, hidden, embedded
         ).unsqueeze(2)
         gen_scores = gen_probs * output_probs
-        ptr_scores = (1 - gen_probs) * attention_probs
+        ptr_scores = (1 - gen_probs) * ptr_probs
         scores = gen_scores + ptr_scores
         # Puts scores in log space.
         scores = torch.log(scores)
@@ -393,13 +396,16 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
         # -> B x 1 x output_size.
-        attention_probs = torch.zeros(
-            symbol.size(0), self.output_size, device=self.device
+        ptr_probs = torch.zeros(
+            symbol.size(0),
+            self.output_size,
+            device=self.device,
+            dtype=source_attention_weights.dtype,
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x output_size.
-        attention_probs.scatter_add_(
+        ptr_probs.scatter_add_(
             2, source_indices.unsqueeze(1), source_attention_weights
         )
         # Probability of generating (from output_probs).
@@ -407,7 +413,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             context, hidden, embedded
         ).unsqueeze(2)
         gen_scores = gen_probs * output_probs
-        ptr_scores = (1 - gen_probs) * attention_probs
+        ptr_scores = (1 - gen_probs) * ptr_probs
         scores = gen_scores + ptr_scores
         # Puts scores in log space.
         scores = torch.log(scores)
