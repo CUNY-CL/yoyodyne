@@ -86,7 +86,7 @@ Checkpointing is handled by
 The path for model information, including checkpoints, is specified by a
 combination of `--model_dir` and `--experiment`, such that we build the path
 `model_dir/experiment/version_n`, where each run of an experiment with the
-same `model\_dir` and `experiment` is namespaced with a new version number.
+same `model_dir` and `experiment` is namespaced with a new version number.
 A version stores everything needed to reload the model, including the
 hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`) and the
 checkpoints directory (`model_dir/experiment_name/version_n/checkpoints`).
@@ -106,7 +106,7 @@ will save the top 5 most accurate models.
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
-symbols of form `<...>` or `[...]`.
+symbols of the form `<...>` or `[...]`.
 
 ## Architectures
 
