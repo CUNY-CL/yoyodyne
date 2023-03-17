@@ -22,8 +22,8 @@ keywords = [
 ]
 dependencies = [
     "maxwell >= 0.2.0",
-    "pytorch-lightning >= 1.7.0",
-    "torch >= 1.11.0",
+    "pytorch-lightning >= 1.7.0, <2.0.0",
+    "torch >= 1.11.0, <2.0.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3.9",
