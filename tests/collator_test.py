@@ -1,6 +1,6 @@
 import pytest
 
-from yoyodyne import collators, dataconfig
+from yoyodyne import collators, dataconfig, datasets, indexes
 
 
 @pytest.mark.parametrize(
@@ -29,13 +29,18 @@ from yoyodyne import collators, dataconfig
 def test_get_collator(
     arch, has_features, has_target, expected_separate_features
 ):
+    dataset = datasets.BaseDataset()
     config = dataconfig.DataConfig(
         features_col=3 if has_features else 0,
         target_col=2 if has_target else 0,
     )
+    index = indexes.BaseIndex()
+    index.pad_idx = 1
+    index.source_vocab_size = 0
+    dataset.config = config
+    dataset.index = index
     collator = collators.Collator(
-        1,  # pad_idx, but it doesn't matter here.
-        config,
+        dataset,
         arch,
     )
     assert collator.has_target == has_target
