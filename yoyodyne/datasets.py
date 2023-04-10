@@ -210,7 +210,7 @@ class DatasetNoFeatures(BaseDataset):
             List[List[str]]: decoded symbols.
         """
         return self._decode(
-            self.source_map,
+            self.index.source_map,
             indices,
             symbols=symbols,
             special=special,
@@ -319,7 +319,7 @@ class DatasetFeatures(DatasetNoFeatures):
         source, features, target = self.samples[idx]
         source_encoded = self.encode(self.index.source_map, source)
         features_encoded = self.encode(
-            self.index.source_map,
+            self.index.features_map,
             features,
             add_start_tag=False,
             add_end_tag=False,
@@ -335,39 +335,6 @@ class DatasetFeatures(DatasetNoFeatures):
         else:
             return Item(source_encoded, features=features_encoded)
 
-    def decode_source(
-        self,
-        indices: torch.Tensor,
-        symbols: bool = True,
-        special: bool = True,
-    ) -> List[List[str]]:
-        """Given a tensor of source indices, returns lists of symbols.
-
-        Overriding to prevent use of features encoding.
-
-        Args:
-            indices (torch.Tensor): 2d tensor of indices.
-            symbols (bool, optional): whether to include the regular symbols
-                when decoding the string.
-            special (bool, optional): whether to include the special symbols
-                when decoding the string.
-
-        Returns:
-            List[List[str]]: decoded symbols.
-        """
-        # Masking features index.
-        indices = torch.where(
-            indices < self.index.features_idx,
-            indices,
-            self.index.pad_idx,
-        )
-        return self._decode(
-            self.source_map,
-            indices,
-            symbols=symbols,
-            special=special,
-        )
-
     def decode_features(
         self,
         indices: torch.Tensor,
@@ -376,8 +343,6 @@ class DatasetFeatures(DatasetNoFeatures):
     ) -> List[List[str]]:
         """Given a tensor of feature indices, returns lists of symbols.
 
-        This is simply an alias for using decode_source for features.
-
         Args:
             indices (torch.Tensor): 2d tensor of indices.
             symbols (bool, optional): whether to include the regular symbols
@@ -388,11 +353,12 @@ class DatasetFeatures(DatasetNoFeatures):
         Returns:
             List[List[str]]: decoded symbols.
         """
-        # Masking source index.
-        indices = torch.where(
-            indices >= self.index.features_idx, indices, self.index.pad_idx
+        return self._decode(
+            self.index.features_map,
+            indices,
+            symbols=symbols,
+            special=special,
         )
-        return super().decode_source(indices, symbols=symbols, special=special)
 
 
 def get_dataset(

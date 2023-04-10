@@ -7,15 +7,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
-from . import (
-    collators,
-    dataconfig,
-    datasets,
-    defaults,
-    models,
-    schedulers,
-    util,
-)
+from . import (collators, dataconfig, datasets, defaults, models, schedulers,
+               util)
 
 
 class Error(Exception):
@@ -148,6 +141,10 @@ def get_datasets(
     train_set = datasets.get_dataset(train, config)
     dev_set = datasets.get_dataset(dev, config, train_set.index)
     util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
+    if getattr(train_set.index, "features_map", None) is not None:
+        util.log_info(
+            f"Feature vocabulary: {train_set.index.features_map.pprint()}"
+        )
     util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
     return train_set, dev_set
 
@@ -191,8 +188,7 @@ def get_loaders(
             loaders.
     """
     collator = collators.Collator(
-        train_set.index.pad_idx,
-        train_set.config,
+        train_set,
         arch,
         max_source_length,
         max_target_length,
@@ -256,7 +252,6 @@ def get_model(
         batch_size (int).
         beta1 (float).
         beta2 (float).
-        batch_size (int).
         dropout (float).
         learning_rate (float).
         oracle_em_epochs (int).
@@ -283,6 +278,17 @@ def get_model(
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(
         **kwargs
     )
+    separate_features = train_set.config.has_features and arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    features_vocab_size = getattr(train_set.index, "features_vocab_size", 0)
+    vocab_size = (
+        train_set.index.source_vocab_size + features_vocab_size
+        if not separate_features
+        else train_set.index.source_vocab_size
+    )
+    print(vocab_size, features_vocab_size)
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=arch,
@@ -296,10 +302,10 @@ def get_model(
         encoder_layers=encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
-        features_vocab_size=getattr(
-            train_set.index, "features_vocab_size", -1
-        ),
-        features_idx=getattr(train_set.index, "features_idx", -1),
+        features_vocab_size=features_vocab_size,
+        features_idx=train_set.index.source_vocab_size
+        if features_vocab_size
+        else -1,
         hidden_size=hidden_size,
         learning_rate=learning_rate,
         max_source_length=max_source_length,
@@ -310,7 +316,7 @@ def get_model(
         scheduler=scheduler,
         scheduler_kwargs=scheduler_kwargs,
         start_idx=train_set.index.start_idx,
-        vocab_size=train_set.index.source_vocab_size,
+        vocab_size=vocab_size,
     )
 
 

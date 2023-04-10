@@ -1,6 +1,6 @@
 """Indexes for symbols."""
-import pickle
 import os
+import pickle
 from typing import Dict, List, Optional, Set
 
 from . import special
@@ -13,6 +13,7 @@ class SymbolMap:
     symbol2index: Dict[str, int]
 
     def __init__(self, vocabulary: List[str]):
+        # Keep special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
 
@@ -133,7 +134,7 @@ class IndexNoFeatures(BaseIndex):
 class IndexFeatures(IndexNoFeatures):
     """Also stores a feature index."""
 
-    features_idx: int
+    features_map: SymbolMap
 
     def __init__(
         self,
@@ -150,11 +151,11 @@ class IndexFeatures(IndexNoFeatures):
         """
         # We concatenate the source and feature vocabularies.
         super().__init__(
-            source_vocabulary + features_vocabulary, target_vocabulary
+            source_vocabulary=source_vocabulary,
+            target_vocabulary=target_vocabulary,
         )
-        # self.features_idx = len(special.SPECIAL) + self.source_vocab_size
-        self.features_idx = self.source_vocab_size
+        self.features_map = SymbolMap(features_vocabulary)
 
     @property
     def features_vocab_size(self) -> int:
-        return len(self.source_map) - self.features_idx
+        return len(self.features_map)

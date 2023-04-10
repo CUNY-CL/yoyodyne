@@ -5,7 +5,7 @@ from typing import List
 
 import torch
 
-from . import batches, dataconfig, datasets, defaults, util
+from . import batches, datasets, defaults, util
 
 
 class LengthError(Exception):
@@ -16,16 +16,16 @@ class Collator:
     """Pads data."""
 
     pad_idx: int
+    features_offset: int
     has_features: bool
     has_target: bool
-    separate_features: bool
     max_source_length: int
     max_target_length: int
+    separate_features: bool
 
     def __init__(
         self,
-        pad_idx,
-        config: dataconfig.DataConfig,
+        dataset: datasets.BaseDataset,
         arch: str,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
@@ -33,18 +33,20 @@ class Collator:
         """Initializes the collator.
 
         Args:
-            pad_idx (int).
-            config (dataconfig.DataConfig).
+            dataset (dataset.BaseDataset).
             arch (str).
             max_source_length (int).
             max_target_length (int).
         """
-        self.pad_idx = pad_idx
-        self.has_features = config.has_features
-        self.has_target = config.has_target
+        self.pad_idx = dataset.index.pad_idx
+        self.has_features = dataset.config.has_features
+        self.has_target = dataset.config.has_target
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
-        self.separate_features = config.has_features and arch in [
+        self.features_offset = (
+            dataset.index.source_vocab_size if self.has_features else 0
+        )
+        self.separate_features = dataset.config.has_features and arch in [
             "pointer_generator_lstm",
             "transducer",
         ]
@@ -83,14 +85,14 @@ class Collator:
             msg += "Consider increasing `--max_target_length`."
             util.log_info(msg)
 
-    @staticmethod
     def concatenate_source_and_features(
+        self,
         itemlist: List[datasets.Item],
     ) -> List[torch.Tensor]:
         """Concatenates source and feature tensors."""
         return [
             (
-                torch.cat((item.source, item.features))
+                torch.cat((item.source, item.features + self.features_offset))
                 if item.has_features
                 else item.source
             )

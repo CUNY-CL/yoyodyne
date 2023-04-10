@@ -81,8 +81,7 @@ def get_loader(
         data.DataLoader.
     """
     collator = collators.Collator(
-        dataset.index.pad_idx,
-        dataset.config,
+        dataset,
         arch,
         max_source_length,
         max_target_length,
