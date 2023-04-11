@@ -82,6 +82,7 @@ class DatasetNoFeatures(BaseDataset):
         self.config = config
         self.samples = list(self.config.samples(filename))
         self.index = index if index is not None else self._make_index()
+        assert self.config.has_features is self.index.has_features
 
     @staticmethod
     def read_index(path: str) -> indexes.IndexNoFeatures:
@@ -262,6 +263,10 @@ class DatasetNoFeatures(BaseDataset):
             return Item(source_encoded, target=target_encoded)
         else:
             return Item(source_encoded)
+
+    @property
+    def has_features(self) -> bool:
+        return self.index.has_features
 
 
 class DatasetFeatures(DatasetNoFeatures):

@@ -130,6 +130,10 @@ class IndexNoFeatures(BaseIndex):
     def special_idx(self) -> Set[int]:
         return {self.unk_idx, self.pad_idx, self.start_idx, self.end_idx}
 
+    @property
+    def has_features(self) -> bool:
+        return False
+
 
 class IndexFeatures(IndexNoFeatures):
     """Also stores a feature index."""
@@ -159,3 +163,7 @@ class IndexFeatures(IndexNoFeatures):
     @property
     def features_vocab_size(self) -> int:
         return len(self.features_map)
+
+    @property
+    def has_features(self) -> bool:
+        return True

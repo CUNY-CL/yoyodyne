@@ -572,9 +572,8 @@ class TransducerFeatures(TransducerNoFeatures):
     """Transducer model with an LSTM backend."""
 
     feature_embeddings: nn.Embedding
-    features_vocab_size: int
 
-    def __init__(self, features_vocab_size, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initializes transducer model.
 
         Functions equivalently to TransducerNoFeatures except concatenates
@@ -588,7 +587,7 @@ class TransducerFeatures(TransducerNoFeatures):
         """
         super().__init__(*args, **kwargs)
         self.feature_embeddings = self.init_embeddings(
-            features_vocab_size, self.embedding_size, self.pad_idx
+            self.features_vocab_size, self.embedding_size, self.pad_idx
         )
         # Overrides decoder to accomodate features.
         self.decoder = nn.LSTM(

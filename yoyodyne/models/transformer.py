@@ -6,8 +6,8 @@ import math
 import torch
 from torch import nn
 
-from .. import batches, defaults
 from . import base, positional_encoding
+from .. import batches, defaults
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
@@ -299,15 +299,12 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
         Main Volume, pages 1901-1907.
     """
 
-    # Indices.
-    features_idx: int
     # Constructed inside __init__.
     type_embedding: nn.Embedding
 
-    def __init__(self, features_idx, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Distinguishes features vs. character.
-        self.features_idx = features_idx
         self.type_embedding = self.init_embeddings(
             2, self.embedding_size, self.pad_idx
         )
@@ -326,7 +323,9 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
                 B x seq_len x embed_dim.
         """
         # Distinguishes features and chars.
-        char_mask = (symbols < self.features_idx).long()
+        char_mask = (
+            symbols < (self.vocab_size - self.features_vocab_size)
+        ).long()
         # 1 or 0.
         type_embedding = self.esq * self.type_embedding(char_mask)
         word_embedding = self.esq * self.source_embeddings(symbols)

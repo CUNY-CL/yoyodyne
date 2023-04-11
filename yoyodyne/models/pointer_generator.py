@@ -268,17 +268,16 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     feature_attention: attention.Attention
     feature_embeddings: nn.Embedding
     feature_encoder: nn.LSTM
-    features_vocab_size: int
     linear_h: nn.Linear
     linear_c: nn.Linear
 
-    def __init__(self, *args, features_vocab_size, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
         self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
         self.feature_embeddings = self.init_embeddings(
-            features_vocab_size, self.embedding_size, self.pad_idx
+            self.features_vocab_size, self.embedding_size, self.pad_idx
         )
         self.feature_encoder = nn.LSTM(
             self.embedding_size,

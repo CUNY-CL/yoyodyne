@@ -148,7 +148,7 @@ def get_datasets(
     train_set = datasets.get_dataset(train, config)
     dev_set = datasets.get_dataset(dev, config, train_set.index)
     util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
-    if getattr(train_set.index, "features_map", None) is not None:
+    if train_set.has_features:
         util.log_info(
             f"Feature vocabulary: {train_set.index.features_map.pprint()}"
         )
@@ -271,7 +271,7 @@ def get_model(
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(arch, train_set.config.has_features)
+    model_cls = models.get_model_cls(arch, train_set.has_features)
     expert = (
         models.expert.get_expert(
             train_set,
@@ -285,17 +285,19 @@ def get_model(
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(
         **kwargs
     )
-    separate_features = train_set.config.has_features and arch in [
+    separate_features = train_set.has_features and arch in [
         "pointer_generator_lstm",
         "transducer",
     ]
-    features_vocab_size = getattr(train_set.index, "features_vocab_size", 0)
+    separate_features = train_set.has_features
+    features_vocab_size = (
+        train_set.index.features_vocab_size if separate_features else 0
+    )
     vocab_size = (
         train_set.index.source_vocab_size + features_vocab_size
         if not separate_features
         else train_set.index.source_vocab_size
     )
-    print(vocab_size, features_vocab_size)
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=arch,
@@ -310,9 +312,6 @@ def get_model(
         end_idx=train_set.index.end_idx,
         expert=expert,
         features_vocab_size=features_vocab_size,
-        features_idx=train_set.index.source_vocab_size
-        if features_vocab_size
-        else -1,
         hidden_size=hidden_size,
         learning_rate=learning_rate,
         max_source_length=max_source_length,
