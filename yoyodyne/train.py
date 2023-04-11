@@ -289,15 +289,10 @@ def get_model(
         "pointer_generator_lstm",
         "transducer",
     ]
-    separate_features = train_set.has_features
     features_vocab_size = (
         train_set.index.features_vocab_size if separate_features else 0
     )
-    vocab_size = (
-        train_set.index.source_vocab_size + features_vocab_size
-        if not separate_features
-        else train_set.index.source_vocab_size
-    )
+    vocab_size = train_set.index.source_vocab_size + features_vocab_size
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=arch,
