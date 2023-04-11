@@ -290,9 +290,13 @@ def get_model(
         "transducer",
     ]
     features_vocab_size = (
-        train_set.index.features_vocab_size if separate_features else 0
+        train_set.index.features_vocab_size if train_set.has_features else 0
     )
-    vocab_size = train_set.index.source_vocab_size + features_vocab_size
+    vocab_size = (
+        train_set.index.source_vocab_size + features_vocab_size
+        if not separate_features
+        else train_set.index.source_vocab_size
+    )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=arch,

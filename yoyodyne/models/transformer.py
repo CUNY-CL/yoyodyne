@@ -6,8 +6,8 @@ import math
 import torch
 from torch import nn
 
-from . import base, positional_encoding
 from .. import batches, defaults
+from . import base, positional_encoding
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
