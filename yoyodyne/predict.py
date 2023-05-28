@@ -118,7 +118,6 @@ def _get_loader_from_argparse_args(
 
 def get_model(
     arch: str,
-    attention: bool,
     has_features: bool,
     checkpoint: str,
 ) -> models.BaseEncoderDecoder:
@@ -126,14 +125,13 @@ def get_model(
 
     Args:
         arch (str).
-        attention (bool).
         has_features (bool).
         checkpoint (str).
 
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(arch, attention, has_features)
+    model_cls = models.get_model_cls(arch, has_features)
     return model_cls.load_from_checkpoint(checkpoint)
 
 
