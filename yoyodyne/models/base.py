@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import batches, defaults, evaluators, schedulers, util
+from .. import batches, defaults, evaluators, schedulers
 
 
 class BaseEncoderDecoder(pl.LightningModule):
