@@ -82,7 +82,7 @@ class Collator:
         Args:
             padded_length (int): The length of the the padded tensor.
         """
-        if self.max_target_length and padded_length > self.max_target_length:
+        if padded_length > self.max_target_length:
             msg = f"The length of a batch ({padded_length}) "
             msg += "is greater than the `--max_target_length` specified "
             msg += f"({self.max_target_length}). This means that "

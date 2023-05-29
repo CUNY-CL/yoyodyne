@@ -81,7 +81,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             packed_outs,
             batch_first=True,
             padding_value=self.pad_idx,
-            total_length=None,
+            total_length=self.max_source_length,
         )
         # Sums over directions, keeping layers.
         # -> num_layers x B x hidden_size.

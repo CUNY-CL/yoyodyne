@@ -455,15 +455,17 @@ def main() -> None:
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
     # Truncates max lengths based on the actual data.
-    # FIXME can I generalize this?
+    # FIXME: hackish.
     args.max_source_length = min(
         args.max_source_length,
         max(train_set.max_source_length, dev_set.max_source_length),
     )
+    util.log_info(f"True maximum source length: {args.max_source_length}")
     args.max_target_length = min(
         args.max_target_length,
         max(train_set.max_target_length, dev_set.max_target_length),
     )
+    util.log_info(f"True maximum target length: {args.max_target_length}")
     train_loader, dev_loader = get_loaders(
         train_set,
         dev_set,

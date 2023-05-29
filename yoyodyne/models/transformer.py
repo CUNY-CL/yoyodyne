@@ -15,7 +15,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     # Model arguments.
     attention_heads: int
-    max_source_length: int
     # Constructed inside __init__.
     esq: float
     source_embeddings: nn.Embedding
@@ -52,7 +51,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             self.output_size, self.embedding_size, self.pad_idx
         )
         self.positional_encoding = positional_encoding.PositionalEncoding(
-            self.embedding_size, self.pad_idx, self.max_source_length
+            self.embedding_size,
+            self.pad_idx,
+            max(self.max_source_length, self.max_target_length) + 1,
         )
         self.log_softmax = nn.LogSoftmax(dim=2)
         encoder_layer = nn.TransformerEncoderLayer(
@@ -115,8 +116,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """
         word_embedding = self.esq * self.source_embeddings(symbols)
         positional_embedding = self.positional_encoding(symbols)
-        out = self.dropout_layer(word_embedding + positional_embedding)
-        return out
+        return self.dropout_layer(word_embedding + positional_embedding)
 
     def target_embed(self, symbols: torch.Tensor) -> torch.Tensor:
         """Embeds the target symbols and adds positional encodings.
@@ -131,8 +131,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """
         word_embedding = self.esq * self.target_embeddings(symbols)
         positional_embedding = self.positional_encoding(symbols)
-        out = self.dropout_layer(word_embedding + positional_embedding)
-        return out
+        return self.dropout_layer(word_embedding + positional_embedding)
 
     def encode(self, source: batches.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
