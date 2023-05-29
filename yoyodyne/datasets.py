@@ -45,18 +45,6 @@ class Item(nn.Module):
     def has_target(self):
         return self.target is not None
 
-    @property
-    def source_len(self) -> int:
-        return len(self.source)
-
-    @property
-    def target_len(self) -> int:
-        return len(self.target) if self.target else 0
-
-    @property
-    def features_len(self) -> int:
-        return len(self.features) if self.features else 0
-
 
 class BaseDataset(data.Dataset):
     """Base datatset class, with some core methods."""

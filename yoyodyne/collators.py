@@ -29,8 +29,7 @@ class Collator:
         arch: str,
         max_source_length=defaults.MAX_SOURCE_LENGTH,
         max_target_length=defaults.MAX_TARGET_LENGTH,
-        # FIXME: Handle length.
-        # max_features_length=defaults.MAX_FEATURES_LENGTH,
+        # FIXME: max features length.
     ):
         """Initializes the collator.
 
@@ -53,8 +52,7 @@ class Collator:
         ]
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
-        # FIXME: Handle length.
-        # self.max_features_length = max_features_length
+        # FIXME: max features length.
 
     def _source_length_error(self, padded_length: int):
         """Callback function to raise the error when the padded length of the
@@ -137,8 +135,8 @@ class Collator:
         return batches.PaddedTensor(
             self.concatenate_source_and_features(itemlist),
             self.pad_idx,
-            # FIXME: Handle length.
             self.max_source_length,
+            # FIXME: max features length.
             self._source_length_error,
         )
 
@@ -157,7 +155,7 @@ class Collator:
         return batches.PaddedTensor(
             [item.features for item in itemlist],
             self.pad_idx,
-            # FIXME: Handle length.
+            # FIXME: max features length.
         )
 
     def pad_target(
@@ -218,10 +216,4 @@ class Collator:
             default=defaults.MAX_TARGET_LENGTH,
             help="Maximum target string length. Default: %(default)s.",
         )
-        # FIXME: Handle length.
-        # parser.add_argument(
-        #    "--max_features_length",
-        #    type=int,
-        #    default=defaults.MAX_FEATURES_LENGTH,
-        #    help="Maximum features string length. Default: %(default)s.",
-        # )
+        # FIXME: max features length.

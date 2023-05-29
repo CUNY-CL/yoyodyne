@@ -454,18 +454,15 @@ def main() -> None:
     index = _get_index_from_argparse_args(args)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
-    # Truncates max lengths based on the actual data.
-    # FIXME: hackish.
+    # Truncates max lengths based on the actual lengths.
     args.max_source_length = min(
         args.max_source_length,
         max(train_set.max_source_length, dev_set.max_source_length),
     )
-    util.log_info(f"True maximum source length: {args.max_source_length}")
     args.max_target_length = min(
         args.max_target_length,
         max(train_set.max_target_length, dev_set.max_target_length),
     )
-    util.log_info(f"True maximum target length: {args.max_target_length}")
     train_loader, dev_loader = get_loaders(
         train_set,
         dev_set,
@@ -473,6 +470,7 @@ def main() -> None:
         args.batch_size,
         args.max_source_length,
         args.max_target_length,
+        # FIXME: max features length.
     )
     model = get_model(train_set, **vars(args))
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
