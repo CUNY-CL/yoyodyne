@@ -85,11 +85,11 @@ Checkpointing is handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
 The path for model information, including checkpoints, is specified by a
 combination of `--model_dir` and `--experiment`, such that we build the path
-`model_dir/experiment/version_n`, where each run of an experiment with the
-same `model_dir` and `experiment` is namespaced with a new version number.
-A version stores everything needed to reload the model, including the
-hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`) and the
-checkpoints directory (`model_dir/experiment_name/version_n/checkpoints`).
+`model_dir/experiment/version_n`, where each run of an experiment with the same
+`model_dir` and `experiment` is namespaced with a new version number. A version
+stores everything needed to reload the model, including the hyperparameters
+(`model_dir/experiment_name/version_n/hparams.yaml`) and the checkpoints
+directory (`model_dir/experiment_name/version_n/checkpoints`).
 
 By default, each run initializes a new model from scratch, unless the
 `--train_from` argument is specified. To continue training from a specific
@@ -151,14 +151,11 @@ By default, the `attentive_lstm`, `lstm`, `pointer_generator_lstm`, and
 
 A non-exhaustive list includes:
 
--   Batch size:
-    -   `--batch_size` (default: `32`)
-    -   `--pad_max` (default: not enabled): gives a consistent batch size
 -   Regularization:
     -   `--dropout` (default: `.2`)
     -   `--label_smoothing` (default: not enabled)
     -   `--gradient_clip_val` (default: not enabled)
--   Optimizer:
+-   Optimization:
     -   `--learning_rate` (default: `.001`)
     -   `--optimizer` (default: `"adam"`)
     -   `--beta1` (default: `.9`): $\beta_1$ hyperparameter for the Adam
@@ -166,17 +163,21 @@ A non-exhaustive list includes:
     -   `--beta2` (default: `.99`): $\beta_2$ hyperparameter for the Adam
         optimizer (`--optimizer adam`)
     -   `--scheduler` (default: not enabled)
--   Duration:
+-   Training duration:
     -   `--max_epochs`
     -   `--min_epochs`
     -   `--max_steps`
     -   `--min_steps`
     -   `--max_time`
     -   `--patience`
--   Seeding:
+-   Sequence length:
+    -   `--max_source_length` (default: `128`)
+    -   `--max_target_length` (default: `128`)
+-   Other:
+    -   `--batch_size` (default: `32`)
     -   `--seed`
--   [Weights & Biases](https://wandb.ai/site):
-    -   `--wandb` (default: `False`): enables Weights & Biases tracking
+    -   `--wandb` (default: `False`): enables [Weights &
+        Biases](https://wandb.ai/site) tracking
 
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive

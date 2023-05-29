@@ -5,6 +5,7 @@ superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
 import abc
+import functools
 from typing import List, Optional, Set, Union
 
 import torch
@@ -44,6 +45,18 @@ class Item(nn.Module):
     def has_target(self):
         return self.target is not None
 
+    @property
+    def source_len(self) -> int:
+        return len(self.source)
+
+    @property
+    def target_len(self) -> int:
+        return len(self.target) if self.target else 0
+
+    @property
+    def features_len(self) -> int:
+        return len(self.features) if self.features else 0
+
 
 class BaseDataset(data.Dataset):
     """Base datatset class, with some core methods."""
@@ -75,7 +88,7 @@ class DatasetNoFeatures(BaseDataset):
         Args:
             filename (str): input filename.
             config (dataconfig.DataConfig): dataset configuration.
-            other (indexes.IndexNoFeatures, optional): if provided,
+            index (indexes.IndexNoFeatures, optional): if provided,
                 use this index to avoid recomputing it.
         """
         super().__init__()
@@ -112,6 +125,16 @@ class DatasetNoFeatures(BaseDataset):
         return indexes.IndexNoFeatures(
             sorted(source_vocabulary), sorted(target_vocabulary)
         )
+
+    @functools.cached_property
+    def max_source_length(self) -> int:
+        # " + 2" for start and end tag.
+        return max(len(source) + 2 for source, _, *_ in self.samples)
+
+    @functools.cached_property
+    def max_target_length(self) -> int:
+        # " + 1" for end tag.
+        return max(len(target) + 1 for _, target, *_ in self.samples)
 
     def encode(
         self,
@@ -306,6 +329,10 @@ class DatasetFeatures(DatasetNoFeatures):
             sorted(features_vocabulary),
             sorted(target_vocabulary),
         )
+
+    @functools.cached_property
+    def max_features_length(self) -> int:
+        return max(len(features) for _, _, features in self.samples)
 
     def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.

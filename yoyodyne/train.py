@@ -183,8 +183,8 @@ def get_loaders(
         dev_set (datasets.BaseDataset).
         arch (str).
         batch_size (int).
-        max_source_length (int).
-        max_target_length (int).
+        max_source_length (int, optional).
+        max_target_length (int, optional).
 
     Returns:
         Tuple[data.DataLoader, data.DataLoader]: the training and development
@@ -354,6 +354,18 @@ def get_index(model_dir: str, experiment: str) -> str:
     return f"{model_dir}/{experiment}/index.pkl"
 
 
+def _get_index_from_argparse_args(args: argparse.Namespace) -> str:
+    """Computes the index path from CLI arguments.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        str.
+    """
+    return get_index(args.model_dir, args.experiment)
+
+
 def main() -> None:
     """Trainer."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -414,12 +426,6 @@ def main() -> None:
         help="Batch size. Default: %(default)s.",
     )
     parser.add_argument(
-        "--pad_max",
-        action="store_true",
-        help="Pads all batches to the same length. Default: False.",
-    )
-    parser.add_argument("--no_pad_max", action="store_false", dest="pad_max")
-    parser.add_argument(
         "--patience", type=int, help="Patience for early stopping"
     )
     parser.add_argument(
@@ -445,9 +451,19 @@ def main() -> None:
     pl.seed_everything(args.seed)
     trainer = _get_trainer_from_argparse_args(args)
     train_set, dev_set = _get_datasets_from_argparse_args(args)
-    index = get_index(args.model_dir, args.experiment)
+    index = _get_index_from_argparse_args(args)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
+    # Truncates max lengths based on the actual data.
+    # FIXME can I generalize this?
+    args.max_source_length = min(
+        args.max_source_length,
+        max(train_set.max_source_length, dev_set.max_source_length),
+    )
+    args.max_target_length = min(
+        args.max_target_length,
+        max(train_set.max_target_length, dev_set.max_target_length),
+    )
     train_loader, dev_loader = get_loaders(
         train_set,
         dev_set,
