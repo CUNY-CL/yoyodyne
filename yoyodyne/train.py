@@ -414,6 +414,12 @@ def main() -> None:
         help="Batch size. Default: %(default)s.",
     )
     parser.add_argument(
+        "--pad_max",
+        action="store_true",
+        help="Pads all batches to the same length. Default: False.",
+    )
+    parser.add_argument("--no_pad_max", action="store_false", dest="pad_max")
+    parser.add_argument(
         "--patience", type=int, help="Patience for early stopping"
     )
     parser.add_argument(

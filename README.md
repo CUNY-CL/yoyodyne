@@ -153,6 +153,7 @@ A non-exhaustive list includes:
 
 -   Batch size:
     -   `--batch_size` (default: `32`)
+    -   `--pad_max` (default: not enabled): gives a consistent batch size
 -   Regularization:
     -   `--dropout` (default: `.2`)
     -   `--label_smoothing` (default: not enabled)
