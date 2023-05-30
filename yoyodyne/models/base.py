@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import batches, defaults, evaluators, schedulers, util
+from .. import batches, defaults, evaluators, schedulers
 
 
 class BaseEncoderDecoder(pl.LightningModule):
@@ -284,12 +284,6 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         optimizer = self._get_optimizer()
         scheduler = self._get_lr_scheduler(optimizer[0])
-        if scheduler:
-            util.log_info("Scheduler details:")
-            util.log_info(scheduler)
-        else:
-            util.log_info("Optimizer details:")
-            util.log_info(optimizer)
         return optimizer, scheduler
 
     def _get_optimizer(self) -> optim.Optimizer:
