@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from .. import defaults
+from ... import defaults
 
 
 class PositionalEncoding(nn.Module):

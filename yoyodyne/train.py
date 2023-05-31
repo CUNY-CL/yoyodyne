@@ -227,6 +227,7 @@ def get_model(
     decoder_layers: int = defaults.DECODER_LAYERS,
     embedding_size: int = defaults.EMBEDDING_SIZE,
     encoder_layers: int = defaults.ENCODER_LAYERS,
+    feature_encoder_arch: Optional[str] = None,
     hidden_size: int = defaults.HIDDEN_SIZE,
     max_source_length: int = defaults.MAX_SOURCE_LENGTH,
     max_target_length: int = defaults.MAX_TARGET_LENGTH,
@@ -235,24 +236,27 @@ def get_model(
     beta1: float = defaults.BETA1,
     beta2: float = defaults.BETA2,
     dropout: float = defaults.DROPOUT,
+    label_smoothing: Optional[bool] = None,
     learning_rate: float = defaults.LEARNING_RATE,
     oracle_em_epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
     optimizer: str = defaults.OPTIMIZER,
-    sed_params: Optional[str] = None,
     scheduler: Optional[str] = None,
+    sed_params: Optional[str] = None,
+    source_encoder_arch: str = defaults.ENCODER_ARCH,
     **kwargs,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
 
     Args:
-        train_set (datasets.BaseDataset)
         arch (str).
         attention_heads (int).
         bidirectional (bool).
         decoder_layers (int).
         embedding_size (int).
+        encoder_arch (str).
         encoder_layers (int).
+        feature_encoder_arch (str, optional).
         hidden_size (int).
         max_target_length (int).
         max_source_length (int).
@@ -264,14 +268,17 @@ def get_model(
         oracle_em_epochs (int).
         oracle_factor (int).
         optimizer (str).
-        sed_params (str, optional).
         scheduler (str, optional).
+        sed_params (str, optional).
+        source_encoder_arch (str).
+        train_set (datasets.BaseDataset).
         **kwargs
 
     Returns:
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(arch, train_set.has_features)
+    source_encoder_cls = models.encoders.get_encoder_cls(source_encoder_arch)
     expert = (
         models.expert.get_expert(
             train_set,
@@ -297,21 +304,26 @@ def get_model(
         if not separate_features
         else train_set.index.source_vocab_size
     )
+    feature_encoder_cls = (
+        models.encoders.get_encoder_cls(feature_encoder_arch)
+        if feature_encoder_arch and separate_features else None
+    )
     # Please pass all arguments by keyword and keep in lexicographic order.
-    return model_cls(
-        arch=arch,
+    model = model_cls(
         attention_heads=attention_heads,
         beta1=beta1,
         beta2=beta2,
         bidirectional=bidirectional,
+        encoder_layers=encoder_layers,
         decoder_layers=decoder_layers,
         dropout=dropout,
         embedding_size=embedding_size,
-        encoder_layers=encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
+        feature_encoder_cls=feature_encoder_cls,
         features_vocab_size=features_vocab_size,
         hidden_size=hidden_size,
+        label_smoothing=label_smoothing,
         learning_rate=learning_rate,
         max_source_length=max_source_length,
         max_target_length=max_target_length,
@@ -320,9 +332,11 @@ def get_model(
         pad_idx=train_set.index.pad_idx,
         scheduler=scheduler,
         scheduler_kwargs=scheduler_kwargs,
+        source_encoder_cls=source_encoder_cls,
         start_idx=train_set.index.start_idx,
         vocab_size=vocab_size,
     )
+    return model
 
 
 def train(
@@ -397,12 +411,14 @@ def main() -> None:
     collators.Collator.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
+    models.encoders.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.encoders.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
@@ -473,7 +489,7 @@ def main() -> None:
         return
     # Otherwise, train and log the best checkpoint.
     best_checkpoint = train(
-        trainer, model, train_loader, dev_loader, args.train_from
+        trainer, model, train_loader, dev_loader, train_from=args.train_from
     )
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 

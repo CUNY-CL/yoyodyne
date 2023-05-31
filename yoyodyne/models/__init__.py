@@ -3,7 +3,7 @@
 import argparse
 
 from .. import util
-from .base import BaseEncoderDecoder
+from .base import BaseEncoderDecoder, EncoderMismatchError
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoderFeatures,
@@ -11,7 +11,6 @@ from .pointer_generator import (
 )
 from .transducer import TransducerFeatures, TransducerNoFeatures
 from .transformer import (
-    FeatureInvariantTransformerEncoderDecoder,
     TransformerEncoderDecoder,
 )
 
@@ -37,8 +36,8 @@ def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
         else TransducerNoFeatures,
         "transformer": TransformerEncoderDecoder,
         # fmt: off
-        "feature_invariant_transformer":
-            FeatureInvariantTransformerEncoderDecoder,
+        #"feature_invariant_transformer":
+        #    FeatureInvariantTransformerEncoderDecoder,
         "pointer_generator_lstm":
             PointerGeneratorLSTMEncoderDecoderFeatures
             if has_features
@@ -83,7 +82,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--arch",
         choices=[
             "attentive_lstm",
-            "feature_invariant_transformer",
             "lstm",
             "pointer_generator_lstm",
             "transducer",
