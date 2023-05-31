@@ -3,6 +3,7 @@
 import argparse
 import csv
 import dataclasses
+import functools
 import inspect
 from typing import Iterator, List, Tuple
 
@@ -44,6 +45,22 @@ class DataConfig:
     features_sep: str = defaults.FEATURES_SEP
     tied_vocabulary: bool = defaults.TIED_VOCABULARY
 
+    @staticmethod
+    def _get_cell(row: List[str], col: int, sep: str) -> List[str]:
+        """Returns the split cell of a row.
+
+        Args:
+           row (List[str]): the split row.
+           col (int): the column index
+           sep (str): the string to split the column on; if the empty string,
+              the column is split into characters instead.
+
+        Returns:
+           List[str]: symbols from that cell.
+        """
+        cell = row[col - 1]  # -1 because we're using one-based indexing.
+        return list(cell) if not sep else cell.split(sep)
+
     def __post_init__(self) -> None:
         # This is automatically called after initialization.
         if self.source_col < 1:
@@ -56,6 +73,16 @@ class DataConfig:
             raise Error(f"Invalid features column: {self.features_col}")
         if self.features_col != 0:
             util.log_info("Including features")
+        # Curries repeatedly-used lookup functions.
+        self._get_source_cell = functools.partial(
+            self._get_cell, col=self.source_col, sep=self.source_sep
+        )
+        self._get_target_cell = functools.partial(
+            self._get_cell, col=self.target_col, sep=self.target_sep
+        )
+        self._get_features_cell = functools.partial(
+            self._get_cell, col=self.features_col, sep=self.features_sep
+        )
 
     @classmethod
     def from_argparse_args(cls, args, **kwargs):
@@ -67,22 +94,6 @@ class DataConfig:
         }
         dataconfig_kwargs.update(**kwargs)
         return cls(**dataconfig_kwargs)
-
-    @staticmethod
-    def _get_cell(row: List[str], col: int, sep: str) -> List[str]:
-        """Returns the split cell of a row.
-
-        Args:
-           row (List[str]): the split row.
-           col (int): the column index
-           sep (str): the string to split the column on; if the empty string,
-              the column is split into characters instead.
-
-        Returns:
-           List[str]: symbol from that cell.
-        """
-        cell = row[col - 1]  # -1 because we're using one-based indexing.
-        return list(cell) if not sep else cell.split(sep)
 
     # Source is always present.
 
@@ -99,7 +110,7 @@ class DataConfig:
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
             for row in tsv_reader:
-                yield self._get_cell(row, self.source_col, self.source_sep)
+                yield self._get_source_cell(row)
 
     def source_target_samples(
         self, filename: str
@@ -108,8 +119,8 @@ class DataConfig:
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
             for row in tsv_reader:
-                source = self._get_cell(row, self.source_col, self.source_sep)
-                target = self._get_cell(row, self.target_col, self.target_sep)
+                source = self._get_source_cell(row)
+                target = self._get_target_cell(row)
                 yield source, target
 
     def source_features_target_samples(
@@ -119,15 +130,12 @@ class DataConfig:
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
             for row in tsv_reader:
-                source = self._get_cell(row, self.source_col, self.source_sep)
+                source = self._get_source_cell(row)
                 # Avoids overlap with source.
                 features = [
-                    f"[{feature}]"
-                    for feature in self._get_cell(
-                        row, self.features_col, self.features_sep
-                    )
+                    f"[{feature}]" for feature in self._get_features_cell(row)
                 ]
-                target = self._get_cell(row, self.target_col, self.target_sep)
+                target = self._get_target_cell(row)
                 yield source, features, target
 
     def samples(self, filename: str) -> Iterator[Tuple[List[str], ...]]:

@@ -118,7 +118,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             packed_outs,
             batch_first=True,
             padding_value=self.pad_idx,
-            total_length=None,
+            total_length=self.max_source_length,
         )
         return encoded, (H, C)
 

@@ -6,8 +6,6 @@ from typing import Optional
 import torch
 from torch import nn
 
-from .. import defaults
-
 
 class PositionalEncoding(nn.Module):
     """Positional encoding.
@@ -17,25 +15,24 @@ class PositionalEncoding(nn.Module):
     """
 
     pad_idx: int
+    positional_encoding: torch.Tensor
 
     def __init__(
         self,
         d_model: int,
         pad_idx,
-        max_source_length: int = defaults.MAX_SOURCE_LENGTH,
+        max_length,
     ):
         """
         Args:
             d_model (int).
             pad_idx (int).
-            max_source_length (int).
+            max_length (int).
         """
-        super(PositionalEncoding, self).__init__()
+        super().__init__()
         self.pad_idx = pad_idx
-        positional_encoding = torch.zeros(max_source_length, d_model)
-        position = torch.arange(
-            0, max_source_length, dtype=torch.float
-        ).unsqueeze(1)
+        positional_encoding = torch.zeros(max_length, d_model)
+        position = torch.arange(max_length, dtype=torch.float).unsqueeze(1)
         scale_factor = -math.log(10000.0) / d_model
         div_term = torch.exp(
             torch.arange(0, d_model, 2).float() * scale_factor

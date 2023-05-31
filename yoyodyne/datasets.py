@@ -5,6 +5,7 @@ superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
 import abc
+import functools
 from typing import List, Optional, Set, Union
 
 import torch
@@ -75,7 +76,7 @@ class DatasetNoFeatures(BaseDataset):
         Args:
             filename (str): input filename.
             config (dataconfig.DataConfig): dataset configuration.
-            other (indexes.IndexNoFeatures, optional): if provided,
+            index (indexes.IndexNoFeatures, optional): if provided,
                 use this index to avoid recomputing it.
         """
         super().__init__()
@@ -112,6 +113,16 @@ class DatasetNoFeatures(BaseDataset):
         return indexes.IndexNoFeatures(
             sorted(source_vocabulary), sorted(target_vocabulary)
         )
+
+    @functools.cached_property
+    def max_source_length(self) -> int:
+        # " + 2" for start and end tag.
+        return max(len(source) for source, _, *_ in self.samples) + 2
+
+    @functools.cached_property
+    def max_target_length(self) -> int:
+        # " + 1" for end tag.
+        return max(len(target) for _, target, *_ in self.samples) + 1
 
     def encode(
         self,
@@ -306,6 +317,10 @@ class DatasetFeatures(DatasetNoFeatures):
             sorted(features_vocabulary),
             sorted(target_vocabulary),
         )
+
+    @functools.cached_property
+    def max_features_length(self) -> int:
+        return max(len(features) for _, _, features in self.samples)
 
     def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.

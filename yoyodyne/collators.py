@@ -27,27 +27,32 @@ class Collator:
         pad_idx,
         config: dataconfig.DataConfig,
         arch: str,
-        max_source_length: int = defaults.MAX_SOURCE_LENGTH,
-        max_target_length: int = defaults.MAX_TARGET_LENGTH,
+        max_source_length=defaults.MAX_SOURCE_LENGTH,
+        max_target_length=defaults.MAX_TARGET_LENGTH,
+        # FIXME: max features length.
     ):
         """Initializes the collator.
+
+        If max source and/or target length are not specified, they are
+        computed dynamically (i.e., for each source and target batch).
 
         Args:
             pad_idx (int).
             config (dataconfig.DataConfig).
             arch (str).
-            max_source_length (int).
-            max_target_length (int).
+            max_source_length (int, optional).
+            max_target_length (int, optional).
         """
         self.pad_idx = pad_idx
         self.has_features = config.has_features
         self.has_target = config.has_target
-        self.max_source_length = max_source_length
-        self.max_target_length = max_target_length
         self.separate_features = config.has_features and arch in [
             "pointer_generator_lstm",
             "transducer",
         ]
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
+        # FIXME: max features length.
 
     def _source_length_error(self, padded_length: int):
         """Callback function to raise the error when the padded length of the
@@ -69,8 +74,8 @@ class Collator:
         """Callback function to log a message when the padded length of the
         target batch is greater than the `max_target_length` allowed.
 
-        Since `max_target_length` just truncates during inference, this is
-        simply a suggestion.
+        Since `max_target_length` truncates during inference, this is only a
+        suggestion; it is logged rather than converted into an error.
 
         Args:
             padded_length (int): The length of the the padded tensor.
@@ -79,7 +84,7 @@ class Collator:
             msg = f"The length of a batch ({padded_length}) "
             msg += "is greater than the `--max_target_length` specified "
             msg += f"({self.max_target_length}). This means that "
-            msg += "decoding at inference time will likely be truncated. "
+            msg += "truncation may occur at inference time. "
             msg += "Consider increasing `--max_target_length`."
             util.log_info(msg)
 
@@ -111,6 +116,7 @@ class Collator:
         return batches.PaddedTensor(
             [item.source for item in itemlist],
             self.pad_idx,
+            self.max_source_length,
             self._source_length_error,
         )
 
@@ -129,6 +135,8 @@ class Collator:
         return batches.PaddedTensor(
             self.concatenate_source_and_features(itemlist),
             self.pad_idx,
+            self.max_source_length,
+            # FIXME: max features length.
             self._source_length_error,
         )
 
@@ -145,7 +153,9 @@ class Collator:
             batches.PaddedTensor.
         """
         return batches.PaddedTensor(
-            [item.features for item in itemlist], self.pad_idx
+            [item.features for item in itemlist],
+            self.pad_idx,
+            # FIXME: max features length.
         )
 
     def pad_target(
@@ -162,6 +172,7 @@ class Collator:
         return batches.PaddedTensor(
             [item.target for item in itemlist],
             self.pad_idx,
+            self.max_target_length,
             self._target_length_warning,
         )
 
@@ -205,3 +216,4 @@ class Collator:
             default=defaults.MAX_TARGET_LENGTH,
             help="Maximum target string length. Default: %(default)s.",
         )
+        # FIXME: max features length.
