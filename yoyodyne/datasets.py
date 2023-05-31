@@ -117,12 +117,12 @@ class DatasetNoFeatures(BaseDataset):
     @functools.cached_property
     def max_source_length(self) -> int:
         # " + 2" for start and end tag.
-        return max(len(source) + 2 for source, _, *_ in self.samples)
+        return max(len(source) for source, _, *_ in self.samples) + 2
 
     @functools.cached_property
     def max_target_length(self) -> int:
         # " + 1" for end tag.
-        return max(len(target) + 1 for _, target, *_ in self.samples)
+        return max(len(target) for _, target, *_ in self.samples) + 1
 
     def encode(
         self,
