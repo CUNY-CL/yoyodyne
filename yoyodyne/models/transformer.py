@@ -256,7 +256,8 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing.
 
         Returns:
             torch.Tensor.

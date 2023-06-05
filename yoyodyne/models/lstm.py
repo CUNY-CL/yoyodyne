@@ -212,7 +212,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             encoder_out (torch.Tensor): batch of encoded inputs.
             target (torch.Tensor, optional): target symbols; if None, then we
                 decode greedily with 'student forcing'.
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing.
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
@@ -398,7 +399,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing.
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
