@@ -209,7 +209,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             # symbol for this step (i.e., teacher forcing).
             if teacher_forcing:
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it we pass the top pred to the next next 
+            # Otherwise, it we pass the top pred to the next next
             # timestep (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
@@ -218,10 +218,12 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                     finished, (decoder_input == self.end_idx)
                 )
                 # Breaks when all batches predicted an EOS symbol.
-                # If we have a target (and are thus computing loss), 
-                # we only break when we have decoded at least the the 
+                # If we have a target (and are thus computing loss),
+                # we only break when we have decoded at least the the
                 # same number of steps as the target length.
-                if finished.all() and (target is None or decoder_input.size(-1) >= target.size(-1)):
+                if finished.all() and (
+                    target is None or decoder_input.size(-1) >= target.size(-1)
+                ):
                     break
         predictions = torch.stack(predictions)
         return predictions
@@ -235,7 +237,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing.
 
         Returns:
             torch.Tensor.
@@ -491,7 +494,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             # symbol for this step (i.e., teacher forcing).
             if teacher_forcing:
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it we pass the top pred to the next next 
+            # Otherwise, it we pass the top pred to the next next
             # timestep (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
@@ -500,10 +503,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                     finished, (decoder_input == self.end_idx)
                 )
                 # Breaks when all batches predicted an EOS symbol.
-                # If we have a target (and are thus computing loss), 
-                # we only break when we have decoded at least the the 
+                # If we have a target (and are thus computing loss),
+                # we only break when we have decoded at least the the
                 # same number of steps as the target length.
-                if finished.all() and (target is None or decoder_input.size(-1) >= target.size(-1)):
+                if finished.all() and (
+                    target is None or decoder_input.size(-1) >= target.size(-1)
+                ):
                     break
         predictions = torch.stack(predictions)
         return predictions
@@ -517,7 +522,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing.
 
         Returns:
             torch.Tensor.

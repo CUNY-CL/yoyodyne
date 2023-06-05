@@ -199,7 +199,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         encoder_mask: torch.Tensor,
         encoder_out: torch.Tensor,
         target: Optional[torch.Tensor] = None,
-        teacher_forcing: Optional[bool] = True
+        teacher_forcing: Optional[bool] = True,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
@@ -245,7 +245,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             # symbol for this step (i.e., teacher forcing).
             if teacher_forcing:
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it we pass the top pred to the next next 
+            # Otherwise, it we pass the top pred to the next next
             # timestep (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
@@ -254,10 +254,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                     finished, (decoder_input == self.end_idx)
                 )
                 # Breaks when all batches predicted an EOS symbol.
-                # If we have a target (and are thus computing loss), 
-                # we only break when we have decoded at least the the 
+                # If we have a target (and are thus computing loss),
+                # we only break when we have decoded at least the the
                 # same number of steps as the target length.
-                if finished.all() and (target is None or decoder_input.size(-1) >= target.size(-1)):
+                if finished.all() and (
+                    target is None or decoder_input.size(-1) >= target.size(-1)
+                ):
                     break
         predictions = torch.stack(predictions)
         return predictions
@@ -412,7 +414,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             )
         else:
             predictions = self.decode(
-                len(batch), batch.source.mask, encoder_out, batch.target.padded, teacher_forcing
+                len(batch),
+                batch.source.mask,
+                encoder_out,
+                batch.target.padded,
+                teacher_forcing,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)

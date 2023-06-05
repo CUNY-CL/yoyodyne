@@ -191,16 +191,17 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self,
         encoder_hidden: torch.Tensor,
         source_mask: torch.Tensor,
-        targets: Optional[torch.Tensor]
+        targets: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
         Args:
             encoder_hidden (torch.Tensor): Hidden states from the encoder.
             source_mask (torch.Tensor): Mask for the encoded source tokens.
-            targets (torch.Tensor, optional): The optional target tokens, which is only used
-                for early stopping during validation if the decoder has predicted [EOS] for 
-                every sequence in the batch.
+            targets (torch.Tensor, optional): The optional target tokens,
+                which is only used for early stopping during validation
+                if the decoder has predicted [EOS] for every sequence in
+                the batch.
 
         Returns:
             torch.Tensor: predicitons from the decoder.
@@ -236,10 +237,12 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
                 finished, (predictions[-1] == self.end_idx)
             )
             # Breaks when all batches predicted an EOS symbol.
-            # If we have a target (and are thus computing loss), 
-            # we only break when we have decoded at least the the 
+            # If we have a target (and are thus computing loss),
+            # we only break when we have decoded at least the the
             # same number of steps as the target length.
-            if finished.all() and (targets is None or len(outputs) >= targets.size(-1)):
+            if finished.all() and (
+                targets is None or len(outputs) >= targets.size(-1)
+            ):
                 break
         # -> B x seq_len x output_size.
         return torch.stack(outputs).transpose(0, 1)
@@ -280,7 +283,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         else:
             encoder_hidden = self.encode(batch.source)
             # -> B x seq_len x output_size.
-            output = self._decode_greedy(encoder_hidden, batch.source.mask, batch.target.padded)
+            output = self._decode_greedy(
+                encoder_hidden, batch.source.mask, batch.target.padded
+            )
         return output
 
     @staticmethod

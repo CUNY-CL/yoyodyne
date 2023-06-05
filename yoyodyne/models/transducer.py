@@ -61,14 +61,17 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         )
 
     def forward(
-        self, batch: batches.PaddedBatch, teacher_forcing: Optional[bool] = True
+        self,
+        batch: batches.PaddedBatch,
+        teacher_forcing: Optional[bool] = True,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
-                Determines whether or not to rollout optimal actions.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing. Determines whether or not to rollout
+                optimal actions.
 
         Returns:
             Tuple[List[List[int]], torch.Tensor] of encoded prediction values
@@ -110,8 +113,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             source_mask (torch.Tensor): mask for source input.
             target (torch.Tensor, optional): encoded target input.
             target_mask (torch.Tensor, optional): mask for target input.
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
-                Determines whether or not to rollout optimal actions.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing. Determines whether or not to rollout
+                optimal actions.
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
@@ -607,13 +611,18 @@ class TransducerFeatures(TransducerNoFeatures):
             batch_first=True,
         )
 
-    def forward(self, batch: batches.PaddedBatch, teacher_forcing: Optional[bool] = True) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+        teacher_forcing: Optional[bool] = True,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
-                Determines whether or not to rollout optimal actions.
+            teacher_forcing (bool, optional): Whether or not to decode
+                with teacher forcing. Determines whether or not to rollout
+                optimal actions.
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values

@@ -217,7 +217,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         # -> B x output_size x seq_len. For loss.
         greedy_predictions = greedy_predictions.transpose(1, 2)
         # Truncates predictions to the size of the target.
-        greedy_predictions = torch.narrow(greedy_predictions, 2, 0, target_padded.size(1))
+        greedy_predictions = torch.narrow(
+            greedy_predictions, 2, 0, target_padded.size(1)
+        )
         loss = self.loss_func(greedy_predictions, target_padded)
         return {"val_accuracy": accuracy, "val_loss": loss}
 
