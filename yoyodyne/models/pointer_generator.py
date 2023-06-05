@@ -164,6 +164,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
+        teacher_forcing: Optional[bool] = True,
     ) -> torch.Tensor:
         """Decodes a sequence.
 
@@ -174,6 +175,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             source_enc (torch.Tensor).
             source_mask (torch.Tensor).
             target (torch.Tensor, optional).
+            teacher_forcing (bool, optional).
 
         Returns:
             torch.Tensor
@@ -203,29 +205,37 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 source_mask,
             )
             predictions.append(output.squeeze(1))
-            # If we have a target (training) then the next input is the gold
-            # symbol for this step (teacher forcing).
-            if target is not None:
+            # In teacher forcing mode the next input is the gold
+            # symbol for this step (i.e., teacher forcing).
+            if teacher_forcing:
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it must be inference time and we pass the top pred
-            # to the next next timestep (student forcing; greedy decoding).
+            # Otherwise, it we pass the top pred to the next next 
+            # timestep (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
                 # Tracks which sequences have decoded an EOS.
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all batches predicted an END symbol.
-                if finished.all():
+                # Breaks when all batches predicted an EOS symbol.
+                # If we have a target (and are thus computing loss), 
+                # we only break when we have decoded at least the the 
+                # same number of steps as the target length.
+                if finished.all() and (target is None or decoder_input.size(-1) >= target.size(-1)):
                     break
         predictions = torch.stack(predictions)
         return predictions
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+        teacher_forcing: Optional[bool] = True,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
             batch (batches.PaddedBatch).
+            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
 
         Returns:
             torch.Tensor.
@@ -246,6 +256,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 source_encoded,
                 batch.source.mask,
                 batch.target.padded,
+                teacher_forcing,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)
@@ -429,6 +440,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         feature_enc: torch.Tensor,
         feature_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
+        teacher_forcing: Optional[bool] = True,
     ) -> torch.Tensor:
         """Decodes a sequence.
 
@@ -441,6 +453,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             feature_enc (torch.Tensor).
             feature_mask (torch.Tensor).
             target (torch.Tensor, optional).
+            teacher_forcing (bool, optional).
 
         Returns:
             torch.Tensor.
@@ -474,27 +487,37 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             predictions.append(output.squeeze(1))
             # If we have a target (training) then the next input is the gold
             # symbol for this step (teacher forcing).
-            if target is not None:
+            # In teacher forcing mode the next input is the gold
+            # symbol for this step (i.e., teacher forcing).
+            if teacher_forcing:
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it must be inference time and we pass the top pred
-            # to the next next timestep (student forcing; greedy decoding).
+            # Otherwise, it we pass the top pred to the next next 
+            # timestep (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
                 # Tracks which sequences have decoded an EOS.
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all batches predicted an END symbol.
-                if finished.all():
+                # Breaks when all batches predicted an EOS symbol.
+                # If we have a target (and are thus computing loss), 
+                # we only break when we have decoded at least the the 
+                # same number of steps as the target length.
+                if finished.all() and (target is None or decoder_input.size(-1) >= target.size(-1)):
                     break
         predictions = torch.stack(predictions)
         return predictions
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+        teacher_forcing: Optional[bool] = True,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
             batch (batches.PaddedBatch).
+            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
 
         Returns:
             torch.Tensor.
@@ -523,6 +546,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 features_encoded,
                 batch.features.mask,
                 batch.target.padded,
+                teacher_forcing,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)

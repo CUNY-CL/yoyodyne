@@ -61,12 +61,14 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         )
 
     def forward(
-        self, batch: batches.PaddedBatch
+        self, batch: batches.PaddedBatch, teacher_forcing: Optional[bool] = True
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
             batch (batches.PaddedBatch).
+            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+                Determines whether or not to rollout optimal actions.
 
         Returns:
             Tuple[List[List[int]], torch.Tensor] of encoded prediction values
@@ -84,6 +86,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             source_mask,
             target=batch.target.padded,
             target_mask=batch.target.mask,
+            teacher_forcing=teacher_forcing,
         )
         return prediction, loss
 
@@ -94,6 +97,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
         target_mask: Optional[torch.Tensor] = None,
+        teacher_forcing: Optional[bool] = True,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
@@ -106,6 +110,8 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             source_mask (torch.Tensor): mask for source input.
             target (torch.Tensor, optional): encoded target input.
             target_mask (torch.Tensor, optional): mask for target input.
+            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+                Determines whether or not to rollout optimal actions.
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
@@ -161,7 +167,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 self.batch_expert_rollout(
                     source, target, alignment, prediction, not_complete
                 )
-                if target is not None
+                if teacher_forcing and target is not None
                 else None
             )
             last_action = self.decode_action_step(
@@ -601,11 +607,13 @@ class TransducerFeatures(TransducerNoFeatures):
             batch_first=True,
         )
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(self, batch: batches.PaddedBatch, teacher_forcing: Optional[bool] = True) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
             batch (batches.PaddedBatch).
+            teacher_forcing (bool, optional): Whether or not to decode with teacher forcing.
+                Determines whether or not to rollout optimal actions.
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
@@ -648,6 +656,7 @@ class TransducerFeatures(TransducerNoFeatures):
             source_mask,
             target=batch.target.padded,
             target_mask=batch.target.mask,
+            teacher_forcing=teacher_forcing,
         )
         return prediction, loss
 

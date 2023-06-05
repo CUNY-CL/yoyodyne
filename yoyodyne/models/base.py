@@ -209,17 +209,16 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         # Greedy decoding.
         # -> B x seq_len x output_size.
-        predictions = self(batch)
         target_padded = batch.target.padded
+        greedy_predictions = self(batch, teacher_forcing=False)
         accuracy = self.evaluator.val_accuracy(
-            predictions, target_padded, self.end_idx, self.pad_idx
+            greedy_predictions, target_padded, self.end_idx, self.pad_idx
         )
-        # We rerun the model with teacher forcing so we can compute loss.
-        # TODO: Update to run the model only once.
-        forced_predictions = self(batch)
         # -> B x output_size x seq_len. For loss.
-        forced_predictions = forced_predictions.transpose(1, 2)
-        loss = self.loss_func(forced_predictions, target_padded)
+        greedy_predictions = greedy_predictions.transpose(1, 2)
+        # Truncates predictions to the size of the target.
+        greedy_predictions = torch.narrow(greedy_predictions, 2, 0, target_padded.size(1))
+        loss = self.loss_func(greedy_predictions, target_padded)
         return {"val_accuracy": accuracy, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
@@ -256,7 +255,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             torch.Tensor: indices of the argmax at each timestep.
         """
-        predictions = self(batch)
+        batch.target.padded = None
+        predictions = self(batch, teacher_forcing=False)
         # -> B x seq_len x 1.
         greedy_predictions = self._get_predicted(predictions)
         return greedy_predictions
