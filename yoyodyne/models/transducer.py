@@ -63,7 +63,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: Optional[bool] = True,
+        teacher_forcing: bool = True,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
@@ -100,7 +100,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
         target_mask: Optional[torch.Tensor] = None,
-        teacher_forcing: Optional[bool] = True,
+        teacher_forcing: bool = True,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
@@ -614,7 +614,7 @@ class TransducerFeatures(TransducerNoFeatures):
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: Optional[bool] = True,
+        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 

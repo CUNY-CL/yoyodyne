@@ -199,7 +199,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         encoder_mask: torch.Tensor,
         encoder_out: torch.Tensor,
         target: Optional[torch.Tensor] = None,
-        teacher_forcing: Optional[bool] = True,
+        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
@@ -242,12 +242,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 decoder_input, decoder_hiddens, encoder_out, encoder_mask
             )
             predictions.append(output.squeeze(1))
-            # In teacher forcing mode the next input is the gold
-            # symbol for this step (i.e., teacher forcing).
+            # In teacher forcing mode the next input is the gold symbol
+            # for this step.
             if teacher_forcing:
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it we pass the top pred to the next next
-            # timestep (i.e., student forcing, greedy decoding).
+            # Otherwise we pass the top pred to the next timestep
+            # (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
                 # Updates to track which sequences have decoded an EOS.
@@ -258,10 +258,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 # If we have a target (and are thus computing loss),
                 # we only break when we have decoded at least the the
                 # same number of steps as the target length.
-                if finished.all() and (
-                    target is None or decoder_input.size(-1) >= target.size(-1)
-                ):
-                    break
+                if finished.all():
+                    if target is None or decoder_input.size(-1) >= target.size(
+                        -1
+                    ):
+                        break
         predictions = torch.stack(predictions)
         return predictions
 
@@ -393,7 +394,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: Optional[bool] = True,
+        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 

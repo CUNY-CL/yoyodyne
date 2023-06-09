@@ -240,17 +240,16 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # If we have a target (and are thus computing loss),
             # we only break when we have decoded at least the the
             # same number of steps as the target length.
-            if finished.all() and (
-                targets is None or len(outputs) >= targets.size(-1)
-            ):
-                break
+            if finished.all():
+                if targets is None or len(outputs) >= targets.size(-1):
+                    break
         # -> B x seq_len x output_size.
         return torch.stack(outputs).transpose(0, 1)
 
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: Optional[bool] = True,
+        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
