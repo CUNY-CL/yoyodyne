@@ -10,6 +10,7 @@ from torch import nn
 
 from . import expert, lstm
 from .. import batches
+from .encoders import BaseEncoder, LSTMEncoder, LinearEncoder
 
 
 class ActionError(Exception):
@@ -29,8 +30,6 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
     """
 
     expert: expert.Expert
-    # Constructed inside __init__.
-    target_embeddings: nn.Embedding
 
     def __init__(
         self,
@@ -53,12 +52,6 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         self.actions = self.expert.actions
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
-        # Target embeddings use alternate padding.
-        self.target_embeddings = self.init_embeddings(
-            num_embeddings=self.output_size,
-            embedding_size=self.embedding_size,
-            pad_idx=self.actions.end_idx,
-        )
 
     def forward(
         self, batch: batches.PaddedBatch
@@ -73,7 +66,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        encoder_out, _ = self.encode(batch.source)
+        encoder_out, _ = self.encoder(batch.source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
         source_padded = batch.source.padded[:, 1:]
@@ -213,13 +206,13 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             encoder_out.size(-1), 1, -1
         ).transpose(0, -1)
         char_encoder_out = torch.gather(encoder_out, 1, alignment_expand)
-        previous_action_embedding = self.target_embeddings(
+        previous_action_embedding = self.decoder.embed(
             last_action
         ).unsqueeze(dim=1)
         decoder_input = torch.cat(
             (char_encoder_out, previous_action_embedding), dim=2
         )
-        decoder_output, (h1, c1) = self.decoder(decoder_input, last_hiddens)
+        decoder_output, (h1, c1) = self.decoder._encode(decoder_input, last_hiddens)
         logits = self.classifier(decoder_output).squeeze(dim=1)
         return logits, (h1, c1)
 
@@ -586,18 +579,19 @@ class TransducerFeatures(TransducerNoFeatures):
             **kwargs: passed to superclass.
         """
         super().__init__(*args, **kwargs)
-        self.feature_embeddings = self.init_embeddings(
-            self.features_vocab_size, self.embedding_size, self.pad_idx
+        self.feature_encoder = LinearEncoder(
+            *args,
+            num_embeddings=self.features_vocab_size,
+            **kwargs
         )
         # Overrides decoder to accomodate features.
-        self.decoder = nn.LSTM(
-            self.hidden_size * self.num_directions
-            + self.embedding_size  # Hidden cells.
-            + self.embedding_size,  # Features.
-            self.hidden_size,
-            dropout=self.dropout,
-            num_layers=self.decoder_layers,
-            batch_first=True,
+        self.decoder = LSTMEncoder(
+            *args,
+            num_embeddings=self.embedding_size,
+            decoder_size = self.encoder.output_size + self.embedding_size + self.embedding_size,
+            layers=self.decoder_layers,
+            bidirectional=False,
+            **kwargs
         )
 
     def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
@@ -611,13 +605,13 @@ class TransducerFeatures(TransducerNoFeatures):
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        encoder_out, _ = self.encode(batch.source)
+        encoder_out, _ = self.encoder(batch.source)
         # Ignores start symbol.
         encoder_out = encoder_out[:, 1:, :]
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Prepares feature embeddings.
-        features_out = self.feature_embeddings(batch.features.padded)
+        features_out = self.feature_encoder(batch.features)
         features_out = torch.sum(features_out, dim=1)
         denom = torch.sum(~batch.features.mask, dim=1, keepdim=True)
         denom = denom.expand(-1, features_out.size(1))

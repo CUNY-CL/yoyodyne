@@ -195,7 +195,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
-            output, decoder_hiddens = self.decode_step(
+            output, decoder_hiddens = self.decoder(
                 decoder_input,
                 decoder_hiddens,
                 source_indices,
@@ -230,9 +230,10 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         Returns:
             torch.Tensor.
         """
-        source_encoded, (h_source, c_source) = self.encode(
-            batch.source, self.encoder
-        )
+        source_encoded, (H, C) = self.source_encoder(batch.source)
+        # Sums over directions, keeping layers.
+        # -> num_layers x B x hidden_size.
+        (H, C) = self._reshape_hiddens(H, C)
         if self.beam_width is not None and self.beam_width > 1:
             # predictions = self.beam_decode(
             #     batch_size, x_mask, encoder_out, beam_width=self.beam_width
@@ -241,7 +242,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         else:
             predictions = self.decode(
                 len(batch),
-                (h_source, c_source),
+                (H, C),
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
@@ -250,6 +251,19 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)
         return predictions
+
+    def _reshape_hiddens(self, H, C):
+        H = H.view(
+            self.source_encoder.layers, self.source_encoder.num_directions, H.size(1), H.size(2)
+        ).sum(axis=1)
+        C = C.view(
+            self.source_encoder.layers, self.source_encoder.num_directions, C.size(1), C.size(2)
+        ).sum(axis=1)
+        return (H, C)
+
+    def check_encoder_compatibility(self):
+        if not isinstance(self.source_encoder, (LSTMEncoder)):
+            raise EncoderMismatchError("This model does not support provided encoder type.")
 
 
 class PointerGeneratorLSTMEncoderDecoderFeatures(
@@ -268,7 +282,6 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     feature_encoder: nn.LSTM
     linear_h: nn.Linear
     linear_c: nn.Linear
-    feature_attention: attention.Attention
 
     def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
@@ -287,9 +300,9 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         self.linear_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
         self.linear_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
         encoder_size = self.hidden_size * self.num_directions
-        self.feature_attention = attention.Attention(
-            encoder_size, self.hidden_size
-        )
+        #self.feature_attention = attention.Attention(
+        #    encoder_size, self.hidden_size
+        #)
         # Overrides decoder to be larger.
         self.decoder = nn.LSTM(
             2 * encoder_size + self.embedding_size,
@@ -501,7 +514,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         """
         assert batch.has_features
         source_encoded, (h_source, c_source) = self.encode(
-            batch.source, self.encoder
+            batch.source, self.source_encoder
         )
         features_encoded, (h_features, c_features) = self.encode(
             batch.features, self.feature_encoder
