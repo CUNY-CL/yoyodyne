@@ -7,15 +7,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
 
-from . import (
-    collators,
-    dataconfig,
-    datasets,
-    defaults,
-    models,
-    schedulers,
-    util,
-)
+from . import (collators, dataconfig, datasets, defaults, models, schedulers,
+               util)
 
 
 class Error(Exception):
@@ -231,6 +224,7 @@ def get_model(
     hidden_size: int = defaults.HIDDEN_SIZE,
     max_source_length: int = defaults.MAX_SOURCE_LENGTH,
     max_target_length: int = defaults.MAX_TARGET_LENGTH,
+    source_encoder_arch: str = None,
     # Training arguments.
     batch_size: int = defaults.BATCH_SIZE,
     beta1: float = defaults.BETA1,
@@ -243,7 +237,6 @@ def get_model(
     optimizer: str = defaults.OPTIMIZER,
     scheduler: Optional[str] = None,
     sed_params: Optional[str] = None,
-    source_encoder_arch: str = defaults.ENCODER_ARCH,
     **kwargs,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
@@ -260,6 +253,7 @@ def get_model(
         hidden_size (int).
         max_target_length (int).
         max_source_length (int).
+        source_encoder_arch (str, optional).
         batch_size (int).
         beta1 (float).
         beta2 (float).
@@ -270,7 +264,6 @@ def get_model(
         optimizer (str).
         scheduler (str, optional).
         sed_params (str, optional).
-        source_encoder_arch (str).
         train_set (datasets.BaseDataset).
         **kwargs
 
@@ -278,7 +271,9 @@ def get_model(
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(arch, train_set.has_features)
-    source_encoder_cls = models.encoders.get_encoder_cls(source_encoder_arch)
+    source_encoder_cls = models.modules.get_encoder_cls(
+        source_encoder_arch, model_arch=arch
+    )
     expert = (
         models.expert.get_expert(
             train_set,
@@ -296,6 +291,11 @@ def get_model(
         "pointer_generator_lstm",
         "transducer",
     ]
+    feature_encoder_cls = (
+        models.modules.get_encoder_cls(feature_encoder_arch, model_arch=arch)
+        if separate_features and feature_encoder_arch
+        else None
+    )
     features_vocab_size = (
         train_set.index.features_vocab_size if train_set.has_features else 0
     )
@@ -305,8 +305,9 @@ def get_model(
         else train_set.index.source_vocab_size
     )
     feature_encoder_cls = (
-        models.encoders.get_encoder_cls(feature_encoder_arch)
-        if feature_encoder_arch and separate_features else None
+        models.modules.get_encoder_cls(feature_encoder_arch)
+        if feature_encoder_arch and separate_features
+        else None
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     model = model_cls(
@@ -411,14 +412,14 @@ def main() -> None:
     collators.Collator.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
-    models.encoders.add_argparse_args(parser)
+    models.modules.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
-    models.encoders.BaseEncoder.add_argparse_args(parser)
+    # models.modules.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:

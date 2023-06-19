@@ -3,9 +3,6 @@
 This also includes init_embeddings, which has to go somewhere.
 """
 
-import argparse
-from typing import Optional
-
 import pytorch_lightning as pl
 import torch
 from torch import nn
@@ -23,12 +20,12 @@ class BaseEncoder(pl.LightningModule):
     # Regularization arguments.
     dropout: float
     # Model arguments.
-    decoder_size: int
     embedding_size: int
     hidden_size: int
     layers: int
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
+    embeddings: nn.Embedding
 
     def __init__(
         self,
@@ -37,7 +34,6 @@ class BaseEncoder(pl.LightningModule):
         start_idx,
         end_idx,
         num_embeddings,
-        decoder_size=0,
         dropout=defaults.DROPOUT,
         embedding_size=defaults.EMBEDDING_SIZE,
         layers=defaults.ENCODER_LAYERS,
@@ -48,13 +44,15 @@ class BaseEncoder(pl.LightningModule):
         self.pad_idx = pad_idx
         self.start_idx = start_idx
         self.end_idx = end_idx
-        self.decoder_size=decoder_size
         self.num_embeddings = num_embeddings
         self.dropout = dropout
         self.embedding_size = embedding_size
         self.layers = layers
         self.hidden_size = hidden_size
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
+        self.embeddings = self.init_embeddings(
+            self.num_embeddings, self.embedding_size, self.pad_idx
+        )
 
     @staticmethod
     def _xavier_embedding_initialization(
@@ -123,22 +121,19 @@ class BaseEncoder(pl.LightningModule):
         """
         raise NotImplementedError
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds shared configuration options to the argument parser.
-
-        These are only needed at training time.
+    def embed(self, symbols: torch.Tensor) -> torch.Tensor:
+        """Embeds the source symbols and adds positional encodings.
 
         Args:
-            parser (argparse.ArgumentParser).
+            symbols (torch.Tensor): batch of symbols to embed of shape
+                B x seq_len.
+
+        Returns:
+            embedded (torch.Tensor): embedded tensor of shape
+                B x seq_len x embed_dim.
         """
-        # Regularization arguments.
-        parser.add_argument(
-            "--encoder_layers",
-            type=int,
-            default=defaults.ENCODER_LAYERS,
-            help="Number of encoder layers. Default: %(default)s.",
-        )
+        embedded = self.embeddings(symbols)
+        return self.dropout_layer(embedded)
 
     @property
     def output_size(self) -> int:

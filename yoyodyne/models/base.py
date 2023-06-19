@@ -10,23 +10,20 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import batches, defaults, evaluators, schedulers, util
-from .encoders import base_encoder
-
-
-class EncoderMismatchError(Exception):
-    pass
+from .. import batches, defaults, evaluators, schedulers
+from .modules import base, check_encoder_compatibility
 
 
 class BaseEncoderDecoder(pl.LightningModule):
+    #  TODO: clean up type checking here.
     # Indices.
+    end_idx: int
     pad_idx: int
     start_idx: int
-    end_idx: int
     # Sizes.
-    vocab_size: int
-    features_vocab_size: int
+    features_vocab_size: Optional[int]
     output_size: int
+    vocab_size: int
     # Optimizer arguments.
     beta1: float
     beta2: float
@@ -38,13 +35,15 @@ class BaseEncoderDecoder(pl.LightningModule):
     label_smoothing: Optional[float]
     # Decoding arguments.
     beam_width: int
+    max_source_length: int
     max_target_length: int
     # Model arguments.
-    decoder_layers: int
     embedding_size: int
-    feature_encoder_cls: Optional[base_encoder.BaseEncoder]
-    source_encoder_cls: base_encoder.BaseEncoder
+    encoder_layers: int
+    decoder_layers: int
+    feature_encoder_cls: Optional[base.BaseEncoder]
     hidden_size: int
+    source_encoder_cls: base.BaseEncoder
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
     evaluator: evaluators.Evaluator
@@ -79,64 +78,71 @@ class BaseEncoderDecoder(pl.LightningModule):
         **kwargs,  # Ignored.
     ):
         super().__init__()
-        # Assigning attributes.
+        # Symbol processing.
         self.pad_idx = pad_idx
         self.start_idx = start_idx
         self.end_idx = end_idx
         self.vocab_size = vocab_size
         self.features_vocab_size = features_vocab_size
         self.output_size = output_size
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.learning_rate = learning_rate
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.scheduler_kwargs = scheduler_kwargs
-        self.dropout = dropout
-        self.label_smoothing = label_smoothing
+        # Architecture args.
         self.beam_width = beam_width
-        self.max_source_length=max_source_length
+        self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.encoder_layers = encoder_layers
         self.decoder_layers = decoder_layers
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
+        # Regularization.
+        self.dropout = dropout
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
-        self.evaluator = evaluators.Evaluator()
+        # Training/optimizer/scheduling args.
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.label_smoothing = label_smoothing
+        self.learning_rate = learning_rate
         self.loss_func = self._get_loss_func("mean")
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.scheduler_kwargs = scheduler_kwargs
+        self.evaluator = evaluators.Evaluator()
         # Checks compatibility with feature encoder and dataloader.
-        self.check_encoder_compatibility(source_encoder_cls, feature_encoder_cls=feature_encoder_cls)
+        check_encoder_compatibility(source_encoder_cls, feature_encoder_cls)
         # Instantiates encoders class.
         self.source_encoder = source_encoder_cls(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
+            embedding_size=self.embedding_size,
+            layers=self.encoder_layers,
+            hidden_size=self.hidden_size,
+            features_vocab_size=features_vocab_size,
+            max_source_length=max_source_length,
+            **kwargs,
+        )
+        self.feature_encoder = (
+            feature_encoder_cls(
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,
-                num_embeddings=self.vocab_size,
+                num_embeddings=features_vocab_size,
                 dropout=self.dropout,
                 embedding_size=self.embedding_size,
                 layers=self.encoder_layers,
                 hidden_size=self.hidden_size,
-                features_vocab_size=features_vocab_size,
-                **kwargs
+                max_source_length=max_source_length,
+                **kwargs,
+            )
+            if feature_encoder_cls is not None
+            else None
         )
         self.decoder = self.get_decoder()
-        #feature_encoder = feature_encoder_cls(
-        #    #attention_heads=attention_heads,
-        #    #bidirectional=bidirectional,
-        #    dropout=dropout,
-        #    embedding_size=embedding_size,
-        #    layers=encoder_layers,
-        #    end_idx=end_idx,
-        #    hidden_size=hidden_size,
-        #    max_input_length=max_source_length,
-        #    pad_idx=pad_idx,
-        #    start_idx=start_idx,
-        #    num_embeddings=features_vocab_size,
-        #) if feature_encoder_cls else None
-
         # Saves hyperparameters for PL checkpointing.
-        self.save_hyperparameters(ignore=['source_encoder', 'decoder', 'feature_encoder'])
-
+        self.save_hyperparameters(
+            ignore=["source_encoder", "decoder", "feature_encoder"]
+        )
 
     @staticmethod
     def _xavier_embedding_initialization(
@@ -205,17 +211,12 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         raise NotImplementedError
 
-    @staticmethod
-    def check_encoder_compatibility(source_encoder_cls, feature_encoder_cls):
-        raise NotImplementedError
-
-    @staticmethod
     def get_decoder(self):
         raise NotImplementedError
 
     @property
     def has_feature_encoder(self):
-        return getattr(self, "feature_encoder", None) is not None
+        return self.feature_encoder is not None
 
     def training_step(
         self,
@@ -495,6 +496,12 @@ class BaseEncoderDecoder(pl.LightningModule):
             type=int,
             default=defaults.DECODER_LAYERS,
             help="Number of decoder layers. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--encoder_layers",
+            type=int,
+            default=defaults.ENCODER_LAYERS,
+            help="Number of encoder layers. Default: %(default)s.",
         )
         parser.add_argument(
             "--embedding_size",

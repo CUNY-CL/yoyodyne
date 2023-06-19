@@ -3,16 +3,11 @@
 import argparse
 
 from .. import util
-from .base import BaseEncoderDecoder, EncoderMismatchError
+from .base import BaseEncoderDecoder
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
-from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoderFeatures,
-    PointerGeneratorLSTMEncoderDecoderNoFeatures,
-)
-from .transducer import TransducerFeatures, TransducerNoFeatures
-from .transformer import (
-    TransformerEncoderDecoder,
-)
+from .pointer_generator import PointerGeneratorLSTMEncoderDecoder
+from .transducer import TransducerEncoderDecoder
+from .transformer import TransformerEncoderDecoder
 
 
 def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
@@ -31,18 +26,9 @@ def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
     model_fac = {
         "attentive_lstm": AttentiveLSTMEncoderDecoder,
         "lstm": LSTMEncoderDecoder,
-        "transducer": TransducerFeatures
-        if has_features
-        else TransducerNoFeatures,
+        "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
+        "transducer": TransducerEncoderDecoder,
         "transformer": TransformerEncoderDecoder,
-        # fmt: off
-        #"feature_invariant_transformer":
-        #    FeatureInvariantTransformerEncoderDecoder,
-        "pointer_generator_lstm":
-            PointerGeneratorLSTMEncoderDecoderFeatures
-            if has_features
-            else PointerGeneratorLSTMEncoderDecoderNoFeatures,
-        # fmt: on
     }
     try:
         model_cls = model_fac[arch]

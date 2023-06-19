@@ -1,14 +1,13 @@
 """Transformer model classes."""
 
 import argparse
-import math
 
 import torch
 from torch import nn
 
 from .. import batches, defaults
-from . import base, EncoderMismatchError
-from .encoders import TransformerEncoder, TransformerDecoder, FeatureInvariantTransformerEncoder
+from . import base
+from .modules import TransformerDecoder
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
@@ -16,15 +15,13 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     # Model arguments.
     attention_heads: int
-    max_source_length: int
     # Constructed inside __init__.
-    log_softmax: nn.LogSoftmax
     classifier: nn.Linear
+    log_softmax: nn.LogSoftmax
 
     def __init__(
         self,
         *args,
-        max_source_length=defaults.MAX_SOURCE_LENGTH,
         attention_heads=defaults.ATTENTION_HEADS,
         **kwargs,
     ):
@@ -37,25 +34,24 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             **kwargs: passed to superclass.
         """
         self.attention_heads = attention_heads
-        self.max_source_length = max_source_length
-        super().__init__(*args, attention_heads=attention_heads, max_source_length=max_source_length, **kwargs)
-        self.log_softmax = nn.LogSoftmax(dim=2)
+        super().__init__(*args, attention_heads=attention_heads, **kwargs)
         self.classifier = nn.Linear(self.embedding_size, self.output_size)
+        self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self):
         return TransformerDecoder(
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
-                end_idx=self.end_idx,
-                num_embeddings=self.output_size,
-                decoder_size=self.source_encoder.output_size,
-                dropout=self.dropout,
-                embedding_size=self.embedding_size,
-                attention_heads=self.attention_heads,
-                max_source_length=self.max_source_length,
-                layers=self.decoder_layers,
-                hidden_size=self.hidden_size
-                )
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            num_embeddings=self.output_size,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
+            embedding_size=self.embedding_size,
+            attention_heads=self.attention_heads,
+            max_source_length=self.max_source_length,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
+        )
 
     def _decode_greedy(
         self, encoder_hidden: torch.Tensor, source_mask: torch.Tensor
@@ -80,10 +76,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             decoder_output = self.decoder(
                 encoder_hidden, source_mask, target_tensor, target_mask
             )
-            output = self.classifier(decoder_output)
-            output = self.log_softmax(output)
-            # We only care about the last prediction in the sequence.
-            last_output = output[:, -1, :]
+            logits = self.classifier(decoder_output)
+            log_probs = self.log_softmax(logits)
+            last_output = log_probs[:, -1, :]  # Ignore EOS.
             outputs.append(last_output)
             # -> B x 1 x 1
             _, pred = torch.max(last_output, dim=1)
@@ -121,25 +116,19 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
                 (starts == self.pad_idx, batch.target.mask), dim=1
             )
             encoder_output = self.source_encoder(batch.source)
+            if isinstance(encoder_output, tuple):
+                encoder_output, _ = encoder_output
             decoder_output = self.decoder(
                 encoder_output, batch.source.mask, target_padded, target_mask
             )
-            output = self.classifier(decoder_output)
-            output = self.log_softmax(output)
-            # -> B x seq_len x output_size.
-            output = output[:, :-1, :]
+            logits = self.classifier(decoder_output)
+            log_probs = self.log_softmax(logits)
+            output = log_probs[:, :-1, :]  # Ignore EOS.
         else:
             encoder_output = self.source_encoder(batch.source)
             # -> B x seq_len x output_size.
             output = self._decode_greedy(encoder_output, batch.source.mask)
         return output
-
-    @staticmethod
-    def check_encoder_compatibility(source_encoder_cls, feature_encoder_cls):
-        if feature_encoder_cls is not None:
-            raise EncoderMismatchError("This model does not support a separate feature encoder.")
-        if source_encoder_cls not in (TransformerEncoder, FeatureInvariantTransformerEncoder):
-            raise EncoderMismatchError("This model does not support provided encoder type.")
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -157,4 +146,3 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             help="Number of attention heads "
             "(transformer-backed architectures only. Default: %(default)s.",
         )
-

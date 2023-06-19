@@ -1,41 +1,16 @@
 """LSTM model classes."""
 
-import argparse
-import heapq
-from typing import List, Optional, Tuple, Union
+from typing import Tuple
 
 import torch
 from torch import nn
 
-from . import base_encoder
-from ... import batches, defaults
+from ... import batches
+from . import base
 
 
-class LinearEncoder(base_encoder.BaseEncoder):
+class LinearEncoder(base.BaseEncoder):
     """Simple linear embedding encoder."""
-
-    # Constructed inside __init__.
-    embeddings: nn.Embedding
-    encoder: nn.LSTM
-    h0: nn.Parameter
-    c0: nn.Parameter
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Initializes the encoder-decoder without attention.
-
-        Args:
-            *args: passed to superclass.
-            bidirectional (bool).
-            **kwargs: passed to superclass.
-        """
-        super().__init__(*args, **kwargs)
-        self.embeddings = self.init_embeddings(
-            self.num_embeddings, self.embedding_size, self.pad_idx
-        )
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int, pad_idx: int
@@ -54,14 +29,6 @@ class LinearEncoder(base_encoder.BaseEncoder):
             num_embeddings, embedding_size, pad_idx
         )
 
-    def embed(self, symbols: torch.Tensor):
-        embedded = self.embeddings(symbols)
-        return self.dropout_layer(embedded)
-
-    def _encode(self, embedding, *args, **kwargs):
-        # Dummy function
-        return embedding
-
     def forward(
         self, source: batches.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -75,6 +42,4 @@ class LinearEncoder(base_encoder.BaseEncoder):
             Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
                 encoded timesteps, and the LSTM h0 and c0 cells.
         """
-        embedded = self.embed(source.padded)
-        return embedded
-
+        return self.embed(source.padded)

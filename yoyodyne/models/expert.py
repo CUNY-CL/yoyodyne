@@ -32,7 +32,7 @@ class ActionVocabulary:
     start_vocab_idx: int
     target_characters: Set[Any]
 
-    def __init__(self, i2w=None):
+    def __init__(self, unk_idx, i2w=None):
         self.i2w = [
             actions.Start(),
             actions.End(),
@@ -44,6 +44,7 @@ class ActionVocabulary:
             self.i2w.extend(i2w)
         self.w2i = {w: i for i, w in enumerate(self.i2w)}
         self.target_characters = set()
+        self.encode_actions([unk_idx])  # Sets unknown character decoding.
 
     def encode(self, symb: actions.Edit) -> int:
         """Returns index referencing symbol in encoding table.
@@ -456,14 +457,13 @@ def get_expert(
             target = item.target.tolist()[:-1]
             actions.encode_actions(target)
 
+    actions = ActionVocabulary(unk_idx=train_data.index.unk_idx)
     if sed_params_path:
         sed_params = sed.ParamDict.read_params(sed_params_path)
         sed_aligner = sed.StochasticEditDistance(sed_params)
-        actions = ActionVocabulary()
         # Loads vocabulary into action vocabulary.
         _encode_action_vocabulary(train_data, actions)
     else:
-        actions = ActionVocabulary()
         sed_aligner = sed.StochasticEditDistance.fit_from_data(
             _generate_data_and_encode_vocabulary(train_data, actions),
             epochs=epochs,
