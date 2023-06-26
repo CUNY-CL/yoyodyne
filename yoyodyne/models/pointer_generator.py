@@ -163,22 +163,31 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         source_indices: torch.Tensor,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
-        """Decodes a sequence.
+        """Decodes a sequence given the encoded input.
+
+        Decodes until all sequences in a batch have reached [EOS] up to
+        a specified length depending on the `target` args.
 
         Args:
             batch_size (int).
-            decoder_hiddens (torch.Tensor).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            target (torch.Tensor, optional).
-            teacher_forcing (bool, optional).
+            decoder_hiddens (torch.Tensor): .
+            source_indices (torch.Tensor): Indices of the input for calculating
+                pointer weights.
+            source_enc (torch.Tensor): batch of encoded input symbols.
+            source_mask (torch.Tensor): mask for the batch of encoded input
+                symbols.
+            feature_enc (torch.Tensor): batch of encoded feaure symbols.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
-            torch.Tensor
+            torch.Tensor.
         """
         # Feeds in the first decoder input, as a start tag.
         # -> B x 1
@@ -221,24 +230,22 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 # If we have a target (and are thus computing loss),
                 # we only break when we have decoded at least the the
                 # same number of steps as the target length.
-                if finished.all() and (
-                    target is None or decoder_input.size(-1) >= target.size(-1)
-                ):
-                    break
+                if finished.all():
+                    if target is None or decoder_input.size(-1) >= target.size(
+                        -1
+                    ):
+                        break
         predictions = torch.stack(predictions)
         return predictions
 
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode
-                with teacher forcing.
 
         Returns:
             torch.Tensor.
@@ -258,8 +265,8 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
+                self.teacher_forcing if self.training else False,
                 batch.target.padded,
-                teacher_forcing,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)
@@ -442,21 +449,30 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         source_mask: torch.Tensor,
         feature_enc: torch.Tensor,
         feature_mask: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
-        """Decodes a sequence.
+        """Decodes a sequence given the encoded input.
+
+        Decodes until all sequences in a batch have reached [EOS] up to
+        a specified length depending on the `target` args.
 
         Args:
             batch_size (int).
-            decoder_hiddens (torch.Tensor).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            feature_enc (torch.Tensor).
-            feature_mask (torch.Tensor).
-            target (torch.Tensor, optional).
-            teacher_forcing (bool, optional).
+            decoder_hiddens (torch.Tensor): .
+            source_indices (torch.Tensor): Indices of the input for
+                calculating pointer weights.
+            source_enc (torch.Tensor): batch of encoded input symbols.
+            source_mask (torch.Tensor): mask for the batch of encoded
+                input symbols.
+            feature_enc (torch.Tensor): batch of encoded feaure symbols.
+            feature_mask (torch.Tensor): mask for the batch of encoded
+                feature symbols.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
             torch.Tensor.
@@ -515,14 +531,11 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode
-                with teacher forcing.
 
         Returns:
             torch.Tensor.
@@ -550,8 +563,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 batch.source.mask,
                 features_encoded,
                 batch.features.mask,
+                self.teacher_forcing if self.training else False,
                 batch.target.padded,
-                teacher_forcing,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)

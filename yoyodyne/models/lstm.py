@@ -198,22 +198,24 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         batch_size: int,
         encoder_mask: torch.Tensor,
         encoder_out: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        This initializes an <EOS> tensor, and decodes using teacher forcing
-        when training, or else greedily.
+        Decodes until all sequences in a batch have reached [EOS] up to
+        a specified length depending on the `target` args.
 
         Args:
             batch_size (int).
-            encoder_mask (torch.Tensor): mask for the batch of encoded inputs.
-            encoder_out (torch.Tensor): batch of encoded inputs.
-            target (torch.Tensor, optional): target symbols; if None, then we
-                decode greedily with 'student forcing'.
-            teacher_forcing (bool, optional): Whether or not to decode
+            encoder_mask (torch.Tensor): mask for the batch of encoded
+                input symbols.
+            encoder_out (torch.Tensor): batch of encoded input symbols.
+            teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
@@ -394,14 +396,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode
-                with teacher forcing.
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
@@ -420,8 +419,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 len(batch),
                 batch.source.mask,
                 encoder_out,
+                self.teacher_forcing if self.training else False,
                 batch.target.padded,
-                teacher_forcing,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)

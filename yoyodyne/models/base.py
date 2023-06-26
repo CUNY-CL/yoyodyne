@@ -30,6 +30,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     # Regularization arguments.
     dropout: float
     label_smoothing: Optional[float]
+    teacher_forcing: bool
     # Decoding arguments.
     beam_width: int
     max_target_length: int
@@ -59,6 +60,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         scheduler_kwargs=None,
         dropout=defaults.DROPOUT,
         label_smoothing=None,
+        teacher_forcing=defaults.TEACHER_FORCING,
         beam_width=defaults.BEAM_WIDTH,
         max_target_length=defaults.MAX_TARGET_LENGTH,
         decoder_layers=defaults.DECODER_LAYERS,
@@ -81,6 +83,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.scheduler_kwargs = scheduler_kwargs
         self.dropout = dropout
         self.label_smoothing = label_smoothing
+        self.teacher_forcing = teacher_forcing
         self.beam_width = beam_width
         self.max_target_length = max_target_length
         self.decoder_layers = decoder_layers
@@ -210,7 +213,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         # Greedy decoding.
         # -> B x seq_len x output_size.
         target_padded = batch.target.padded
-        greedy_predictions = self(batch, teacher_forcing=False)
+        greedy_predictions = self(batch)
         accuracy = self.evaluator.val_accuracy(
             greedy_predictions, target_padded, self.end_idx, self.pad_idx
         )
@@ -257,8 +260,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             torch.Tensor: indices of the argmax at each timestep.
         """
-        batch.target.padded = None
-        predictions = self(batch, teacher_forcing=False)
+        predictions = self(batch)
         # -> B x seq_len x 1.
         greedy_predictions = self._get_predicted(predictions)
         return greedy_predictions
@@ -432,6 +434,11 @@ class BaseEncoderDecoder(pl.LightningModule):
             "--label_smoothing",
             type=float,
             help="Coefficient for label smoothing.",
+        )
+        parser.add_argument(
+            "--teacher_forcing",
+            default=defaults.TEACHER_FORCING,
+            help="Use teacher forcing while training. Default: %(default)s.",
         )
         # TODO: add --beam_width.
         # Model arguments.

@@ -249,19 +249,16 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     def forward(
         self,
         batch: batches.PaddedBatch,
-        teacher_forcing: bool = True,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
             batch (batches.PaddedBatch).
-            teacher_forcing (bool, optional): Whether or not to decode
-                with teacher forcing.
 
         Returns:
             torch.Tensor.
         """
-        if teacher_forcing:
+        if self.training and self.teacher_forcing:
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
