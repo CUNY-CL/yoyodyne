@@ -13,7 +13,7 @@ class SymbolMap:
     symbol2index: Dict[str, int]
 
     def __init__(self, vocabulary: List[str]):
-        # Keep special.SPECIAL first to maintain overlap with features.
+        # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
 

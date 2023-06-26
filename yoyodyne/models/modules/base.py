@@ -2,12 +2,26 @@
 
 This also includes init_embeddings, which has to go somewhere.
 """
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import pytorch_lightning as pl
 import torch
 from torch import nn
 
 from ... import defaults
+
+
+@dataclass
+class Output:
+    """For tracking outputs of forward passes over varying architectures."""
+
+    encoded: torch.Tensor
+    hiddens: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+
+    @property
+    def has_hiddens(self) -> bool:
+        return self.hiddens is not None
 
 
 class BaseEncoder(pl.LightningModule):

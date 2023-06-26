@@ -131,7 +131,7 @@ def get_model(
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(arch, has_features)
+    model_cls = models.get_model_cls(arch)
     return model_cls.load_from_checkpoint(checkpoint)
 
 

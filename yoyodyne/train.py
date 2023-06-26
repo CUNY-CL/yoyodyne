@@ -237,7 +237,7 @@ def get_model(
     beta1: float = defaults.BETA1,
     beta2: float = defaults.BETA2,
     dropout: float = defaults.DROPOUT,
-    label_smoothing: Optional[bool] = None,
+    label_smoothing: Optional[float] = None,
     learning_rate: float = defaults.LEARNING_RATE,
     oracle_em_epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
@@ -277,9 +277,9 @@ def get_model(
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(arch, train_set.has_features)
+    model_cls = models.get_model_cls(arch)
     source_encoder_cls = models.modules.get_encoder_cls(
-        source_encoder_arch, model_arch=arch
+        encoder_arch=source_encoder_arch, model_arch=arch
     )
     expert = (
         models.expert.get_expert(
@@ -299,7 +299,9 @@ def get_model(
         "transducer",
     ]
     feature_encoder_cls = (
-        models.modules.get_encoder_cls(feature_encoder_arch, model_arch=arch)
+        models.modules.get_encoder_cls(
+            encoder_arch=feature_encoder_arch, model_arch=arch
+        )
         if separate_features and feature_encoder_arch
         else None
     )
@@ -310,11 +312,6 @@ def get_model(
         train_set.index.source_vocab_size + features_vocab_size
         if not separate_features
         else train_set.index.source_vocab_size
-    )
-    feature_encoder_cls = (
-        models.modules.get_encoder_cls(feature_encoder_arch)
-        if feature_encoder_arch and separate_features
-        else None
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     model = model_cls(

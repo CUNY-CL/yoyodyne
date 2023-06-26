@@ -95,7 +95,7 @@ class LSTMEncoder(base.BaseEncoder):
             padding_value=self.pad_idx,
             total_length=None,
         )
-        return encoded, (H, C)
+        return base.Output(encoded, hiddens=(H, C))
 
 
 class LSTMDecoder(LSTMEncoder):
@@ -147,7 +147,7 @@ class LSTMDecoder(LSTMEncoder):
             torch.cat((embedded, last_encoder_out), 2), last_hiddens
         )
         output = self.dropout_layer(output)
-        return output, hiddens
+        return base.Output(output, hiddens=hiddens)
 
     def get_module(self):
         return nn.LSTM(
@@ -208,4 +208,4 @@ class LSTMAttentiveDecoder(LSTMDecoder):
             torch.cat((embedded, context), 2), last_hiddens
         )
         output = self.dropout_layer(output)
-        return output, hiddens
+        return base.Output(output, hiddens=hiddens)

@@ -6,8 +6,7 @@ import torch
 from torch import nn
 
 from .. import batches, defaults
-from . import base
-from .modules import TransformerDecoder
+from . import base, modules
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
@@ -39,7 +38,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self):
-        return TransformerDecoder(
+        return modules.transformer.TransformerDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -75,10 +74,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = target_mask == 0
             decoder_output = self.decoder(
                 encoder_hidden, source_mask, target_tensor, target_mask
-            )
+            ).encoded
             logits = self.classifier(decoder_output)
             log_probs = self.log_softmax(logits)
-            last_output = log_probs[:, -1, :]  # Ignore EOS.
+            last_output = log_probs[:, -1, :]  # Ignores EOS.
             outputs.append(last_output)
             # -> B x 1 x 1
             _, pred = torch.max(last_output, dim=1)
@@ -115,17 +114,15 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = torch.cat(
                 (starts == self.pad_idx, batch.target.mask), dim=1
             )
-            encoder_output = self.source_encoder(batch.source)
-            if isinstance(encoder_output, tuple):
-                encoder_output, _ = encoder_output
+            encoder_output = self.source_encoder(batch.source).encoded
             decoder_output = self.decoder(
                 encoder_output, batch.source.mask, target_padded, target_mask
-            )
+            ).encoded
             logits = self.classifier(decoder_output)
             log_probs = self.log_softmax(logits)
             output = log_probs[:, :-1, :]  # Ignore EOS.
         else:
-            encoder_output = self.source_encoder(batch.source)
+            encoder_output = self.source_encoder(batch.source).encoded
             # -> B x seq_len x output_size.
             output = self._decode_greedy(encoder_output, batch.source.mask)
         return output

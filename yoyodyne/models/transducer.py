@@ -9,8 +9,7 @@ from maxwell import actions
 from torch import nn
 
 from .. import batches
-from . import expert, lstm
-from .modules import LSTMDecoder
+from . import expert, lstm, modules
 
 
 class ActionError(Exception):
@@ -54,7 +53,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         self.insertions = self.actions.insertions
 
     def get_decoder(self):
-        return LSTMDecoder(
+        return modules.lstm.LSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -84,21 +83,18 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 performed during training, so these are returned.
         """
         encoder_out = self.source_encoder(batch.source)
-        if isinstance(encoder_out, tuple):
-            encoder_out, last_hiddens = encoder_out
+        encoded = encoder_out.encoded
         # Ignores start symbol.
-        encoder_out = encoder_out[:, 1:, :]
+        encoded = encoded[:, 1:, :]
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
 
         if self.has_feature_encoder:
             features_encoder_out = self.feature_encoder(batch.features)
-            if isinstance(features_encoder_out, tuple):
-                features_encoder_out, (
-                    h_features,
-                    c_features,
-                ) = features_encoder_out
+            features_encoded = features_encoder_out.encoded
+            if features_encoder_out.has_hiddens:
+                h_features, c_features = features_encoder_out.hiddens
                 h_features = h_features.mean(dim=0, keepdim=True).expand(
                     self.decoder_layers, -1, -1
                 )
@@ -110,13 +106,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 last_hiddens = self.init_hiddens(
                     source_mask.shape[0], self.decoder_layers
                 )
-            features_encoder_out = features_encoder_out.mean(
-                dim=1, keepdim=True
-            )
-            encoder_out = torch.cat(
+            features_encoded = features_encoded.mean(dim=1, keepdim=True)
+            encoded = torch.cat(
                 (
-                    encoder_out,
-                    features_encoder_out.expand(-1, encoder_out.shape[1], -1),
+                    encoded,
+                    features_encoded.expand(-1, encoded.shape[1], -1),
                 ),
                 dim=2,
             )
@@ -125,7 +119,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 source_mask.shape[0], self.decoder_layers
             )
         prediction, loss = self.decode(
-            encoder_out,
+            encoded,
             last_hiddens,
             source_padded,
             source_mask,
@@ -196,7 +190,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 not_complete.to(self.device), action_count + 1, action_count
             )
             # Decoding.
-            decoder_output, last_hiddens = self.decoder(
+            decoder_output = self.decoder(
                 last_action.unsqueeze(dim=1),
                 last_hiddens,
                 encoder_out,
@@ -204,7 +198,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                     alignment.unsqueeze(1) + 1
                 ),  # To accomodate LSTMDecoder. See encoder_mask behavior.
             )
-            logits = self.classifier(decoder_output).squeeze(dim=1)
+            decoded, last_hiddens = (
+                decoder_output.encoded,
+                decoder_output.hiddens,
+            )
+            logits = self.classifier(decoded).squeeze(dim=1)
             # If given targets, asks expert for optimal actions.
             optim_action = (
                 self.batch_expert_rollout(

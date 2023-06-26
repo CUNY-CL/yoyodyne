@@ -32,7 +32,7 @@ class PositionalEncoding(nn.Module):
             pad_idx (int).
             max_source_length (int).
         """
-        super(PositionalEncoding, self).__init__()
+        super().__init__()
         self.pad_idx = pad_idx
         positional_encoding = torch.zeros(max_source_length, d_model)
         position = torch.arange(
@@ -170,7 +170,8 @@ class TransformerEncoder(base.BaseEncoder):
             torch.Tensor: sequence of encoded symbols.
         """
         embedding = self.embed(source.padded)
-        return self.module(embedding, src_key_padding_mask=source.mask)
+        output = self.module(embedding, src_key_padding_mask=source.mask)
+        return base.Output(output)
 
 
 class TransformerDecoder(TransformerEncoder):
@@ -236,7 +237,7 @@ class TransformerDecoder(TransformerEncoder):
             memory_key_padding_mask=source_mask,
             tgt_key_padding_mask=target_mask,
         )
-        return output
+        return base.Output(output)
 
     @staticmethod
     def generate_square_subsequent_mask(length: int) -> torch.Tensor:

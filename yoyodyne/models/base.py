@@ -11,7 +11,7 @@ import torch
 from torch import nn, optim
 
 from .. import batches, defaults, evaluators, schedulers
-from .modules import base, check_encoder_compatibility
+from . import modules
 
 
 class BaseEncoderDecoder(pl.LightningModule):
@@ -41,9 +41,9 @@ class BaseEncoderDecoder(pl.LightningModule):
     embedding_size: int
     encoder_layers: int
     decoder_layers: int
-    feature_encoder_cls: Optional[base.BaseEncoder]
+    feature_encoder_cls: Optional[modules.base.BaseEncoder]
     hidden_size: int
-    source_encoder_cls: base.BaseEncoder
+    source_encoder_cls: modules.base.BaseEncoder
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
     evaluator: evaluators.Evaluator
@@ -107,7 +107,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.scheduler_kwargs = scheduler_kwargs
         self.evaluator = evaluators.Evaluator()
         # Checks compatibility with feature encoder and dataloader.
-        check_encoder_compatibility(source_encoder_cls, feature_encoder_cls)
+        modules.check_encoder_compatibility(
+            source_encoder_cls, feature_encoder_cls
+        )
         # Instantiates encoders class.
         self.source_encoder = source_encoder_cls(
             pad_idx=self.pad_idx,

@@ -48,71 +48,28 @@ class Item(nn.Module):
 class BaseDataset(data.Dataset):
     """Base datatset class, with some core methods."""
 
-    def __init__(self):
-        super().__init__()
-
-    @abc.abstractmethod
-    def _make_index(self) -> None:
-        ...
-
-
-class DatasetNoFeatures(BaseDataset):
-    """Dataset object without feature column."""
-
     filename: str
     config: dataconfig.DataConfig
     samples: List[List[str]]
-    index: indexes.IndexNoFeatures
+    index: indexes.BaseIndex
 
     def __init__(
         self,
         filename,
         config,
-        index: Optional[indexes.IndexNoFeatures] = None,
+        index: Optional[indexes.BaseIndex] = None,
     ):
-        """Initializes the dataset.
-
-        Args:
-            filename (str): input filename.
-            config (dataconfig.DataConfig): dataset configuration.
-            other (indexes.IndexNoFeatures, optional): if provided,
-                use this index to avoid recomputing it.
-        """
         super().__init__()
         self.config = config
         self.samples = list(self.config.samples(filename))
         self.index = index if index is not None else self._make_index()
-        assert self.config.has_features is self.index.has_features
 
-    @staticmethod
-    def read_index(path: str) -> indexes.IndexNoFeatures:
-        """Helper for loading index.
+    @abc.abstractmethod
+    def _make_index(self) -> None:
+        ...
 
-        Args:
-            path (str).
-
-        Returns:
-            indexes.IndexNoFeatures.
-        """
-        return indexes.IndexNoFeatures.read(path)
-
-    def _make_index(self) -> indexes.IndexNoFeatures:
-        """Generates index."""
-        source_vocabulary: Set[str] = set()
-        target_vocabulary: Set[str] = set()
-        if self.config.has_target:
-            for source, target in self.samples:
-                source_vocabulary.update(source)
-                target_vocabulary.update(target)
-            if self.config.tied_vocabulary:
-                source_vocabulary.update(target_vocabulary)
-                target_vocabulary.update(source_vocabulary)
-        else:
-            for source in self.samples:
-                source_vocabulary.update(source)
-        return indexes.IndexNoFeatures(
-            sorted(source_vocabulary), sorted(target_vocabulary)
-        )
+    def __len__(self) -> int:
+        return len(self.samples)
 
     def encode(
         self,
@@ -242,8 +199,45 @@ class DatasetNoFeatures(BaseDataset):
             special=special,
         )
 
-    def __len__(self) -> int:
-        return len(self.samples)
+    @property
+    def has_features(self) -> bool:
+        return self.index.has_features
+
+
+class DatasetNoFeatures(BaseDataset):
+    """Dataset object without feature column."""
+
+    index: indexes.IndexNoFeatures
+
+    @staticmethod
+    def read_index(path: str) -> indexes.IndexNoFeatures:
+        """Helper for loading index.
+
+        Args:
+            path (str).
+
+        Returns:
+            indexes.IndexNoFeatures.
+        """
+        return indexes.IndexNoFeatures.read(path)
+
+    def _make_index(self) -> indexes.IndexNoFeatures:
+        """Generates index."""
+        source_vocabulary: Set[str] = set()
+        target_vocabulary: Set[str] = set()
+        if self.config.has_target:
+            for source, target in self.samples:
+                source_vocabulary.update(source)
+                target_vocabulary.update(target)
+            if self.config.tied_vocabulary:
+                source_vocabulary.update(target_vocabulary)
+                target_vocabulary.update(source_vocabulary)
+        else:
+            for source in self.samples:
+                source_vocabulary.update(source)
+        return indexes.IndexNoFeatures(
+            sorted(source_vocabulary), sorted(target_vocabulary)
+        )
 
     def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.
@@ -263,10 +257,6 @@ class DatasetNoFeatures(BaseDataset):
             return Item(source_encoded, target=target_encoded)
         else:
             return Item(source_encoded)
-
-    @property
-    def has_features(self) -> bool:
-        return self.index.has_features
 
 
 class DatasetFeatures(DatasetNoFeatures):

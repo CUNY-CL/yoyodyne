@@ -8,8 +8,7 @@ import torch
 from torch import nn
 
 from .. import batches, defaults
-from . import base
-from .modules import LSTMAttentiveDecoder, LSTMDecoder
+from . import base, modules
 
 
 class LSTMEncoderDecoder(base.BaseEncoderDecoder):
@@ -42,7 +41,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self):
-        return LSTMDecoder(
+        return modules.lstm.LSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -116,9 +115,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
-            decoder_output, decoder_hiddens = self.decoder(
+            decoded = self.decoder(
                 decoder_input, decoder_hiddens, encoder_out, encoder_mask
             )
+            decoder_output, decoder_hiddens = decoded.encoded, decoded.hiddens
             logits = self.classifier(decoder_output)
             output = self.log_softmax(logits)
             predictions.append(output.squeeze(1))
@@ -204,8 +204,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 decoder_input = torch.tensor(
                     [beam_idxs[-1]], device=self.device, dtype=torch.long
                 ).unsqueeze(1)
-                decoder_output, decoder_hiddens = self.decoder(
+                decoded = self.decoder(
                     decoder_input, decoder_hiddens, encoder_out, encoder_mask
+                )
+                decoder_output, decoder_hiddens = (
+                    decoded.encoded,
+                    decoded.hiddens,
                 )
                 logits = self.classifier(decoder_output)
                 predictions = self.log_softmax(logits)
@@ -276,10 +280,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             predictions (torch.Tensor): tensor of predictions of shape
                 (seq_len, batch_size, output_size).
         """
-        encoder_out = self.source_encoder(batch.source)
-        # Checks if encoder follows transformer or lstm behavior.
-        if isinstance(encoder_out, tuple):
-            encoder_out, _ = encoder_out
+        encoder_out = self.source_encoder(batch.source).encoded
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
                 encoder_out,
@@ -319,7 +320,7 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
     """LSTM encoder-decoder with attention."""
 
     def get_decoder(self):
-        return LSTMAttentiveDecoder(
+        return modules.lstm.LSTMAttentiveDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,

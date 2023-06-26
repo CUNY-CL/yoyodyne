@@ -32,7 +32,7 @@ class ActionVocabulary:
     start_vocab_idx: int
     target_characters: Set[Any]
 
-    def __init__(self, unk_idx, i2w=None):
+    def __init__(self, unk_idx: int, i2w=None):
         self.i2w = [
             actions.Start(),
             actions.End(),

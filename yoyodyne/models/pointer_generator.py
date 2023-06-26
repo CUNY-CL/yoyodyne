@@ -7,8 +7,7 @@ import torch
 from torch import nn
 
 from .. import batches
-from . import AttentiveLSTMEncoderDecoder
-from .modules import LSTMAttentiveDecoder, attention
+from . import lstm, modules
 
 
 class Error(Exception):
@@ -68,7 +67,7 @@ class GenerationProbability(nn.Module):
         return p_gen
 
 
-class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
+class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
     """Pointer-generator model with an LSTM backend and no features.
 
     After:
@@ -100,7 +99,7 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
         else:
             self.merge_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
             self.merge_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
-            self.feature_attention = attention.Attention(
+            self.feature_attention = modules.attention.Attention(
                 self.feature_encoder.output_size, self.hidden_size
             )
             self.classifier = nn.Linear(
@@ -117,7 +116,7 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
             )
 
     def get_decoder(self):
-        return LSTMAttentiveDecoder(
+        return modules.lstm.LSTMAttentiveDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -293,8 +292,9 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
             torch.Tensor.
         """
         encoder_output = self.source_encoder(batch.source)
-        if isinstance(encoder_output, tuple):
-            encoder_output, (h_source, c_source) = encoder_output
+        encoded = encoder_output.encoded
+        if encoder_output.has_hiddens:
+            (h_source, c_source) = encoder_output.hiddens
             last_hiddens = self._reshape_hiddens(
                 h_source,
                 c_source,
@@ -314,7 +314,7 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
             else:
                 predictions = self.decode(
                     batch.source.padded,
-                    encoder_output,
+                    encoded,
                     batch.source.mask,
                     target=batch.target.padded,
                     last_hiddens=last_hiddens,
@@ -322,11 +322,9 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
         else:
             assert batch.has_features
             features_encoder_output = self.feature_encoder(batch.features)
-            if isinstance(features_encoder_output, tuple):
-                features_encoder_output, (
-                    h_features,
-                    c_features,
-                ) = features_encoder_output
+            features_encoded = features_encoder_output.encoded
+            if features_encoder_output.has_hiddens:
+                h_features, c_features = features_encoder_output.hiddens
                 h_features, c_features = self._reshape_hiddens(
                     h_features,
                     c_features,
@@ -337,7 +335,7 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
                 h_features, c_features = self.init_hiddens(
                     len(batch), self.source_encoder.layers
                 )
-            # Joining hidden states.
+            # Joins hidden states.
             h_source, c_source = last_hiddens
             h0 = self.merge_h(torch.cat([h_source, h_features], dim=2))
             c0 = self.merge_c(torch.cat([c_source, c_features], dim=2))
@@ -351,9 +349,9 @@ class PointerGeneratorLSTMEncoderDecoder(AttentiveLSTMEncoderDecoder):
             else:
                 predictions = self.decode(
                     batch.source.padded,
-                    encoder_output,
+                    encoded,
                     batch.source.mask,
-                    feature_enc=features_encoder_output,
+                    feature_enc=features_encoded,
                     feature_mask=batch.features.mask,
                     target=batch.target.padded,
                     last_hiddens=last_hiddens,

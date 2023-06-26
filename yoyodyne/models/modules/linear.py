@@ -42,4 +42,4 @@ class LinearEncoder(base.BaseEncoder):
             Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
                 encoded timesteps, and the LSTM h0 and c0 cells.
         """
-        return self.embed(source.padded)
+        return base.Output(self.embed(source.padded))
