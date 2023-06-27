@@ -47,6 +47,7 @@ class GenerationProbability(nn.Module):
         decoder_hs: torch.Tensor,
         inp: torch.Tensor,
     ) -> torch.Tensor:
+        # TODO(Adamits): improve documentation.
         """Computes Wh * ATTN_t + Ws * HIDDEN_t + Wy * Y_{t-1} + b.
 
         Args:
