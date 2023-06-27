@@ -7,8 +7,8 @@ from typing import List, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import batches, defaults
 from . import attention, base
+from .. import batches, defaults
 
 
 class LSTMEncoderDecoder(base.BaseEncoderDecoder):

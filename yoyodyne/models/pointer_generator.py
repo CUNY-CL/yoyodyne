@@ -5,8 +5,8 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from .. import batches
 from . import attention, generation_probability, lstm
+from .. import batches
 
 
 class Error(Exception):
@@ -265,16 +265,20 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     """
 
     # Constructed inside __init__.
+    feature_attention: attention.Attention
+    feature_embeddings: nn.Embedding
     feature_encoder: nn.LSTM
     linear_h: nn.Linear
     linear_c: nn.Linear
-    feature_attention: attention.Attention
 
     def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
         self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
+        self.feature_embeddings = self.init_embeddings(
+            self.features_vocab_size, self.embedding_size, self.pad_idx
+        )
         self.feature_encoder = nn.LSTM(
             self.embedding_size,
             self.hidden_size,
@@ -310,6 +314,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     def encode(
         self,
         source: batches.PaddedTensor,
+        embeddings: nn.Embedding,
         encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
         """Encodes the input with the TransformerEncoder.
@@ -319,12 +324,13 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
 
         Args:
             source (batches.PaddedTensor).
+            embedding (torch.nn.Embedding).
             encoder (torch.nn.LSTM).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.source_embeddings(source.padded)
+        embedded = embeddings(source.padded)
         embedded = self.dropout_layer(embedded)
         packed = nn.utils.rnn.pack_padded_sequence(
             embedded, source.lengths(), batch_first=True, enforce_sorted=False
@@ -501,10 +507,10 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         """
         assert batch.has_features
         source_encoded, (h_source, c_source) = self.encode(
-            batch.source, self.encoder
+            batch.source, self.source_embeddings, self.encoder
         )
         features_encoded, (h_features, c_features) = self.encode(
-            batch.features, self.feature_encoder
+            batch.features, self.feature_embeddings, self.feature_encoder
         )
         h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))

@@ -148,6 +148,10 @@ def get_datasets(
     train_set = datasets.get_dataset(train, config)
     dev_set = datasets.get_dataset(dev, config, train_set.index)
     util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
+    if train_set.has_features:
+        util.log_info(
+            f"Feature vocabulary: {train_set.index.features_map.pprint()}"
+        )
     util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
     return train_set, dev_set
 
@@ -191,8 +195,7 @@ def get_loaders(
             loaders.
     """
     collator = collators.Collator(
-        train_set.index.pad_idx,
-        train_set.config,
+        train_set,
         arch,
         max_source_length,
         max_target_length,
@@ -256,7 +259,6 @@ def get_model(
         batch_size (int).
         beta1 (float).
         beta2 (float).
-        batch_size (int).
         dropout (float).
         learning_rate (float).
         oracle_em_epochs (int).
@@ -269,7 +271,7 @@ def get_model(
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(arch, train_set.config.has_features)
+    model_cls = models.get_model_cls(arch, train_set.has_features)
     expert = (
         models.expert.get_expert(
             train_set,
@@ -282,6 +284,18 @@ def get_model(
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(
         **kwargs
+    )
+    separate_features = train_set.has_features and arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    features_vocab_size = (
+        train_set.index.features_vocab_size if train_set.has_features else 0
+    )
+    vocab_size = (
+        train_set.index.source_vocab_size + features_vocab_size
+        if not separate_features
+        else train_set.index.source_vocab_size
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
@@ -296,10 +310,7 @@ def get_model(
         encoder_layers=encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
-        features_vocab_size=getattr(
-            train_set.index, "features_vocab_size", -1
-        ),
-        features_idx=getattr(train_set.index, "features_idx", -1),
+        features_vocab_size=features_vocab_size,
         hidden_size=hidden_size,
         learning_rate=learning_rate,
         max_source_length=max_source_length,
@@ -310,7 +321,7 @@ def get_model(
         scheduler=scheduler,
         scheduler_kwargs=scheduler_kwargs,
         start_idx=train_set.index.start_idx,
-        vocab_size=train_set.index.source_vocab_size,
+        vocab_size=vocab_size,
     )
 
 
