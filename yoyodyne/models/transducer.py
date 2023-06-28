@@ -84,7 +84,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             source_padded,
             source_mask,
             teacher_forcing=self.teacher_forcing if self.training else False,
-            target=batch.target.padded,
+            target=batch.target.padded if batch.target else None,
             target_mask=batch.target.mask,
         )
         return prediction, loss
@@ -640,7 +640,7 @@ class TransducerFeatures(TransducerNoFeatures):
             source_padded,
             source_mask,
             teacher_forcing=self.teacher_forcing if self.training else False,
-            target=batch.target.padded,
+            target=batch.target.padded if batch.target else None,
             target_mask=batch.target.mask,
         )
         return prediction, loss

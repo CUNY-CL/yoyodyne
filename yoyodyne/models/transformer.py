@@ -284,7 +284,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             encoder_hidden = self.encode(batch.source)
             # -> B x seq_len x output_size.
             output = self._decode_greedy(
-                encoder_hidden, batch.source.mask, batch.target.padded
+                encoder_hidden,
+                batch.source.mask,
+                batch.target.padded if batch.target else None,
             )
         return output
 

@@ -130,6 +130,24 @@ class DataConfig:
                 target = self._get_cell(row, self.target_col, self.target_sep)
                 yield source, features, target
 
+    def source_features_samples(
+        self, filename: str
+    ) -> Iterator[Tuple[List[str], List[str]]]:
+        """Yields source, and features."""
+        with open(filename, "r") as source:
+            tsv_reader = csv.reader(source, delimiter="\t")
+            for row in tsv_reader:
+                source = self._get_cell(row, self.source_col, self.source_sep)
+                # Avoids overlap with source.
+                features = [
+                    f"[{feature}]"
+                    for feature in self._get_cell(
+                        row, self.features_col, self.features_sep
+                    )
+                ]
+                yield source, features
+
+
     def samples(self, filename: str) -> Iterator[Tuple[List[str], ...]]:
         """Picks the right one for this config."""
         if self.has_features:
