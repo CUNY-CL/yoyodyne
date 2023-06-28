@@ -22,22 +22,26 @@ class Error(Exception):
     pass
 
 
-def _get_logger(experiment: str, model_dir: str, wandb: bool) -> List:
+def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     """Creates the logger(s).
 
     Args:
         experiment (str).
         model_dir (str).
-        wandb (bool).
+        log_wandb (bool).
 
     Returns:
         List: logger.
     """
     trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
-    if wandb:
+    if log_wandb:
         trainer_logger.append(
             loggers.WandbLogger(project=experiment, log_model="all")
         )
+        # Tells PTL to log best validation acc
+        import wandb
+        wandb.define_metric('val_accuracy', summary='max')
+        
     return trainer_logger
 
 
@@ -82,7 +86,7 @@ def get_trainer(
     model_dir: str,
     save_top_k: int,
     patience: Optional[int] = None,
-    wandb: bool = True,
+    log_wandb: bool = True,
     **kwargs,
 ) -> pl.Trainer:
     """Creates the trainer.
@@ -92,7 +96,7 @@ def get_trainer(
         model_dir (str).
         patience (int, optional).
         save_top_k (int).
-        wandb (bool).
+        log_wandb (bool).
         **kwargs: passed to the trainer.
 
     Returns:
@@ -102,7 +106,7 @@ def get_trainer(
         callbacks=_get_callbacks(save_top_k, patience),
         default_root_dir=model_dir,
         enable_checkpointing=True,
-        logger=_get_logger(experiment, model_dir, wandb),
+        logger=_get_logger(experiment, model_dir, log_wandb),
         **kwargs,
     )
 
@@ -123,7 +127,7 @@ def _get_trainer_from_argparse_args(
         callbacks=_get_callbacks(args.save_top_k, args.patience),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
-        logger=_get_logger(args.experiment, args.model_dir, args.wandb),
+        logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
     )
 
 
@@ -435,15 +439,15 @@ def main() -> None:
     )
     parser.add_argument("--seed", type=int, help="Random seed")
     parser.add_argument(
-        "--wandb",
+        "--log_wandb",
         action="store_true",
-        default=defaults.WANDB,
+        default=defaults.LOG_WANDB,
         help="Use Weights & Biases logging (log-in required). Default: True.",
     )
     parser.add_argument(
-        "--no_wandb",
+        "--log_wandb",
         action="store_false",
-        dest="wandb",
+        dest="log_wandb",
     )
     args = parser.parse_args()
     util.log_arguments(args)
