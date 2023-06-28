@@ -1,7 +1,6 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-import os
 from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
@@ -41,10 +40,11 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
         )
         # Tells PTL to log best validation acc
         import wandb
+
         wandb.define_metric("val_accuracy", summary="max")
         # Logs the path to local artifacts made by PTL.
         wandb.config.update({"local_run_dir": trainer_logger[0].log_dir})
-        
+
     return trainer_logger
 
 
