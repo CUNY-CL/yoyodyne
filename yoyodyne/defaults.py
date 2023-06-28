@@ -33,6 +33,7 @@ ORACLE_FACTOR = 1
 OPTIMIZER = "adam"
 SAVE_TOP_K = 1
 WANDB = False
+TEACHER_FORCING = True
 
 # Decoding arguments.
 BEAM_WIDTH = 1

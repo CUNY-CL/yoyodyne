@@ -163,20 +163,31 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         source_indices: torch.Tensor,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Decodes a sequence.
+        """Decodes a sequence given the encoded input.
+
+        Decodes until all sequences in a batch have reached [EOS] up to
+        a specified length depending on the `target` args.
 
         Args:
             batch_size (int).
-            decoder_hiddens (torch.Tensor).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            target (torch.Tensor, optional).
+            decoder_hiddens (torch.Tensor): .
+            source_indices (torch.Tensor): Indices of the input for calculating
+                pointer weights.
+            source_enc (torch.Tensor): batch of encoded input symbols.
+            source_mask (torch.Tensor): mask for the batch of encoded input
+                symbols.
+            feature_enc (torch.Tensor): batch of encoded feaure symbols.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
-            torch.Tensor
+            torch.Tensor.
         """
         # Feeds in the first decoder input, as a start tag.
         # -> B x 1
@@ -203,25 +214,37 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 source_mask,
             )
             predictions.append(output.squeeze(1))
-            # If we have a target (training) then the next input is the gold
-            # symbol for this step (teacher forcing).
-            if target is not None:
+            # In teacher forcing mode the next input is the gold symbol
+            # for this step.
+            if teacher_forcing:
+                assert (
+                    target is not None
+                ), "Teacher forcing requested but no target provided"
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it must be inference time and we pass the top pred
-            # to the next next timestep (student forcing; greedy decoding).
+            # Otherwise we pass the top pred to the next timestep
+            # (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
                 # Tracks which sequences have decoded an EOS.
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all batches predicted an END symbol.
+                # Breaks when all batches predicted an EOS symbol.
+                # If we have a target (and are thus computing loss),
+                # we only break when we have decoded at least the the
+                # same number of steps as the target length.
                 if finished.all():
-                    break
+                    if target is None or decoder_input.size(-1) >= target.size(
+                        -1
+                    ):
+                        break
         predictions = torch.stack(predictions)
         return predictions
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
@@ -245,6 +268,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
+                self.teacher_forcing if self.training else False,
                 batch.target.padded,
             )
         # -> B x seq_len x output_size.
@@ -434,19 +458,30 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         source_mask: torch.Tensor,
         feature_enc: torch.Tensor,
         feature_mask: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Decodes a sequence.
+        """Decodes a sequence given the encoded input.
+
+        Decodes until all sequences in a batch have reached [EOS] up to
+        a specified length depending on the `target` args.
 
         Args:
             batch_size (int).
-            decoder_hiddens (torch.Tensor).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            feature_enc (torch.Tensor).
-            feature_mask (torch.Tensor).
-            target (torch.Tensor, optional).
+            decoder_hiddens (torch.Tensor): .
+            source_indices (torch.Tensor): Indices of the input for
+                calculating pointer weights.
+            source_enc (torch.Tensor): batch of encoded input symbols.
+            source_mask (torch.Tensor): mask for the batch of encoded
+                input symbols.
+            feature_enc (torch.Tensor): batch of encoded feaure symbols.
+            feature_mask (torch.Tensor): mask for the batch of encoded
+                feature symbols.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
             torch.Tensor.
@@ -478,25 +513,37 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 feature_mask,
             )
             predictions.append(output.squeeze(1))
-            # If we have a target (training) then the next input is the gold
-            # symbol for this step (teacher forcing).
-            if target is not None:
+            # In teacher forcing mode the next input is the gold symbol
+            # for this step.
+            if teacher_forcing:
+                assert (
+                    target is not None
+                ), "Teacher forcing requested but no target provided"
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it must be inference time and we pass the top pred
-            # to the next next timestep (student forcing; greedy decoding).
+            # Otherwise we pass the top pred to the next timestep
+            # (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
                 # Tracks which sequences have decoded an EOS.
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all batches predicted an END symbol.
+                # Breaks when all batches predicted an EOS symbol.
+                # If we have a target (and are thus computing loss),
+                # we only break when we have decoded at least the the
+                # same number of steps as the target length.
                 if finished.all():
-                    break
+                    if target is None or decoder_input.size(-1) >= target.size(
+                        -1
+                    ):
+                        break
         predictions = torch.stack(predictions)
         return predictions
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
@@ -528,6 +575,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 batch.source.mask,
                 features_encoded,
                 batch.features.mask,
+                self.teacher_forcing if self.training else False,
                 batch.target.padded,
             )
         # -> B x seq_len x output_size.

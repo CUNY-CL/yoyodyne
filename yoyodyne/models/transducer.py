@@ -61,7 +61,8 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         )
 
     def forward(
-        self, batch: batches.PaddedBatch
+        self,
+        batch: batches.PaddedBatch,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
@@ -82,6 +83,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             encoder_out,
             source_padded,
             source_mask,
+            teacher_forcing=self.teacher_forcing if self.training else False,
             target=batch.target.padded,
             target_mask=batch.target.mask,
         )
@@ -92,6 +94,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         encoder_out: torch.Tensor,
         source: torch.Tensor,
         source_mask: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
         target_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[List[List[int]], torch.Tensor]:
@@ -104,6 +107,9 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 B x seq_len x emb_size.
             source (torch.Tensor): encoded source input.
             source_mask (torch.Tensor): mask for source input.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing. Determines whether or not to rollout
+                optimal actions.
             target (torch.Tensor, optional): encoded target input.
             target_mask (torch.Tensor, optional): mask for target input.
 
@@ -169,7 +175,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
                 alignment,
                 input_length,
                 not_complete,
-                optim_action=optim_action,
+                optim_action=optim_action if teacher_forcing else None,
             )
             alignment = self.update_prediction(
                 last_action, source, alignment, prediction
@@ -600,7 +606,10 @@ class TransducerFeatures(TransducerNoFeatures):
             batch_first=True,
         )
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
@@ -630,6 +639,7 @@ class TransducerFeatures(TransducerNoFeatures):
             encoder_out_feat,
             source_padded,
             source_mask,
+            teacher_forcing=self.teacher_forcing if self.training else False,
             target=batch.target.padded,
             target_mask=batch.target.mask,
         )
