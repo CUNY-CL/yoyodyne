@@ -1,8 +1,6 @@
 import os
 import traceback
 import sys
-import math
-from typing import Tuple
 import functools
 
 import wandb
@@ -10,7 +8,14 @@ import pytorch_lightning as pl
 import argparse
 
 from yoyodyne import (
-    collators, dataconfig, defaults, models, schedulers, train, predict, util
+    collators,
+    dataconfig,
+    defaults,
+    models,
+    schedulers,
+    train,
+    predict,
+    util,
 )
 
 
@@ -54,7 +59,7 @@ def get_args():
         action="store_true",
         default=True,
         help="Whether or not to write a predictions.tsv file with the"
-         " best model on the development set.",
+        " best model on the development set.",
     )
     parser.add_argument(
         "--no_predict",
@@ -76,7 +81,9 @@ def get_args():
     models.expert.add_argparse_args(parser)
     pl.Trainer.add_argparse_args(parser)
     parser.add_argument(
-        "--max_batch_size", type=int, help="Max batch size to fit in one train step."
+        "--max_batch_size",
+        type=int,
+        help="Max batch size to fit in one train step.",
     )
     # Other training arguments.
     parser.add_argument(
@@ -141,7 +148,7 @@ def run_train(args):
             args.arch,
             pred_batch_size,
             defaults.MAX_SOURCE_LENGTH,
-            defaults.MAX_TARGET_LENGTH
+            defaults.MAX_TARGET_LENGTH,
         )
         # Reloads the model.
         model = predict.get_model(
@@ -149,7 +156,7 @@ def run_train(args):
             train_set.config.has_features,
             best_checkpoint,
         )
-        # Hack to get the results dir for this version, from the checkpoint path
+        # Hack to get the results dir for this version from the checkpoint path
         output = best_checkpoint.split("checkpoints")[0]
         output = os.path.join(output, "predictions.tsv")
         util.log_info(f"Writing predictions to {output}")
@@ -164,9 +171,9 @@ def main():
             args.sweep_id,
             function=functools.partial(run_train, args),
             project=args.experiment,
-            count=args.max_num_runs
+            count=args.max_num_runs,
         )
-    except Exception as e:
+    except Exception:
         # Exits gracefully, so wandb logs the error
         util.log_info(traceback.format_exc(), file=sys.stderr)
         exit(1)

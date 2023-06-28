@@ -1,13 +1,17 @@
-"""Gets the run name and config for all runs in a project, and writes them to a CSV."""
+"""Gets the run name and config for all runs in a project,
+and writes them to a CSV."""
 
-import pandas as pd 
+import pandas as pd
 import wandb
 import click
 
 
 @click.command()
-@click.option("--project_name", help="Name of the wandb project. "
-              "Should be of the format <entity/project-name>.")
+@click.option(
+    "--project_name",
+    help="Name of the wandb project. "
+    "Should be of the format <entity/project-name>.",
+)
 @click.option("--output_filepath", help="Path to store CSV of results.")
 def main(project_name, output_filepath):
     api = wandb.Api()
@@ -27,9 +31,7 @@ def main(project_name, output_filepath):
         summary["max_val_accuracy"] = val_acc
         summary.pop("_wandb")
 
-        config = {
-            k: v for k, v in run.config.items() if not k.startswith('_')
-        }
+        config = {k: v for k, v in run.config.items() if not k.startswith("_")}
         run_dict = config
         run_dict.update(summary)
         run_dict["name"] = run.name
