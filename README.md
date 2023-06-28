@@ -79,6 +79,8 @@ Alternatively, for the SIGMORPHON 2016 shared task data format:
 
 this format is specified by `--features-col 2 --features-sep , --target-col 3`.
 
+In order to ensure that targets are ignored during prediction, one can specify `--target_col 0`.
+
 ## Model checkpointing
 
 Checkpointing is handled by
