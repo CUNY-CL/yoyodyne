@@ -204,7 +204,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
                 the batch.
 
         Returns:
-            torch.Tensor: predicitons from the decoder.
+            torch.Tensor: predictions from the decoder.
         """
         # The output distributions to be returned.
         outputs = []
@@ -259,6 +259,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             torch.Tensor.
         """
         if self.training and self.teacher_forcing:
+            assert (
+                batch.target.padded is not None
+            ), "Teacher forcing requested but no target provided"
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(

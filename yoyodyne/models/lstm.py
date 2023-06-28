@@ -247,6 +247,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             # In teacher forcing mode the next input is the gold symbol
             # for this step.
             if teacher_forcing:
+                assert (
+                    target is not None
+                ), "Teacher forcing requested but no target provided"
                 decoder_input = target[:, t].unsqueeze(1)
             # Otherwise we pass the top pred to the next timestep
             # (i.e., student forcing, greedy decoding).
