@@ -147,7 +147,6 @@ class DataConfig:
                 ]
                 yield source, features
 
-
     def samples(self, filename: str) -> Iterator[Tuple[List[str], ...]]:
         """Picks the right one for this config."""
         if self.has_features:
