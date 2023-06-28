@@ -9,56 +9,40 @@ https://docs.wandb.ai/guides/sweeps/define-sweep-configuration"""
 import wandb
 
 import argparse
-from typing import Dict
 
-
-def get_optimization_params() -> Dict:
-    """Gets the optimizatoin hyperparameters to sweep.
-
-    Returns:
-        Dict: Dictionary of hyperparameters and value ranges.
-    """
-    return {
-        "batch_size": {
-            "distribution": "q_uniform",
-            "q": 16,
-            "min": 16,
-            "max": 1024,
-        },
-        "learning_rate": {
-            "distribution": "log_uniform_values",
-            "min": 0.00001,
-            "max": 0.01,
-        },
-        "label_smoothing": {"distribution": "uniform", "min": 0.0, "max": 0.2},
-    }
-
-
-def get_architecture_params() -> Dict:
-    """Gets the architecture hyperparameters to sweep.
-
-    Returns:
-        Dict: Dictionary of hyperparameters and value ranges.
-    """
-    return {
-        "embedding_size": {
-            "distribution": "q_uniform",
-            "q": 16,
-            "min": 16,
-            "max": 1024,
-        },
-        "hidden_size": {
-            "distribution": "q_uniform",
-            "q": 16,
-            "min": 16,
-            "max": 1024,
-        },
-        "dropout": {
-            "distribution": "uniform",
-            "min": 0,
-            "max": 0.5,
-        },
-    }
+# TODO: Update the hyperparameter grid with new hyperparameters
+# and value distributions.
+HPARAMS = {
+    "embedding_size": {
+        "distribution": "q_uniform",
+        "q": 16,
+        "min": 16,
+        "max": 1024,
+    },
+    "hidden_size": {
+        "distribution": "q_uniform",
+        "q": 16,
+        "min": 16,
+        "max": 1024,
+    },
+    "dropout": {
+        "distribution": "uniform",
+        "min": 0,
+        "max": 0.5,
+    },
+    "batch_size": {
+        "distribution": "q_uniform",
+        "q": 16,
+        "min": 16,
+        "max": 128,
+    },
+    "learning_rate": {
+        "distribution": "log_uniform_values",
+        "min": 0.00001,
+        "max": 0.01,
+    },
+    "label_smoothing": {"distribution": "uniform", "min": 0.0, "max": 0.2},
+}
 
 
 def make_sweep(sweep_name: str) -> int:
@@ -71,14 +55,12 @@ def make_sweep(sweep_name: str) -> int:
     Returns:
         int: The wandb sweep ID for this configuration.
     """
-    hparams = get_optimization_params()
-    hparams.update(get_architecture_params())
-
+    # TODO: Change search method or metric to maximize/minimize
     sweep_configuration = {
         "method": "random",
         "name": sweep_name,
         "metric": {"goal": "maximize", "name": "val_accuracy"},
-        "parameters": hparams,
+        "parameters": HPARAMS,
     }
 
     # FIXME: We name the sweep and project the same, but they can be different!
@@ -92,10 +74,9 @@ def main():
     parser.add_argument(
         "--sweep_name", required=True, help="Name of sweep_name"
     )
-    parser.add_argument("--arch", required=True, help="Name of architecture")
     args = parser.parse_args()
 
-    sweep_id = make_sweep(args.sweep_name, args.arch)
+    sweep_id = make_sweep(args.sweep_name)
     print(f"Made sweep: {sweep_id}")
 
 

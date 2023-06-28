@@ -3,19 +3,25 @@ and writes them to a CSV."""
 
 import pandas as pd
 import wandb
-import click
+import argparse
 
 
-@click.command()
-@click.option(
-    "--project_name",
-    help="Name of the wandb project. "
-    "Should be of the format <entity/project-name>.",
-)
-@click.option("--output_filepath", help="Path to store CSV of results.")
-def main(project_name, output_filepath):
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--project_name",
+        required=True,
+        help="Name of the wandb project. "
+        "Should be of the format <entity/project-name>.",
+    )
+    parser.add_argument(
+        "--output_filepath",
+        required=True,
+        help="Path to store CSV of results.",
+    )
+    args = parser.parse_args()
     api = wandb.Api()
-    runs = api.runs(project_name)
+    runs = api.runs(args.project_name)
     run_dicts = []
     for run in runs:
         # Ignores running and failed jobs.
@@ -38,7 +44,7 @@ def main(project_name, output_filepath):
         run_dicts.append(run_dict)
 
     runs_df = pd.DataFrame(run_dicts)
-    runs_df.to_csv(output_filepath)
+    runs_df.to_csv(args.output_filepath)
 
 
 if __name__ == "__main__":

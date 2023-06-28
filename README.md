@@ -207,6 +207,12 @@ format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) if
 supported by the accelerator. This may reduce the size of the model and batches
 in memory, allowing one to use larger batches.
 
+## Examples
+
+The [`examples`](examples) directory contains interesting examples, including:
+
+* [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights & Biases](https://wandb.ai/site) to conduct hyperparameter sweeps.
+
 ## References
 
 Ott, M., Edunov, S., Baevski, A., Fan, A., Gross, S., Ng, N., Grangier, D., and

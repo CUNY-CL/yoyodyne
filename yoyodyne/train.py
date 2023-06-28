@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 import pytorch_lightning as pl
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
+import wandb
 
 from . import (
     collators,
@@ -39,8 +40,6 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
             loggers.WandbLogger(project=experiment, log_model="all")
         )
         # Tells PTL to log best validation acc
-        import wandb
-
         wandb.define_metric("val_accuracy", summary="max")
         # Logs the path to local artifacts made by PTL.
         wandb.config.update({"local_run_dir": trainer_logger[0].log_dir})
@@ -372,8 +371,12 @@ def get_index(model_dir: str, experiment: str) -> str:
     return f"{model_dir}/{experiment}/index.pkl"
 
 
-def main() -> None:
-    """Trainer."""
+def get_train_argparse_parser() -> argparse.Namespace:
+    """Gets the parser with arguments needed for training.
+
+    Returns:
+        argparse.Namespace: Argparse parser with training args.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--experiment", required=True, help="Name of experiment"
@@ -398,32 +401,6 @@ def main() -> None:
         "--train_from",
         help="Path to ckpt checkpoint to resume training from",
     )
-    # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
-    # Architecture arguments.
-    models.add_argparse_args(parser)
-    # Scheduler-specific arguments.
-    schedulers.add_argparse_args(parser)
-    # Architecture-specific arguments.
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.LSTMEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
-    # Trainer arguments.
-    # Among the things this adds, the following are likely to be useful:
-    # --auto_lr_find
-    # --accelerator ("gpu" for GPU)
-    # --check_val_every_n_epoch
-    # --devices (for multiple device support)
-    # --gradient_clip_val
-    # --max_epochs
-    # --min_epochs
-    # --max_steps
-    # --min_steps
-    # --max_time
-    pl.Trainer.add_argparse_args(parser)
     # Other training arguments.
     parser.add_argument(
         "--batch_size",
@@ -452,6 +429,39 @@ def main() -> None:
         action="store_false",
         dest="log_wandb",
     )
+
+    return parser
+
+
+def main() -> None:
+    """Trainer."""
+    parser = get_train_argparse_parser()
+    # Data configuration arguments.
+    dataconfig.DataConfig.add_argparse_args(parser)
+    # Collator arguments.
+    collators.Collator.add_argparse_args(parser)
+    # Architecture arguments.
+    models.add_argparse_args(parser)
+    # Scheduler-specific arguments.
+    schedulers.add_argparse_args(parser)
+    # Architecture-specific arguments.
+    models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.LSTMEncoderDecoder.add_argparse_args(parser)
+    models.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.expert.add_argparse_args(parser)
+    # Trainer arguments.
+    # Among the things this adds, the following are likely to be useful:
+    # --auto_lr_find
+    # --accelerator ("gpu" for GPU)
+    # --check_val_every_n_epoch
+    # --devices (for multiple device support)
+    # --gradient_clip_val
+    # --max_epochs
+    # --min_epochs
+    # --max_steps
+    # --min_steps
+    # --max_time
+    pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
     pl.seed_everything(args.seed)

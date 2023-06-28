@@ -1,109 +1,17 @@
+import argparse
+import functools
 import os
 import traceback
-import sys
-import functools
 
-import wandb
 import pytorch_lightning as pl
-import argparse
+import wandb
 
-from yoyodyne import (
-    collators,
-    dataconfig,
-    defaults,
-    models,
-    schedulers,
-    train,
-    predict,
-    util,
-)
+from yoyodyne import (collators, dataconfig, defaults, models, predict,
+                      schedulers, train, util)
 
 
-def get_args():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
-    )
-    parser.add_argument(
-        "--sweep_id",
-        help="ID for the sweep to run the agent in.",
-    )
-    parser.add_argument(
-        "--max_num_runs",
-        type=int,
-        help="Max number of runs this agent should train.",
-    )
-
-    # Path arguments.
-    parser.add_argument(
-        "--train",
-        required=True,
-        help="Path to input training data TSV",
-    )
-    parser.add_argument(
-        "--dev",
-        required=True,
-        help="Path to input development data TSV",
-    )
-    parser.add_argument(
-        "--model_dir",
-        required=True,
-        help="Path to output model directory",
-    )
-    parser.add_argument(
-        "--train_from",
-        help="Path to ckpt checkpoint to resume training from",
-    )
-    parser.add_argument(
-        "--predict",
-        action="store_true",
-        default=True,
-        help="Whether or not to write a predictions.tsv file with the"
-        " best model on the development set.",
-    )
-    parser.add_argument(
-        "--no_predict",
-        action="store_false",
-        dest="predict",
-    )
-
-    dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
-    # Architecture arguments.
-    models.add_argparse_args(parser)
-    # Scheduler-specific arguments.
-    schedulers.add_argparse_args(parser)
-    # Architecture-specific arguments.
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.LSTMEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
-    pl.Trainer.add_argparse_args(parser)
-    parser.add_argument(
-        "--max_batch_size",
-        type=int,
-        help="Max batch size to fit in one train step.",
-    )
-    # Other training arguments.
-    parser.add_argument(
-        "--patience", type=int, help="Patience for early stopping"
-    )
-    parser.add_argument(
-        "--save_top_k",
-        type=int,
-        default=defaults.SAVE_TOP_K,
-        help="Number of checkpoints to save. Default: %(default)s.",
-    )
-    parser.add_argument("--seed", type=int, help="Random seed")
-    # Needs to be true to log runtime metrics.
-    parser.add_argument(
-        "--wandb_logger",
-        action="store_true",
-        default=True,
-        help="Use Weights & Biases logging (log-in required). Default: True.",
-    )
-    return parser.parse_args()
+class Error(Exception):
+    pass
 
 
 def run_train(args):
@@ -140,21 +48,19 @@ def run_train(args):
         del train_loader
         del dev_loader
 
-        # Fix a reasonable prediction batch_size.
-        pred_batch_size = 64
         # Reloads the dev set.
         loader = predict.get_loader(
-            dev_set,
-            args.arch,
-            pred_batch_size,
-            defaults.MAX_SOURCE_LENGTH,
-            defaults.MAX_TARGET_LENGTH,
+            dataset=dev_set,
+            arch=args.arch,
+            batch_size=64,
+            max_source_length=defaults.MAX_SOURCE_LENGTH,
+            max_target_length=defaults.MAX_TARGET_LENGTH,
         )
         # Reloads the model.
         model = predict.get_model(
-            args.arch,
-            train_set.config.has_features,
-            best_checkpoint,
+            arch=args.arch,
+            has_features=train_set.config.has_features,
+            checkpoint=best_checkpoint,
         )
         # Hack to get the results dir for this version from the checkpoint path
         output = best_checkpoint.split("checkpoints")[0]
@@ -165,7 +71,48 @@ def run_train(args):
 
 
 def main():
-    args = get_args()
+    parser = train.get_train_argparse_parser()
+    parser.add_argument(
+        "--sweep_id",
+        help="ID for the sweep to run the agent in.",
+    )
+    parser.add_argument(
+        "--max_num_runs",
+        type=int,
+        default=1,
+        help="Max number of runs this agent should train.",
+    )
+    parser.add_argument(
+        "--predict",
+        action="store_true",
+        default=True,
+        help="Whether or not to write a predictions.tsv file with the"
+        " best model on the development set.",
+    )
+    parser.add_argument(
+        "--no_predict",
+        action="store_false",
+        dest="predict",
+    )
+
+    dataconfig.DataConfig.add_argparse_args(parser)
+    # Collator arguments.
+    collators.Collator.add_argparse_args(parser)
+    # Architecture arguments.
+    models.add_argparse_args(parser)
+    # Scheduler-specific arguments.
+    schedulers.add_argparse_args(parser)
+    # Architecture-specific arguments.
+    models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.LSTMEncoderDecoder.add_argparse_args(parser)
+    models.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.expert.add_argparse_args(parser)
+    pl.Trainer.add_argparse_args(parser)
+    args = parser.parse_args()
+    if not args.log_wandb:
+        msg = "'--log_wandb' is a required arg for training a wandb sweep agent."
+        raise Error(msg)
+    
     try:
         wandb.agent(
             args.sweep_id,
@@ -175,7 +122,7 @@ def main():
         )
     except Exception:
         # Exits gracefully, so wandb logs the error
-        util.log_info(traceback.format_exc(), file=sys.stderr)
+        util.log_info(traceback.format_exc())
         exit(1)
     finally:
         wandb.finish()
