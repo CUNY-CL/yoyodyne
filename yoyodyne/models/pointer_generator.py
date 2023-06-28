@@ -269,7 +269,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 source_encoded,
                 batch.source.mask,
                 self.teacher_forcing if self.training else False,
-                batch.target.padded,
+                batch.target.padded if batch.target else None,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)
@@ -576,7 +576,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 features_encoded,
                 batch.features.mask,
                 self.teacher_forcing if self.training else False,
-                batch.target.padded,
+                batch.target.padded if batch.target else None,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)

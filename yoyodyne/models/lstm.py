@@ -423,7 +423,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 batch.source.mask,
                 encoder_out,
                 self.teacher_forcing if self.training else False,
-                batch.target.padded,
+                batch.target.padded if batch.target else None,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)
