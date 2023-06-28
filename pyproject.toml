@@ -2,6 +2,13 @@
 requires = ["setuptools >= 65.5.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["yoyodyne*"]
+exclude = ["examples*"]
+
 [project]
 name = "yoyodyne"
 version = "0.2.2"
