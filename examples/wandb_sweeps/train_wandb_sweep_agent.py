@@ -1,4 +1,3 @@
-import argparse
 import functools
 import os
 import traceback
@@ -6,8 +5,16 @@ import traceback
 import pytorch_lightning as pl
 import wandb
 
-from yoyodyne import (collators, dataconfig, defaults, models, predict,
-                      schedulers, train, util)
+from yoyodyne import (
+    collators,
+    dataconfig,
+    defaults,
+    models,
+    predict,
+    schedulers,
+    train,
+    util,
+)
 
 
 class Error(Exception):
@@ -110,9 +117,10 @@ def main():
     pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     if not args.log_wandb:
-        msg = "'--log_wandb' is a required arg for training a wandb sweep agent."
+        msg = "'--log_wandb' is a required arg for training a "
+        "wandb sweep agent."
         raise Error(msg)
-    
+
     try:
         wandb.agent(
             args.sweep_id,
