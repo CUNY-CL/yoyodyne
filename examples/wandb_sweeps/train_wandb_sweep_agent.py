@@ -50,32 +50,6 @@ def run_train(args):
     )
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 
-    if args.predict:
-        # Deletes loaders to free those processes.
-        del train_loader
-        del dev_loader
-
-        # Reloads the dev set.
-        loader = predict.get_loader(
-            dataset=dev_set,
-            arch=args.arch,
-            batch_size=64,
-            max_source_length=defaults.MAX_SOURCE_LENGTH,
-            max_target_length=defaults.MAX_TARGET_LENGTH,
-        )
-        # Reloads the model.
-        model = predict.get_model(
-            arch=args.arch,
-            has_features=train_set.config.has_features,
-            checkpoint=best_checkpoint,
-        )
-        # Hack to get the results dir for this version from the checkpoint path
-        output = best_checkpoint.split("checkpoints")[0]
-        output = os.path.join(output, "predictions.tsv")
-        util.log_info(f"Writing predictions to {output}")
-        # Writes dev predictions with the best model.
-        predict.predict(trainer, model, loader, output)
-
 
 def main():
     parser = train.get_train_argparse_parser()
@@ -88,18 +62,6 @@ def main():
         type=int,
         default=1,
         help="Max number of runs this agent should train.",
-    )
-    parser.add_argument(
-        "--predict",
-        action="store_true",
-        default=True,
-        help="Whether or not to write a predictions.tsv file with the"
-        " best model on the development set.",
-    )
-    parser.add_argument(
-        "--no_predict",
-        action="store_false",
-        dest="predict",
     )
 
     dataconfig.DataConfig.add_argparse_args(parser)
