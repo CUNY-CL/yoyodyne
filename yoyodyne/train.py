@@ -429,7 +429,6 @@ def get_train_argparse_parser() -> argparse.Namespace:
         action="store_false",
         dest="log_wandb",
     )
-
     return parser
 
 
