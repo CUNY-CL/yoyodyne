@@ -1,5 +1,4 @@
 import functools
-import os
 import traceback
 
 import pytorch_lightning as pl
@@ -8,9 +7,7 @@ import wandb
 from yoyodyne import (
     collators,
     dataconfig,
-    defaults,
     models,
-    predict,
     schedulers,
     train,
     util,
