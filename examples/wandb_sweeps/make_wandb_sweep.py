@@ -71,7 +71,9 @@ def make_sweep(project: str, sweep_name: str) -> int:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True, help="Name of the project")
-    parser.add_argument("--sweep_name", required=True, help="Name of the sweep")
+    parser.add_argument(
+        "--sweep_name", required=True, help="Name of the sweep"
+    )
     args = parser.parse_args()
 
     sweep_id = make_sweep(args.project, args.sweep_name)

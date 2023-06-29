@@ -19,7 +19,7 @@ def main():
         "--sweep_id",
         required=False,
         help="Wandb sweep id. If provided, results will be "
-        "within the scope of a single sweep."
+        "within the scope of a single sweep.",
     )
     parser.add_argument(
         "--output_filepath",
