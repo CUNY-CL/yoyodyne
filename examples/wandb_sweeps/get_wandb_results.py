@@ -17,7 +17,6 @@ def main():
     )
     parser.add_argument(
         "--sweep_id",
-        required=False,
         help="Wandb sweep id. If provided, results will be "
         "within the scope of a single sweep.",
     )
