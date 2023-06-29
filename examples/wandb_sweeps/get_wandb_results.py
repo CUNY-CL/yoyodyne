@@ -9,19 +9,30 @@ import argparse
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--project_name",
+        "--project",
         required=True,
         help="Name of the wandb project. "
-        "Should be of the format <entity/project-name>.",
+        "If specific to a team, should be "
+        "of the format <team_name/project>.",
+    )
+    parser.add_argument(
+        "--sweep_id",
+        required=False,
+        help="Wandb sweep id. If provided, results will be "
+        "within the scope of a single sweep."
     )
     parser.add_argument(
         "--output_filepath",
         required=True,
-        help="Path to store CSV of results.",
+        help="Path to store TSV of results.",
     )
     args = parser.parse_args()
     api = wandb.Api()
-    runs = api.runs(args.project_name)
+    if args.sweep_id is not None:
+        runs = api.sweep(f"{args.project}/sweeps/{args.sweep_id}").runs
+    else:
+        runs = api.runs(path=args.project)
+
     run_dicts = []
     for run in runs:
         # Ignores running and failed jobs.
