@@ -45,12 +45,12 @@ HPARAMS = {
 }
 
 
-def make_sweep(sweep_name: str) -> int:
+def make_sweep(project: str) -> int:
     """Creates the sweep in the wandb API, according to the hyperparameter
-    ranges in `get_optimization_params()` and `get_architecture_params()`.
+    ranges in `HPARAMS`.
 
     Args:
-        sweep_name (str): Name of the wandb sweep.
+        project (str): Name of the wandb sweep.
 
     Returns:
         int: The wandb sweep ID for this configuration.
@@ -58,25 +58,23 @@ def make_sweep(sweep_name: str) -> int:
     # TODO: Change search method or metric to maximize/minimize
     sweep_configuration = {
         "method": "random",
-        "name": sweep_name,
+        "name": project,
         "metric": {"goal": "maximize", "name": "val_accuracy"},
         "parameters": HPARAMS,
     }
 
     # FIXME: We name the sweep and project the same, but they can be different!
-    sweep_id = wandb.sweep(sweep=sweep_configuration, project=sweep_name)
+    sweep_id = wandb.sweep(sweep=sweep_configuration, project=project)
 
     return sweep_id
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--sweep_name", required=True, help="Name of sweep_name"
-    )
+    parser.add_argument("--project", required=True, help="Name of project")
     args = parser.parse_args()
 
-    sweep_id = make_sweep(args.sweep_name)
+    sweep_id = make_sweep(args.project)
     print(f"Made sweep: {sweep_id}")
 
 

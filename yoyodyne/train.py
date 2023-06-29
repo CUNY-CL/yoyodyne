@@ -429,12 +429,6 @@ def get_train_argparse_parser() -> argparse.Namespace:
         action="store_false",
         dest="log_wandb",
     )
-    return parser
-
-
-def main() -> None:
-    """Trainer."""
-    parser = get_train_argparse_parser()
     # Data configuration arguments.
     dataconfig.DataConfig.add_argparse_args(parser)
     # Collator arguments.
@@ -461,6 +455,12 @@ def main() -> None:
     # --min_steps
     # --max_time
     pl.Trainer.add_argparse_args(parser)
+    return parser
+
+
+def main() -> None:
+    """Trainer."""
+    parser = get_train_argparse_parser()
     args = parser.parse_args()
     util.log_arguments(args)
     pl.seed_everything(args.seed)

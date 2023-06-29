@@ -15,5 +15,5 @@ python examples/wandb_sweeps/make_wandb_sweep.py --sweep_name foo
 # Defaults to a single run.
 python train_wandb_sweep_agent.py --sweep_id bar --experiment baz ...
 # Pulls results from the sweep from the wandb API
-python get_wandb_results.sh --project_name entity/baz --output_filepath output.csv
+python get_wandb_results.py --project_name entity/baz --output_filepath output.tsv
 ```

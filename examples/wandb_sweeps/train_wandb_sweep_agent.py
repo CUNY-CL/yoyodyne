@@ -5,10 +5,6 @@ import pytorch_lightning as pl
 import wandb
 
 from yoyodyne import (
-    collators,
-    dataconfig,
-    models,
-    schedulers,
     train,
     util,
 )
@@ -60,26 +56,10 @@ def main():
         default=1,
         help="Max number of runs this agent should train.",
     )
-
-    dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
-    # Architecture arguments.
-    models.add_argparse_args(parser)
-    # Scheduler-specific arguments.
-    schedulers.add_argparse_args(parser)
-    # Architecture-specific arguments.
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.LSTMEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
-    pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
-    if not args.log_wandb:
-        msg = "'--log_wandb' is a required arg for training a "
-        "wandb sweep agent."
-        raise Error(msg)
-
+    # Forces log_wandb to True, so that the PTL trainer logs
+    # runtime metrics to W&B
+    args.log_wandb
     try:
         wandb.agent(
             args.sweep_id,
