@@ -350,10 +350,13 @@ class BaseEncoderDecoder(pl.LightningModule):
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
                 loss function.
         """
+        # TODO(kbg): swap this out for CrossEntropyLoss?
         if not self.label_smoothing:
             return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
         else:
             return self._smooth_nllloss
+
+    # TODO(kbg): use the label smoothing in CrossEntropyLoss.
 
     def _smooth_nllloss(
         self, predictions: torch.Tensor, target: torch.Tensor
