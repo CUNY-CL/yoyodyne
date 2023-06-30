@@ -48,7 +48,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` python
+```python
 import yoyodyne
 ```
 
@@ -230,7 +230,7 @@ The [`examples`](examples) directory contains interesting examples, including:
 
 This section contains instructions for the Yoyodyne maintainers.
 
-## Making a release
+### Releasing
 
 1.  Sync your fork to the upstream master branch. E.g., if the upstream remote
     is called "upstream": `git pull upstream master`
