@@ -33,7 +33,7 @@ ORACLE_EM_EPOCHS = 5
 ORACLE_FACTOR = 1
 OPTIMIZER = "adam"
 SAVE_TOP_K = 1
-WANDB = False
+LOG_WANDB = False
 TEACHER_FORCING = True
 
 # Decoding arguments.

@@ -2,6 +2,13 @@
 requires = ["setuptools >= 65.5.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["yoyodyne*"]
+exclude = ["examples*"]
+
 [project]
 name = "yoyodyne"
 version = "0.2.2"
@@ -24,6 +31,7 @@ dependencies = [
     "maxwell >= 0.2.0",
     "pytorch-lightning >= 1.7.0, <2.0.0",
     "torch >= 1.11.0, <2.0.0",
+    "wandb >= 0.15.3",
 ]
 classifiers = [
     "Programming Language :: Python :: 3.9",
