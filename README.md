@@ -179,17 +179,23 @@ A non-exhaustive list includes:
 -   [Weights & Biases](https://wandb.ai/site):
     -   `--wandb` (default: `False`): enables Weights & Biases tracking
 
+## Hyperparameter tuning
+
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
 biLSTM. For transformer-based architectures, experiment with multiple encoder
 and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
 
-## Automatic tuning
+### Automatic tuning
 
 `yododyne-train --auto_lr_find` uses a heuristic (see [Smith
 2017](https://ieeexplore.ieee.org/abstract/document/7926641)) to propose an
 initial learning rate. Batch auto-scaling is not supported.
+
+### Weights & Biases tuning
+
+[`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights & Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
 ## Accelerators
 
@@ -213,7 +219,7 @@ in memory, allowing one to use larger batches.
 
 The [`examples`](examples) directory contains interesting examples, including:
 
-* [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights & Biases](https://wandb.ai/site) to conduct hyperparameter sweeps.
+* [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights & Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
 ## References
 
