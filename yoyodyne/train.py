@@ -241,6 +241,7 @@ def get_model(
     beta1: float = defaults.BETA1,
     beta2: float = defaults.BETA2,
     dropout: float = defaults.DROPOUT,
+    label_smoothing: float = defaults.LABEL_SMOOTHING,
     learning_rate: float = defaults.LEARNING_RATE,
     oracle_em_epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
@@ -252,7 +253,7 @@ def get_model(
     """Creates the model.
 
     Args:
-        train_set (datasets.BaseDataset)
+        train_set (datasets.BaseDataset).
         arch (str).
         attention_heads (int).
         bidirectional (bool).
@@ -266,13 +267,14 @@ def get_model(
         beta1 (float).
         beta2 (float).
         dropout (float).
+        label_smoothing (float).
         learning_rate (float).
         oracle_em_epochs (int).
         oracle_factor (int).
         optimizer (str).
         sed_params (str, optional).
         scheduler (str, optional).
-        **kwargs
+        **kwargs.
 
     Returns:
         models.BaseEncoderDecoder.
@@ -303,7 +305,7 @@ def get_model(
         if not separate_features
         else train_set.index.source_vocab_size
     )
-    # Please pass all arguments by keyword and keep in lexicographic order.
+    # Please pass all arguments as keywords and keep in lexicographic order.
     return model_cls(
         arch=arch,
         attention_heads=attention_heads,
@@ -318,6 +320,7 @@ def get_model(
         expert=expert,
         features_vocab_size=features_vocab_size,
         hidden_size=hidden_size,
+        label_smoothing=label_smoothing,
         learning_rate=learning_rate,
         max_source_length=max_source_length,
         max_target_length=max_target_length,
@@ -371,8 +374,8 @@ def get_index(model_dir: str, experiment: str) -> str:
     return f"{model_dir}/{experiment}/index.pkl"
 
 
-def get_train_argparse_parser() -> argparse.Namespace:
-    """Gets the parser with arguments needed for training.
+def get_argparse_parser() -> argparse.Namespace:
+    """Constructs the parser with arguments needed for training.
 
     Returns:
         argparse.Namespace: Argparse parser with training args.
@@ -460,7 +463,7 @@ def get_train_argparse_parser() -> argparse.Namespace:
 
 def main() -> None:
     """Trainer."""
-    parser = get_train_argparse_parser()
+    parser = get_argparse_parser()
     args = parser.parse_args()
     util.log_arguments(args)
     pl.seed_everything(args.seed)
@@ -482,7 +485,6 @@ def main() -> None:
     # suggested value and then exits.
     if args.auto_scale_batch_size:
         raise Error("Batch auto-scaling is not supported")
-        return
     if args.auto_lr_find:
         result = trainer.tuner.lr_find(model, train_loader, dev_loader)
         util.log_info(f"Best initial LR: {result.suggestion():.8f}")

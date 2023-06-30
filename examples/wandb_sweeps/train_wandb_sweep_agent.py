@@ -44,7 +44,7 @@ def run_train(args):
 
 
 def main():
-    parser = train.get_train_argparse_parser()
+    parser = train.get_argparse_parser()
     parser.add_argument(
         "--sweep_id",
         help="ID for the sweep to run the agent in.",

@@ -22,7 +22,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     source_embeddings: nn.Embedding
     target_embeddings: nn.Embedding
     positional_encoding: positional_encoding.PositionalEncoding
-    log_softmax: nn.LogSoftmax
     encoder: nn.TransformerEncoder
     decoder: nn.TransformerDecoder
     classifier: nn.Linear
@@ -55,7 +54,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.positional_encoding = positional_encoding.PositionalEncoding(
             self.embedding_size, self.pad_idx, self.max_source_length
         )
-        self.log_softmax = nn.LogSoftmax(dim=2)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=self.embedding_size,
             dim_feedforward=self.hidden_size,
@@ -166,7 +164,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask (torch.Tensor): target mask.
 
         Returns:
-            _type_: log softmax over targets.
+            torch.Tensor: logits over targets.
         """
         target_embedding = self.target_embed(target)
         target_sequence_length = target_embedding.size(1)
@@ -184,7 +182,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         )
         # -> B x seq_len x output_size.
         output = self.classifier(decoder_hidden)
-        output = self.log_softmax(output)
         return output
 
     def _decode_greedy(

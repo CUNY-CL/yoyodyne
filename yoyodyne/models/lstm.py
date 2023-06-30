@@ -27,7 +27,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     c0: nn.Parameter
     decoder: nn.LSTM
     classifier: nn.Linear
-    log_softmax: nn.LogSoftmax
 
     def __init__(
         self,
@@ -70,7 +69,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             batch_first=True,
         )
         self.classifier = nn.Linear(self.hidden_size, self.output_size)
-        self.log_softmax = nn.LogSoftmax(dim=2)
 
     @property
     def num_directions(self):
@@ -169,8 +167,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Classifies into output vocab.
         # -> B x 1 x output_size.
         output = self.classifier(output)
-        # Computes log_softmax scores for NLLLoss.
-        output = self.log_softmax(output)
         return output, hiddens
 
     def init_hiddens(
@@ -481,7 +477,7 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
                 shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: softmax scores over all outputs,
+            Tuple[torch.Tensor, torch.Tensor]: logits over all outputs,
                 and the previous hidden states from the decoder LSTM.
         """
         embedded = self.target_embeddings(symbol)
@@ -498,5 +494,4 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
         # Classifies into output vocab.
         # -> B x 1 x output_size
         output = self.classifier(output)
-        output = self.log_softmax(output)
         return output, hiddens
