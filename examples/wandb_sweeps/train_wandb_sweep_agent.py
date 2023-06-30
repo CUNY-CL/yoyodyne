@@ -4,10 +4,7 @@ import traceback
 import pytorch_lightning as pl
 import wandb
 
-from yoyodyne import (
-    train,
-    util,
-)
+from yoyodyne import train, util
 
 
 class Error(Exception):
@@ -59,7 +56,7 @@ def main():
     args = parser.parse_args()
     # Forces log_wandb to True, so that the PTL trainer logs
     # runtime metrics to W&B
-    args.log_wandb
+    args.log_wandb = True
     try:
         wandb.agent(
             args.sweep_id,

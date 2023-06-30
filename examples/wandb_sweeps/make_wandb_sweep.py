@@ -6,9 +6,9 @@ the hyperparameters, or sweep method (defaults to random).
 See here for details:
 https://docs.wandb.ai/guides/sweeps/define-sweep-configuration"""
 
-import wandb
-
 import argparse
+
+import wandb
 
 # TODO: Update the hyperparameter grid with new hyperparameters
 # and value distributions.

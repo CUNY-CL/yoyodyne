@@ -1,9 +1,10 @@
 """Gets the run name and config for all runs in a project,
 and writes them to a TSV."""
 
+import argparse
+
 import pandas as pd
 import wandb
-import argparse
 
 
 def main():
@@ -17,7 +18,7 @@ def main():
     )
     parser.add_argument(
         "--sweep_id",
-        help="Wandb sweep id. If provided, results will be "
+        help="Wandb sweep ID. If provided, results will be "
         "within the scope of a single sweep.",
     )
     parser.add_argument(
