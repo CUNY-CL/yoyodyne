@@ -156,15 +156,15 @@ A non-exhaustive list includes:
 -   Batch size:
     -   `--batch_size` (default: `32`)
 -   Regularization:
-    -   `--dropout` (default: `.2`)
-    -   `--label_smoothing` (default: not enabled)
+    -   `--dropout` (default: `0.2`)
+    -   `--label_smoothing` (default: `0.0`)
     -   `--gradient_clip_val` (default: not enabled)
 -   Optimizer:
-    -   `--learning_rate` (default: `.001`)
+    -   `--learning_rate` (default: `0.001`)
     -   `--optimizer` (default: `"adam"`)
-    -   `--beta1` (default: `.9`): $\beta_1$ hyperparameter for the Adam
+    -   `--beta1` (default: `0.9`): $\beta_1$ hyperparameter for the Adam
         optimizer (`--optimizer adam`)
-    -   `--beta2` (default: `.99`): $\beta_2$ hyperparameter for the Adam
+    -   `--beta2` (default: `0.99`): $\beta_2$ hyperparameter for the Adam
         optimizer (`--optimizer adam`)
     -   `--scheduler` (default: not enabled)
 -   Duration:
