@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Gets the run name and config for all runs in a project,
 and writes them to a TSV."""
 

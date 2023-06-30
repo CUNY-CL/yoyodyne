@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Creates a hyperparameter sweep in the wandb API.
 
 Manually modify functions below with different Dicts to change
