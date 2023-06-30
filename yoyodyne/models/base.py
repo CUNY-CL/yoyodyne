@@ -30,7 +30,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     scheduler_kwargs: Optional[Dict]
     # Regularization arguments.
     dropout: float
-    label_smoothing: Optional[float]
+    label_smoothing: float
     teacher_forcing: bool
     # Decoding arguments.
     beam_width: int
@@ -61,7 +61,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         scheduler=None,
         scheduler_kwargs=None,
         dropout=defaults.DROPOUT,
-        label_smoothing=None,
+        label_smoothing=defaults.LABEL_SMOOTHING,
         teacher_forcing=defaults.TEACHER_FORCING,
         beam_width=defaults.BEAM_WIDTH,
         max_target_length=defaults.MAX_TARGET_LENGTH,
@@ -350,14 +350,14 @@ class BaseEncoderDecoder(pl.LightningModule):
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
                 loss function.
         """
-        if self.label_smoothing is None:
+        if not self.label_smoothing:
             return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
         else:
             return self._smooth_nllloss
 
     def _smooth_nllloss(
         self, predictions: torch.Tensor, target: torch.Tensor
-    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> torch.Tensor:
         """After:
 
             https://github.com/NVIDIA/DeepLearningExamples/blob/
@@ -436,7 +436,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         parser.add_argument(
             "--label_smoothing",
             type=float,
-            help="Coefficient for label smoothing.",
+            default=defaults.LABEL_SMOOTHING,
+            help="Coefficient for label smoothing. Default: %(default)s.",
         )
         # TODO: add --beam_width.
         # Model arguments.
