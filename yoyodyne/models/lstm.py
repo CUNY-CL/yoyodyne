@@ -78,18 +78,25 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
+        encoder_out: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        This initializes an <EOS> tensor, and decodes using teacher forcing
-        when training, or else greedily.
+        Decodes until all sequences in a batch have reached [EOS] up to
+        a specified length depending on the `target` args.
 
         Args:
-            encoder_out (torch.Tensor): batch of encoded inputs.
-            encoder_mask (torch.Tensor): mask for the batch of encoded inputs.
-            target (torch.Tensor, optional): target symbols; if None, then we
-                decode greedily with 'student forcing'.
+            batch_size (int).
+            encoder_mask (torch.Tensor): mask for the batch of encoded
+                input symbols.
+            encoder_out (torch.Tensor): batch of encoded input symbols.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
@@ -122,12 +129,15 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             logits = self.classifier(decoder_output)
             output = self.log_softmax(logits)
             predictions.append(output.squeeze(1))
-            # If we have a target (training) then the next input is the gold
-            # symbol for this step (i.e., teacher forcing).
-            if target is not None:
+            # In teacher forcing mode the next input is the gold symbol
+            # for this step.
+            if teacher_forcing:
+                assert (
+                    target is not None
+                ), "Teacher forcing requested but no target provided"
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise, it must be inference time and we pass the top pred to
-            # the next next timestep (i.e., student forcing, greedy decoding).
+            # Otherwise we pass the top pred to the next timestep
+            # (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
                 # Updates to track which sequences have decoded an EOS.
@@ -135,8 +145,14 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                     finished, (decoder_input == self.end_idx)
                 )
                 # Breaks when all batches predicted an EOS symbol.
+                # If we have a target (and are thus computing loss),
+                # we only break when we have decoded at least the the
+                # same number of steps as the target length.
                 if finished.all():
-                    break
+                    if target is None or decoder_input.size(-1) >= target.size(
+                        -1
+                    ):
+                        break
         predictions = torch.stack(predictions)
         return predictions
 
@@ -270,7 +286,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         else:
             return predictions
 
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
+    def forward(
+        self,
+        batch: batches.PaddedBatch,
+    ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
@@ -289,7 +308,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             )
         else:
             predictions = self.decode(
-                encoder_out, batch.source.mask, batch.target.padded
+                len(batch),
+                batch.source.mask,
+                encoder_out,
+                self.teacher_forcing if self.training else False,
+                batch.target.padded if batch.target else None,
             )
         # -> B x seq_len x output_size.
         predictions = predictions.transpose(0, 1)

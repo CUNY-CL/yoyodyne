@@ -48,7 +48,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-```python
+``` python
 import yoyodyne
 ```
 
@@ -79,17 +79,20 @@ Alternatively, for the SIGMORPHON 2016 shared task data format:
 
 this format is specified by `--features-col 2 --features-sep , --target-col 3`.
 
+In order to ensure that targets are ignored during prediction, one can specify
+`--target_col 0`.
+
 ## Model checkpointing
 
 Checkpointing is handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
 The path for model information, including checkpoints, is specified by a
 combination of `--model_dir` and `--experiment`, such that we build the path
-`model_dir/experiment/version_n`, where each run of an experiment with the
-same `model_dir` and `experiment` is namespaced with a new version number.
-A version stores everything needed to reload the model, including the
-hyperparameters (`model_dir/experiment_name/version_n/hparams.yaml`) and the
-checkpoints directory (`model_dir/experiment_name/version_n/checkpoints`).
+`model_dir/experiment/version_n`, where each run of an experiment with the same
+`model_dir` and `experiment` is namespaced with a new version number. A version
+stores everything needed to reload the model, including the hyperparameters
+(`model_dir/experiment_name/version_n/hparams.yaml`) and the checkpoints
+directory (`model_dir/experiment_name/version_n/checkpoints`).
 
 By default, each run initializes a new model from scratch, unless the
 `--train_from` argument is specified. To continue training from a specific
@@ -154,15 +157,15 @@ A non-exhaustive list includes:
 -   Batch size:
     -   `--batch_size` (default: `32`)
 -   Regularization:
-    -   `--dropout` (default: `.2`)
-    -   `--label_smoothing` (default: not enabled)
+    -   `--dropout` (default: `0.2`)
+    -   `--label_smoothing` (default: `0.0`)
     -   `--gradient_clip_val` (default: not enabled)
 -   Optimizer:
-    -   `--learning_rate` (default: `.001`)
+    -   `--learning_rate` (default: `0.001`)
     -   `--optimizer` (default: `"adam"`)
-    -   `--beta1` (default: `.9`): $\beta_1$ hyperparameter for the Adam
+    -   `--beta1` (default: `0.9`): $\beta_1$ hyperparameter for the Adam
         optimizer (`--optimizer adam`)
-    -   `--beta2` (default: `.99`): $\beta_2$ hyperparameter for the Adam
+    -   `--beta2` (default: `0.99`): $\beta_2$ hyperparameter for the Adam
         optimizer (`--optimizer adam`)
     -   `--scheduler` (default: not enabled)
 -   Duration:
@@ -177,17 +180,24 @@ A non-exhaustive list includes:
 -   [Weights & Biases](https://wandb.ai/site):
     -   `--wandb` (default: `False`): enables Weights & Biases tracking
 
+## Hyperparameter tuning
+
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
 biLSTM. For transformer-based architectures, experiment with multiple encoder
 and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
 
-## Automatic tuning
+### Automatic tuning
 
 `yododyne-train --auto_lr_find` uses a heuristic (see [Smith
 2017](https://ieeexplore.ieee.org/abstract/document/7926641)) to propose an
 initial learning rate. Batch auto-scaling is not supported.
+
+### Weights & Biases tuning
+
+[`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
+Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
 ## Accelerators
 
@@ -206,6 +216,39 @@ allows the user to perform training with half precision (`16`) or with the
 format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) if
 supported by the accelerator. This may reduce the size of the model and batches
 in memory, allowing one to use larger batches.
+
+## Examples
+
+The [`examples`](examples) directory contains interesting examples, including:
+
+-   [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
+    Biases](https://wandb.ai/site) to run hyperparameter sweeps.
+
+## For developers
+
+*Developers, developers, developers!* - Steve Ballmer
+
+This section contains instructions for the Yoyodyne maintainers.
+
+### Releasing
+
+1.  Create a new branch. E.g., if you want to call this branch "release":
+    `git checkout -b release`
+2.  Sync your fork's branch to the upstream master branch. E.g., if the upstream
+    remote is called "upstream": `git pull upstream master`
+3.  Increment the version field in [`pyproject.toml`](pyproject.toml).
+4.  Stage your changes: `git add pyproject.toml`.
+5.  Commit your changes: `git commit -m "your commit message here"`
+6.  Push your changes. E.g., if your branch is called "release":
+    `git push origin release`
+7.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
+    if the new version is 3.1.4, the tag should be `v3.1.4`. This can be done:
+    a.  on GitHub itself: click the "Releases" or "Create a new release" link on
+        the right-hand side of the Yoyodyne GitHub page) and follow the
+        dialogues.
+    b.  from the command-line using `git tag`.
+8.  Build the new release: `python -m build`
+9.  Upload the result to PyPI: `twine upload dist/*`
 
 ## References
 

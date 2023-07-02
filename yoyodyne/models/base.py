@@ -32,7 +32,8 @@ class BaseEncoderDecoder(pl.LightningModule):
     scheduler_kwargs: Optional[Dict]
     # Regularization arguments.
     dropout: float
-    label_smoothing: Optional[float]
+    label_smoothing: float
+    teacher_forcing: bool
     # Decoding arguments.
     beam_width: int
     max_source_length: int
@@ -67,7 +68,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         scheduler=None,
         scheduler_kwargs=None,
         dropout=defaults.DROPOUT,
-        label_smoothing=None,
+        label_smoothing=defaults.LABEL_SMOOTHING,
+        teacher_forcing=defaults.TEACHER_FORCING,
         beam_width=defaults.BEAM_WIDTH,
         max_source_length=defaults.MAX_SOURCE_LENGTH,
         max_target_length=defaults.MAX_TARGET_LENGTH,
@@ -105,6 +107,16 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs
+        self.dropout = dropout
+        self.label_smoothing = label_smoothing
+        self.teacher_forcing = teacher_forcing
+        self.beam_width = beam_width
+        self.max_target_length = max_target_length
+        self.decoder_layers = decoder_layers
+        self.embedding_size = embedding_size
+        self.encoder_layers = encoder_layers
+        self.hidden_size = hidden_size
+        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         self.evaluator = evaluators.Evaluator()
         # Checks compatibility with feature encoder and dataloader.
         modules.check_encoder_compatibility(
@@ -269,17 +281,18 @@ class BaseEncoderDecoder(pl.LightningModule):
         """
         # Greedy decoding.
         # -> B x seq_len x output_size.
-        predictions = self(batch)
         target_padded = batch.target.padded
+        greedy_predictions = self(batch)
         accuracy = self.evaluator.val_accuracy(
-            predictions, target_padded, self.end_idx, self.pad_idx
+            greedy_predictions, target_padded, self.end_idx, self.pad_idx
         )
-        # We rerun the model with teacher forcing so we can compute loss.
-        # TODO: Update to run the model only once.
-        forced_predictions = self(batch)
         # -> B x output_size x seq_len. For loss.
-        forced_predictions = forced_predictions.transpose(1, 2)
-        loss = self.loss_func(forced_predictions, target_padded)
+        greedy_predictions = greedy_predictions.transpose(1, 2)
+        # Truncates predictions to the size of the target.
+        greedy_predictions = torch.narrow(
+            greedy_predictions, 2, 0, target_padded.size(1)
+        )
+        loss = self.loss_func(greedy_predictions, target_padded)
         return {"val_accuracy": accuracy, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
@@ -403,14 +416,17 @@ class BaseEncoderDecoder(pl.LightningModule):
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
                 loss function.
         """
-        if self.label_smoothing is None:
+        # TODO(kbg): swap this out for CrossEntropyLoss?
+        if not self.label_smoothing:
             return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
         else:
             return self._smooth_nllloss
 
+    # TODO(kbg): use the label smoothing in CrossEntropyLoss.
+
     def _smooth_nllloss(
         self, predictions: torch.Tensor, target: torch.Tensor
-    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> torch.Tensor:
         """After:
 
             https://github.com/NVIDIA/DeepLearningExamples/blob/
@@ -489,7 +505,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         parser.add_argument(
             "--label_smoothing",
             type=float,
-            help="Coefficient for label smoothing.",
+            default=defaults.LABEL_SMOOTHING,
+            help="Coefficient for label smoothing. Default: %(default)s.",
         )
         # TODO: add --beam_width.
         # Model arguments.

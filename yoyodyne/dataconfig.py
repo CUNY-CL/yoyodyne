@@ -132,8 +132,8 @@ class DataConfig:
 
     def source_features_samples(
         self, filename: str
-    ) -> Iterator[Tuple[List[str], List[str], List[str]]]:
-        """Yields source, features, and target."""
+    ) -> Iterator[Tuple[List[str], List[str]]]:
+        """Yields source, and features."""
         with open(filename, "r") as source:
             tsv_reader = csv.reader(source, delimiter="\t")
             for row in tsv_reader:

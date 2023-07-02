@@ -70,7 +70,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         )
 
     def forward(
-        self, batch: batches.PaddedBatch
+        self,
+        batch: batches.PaddedBatch,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
@@ -123,7 +124,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             last_hiddens,
             source_padded,
             source_mask,
-            target=batch.target.padded,
+            teacher_forcing=self.teacher_forcing if self.training else False,
+            target=batch.target.padded if batch.target else None,
             target_mask=batch.target.mask,
         )
         return prediction, loss
@@ -134,6 +136,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         last_hiddens: Tuple[torch.Tensor, torch.Tensor],
         source: torch.Tensor,
         source_mask: torch.Tensor,
+        teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
         target_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[List[List[int]], torch.Tensor]:
@@ -146,6 +149,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 B x seq_len x emb_size.
             source (torch.Tensor): encoded source input.
             source_mask (torch.Tensor): mask for source input.
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing. Determines whether or not to rollout
+                optimal actions.
             target (torch.Tensor, optional): encoded target input.
             target_mask (torch.Tensor, optional): mask for target input.
 
@@ -216,7 +222,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 alignment,
                 input_length,
                 not_complete,
-                optim_action=optim_action,
+                optim_action=optim_action if teacher_forcing else None,
             )
             alignment = self.update_prediction(
                 last_action, source, alignment, prediction

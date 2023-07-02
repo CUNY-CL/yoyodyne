@@ -248,7 +248,10 @@ class DatasetNoFeatures(BaseDataset):
         Returns:
             Item.
         """
-        source, target = self.samples[idx]
+        if self.config.has_target:
+            source, target = self.samples[idx]
+        else:
+            source = self.samples[idx]
         source_encoded = self.encode(self.index.source_map, source)
         if self.config.has_target:
             target_encoded = self.encode(
@@ -311,7 +314,11 @@ class DatasetFeatures(DatasetNoFeatures):
         Returns:
             Item.
         """
-        source, features, target = self.samples[idx]
+        if self.config.has_target:
+            source, features, target = self.samples[idx]
+        else:
+            source, features = self.samples[idx]
+
         source_encoded = self.encode(self.index.source_map, source)
         features_encoded = self.encode(
             self.index.features_map,
