@@ -62,20 +62,20 @@ class DatasetNoFeatures(BaseDataset):
     filename: str
     config: dataconfig.DataConfig
     samples: List[List[str]]
-    index: indexes.IndexNoFeatures
+    index: indexes.Index
 
     def __init__(
         self,
         filename,
         config,
-        index: Optional[indexes.IndexNoFeatures] = None,
+        index: Optional[indexes.Index] = None,
     ):
         """Initializes the dataset.
 
         Args:
             filename (str): input filename.
             config (dataconfig.DataConfig): dataset configuration.
-            other (indexes.IndexNoFeatures, optional): if provided,
+            other (indexes.Index, optional): if provided,
                 use this index to avoid recomputing it.
         """
         super().__init__()
@@ -85,18 +85,18 @@ class DatasetNoFeatures(BaseDataset):
         assert self.config.has_features is self.index.has_features
 
     @staticmethod
-    def read_index(path: str) -> indexes.IndexNoFeatures:
+    def read_index(path: str) -> indexes.Index:
         """Helper for loading index.
 
         Args:
             path (str).
 
         Returns:
-            indexes.IndexNoFeatures.
+            indexes.Index.
         """
-        return indexes.IndexNoFeatures.read(path)
+        return indexes.Index.read(path)
 
-    def _make_index(self) -> indexes.IndexNoFeatures:
+    def _make_index(self) -> indexes.Index:
         """Generates index."""
         source_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
@@ -110,8 +110,9 @@ class DatasetNoFeatures(BaseDataset):
         else:
             for source in self.samples:
                 source_vocabulary.update(source)
-        return indexes.IndexNoFeatures(
-            sorted(source_vocabulary), sorted(target_vocabulary)
+        return indexes.Index(
+            source_vocabulary=sorted(source_vocabulary),
+            target_vocabulary=sorted(target_vocabulary),
         )
 
     def encode(
@@ -275,21 +276,21 @@ class DatasetNoFeatures(BaseDataset):
 class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
 
-    index: indexes.IndexFeatures
+    index: indexes.Index
 
     @staticmethod
-    def read_index(path: str) -> indexes.IndexFeatures:
+    def read_index(path: str) -> indexes.Index:
         """Helper for loading index.
 
         Args:
             path (str).
 
         Returns:
-            indexes.IndexNoFeatures.
+            indexes.Index.
         """
-        return indexes.IndexFeatures.read(path)
+        return indexes.Index.read(path)
 
-    def _make_index(self) -> indexes.IndexFeatures:
+    def _make_index(self) -> indexes.Index:
         """Generates index.
 
         Same as in superclass, but also handles features.
@@ -309,10 +310,10 @@ class DatasetFeatures(DatasetNoFeatures):
             for source, features in self.samples:
                 source_vocabulary.update(source)
                 features_vocabulary.update(features)
-        return indexes.IndexFeatures(
-            sorted(source_vocabulary),
-            sorted(features_vocabulary),
-            sorted(target_vocabulary),
+        return indexes.Index(
+            source_vocabulary=sorted(source_vocabulary),
+            target_vocabulary=sorted(target_vocabulary),
+            features_vocabulary=sorted(features_vocabulary),
         )
 
     def __getitem__(self, idx: int) -> Item:
@@ -376,20 +377,20 @@ class DatasetFeatures(DatasetNoFeatures):
 def get_dataset(
     filename: str,
     config: dataconfig.DataConfig,
-    index: Optional[Union[indexes.BaseIndex, str]] = None,
+    index: Optional[Union[indexes.Index, str]] = None,
 ) -> data.Dataset:
     """Dataset factory.
 
     Args:
         filename (str): input filename.
         config (dataconfig.DataConfig): dataset configuration.
-        index (Union[index.BaseIndex, str], optional): input index file,
+        index (Union[index.Index, str], optional): input index file,
             or path to index.pkl file.
 
     Returns:
         data.Dataset: the dataset.
     """
     cls = DatasetFeatures if config.has_features else DatasetNoFeatures
-    if index is not None and not isinstance(index, indexes.BaseIndex):
+    if index is not None and isinstance(index, str):
         index = cls.read_index(index)
     return cls(filename, config, index)
