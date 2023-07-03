@@ -312,8 +312,8 @@ class DatasetFeatures(DatasetNoFeatures):
                 features_vocabulary.update(features)
         return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
-            target_vocabulary=sorted(target_vocabulary),
             features_vocabulary=sorted(features_vocabulary),
+            target_vocabulary=sorted(target_vocabulary),
         )
 
     def __getitem__(self, idx: int) -> Item:

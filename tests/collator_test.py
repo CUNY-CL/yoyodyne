@@ -34,7 +34,7 @@ def test_get_collator(
         features_col=3 if has_features else 0,
         target_col=2 if has_target else 0,
     )
-    index = indexes.BaseIndex()
+    index = indexes.Index()
     index.pad_idx = 1
     index.source_vocab_size = 0
     dataset.config = config

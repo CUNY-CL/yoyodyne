@@ -63,22 +63,22 @@ class Index:
         self,
         *,
         source_vocabulary: List[str],
-        target_vocabulary: List[str],
         features_vocabulary: Optional[List[str]],
+        target_vocabulary: List[str],
     ):
         """Initializes the index.
 
         Args:
             source_vocabulary (List[str]).
-            target_vocabulary (List[str]).
             features_vocabulary (List[str], optional).
+            target_vocabulary (List[str]).
         """
         super().__init__()
         self.source_map = SymbolMap(source_vocabulary)
-        self.target_map = SymbolMap(target_vocabulary)
         self.features_map = (
             SymbolMap(features_vocabulary) if features_vocabulary else None
         )
+        self.target_map = SymbolMap(target_vocabulary)
 
     # Serialization support.
 
