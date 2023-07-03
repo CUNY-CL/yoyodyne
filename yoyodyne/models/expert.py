@@ -16,7 +16,7 @@ import numpy
 from maxwell import actions, sed
 from torch.utils import data
 
-from .. import defaults, util
+from .. import defaults
 
 
 class Error(Exception):
