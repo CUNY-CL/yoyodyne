@@ -52,7 +52,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
@@ -84,16 +84,14 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 performed during training, so these are returned.
         """
         encoder_out = self.source_encoder(batch.source)
-        encoded = encoder_out.encoded
-        # Ignores start symbol.
-        encoded = encoded[:, 1:, :]
+        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
 
         if self.has_feature_encoder:
             features_encoder_out = self.feature_encoder(batch.features)
-            features_encoded = features_encoder_out.encoded
+            features_encoded = features_encoder_out.output
             if features_encoder_out.has_hiddens:
                 h_features, c_features = features_encoder_out.hiddens
                 h_features = h_features.mean(dim=0, keepdim=True).expand(
@@ -200,17 +198,16 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 last_action.unsqueeze(dim=1),
                 last_hiddens,
                 encoder_out,
-                ~(
-                    alignment.unsqueeze(1) + 1
-                ),  # To accomodate LSTMDecoder. See encoder_mask behavior.
+                # To accomodate LSTMDecoder. See encoder_mask behavior.
+                ~(alignment.unsqueeze(1) + 1),
             )
             decoded, last_hiddens = (
-                decoder_output.encoded,
+                decoder_output.output,
                 decoder_output.hiddens,
             )
             logits = self.classifier(decoded).squeeze(dim=1)
             # If given targets, asks expert for optimal actions.
-            optim_action = (
+            optim_actions = (
                 self.batch_expert_rollout(
                     source, target, alignment, prediction, not_complete
                 )
@@ -222,14 +219,14 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 alignment,
                 input_length,
                 not_complete,
-                optim_action=optim_action if teacher_forcing else None,
+                optim_actions=optim_actions if teacher_forcing else None,
             )
             alignment = self.update_prediction(
                 last_action, source, alignment, prediction
             )
             # If target, validation or training step loss required.
             if target is not None:
-                log_sum_loss = self.log_sum_softmax_loss(logits, optim_action)
+                log_sum_loss = self.log_sum_softmax_loss(logits, optim_actions)
                 loss = torch.where(not_complete, log_sum_loss + loss, loss)
         avg_loss = torch.mean(loss / action_count)
         return prediction, -avg_loss
@@ -240,7 +237,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         alignment: torch.Tensor,
         input_length: torch.Tensor,
         not_complete: torch.Tensor,
-        optim_action: Optional[torch.Tensor] = None,
+        optim_actions: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes logits to find edit action.
 
@@ -269,7 +266,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         ]
         # Masks invalid actions.
         logits = self.action_probability_mask(logits, valid_actions)
-        return self.choose_action(logits, not_complete, optim_action)
+        return self.choose_action(logits, not_complete, optim_actions)
 
     def compute_valid_actions(self, end_of_input: bool) -> List[int]:
         """Gives all possible actions for remaining length of edits.
@@ -321,7 +318,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         """
         # TODO: Merge logic into PyTorch methods.
         log_probs = nn.functional.log_softmax(logits, dim=1)
-        if not self.training:
+        if optim_actions is None:
             # Argmax decoding.
             next_action = [
                 torch.argmax(probs, dim=0) if nc else self.actions.end_idx

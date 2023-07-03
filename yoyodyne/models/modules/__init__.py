@@ -31,7 +31,7 @@ def get_encoder_cls(
         BaseEncoder.
     """
     if not (encoder_arch or model_arch):
-        raise NotImplementedError(
+        raise ValueError(
             "Please pass either a valid encoder or model arch string"
         )
     encoder_fac = {

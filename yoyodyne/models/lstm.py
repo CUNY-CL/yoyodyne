@@ -40,7 +40,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.classifier = nn.Linear(self.hidden_size, self.output_size)
         self.log_softmax = nn.LogSoftmax(dim=2)
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
@@ -78,7 +78,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
-        encoder_out: torch.Tensor,
         teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -88,10 +87,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         a specified length depending on the `target` args.
 
         Args:
-            batch_size (int).
+            encoder_out (torch.Tensor): batch of encoded input symbols.
             encoder_mask (torch.Tensor): mask for the batch of encoded
                 input symbols.
-            encoder_out (torch.Tensor): batch of encoded input symbols.
             teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
             target (torch.Tensor, optional): target symbols;  we
@@ -125,16 +123,13 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             decoded = self.decoder(
                 decoder_input, decoder_hiddens, encoder_out, encoder_mask
             )
-            decoder_output, decoder_hiddens = decoded.encoded, decoded.hiddens
+            decoder_output, decoder_hiddens = decoded.output, decoded.hiddens
             logits = self.classifier(decoder_output)
             output = self.log_softmax(logits)
             predictions.append(output.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
             # for this step.
             if teacher_forcing:
-                assert (
-                    target is not None
-                ), "Teacher forcing requested but no target provided"
                 decoder_input = target[:, t].unsqueeze(1)
             # Otherwise we pass the top pred to the next timestep
             # (i.e., student forcing, greedy decoding).
@@ -223,11 +218,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 decoded = self.decoder(
                     decoder_input, decoder_hiddens, encoder_out, encoder_mask
                 )
-                decoder_output, decoder_hiddens = (
-                    decoded.encoded,
-                    decoded.hiddens,
-                )
-                logits = self.classifier(decoder_output)
+                logits = self.classifier(decoded.output)
                 predictions = self.log_softmax(logits)
                 likelihoods.append(
                     (
@@ -235,7 +226,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                         beam_likelihood,
                         beam_idxs,
                         char_likelihoods,
-                        decoder_hiddens,
+                        decoded.hiddens,
                     )
                 )
             # Constrains the next step to beamsize.
@@ -299,7 +290,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             predictions (torch.Tensor): tensor of predictions of shape
                 (seq_len, batch_size, output_size).
         """
-        encoder_out = self.source_encoder(batch.source).encoded
+        encoder_out = self.source_encoder(batch.source).output
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
                 encoder_out,
@@ -308,9 +299,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             )
         else:
             predictions = self.decode(
-                len(batch),
-                batch.source.mask,
                 encoder_out,
+                batch.source.mask,
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.target else None,
             )

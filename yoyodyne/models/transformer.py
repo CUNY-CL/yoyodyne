@@ -1,7 +1,6 @@
 """Transformer model classes."""
 
 import argparse
-import math
 from typing import Optional
 
 import torch
@@ -92,7 +91,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = target_mask == 0
             decoder_output = self.decoder(
                 encoder_hidden, source_mask, target_tensor, target_mask
-            ).encoded
+            ).output
             logits = self.classifier(decoder_output)
             log_probs = self.log_softmax(logits)
             last_output = log_probs[:, -1, :]  # Ignores EOS.
@@ -142,18 +141,18 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = torch.cat(
                 (starts == self.pad_idx, batch.target.mask), dim=1
             )
-            encoder_output = self.source_encoder(batch.source).encoded
+            encoder_output = self.source_encoder(batch.source).output
             decoder_output = self.decoder(
                 encoder_output, batch.source.mask, target_padded, target_mask
-            ).encoded
+            ).output
             logits = self.classifier(decoder_output)
             log_probs = self.log_softmax(logits)
             output = log_probs[:, :-1, :]  # Ignore EOS.
         else:
-            encoder_output = self.source_encoder(batch.source).encoded
+            encoder_output = self.source_encoder(batch.source).output
             # -> B x seq_len x output_size.
             output = self._decode_greedy(
-                encoder_hidden,
+                encoder_output,
                 batch.source.mask,
                 batch.target.padded if batch.target else None,
             )

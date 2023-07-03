@@ -2,7 +2,8 @@
 
 This also includes init_embeddings, which has to go somewhere.
 """
-from dataclasses import dataclass
+
+import dataclasses
 from typing import Optional, Tuple
 
 import pytorch_lightning as pl
@@ -12,11 +13,11 @@ from torch import nn
 from ... import defaults
 
 
-@dataclass
-class Output:
+@dataclasses.dataclass
+class ModuleOutput:
     """For tracking outputs of forward passes over varying architectures."""
 
-    encoded: torch.Tensor
+    output: torch.Tensor
     hiddens: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
     @property
@@ -24,7 +25,7 @@ class Output:
         return self.hiddens is not None
 
 
-class BaseEncoder(pl.LightningModule):
+class BaseModule(pl.LightningModule):
     # Indices.
     pad_idx: int
     start_idx: int
@@ -151,4 +152,4 @@ class BaseEncoder(pl.LightningModule):
 
     @property
     def output_size(self) -> int:
-        return self.embedding_size
+        ...

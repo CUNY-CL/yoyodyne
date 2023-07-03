@@ -9,7 +9,7 @@ from ... import batches, defaults
 from . import attention, base
 
 
-class LSTMEncoder(base.BaseEncoder):
+class LSTMModule(base.BaseModule):
     """Base encoder for LSTM."""
 
     # Model arguments.
@@ -34,22 +34,8 @@ class LSTMEncoder(base.BaseEncoder):
         self.bidirectional = bidirectional
         self.module = self.get_module()
 
-    def get_module(self):
-        return nn.LSTM(
-            self.embedding_size,
-            self.hidden_size,
-            num_layers=self.layers,
-            dropout=self.dropout,
-            batch_first=True,
-            bidirectional=self.bidirectional,
-        )
-
     @property
-    def output_size(self):
-        return self.hidden_size * self.num_directions
-
-    @property
-    def num_directions(self):
+    def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
     def init_embeddings(
@@ -69,6 +55,8 @@ class LSTMEncoder(base.BaseEncoder):
             num_embeddings, embedding_size, pad_idx
         )
 
+
+class LSTMEncoder(LSTMModule):
     def forward(
         self, source: batches.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -95,10 +83,24 @@ class LSTMEncoder(base.BaseEncoder):
             padding_value=self.pad_idx,
             total_length=None,
         )
-        return base.Output(encoded, hiddens=(H, C))
+        return base.ModuleOutput(encoded, hiddens=(H, C))
+
+    def get_module(self) -> nn.LSTM:
+        return nn.LSTM(
+            self.embedding_size,
+            self.hidden_size,
+            num_layers=self.layers,
+            dropout=self.dropout,
+            batch_first=True,
+            bidirectional=self.bidirectional,
+        )
+
+    @property
+    def output_size(self) -> int:
+        return self.hidden_size * self.num_directions
 
 
-class LSTMDecoder(LSTMEncoder):
+class LSTMDecoder(LSTMModule):
     def __init__(self, *args, decoder_input_size, **kwargs):
         self.decoder_input_size = decoder_input_size
         super().__init__(*args, **kwargs)
@@ -147,9 +149,9 @@ class LSTMDecoder(LSTMEncoder):
             torch.cat((embedded, last_encoder_out), 2), last_hiddens
         )
         output = self.dropout_layer(output)
-        return base.Output(output, hiddens=hiddens)
+        return base.ModuleOutput(output, hiddens=hiddens)
 
-    def get_module(self):
+    def get_module(self) -> nn.LSTM:
         return nn.LSTM(
             self.decoder_input_size + self.embedding_size,
             self.hidden_size,
@@ -208,4 +210,4 @@ class LSTMAttentiveDecoder(LSTMDecoder):
             torch.cat((embedded, context), 2), last_hiddens
         )
         output = self.dropout_layer(output)
-        return base.Output(output, hiddens=hiddens)
+        return base.ModuleOutput(output, hiddens=hiddens)

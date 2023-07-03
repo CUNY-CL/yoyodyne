@@ -1,4 +1,4 @@
-"""LSTM model classes."""
+"""Linear model classes."""
 
 from typing import Tuple
 
@@ -9,8 +9,8 @@ from ... import batches
 from . import base
 
 
-class LinearEncoder(base.BaseEncoder):
-    """Simple linear embedding encoder."""
+class LinearModule(base.BaseModule):
+    """Simple linear embedding module."""
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int, pad_idx: int
@@ -29,6 +29,8 @@ class LinearEncoder(base.BaseEncoder):
             num_embeddings, embedding_size, pad_idx
         )
 
+
+class LinearEncoder(LinearModule):
     def forward(
         self, source: batches.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -42,4 +44,8 @@ class LinearEncoder(base.BaseEncoder):
             Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
                 encoded timesteps, and the LSTM h0 and c0 cells.
         """
-        return base.Output(self.embed(source.padded))
+        return base.ModuleOutput(self.embed(source.padded))
+
+    @property
+    def output_size(self) -> int:
+        return self.embedding_size

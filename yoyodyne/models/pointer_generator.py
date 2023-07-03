@@ -116,7 +116,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 + self.feature_encoder.output_size,
             )
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.lstm.LSTMAttentiveDecoder:
         return modules.lstm.LSTMAttentiveDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
@@ -134,7 +134,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             attention_input_size=self.source_encoder.output_size,
         )
 
-    def _check_layer_sizes(self):
+    def _check_layer_sizes(self) -> None:
         """Checks that encoder and decoder layers are the same number.
 
         Raises:
@@ -148,12 +148,12 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
     def decode_step(
         self,
         symbol: torch.Tensor,
+        last_hiddens: Tuple[torch.Tensor, torch.Tensor],
         source_indices: torch.Tensor,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
         feature_enc: Optional[torch.Tensor] = None,
         feature_mask: Optional[torch.Tensor] = None,
-        last_hiddens: Tuple[torch.Tensor, torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs a single step of the decoder.
 
@@ -161,12 +161,12 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
 
         Args:
             symbol (torch.Tensor).
+            last_hiddens (Tuple[torch.Tensor, torch.Tensor]).
             source_indices (torch.Tensor).
             source_enc (torch.Tensor).
             source_mask (torch.Tensor).
             feature_enc (Optional[torch.Tensor]).
             feature_mask (Optional[torch.Tensor]).
-            last_hiddens (Tuple[torch.Tensor, torch.Tensor]).
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor].
@@ -215,14 +215,14 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
 
     def decode(
         self,
+        source_enc: torch.Tensor,
+        source_mask: torch.Tensor,
         source_indices: torch.Tensor,
-        encoder_out: torch.Tensor,
-        encoder_mask: torch.Tensor,
+        decoder_hiddens: torch.Tensor,
         teacher_forcing: bool,
         feature_enc: Optional[torch.Tensor] = None,
         feature_mask: Optional[torch.Tensor] = None,
         target: Optional[torch.Tensor] = None,
-        last_hiddens: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
@@ -230,17 +230,26 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         a specified length depending on the `target` args.
 
         Args:
-            batch_size (int).
-            decoder_hiddens (torch.Tensor).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            target (torch.Tensor, optional).
+            source_enc (torch.Tensor): batch of encoded input symbols.
+            source_mask (torch.Tensor): mask for the batch of encoded input
+                symbols.
+            source_indices (torch.Tensor): Indices of the input for calculating
+                pointer weights.
+            decoder_hiddens (torch.Tensor): .
+            teacher_forcing (bool): Whether or not to decode
+                with teacher forcing.
+            feature_enc (torch.Tensor, optional): batch of encoded feaure
+                symbols.
+            feature_mask (torch.Tensor, optional): mask for the batch of
+                encoded feature symbols.
+            target (torch.Tensor, optional): target symbols;  we
+                decode up to `len(target)` symbols. If it is None, then we
+                decode up to `self.max_target_length` symbols.
 
         Returns:
             torch.Tensor.
         """
-        batch_size = encoder_out.shape[0]
+        batch_size = source_enc.shape[0]
         # Feeds in the first decoder input, as a start tag.
         # -> B x 1
         decoder_input = (
@@ -258,22 +267,19 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
-            output, last_hiddens = self.decode_step(
+            output, decoder_hiddens = self.decode_step(
                 decoder_input,
+                decoder_hiddens,
                 source_indices,
-                encoder_out,
-                encoder_mask,
+                source_enc,
+                source_mask,
                 feature_enc=feature_enc,
                 feature_mask=feature_mask,
-                last_hiddens=last_hiddens,
             )
             predictions.append(output.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
             # for this step.
             if teacher_forcing:
-                assert (
-                    target is not None
-                ), "Teacher forcing requested but no target provided"
                 decoder_input = target[:, t].unsqueeze(1)
             # Otherwise we pass the top pred to the next timestep
             # (i.e., student forcing, greedy decoding).
@@ -308,9 +314,9 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             torch.Tensor.
         """
         encoder_output = self.source_encoder(batch.source)
-        encoded = encoder_output.encoded
+        source_encoded = encoder_output.output
         if encoder_output.has_hiddens:
-            (h_source, c_source) = encoder_output.hiddens
+            h_source, c_source = encoder_output.hiddens
             last_hiddens = self._reshape_hiddens(
                 h_source,
                 c_source,
@@ -329,16 +335,16 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 raise NotImplementedError
             else:
                 predictions = self.decode(
-                    batch.source.padded,
-                    encoded,
+                    source_encoded,
                     batch.source.mask,
-                    target=batch.target.padded,
-                    last_hiddens=last_hiddens,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    target=batch.target.padded if batch.target else None,
                 )
         else:
-            assert batch.has_features
             features_encoder_output = self.feature_encoder(batch.features)
-            features_encoded = features_encoder_output.encoded
+            features_encoded = features_encoder_output.output
             if features_encoder_output.has_hiddens:
                 h_features, c_features = features_encoder_output.hiddens
                 h_features, c_features = self._reshape_hiddens(
@@ -351,52 +357,22 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 h_features, c_features = self.init_hiddens(
                     len(batch), self.source_encoder.layers
                 )
-                # Breaks when all batches predicted an END symbol.
-                if finished.all():
-                    break
-        predictions = torch.stack(predictions)
-        return predictions
-
-    def forward(self, batch: batches.PaddedBatch) -> torch.Tensor:
-        """Runs the encoder-decoder.
-
-        Args:
-            batch (batches.PaddedBatch).
-
-        Returns:
-            torch.Tensor.
-        """
-        assert batch.has_features
-        source_encoded, (h_source, c_source) = self.encode(
-            batch.source, self.source_embeddings, self.encoder
-        )
-        features_encoded, (h_features, c_features) = self.encode(
-            batch.features, self.feature_embeddings, self.feature_encoder
-        )
-        h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
-        c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))
-        if self.beam_width is not None and self.beam_width > 1:
-            # predictions = self.beam_decode(
-            #     batch_size, x_mask, encoder_out, beam_width=self.beam_width
-            # )
-            raise NotImplementedError
-        else:
-            predictions = self.decode(
-                len(batch),
-                (h_0, c_0),
-                batch.source.padded,
-                source_encoded,
-                batch.source.mask,
-                features_encoded,
-                batch.features.mask,
-                batch.target.padded,
-            )
-        # -> B x seq_len x output_size.
-        predictions = predictions.transpose(0, 1)
+                predictions = self.decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    feature_enc=features_encoded,
+                    feature_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
         return predictions
 
     @staticmethod
-    def _reshape_hiddens(H, C, layers, num_directions):
+    def _reshape_hiddens(
+        H: torch.Tensor, C: torch.Tensor, layers: int, num_directions: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         H = H.view(layers, num_directions, H.size(1), H.size(2)).sum(axis=1)
         C = C.view(layers, num_directions, C.size(1), C.size(2)).sum(axis=1)
         return (H, C)

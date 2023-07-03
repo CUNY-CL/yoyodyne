@@ -73,8 +73,8 @@ class PositionalEncoding(nn.Module):
         return out
 
 
-class TransformerEncoder(base.BaseEncoder):
-    """Encoder for Transformer."""
+class TransformerModule(base.BaseModule):
+    """Base module for Transformer."""
 
     # Model arguments.
     attention_heads: int
@@ -90,12 +90,12 @@ class TransformerEncoder(base.BaseEncoder):
         max_source_length: int,
         **kwargs,
     ):
-        """Initializes the encoder-decoder with attention.
+        """Initializes the module with attention.
 
         Args:
+            *args: passed to superclass.
             attention_heads (int).
             max_source_length (int).
-            *args: passed to superclass.
             **kwargs: passed to superclass.
         """
         super().__init__(
@@ -109,22 +109,6 @@ class TransformerEncoder(base.BaseEncoder):
         self.module = self.get_module()
         self.positional_encoding = PositionalEncoding(
             self.embedding_size, self.pad_idx, max_source_length
-        )
-
-    def get_module(self):
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=self.embedding_size,
-            dim_feedforward=self.hidden_size,
-            nhead=self.attention_heads,
-            dropout=self.dropout,
-            activation="relu",
-            norm_first=True,
-            batch_first=True,
-        )
-        return nn.TransformerEncoder(
-            encoder_layer=encoder_layer,
-            num_layers=self.layers,
-            norm=nn.LayerNorm(self.embedding_size),
         )
 
     def init_embeddings(
@@ -160,6 +144,8 @@ class TransformerEncoder(base.BaseEncoder):
         out = self.dropout_layer(word_embedding + positional_embedding)
         return out
 
+
+class TransformerEncoder(TransformerModule):
     def forward(self, source: batches.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
@@ -171,24 +157,11 @@ class TransformerEncoder(base.BaseEncoder):
         """
         embedding = self.embed(source.padded)
         output = self.module(embedding, src_key_padding_mask=source.mask)
-        return base.Output(output)
+        return base.ModuleOutput(output)
 
-
-class TransformerDecoder(TransformerEncoder):
-    """Decoder for Transformer."""
-
-    # Output arg.
-    decoder_input_size: int
-    # Constructed inside __init__.
-    module: nn.TransformerDecoder
-
-    def __init__(self, *args, decoder_input_size, **kwargs):
-        self.decoder_input_size = decoder_input_size
-        super().__init__(*args, **kwargs)
-
-    def get_module(self):
-        decoder_layer = nn.TransformerDecoderLayer(
-            d_model=self.decoder_input_size,
+    def get_module(self) -> nn.TransformerEncoder:
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=self.embedding_size,
             dim_feedforward=self.hidden_size,
             nhead=self.attention_heads,
             dropout=self.dropout,
@@ -196,64 +169,15 @@ class TransformerDecoder(TransformerEncoder):
             norm_first=True,
             batch_first=True,
         )
-        return nn.TransformerDecoder(
-            decoder_layer=decoder_layer,
+        return nn.TransformerEncoder(
+            encoder_layer=encoder_layer,
             num_layers=self.layers,
             norm=nn.LayerNorm(self.embedding_size),
         )
 
-    def forward(
-        self,
-        encoder_hidden: torch.Tensor,
-        source_mask: torch.Tensor,
-        target: torch.Tensor,
-        target_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        """Performs single pass of decoder module.
-
-        Args:
-            encoder_hidden (torch.Tensor): source encoder hidden state, of
-                shape B x seq_len x hidden_size.
-            source_mask (torch.Tensor): encoder hidden state mask.
-            target (torch.Tensor): current state of targets, which may be the
-                full target, or previous decoded, of shape
-                B x seq_len x hidden_size.
-            target_mask (torch.Tensor): target mask.
-
-        Returns:
-            _type_: torch tensor of decoder outputs.
-        """
-        target_embedding = self.embed(target)
-        target_sequence_length = target_embedding.size(1)
-        # -> seq_len x seq_len.
-        causal_mask = self.generate_square_subsequent_mask(
-            target_sequence_length
-        ).to(self.device)
-        # -> B x seq_len x d_model
-        output = self.module(
-            target_embedding,
-            encoder_hidden,
-            tgt_mask=causal_mask,
-            memory_key_padding_mask=source_mask,
-            tgt_key_padding_mask=target_mask,
-        )
-        return base.Output(output)
-
-    @staticmethod
-    def generate_square_subsequent_mask(length: int) -> torch.Tensor:
-        """Generates the target mask so the model cannot see future states.
-
-        Args:
-            length (int): length of the sequence.
-
-        Returns:
-            torch.Tensor: mask of shape length x length.
-        """
-        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
-
     @property
     def output_size(self) -> int:
-        return self.num_embeddings
+        return self.embedding_size
 
 
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
@@ -305,3 +229,85 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             word_embedding + positional_embedding + type_embedding
         )
         return out
+
+
+class TransformerDecoder(TransformerModule):
+    """Decoder for Transformer."""
+
+    # Output arg.
+    decoder_input_size: int
+    # Constructed inside __init__.
+    module: nn.TransformerDecoder
+
+    def __init__(self, *args, decoder_input_size, **kwargs):
+        self.decoder_input_size = decoder_input_size
+        super().__init__(*args, **kwargs)
+
+    def forward(
+        self,
+        encoder_hidden: torch.Tensor,
+        source_mask: torch.Tensor,
+        target: torch.Tensor,
+        target_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Performs single pass of decoder module.
+
+        Args:
+            encoder_hidden (torch.Tensor): source encoder hidden state, of
+                shape B x seq_len x hidden_size.
+            source_mask (torch.Tensor): encoder hidden state mask.
+            target (torch.Tensor): current state of targets, which may be the
+                full target, or previous decoded, of shape
+                B x seq_len x hidden_size.
+            target_mask (torch.Tensor): target mask.
+
+        Returns:
+            torch.Tensor: torch tensor of decoder outputs.
+        """
+        target_embedding = self.embed(target)
+        target_sequence_length = target_embedding.size(1)
+        # -> seq_len x seq_len.
+        causal_mask = self.generate_square_subsequent_mask(
+            target_sequence_length
+        ).to(self.device)
+        # -> B x seq_len x d_model
+        output = self.module(
+            target_embedding,
+            encoder_hidden,
+            tgt_mask=causal_mask,
+            memory_key_padding_mask=source_mask,
+            tgt_key_padding_mask=target_mask,
+        )
+        return base.ModuleOutput(output)
+
+    def get_module(self) -> nn.TransformerDecoder:
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=self.decoder_input_size,
+            dim_feedforward=self.hidden_size,
+            nhead=self.attention_heads,
+            dropout=self.dropout,
+            activation="relu",
+            norm_first=True,
+            batch_first=True,
+        )
+        return nn.TransformerDecoder(
+            decoder_layer=decoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
+        )
+
+    @staticmethod
+    def generate_square_subsequent_mask(length: int) -> torch.Tensor:
+        """Generates the target mask so the model cannot see future states.
+
+        Args:
+            length (int): length of the sequence.
+
+        Returns:
+            torch.Tensor: mask of shape length x length.
+        """
+        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
+
+    @property
+    def output_size(self) -> int:
+        return self.num_embeddings
