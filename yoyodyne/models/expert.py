@@ -468,7 +468,6 @@ def get_expert(
             _generate_data_and_encode_vocabulary(train_data, actions),
             epochs=epochs,
         )
-    util.log_info(f"Action vocabulary: {actions}")
     return Expert(actions, sed_aligner, oracle_factor=oracle_factor)
 
 
