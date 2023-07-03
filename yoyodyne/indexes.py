@@ -113,16 +113,16 @@ class Index:
         return len(self.source_map)
 
     @property
-    def target_vocab_size(self) -> int:
-        return len(self.target_map)
-
-    @property
     def has_features(self) -> bool:
         return self.features_map is not None
 
     @property
     def features_vocab_size(self) -> int:
         return len(self.features_map) if self.has_features else 0
+
+    @property
+    def target_vocab_size(self) -> int:
+        return len(self.target_map)
 
     @property
     def pad_idx(self) -> int:
