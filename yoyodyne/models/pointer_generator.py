@@ -39,21 +39,22 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Overrides classifier to take larger input.
         self.classifier = nn.Linear(3 * self.hidden_size, self.output_size)
         self.generation_probability = (
-            generation_probability.GenerationProbability(  # noqa: E501
+            generation_probability.GenerationProbability(
                 self.embedding_size, self.hidden_size, encoder_size
             )
-        )
+        )  # noqa: E501
 
-    def _check_layer_sizes(self):
+    def _check_layer_sizes(self) -> None:
         """Checks that encoder and decoder layers are the same number.
 
         Raises:
             Error.
         """
         if self.encoder_layers != self.decoder_layers:
-            msg = "encoder_layers needs to be the same as decoder_layers."
-            msg += f" {self.encoder_layers} != {self.decoder_layers}."
-            raise Error(msg)
+            raise Error(
+                f"The number of encoder layers ({self.encoder_layers}) and "
+                f"decoder layers ({self.decoder_layers}) must match"
+            )
 
     def encode(
         self,
@@ -330,10 +331,10 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         self.classifier = nn.Linear(5 * self.hidden_size, self.output_size)
         # Overrides GenerationProbability to have larger hidden_size.
         self.generation_probability = (
-            generation_probability.GenerationProbability(  # noqa: E501
+            generation_probability.GenerationProbability(
                 self.embedding_size, self.hidden_size, 2 * encoder_size
             )
-        )
+        )  # noqa: E501
 
     def encode(
         self,
