@@ -19,7 +19,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     start_idx: int
     end_idx: int
     # Sizes.
-    vocab_size: int
+    source_vocab_size: int
     features_vocab_size: int
     output_size: int
     # Optimizer arguments.

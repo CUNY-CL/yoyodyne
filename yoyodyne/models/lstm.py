@@ -45,7 +45,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         super().__init__(*args, **kwargs)
         self.bidirectional = bidirectional
         self.source_embeddings = self.init_embeddings(
-            self.vocab_size, self.embedding_size, self.pad_idx
+            self.source_vocab_size, self.embedding_size, self.pad_idx
         )
         self.target_embeddings = self.init_embeddings(
             self.output_size, self.embedding_size, self.pad_idx
