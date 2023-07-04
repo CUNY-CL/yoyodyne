@@ -41,10 +41,6 @@ class GenerationProbability(nn.Module):
     ) -> torch.Tensor:
         """Computes generation probability.
 
-        The formula is:
-
-            w_h * ATTN_t + w_s * HIDDEN_t + w_y * Y_{t-1} + b
-
         Args:
             h_attention (torch.Tensor): combined context vector over source and
                 features of shape B x 1 x attention_size.
@@ -53,7 +49,7 @@ class GenerationProbability(nn.Module):
             inp (torch.Tensor): decoder input of shape B x 1 x embedding_size.
 
         Returns:
-            (torch.Tensor): generation probability of shape B.
+            torch.Tensor: generation probability of shape B.
         """
         # -> B x 1 x 1.
         p_gen = self.w_attention(h_attention) + self.w_hs(decoder_hs)
