@@ -371,13 +371,12 @@ def get_index(model_dir: str, experiment: str) -> str:
     return f"{model_dir}/{experiment}/index.pkl"
 
 
-def get_train_argparse_parser() -> argparse.Namespace:
-    """Gets the parser with arguments needed for training.
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds training arguments to parser.
 
-    Returns:
-        argparse.Namespace: Argparse parser with training args.
+    Args:
+        argparse.ArgumentParser.
     """
-    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--experiment", required=True, help="Name of experiment"
     )
@@ -455,12 +454,12 @@ def get_train_argparse_parser() -> argparse.Namespace:
     # --min_steps
     # --max_time
     pl.Trainer.add_argparse_args(parser)
-    return parser
 
 
 def main() -> None:
     """Trainer."""
-    parser = get_train_argparse_parser()
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
     pl.seed_everything(args.seed)
