@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 from torch.utils import data
 
 from .. import defaults, util
-from . import collators, datasets, index, tsv
+from . import collators, datasets, indexes, tsv
 
 
 class DataModule(pl.LightningDataModule):
@@ -14,7 +14,7 @@ class DataModule(pl.LightningDataModule):
 
     tsv_parser: tsv.TsvParser
     cell_parser: tsv.CellParser
-    index: index.Index
+    index: indexes.Index
     batch_size: int
     collator: collators.Collator
 
@@ -95,11 +95,12 @@ class DataModule(pl.LightningDataModule):
             if self.tsv_parser.has_target and tied_vocabulary:
                 source_vocabulary.update(target_vocabulary)
                 target_vocabulary.update(source_vocabulary)
-        self.index = index.Index(
+        self.separate_features = separate_features
+        self.index = indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
             # These two are stored as nulls if empty.
             features_vocabulary=sorted(features_vocabulary)
-            if separate_features
+            if self.separate_features
             else None,
             target_vocabulary=sorted(target_vocabulary),
         )
@@ -135,9 +136,18 @@ class DataModule(pl.LightningDataModule):
         self.index.write(index_path)
         util.log_info(f"Index path: {index_path}")
 
+    @property
+    def source_vocab_size(self) -> int:
+        if self.separate_vocabulary:
+            return self.index.source_vocab_size
+        else:
+            return (
+                self.index.source_vocab_size + self.index.features_vocab_size
+            )
+
     # Required API.
 
-    def _dataset(self, path: str) -> dataset.Dataset:
+    def _dataset(self, path: str) -> datasets.Dataset:
         return datasets.Dataset(
             list(self.tsv_parser.samples(path)),
             self.index,
