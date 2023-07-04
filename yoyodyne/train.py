@@ -198,14 +198,14 @@ def get_model_from_argparse_args(
         else None
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
-    separate_features = args.has_features and args.arch in [
+    separate_features = train_set.has_features and args.arch in [
         "pointer_generator_lstm",
         "transducer",
     ]
     features_vocab_size = (
         train_set.index.features_vocab_size if train_set.has_features else 0
     )
-    vocab_size = (
+    source_vocab_size = (
         train_set.index.source_vocab_size + features_vocab_size
         if not separate_features
         else train_set.index.source_vocab_size
@@ -229,12 +229,12 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        output_size=train_set.index.target_vocab_size,
         pad_idx=train_set.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_vocab_size=source_vocab_size,
         start_idx=train_set.index.start_idx,
+        target_vocab_size=train_set.index.target_vocab_size,
     )
 
 
@@ -370,7 +370,7 @@ def main() -> None:
         args.max_source_length,
         args.max_target_length,
     )
-    model = get_model(train_set, args)
+    model = get_model_from_argparse_args(train_set, args)
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:
