@@ -103,7 +103,6 @@ class DataModule(pl.LightningDataModule):
             else None,
             target_vocabulary=sorted(target_vocabulary),
         )
-        util.log_info(f"Tied vocabulary? {tied_vocabulary}")
         # Makes collator.
         self.batch_size = batch_size
         self.collator = collators.Collator(
