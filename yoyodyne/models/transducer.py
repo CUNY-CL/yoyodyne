@@ -46,7 +46,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             **kwargs: passed to superclass.
         """
         # Alternate outputs than dataset targets.
-        kwargs["output_size"] = len(expert.actions)
+        kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
         # Model specific variables.
         self.expert = expert  # Oracle to train model.
@@ -55,7 +55,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         self.insertions = self.actions.insertions
         # Target embeddings use alternate padding.
         self.target_embeddings = self.init_embeddings(
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             embedding_size=self.embedding_size,
             pad_idx=self.actions.end_idx,
         )

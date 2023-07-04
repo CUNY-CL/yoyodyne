@@ -50,7 +50,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             self.source_vocab_size, self.embedding_size, self.pad_idx
         )
         self.target_embeddings = self.init_embeddings(
-            self.output_size, self.embedding_size, self.pad_idx
+            self.target_vocab_size, self.embedding_size, self.pad_idx
         )
         self.positional_encoding = positional_encoding.PositionalEncoding(
             self.embedding_size, self.pad_idx, self.max_source_length
@@ -84,7 +84,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             num_layers=self.decoder_layers,
             norm=nn.LayerNorm(self.embedding_size),
         )
-        self.classifier = nn.Linear(self.embedding_size, self.output_size)
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int, pad_idx: int
@@ -182,7 +184,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             memory_key_padding_mask=source_mask,
             tgt_key_padding_mask=target_mask,
         )
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         output = self.classifier(decoder_hidden)
         output = self.log_softmax(output)
         return output
@@ -243,7 +245,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             if finished.all():
                 if targets is None or len(outputs) >= targets.size(-1):
                     break
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         return torch.stack(outputs).transpose(0, 1)
 
     def forward(
@@ -278,11 +280,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             output = self.decode(
                 encoder_hidden, batch.source.mask, target_padded, target_mask
             )
-            # -> B x seq_len x output_size.
+            # -> B x seq_len x target_vocab_size.
             output = output[:, :-1, :]
         else:
             encoder_hidden = self.encode(batch.source)
-            # -> B x seq_len x output_size.
+            # -> B x seq_len x target_vocab_size.
             output = self._decode_greedy(
                 encoder_hidden,
                 batch.source.mask,

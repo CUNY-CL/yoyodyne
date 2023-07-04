@@ -37,7 +37,9 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             encoder_size, self.hidden_size
         )
         # Overrides classifier to take larger input.
-        self.classifier = nn.Linear(3 * self.hidden_size, self.output_size)
+        self.classifier = nn.Linear(
+            3 * self.hidden_size, self.target_vocab_size
+        )
         self.generation_probability = (
             generation_probability.GenerationProbability(
                 self.embedding_size, self.hidden_size, encoder_size
@@ -133,16 +135,16 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         )
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
-        # -> B x 1 x output_size.
+        # -> B x 1 x target_vocab_size.
         ptr_probs = torch.zeros(
             symbol.size(0),
-            self.output_size,
+            self.target_vocab_size,
             device=self.device,
             dtype=source_attention_weights.dtype,
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
-        # -> B x 1 x output_size.
+        # -> B x 1 x target_vocab_size.
         ptr_probs.scatter_add_(
             2, source_indices.unsqueeze(1), source_attention_weights
         )
@@ -206,7 +208,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         # Tracks when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
-            # pred: B x 1 x output_size.
+            # pred: B x 1 x target_vocab_size.
             output, decoder_hiddens = self.decode_step(
                 decoder_input,
                 decoder_hiddens,
@@ -272,7 +274,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.target else None,
             )
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         predictions = predictions.transpose(0, 1)
         return predictions
 
@@ -328,7 +330,9 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             batch_first=True,
         )
         # Overrides classifier to take larger input.
-        self.classifier = nn.Linear(5 * self.hidden_size, self.output_size)
+        self.classifier = nn.Linear(
+            5 * self.hidden_size, self.target_vocab_size
+        )
         # Overrides GenerationProbability to have larger hidden_size.
         self.generation_probability = (
             generation_probability.GenerationProbability(
@@ -426,16 +430,16 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         output_probs = self.classifier(torch.cat([hidden, context], dim=2))
         # Ordinary softmax, log will be taken at the end.
         output_probs = nn.functional.softmax(output_probs, dim=2)
-        # -> B x 1 x output_size.
+        # -> B x 1 x target_vocab_size.
         ptr_probs = torch.zeros(
             symbol.size(0),
-            self.output_size,
+            self.target_vocab_size,
             device=self.device,
             dtype=source_attention_weights.dtype,
         ).unsqueeze(1)
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
-        # -> B x 1 x output_size.
+        # -> B x 1 x target_vocab_size.
         ptr_probs.scatter_add_(
             2, source_indices.unsqueeze(1), source_attention_weights
         )
@@ -503,7 +507,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         # Tracks when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
-            # pred: B x 1 x output_size.
+            # pred: B x 1 x target_vocab_size.
             output, decoder_hiddens = self.decode_step(
                 decoder_input,
                 decoder_hiddens,
@@ -579,6 +583,6 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.target else None,
             )
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         predictions = predictions.transpose(0, 1)
         return predictions
