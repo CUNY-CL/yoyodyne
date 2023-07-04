@@ -4,7 +4,6 @@ Anything which has a tensor member should inherit from nn.Module, run the
 superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
-import abc
 from typing import List, Optional, Set, Union
 
 import torch
@@ -46,14 +45,10 @@ class Item(nn.Module):
 
 
 class BaseDataset(data.Dataset):
-    """Base datatset class, with some core methods."""
+    """Base datatset class."""
 
     def __init__(self):
         super().__init__()
-
-    @abc.abstractmethod
-    def _make_index(self) -> None:
-        ...
 
 
 class DatasetNoFeatures(BaseDataset):
@@ -275,8 +270,6 @@ class DatasetNoFeatures(BaseDataset):
 
 class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
-
-    index: indexes.Index
 
     @staticmethod
     def read_index(path: str) -> indexes.Index:

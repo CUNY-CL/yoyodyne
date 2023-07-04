@@ -1,6 +1,6 @@
 import pytest
 
-from yoyodyne import collators, dataconfig, datasets, indexes
+from yoyodyne import collators, dataconfig, datasets
 
 
 @pytest.mark.parametrize(
@@ -27,18 +27,18 @@ from yoyodyne import collators, dataconfig, datasets, indexes
     ],
 )
 def test_get_collator(
-    arch, has_features, has_target, expected_separate_features
+    make_trivial_tsv_file,
+    arch,
+    has_features,
+    has_target,
+    expected_separate_features,
 ):
-    dataset = datasets.BaseDataset()
+    filename = make_trivial_tsv_file
     config = dataconfig.DataConfig(
         features_col=3 if has_features else 0,
         target_col=2 if has_target else 0,
     )
-    index = indexes.Index()
-    index.pad_idx = 1
-    index.source_vocab_size = 0
-    dataset.config = config
-    dataset.index = index
+    dataset = datasets.get_dataset(filename, config)
     collator = collators.Collator(
         dataset,
         arch,
