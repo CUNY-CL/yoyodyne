@@ -63,7 +63,7 @@ class Index:
         self,
         *,
         source_vocabulary: List[str],
-        features_vocabulary: Optional[List[str]],
+        features_vocabulary: Optional[List[str]] = None,
         target_vocabulary: List[str],
     ):
         """Initializes the index.
