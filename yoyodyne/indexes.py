@@ -1,4 +1,4 @@
-"""Indexes for symbols."""
+"""Symbol index."""
 
 import os
 import pickle
@@ -64,23 +64,38 @@ class Index:
         *,
         source_vocabulary: List[str],
         features_vocabulary: Optional[List[str]] = None,
-        target_vocabulary: List[str],
+        target_vocabulary: Optional[List[str]] = None,
     ):
         """Initializes the index.
 
         Args:
             source_vocabulary (List[str]).
             features_vocabulary (List[str], optional).
-            target_vocabulary (List[str]).
+            target_vocabulary (List[str], optional).
         """
         super().__init__()
         self.source_map = SymbolMap(source_vocabulary)
         self.features_map = (
             SymbolMap(features_vocabulary) if features_vocabulary else None
         )
-        self.target_map = SymbolMap(target_vocabulary)
+        self.target_map = (
+            SymbolMap(target_vocabulary) if source_vocabulary else None
+        )
 
     # Serialization support.
+
+    @staticmethod
+    def index_path(model_dir: str, experiment: str) -> str:
+        """Computes the index path.
+
+        Args:
+            model_dir (str).
+            experiment (str).
+
+        Returns:
+            str.
+        """
+        return f"{model_dir}/{experiment}/index.pkl"
 
     @classmethod
     def read(cls, path: str):
@@ -119,6 +134,10 @@ class Index:
     @property
     def features_vocab_size(self) -> int:
         return len(self.features_map) if self.has_features else 0
+
+    @property
+    def has_target(self) -> bool:
+        return self.target_map is not None
 
     @property
     def target_vocab_size(self) -> int:
