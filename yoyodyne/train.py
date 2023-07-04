@@ -225,6 +225,7 @@ def get_model_from_argparse_args(
         expert=expert,
         features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
+        label_smoothing=args.label_smoothing,
         learning_rate=args.learning_rate,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
