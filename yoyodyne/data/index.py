@@ -1,4 +1,4 @@
-"""Indexes for symbols."""
+"""Symbol index."""
 
 import os
 import pickle
