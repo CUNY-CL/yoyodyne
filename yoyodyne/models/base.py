@@ -394,7 +394,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         smooth_loss = smooth_loss / self.target_vocab_size
         # Combines both according to label smoothing weight.
         loss = (1.0 - self.label_smoothing) * nll_loss
-        loss += self.label_smoothing * smooth_loss
+        loss.add_(self.label_smoothing * smooth_loss)
         return loss
 
     @staticmethod

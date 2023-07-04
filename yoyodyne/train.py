@@ -132,10 +132,10 @@ def _get_model_from_argparse_args(
         learning_rate=args.learning_rate,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
+        pad_idx=datamodule.index.pad_idx,
         optimizer=args.optimizer,
         # Some trickery here about separate features.
         source_vocab_size=datamodule.source_vocab_size,
-        pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=schedulers.get_scheduler_kwargs_from_argparse_args(
             args
