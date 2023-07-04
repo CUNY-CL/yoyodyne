@@ -48,7 +48,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-```python
+``` python
 import yoyodyne
 ```
 
@@ -232,21 +232,23 @@ This section contains instructions for the Yoyodyne maintainers.
 
 ### Releasing
 
-1.  Sync your fork to the upstream master branch. E.g., if the upstream remote
-    is called "upstream": `git pull upstream master`
-2.  Create a new branch. E.g., if you want to call this branch "release":
+1.  Create a new branch. E.g., if you want to call this branch "release":
     `git checkout -b release`
+2.  Sync your fork's branch to the upstream master branch. E.g., if the upstream
+    remote is called "upstream": `git pull upstream master`
 3.  Increment the version field in [`pyproject.toml`](pyproject.toml).
 4.  Stage your changes: `git add pyproject.toml`.
 5.  Commit your changes: `git commit -m "your commit message here"`
-6.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
+6.  Push your changes. E.g., if your branch is called "release":
+    `git push origin release`
+7.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
     if the new version is 3.1.4, the tag should be `v3.1.4`. This can be done:
     a.  on GitHub itself: click the "Releases" or "Create a new release" link on
         the right-hand side of the Yoyodyne GitHub page) and follow the
         dialogues.
     b.  from the command-line using `git tag`.
-7.  Build the new release: `python -m build`
-8.  Upload the result to PyPI: `twine upload dist/*`
+8.  Build the new release: `python -m build`
+9.  Upload the result to PyPI: `twine upload dist/*`
 
 ## References
 
