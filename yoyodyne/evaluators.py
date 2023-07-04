@@ -86,17 +86,16 @@ class Evaluator:
         if predictions.size(0) == 1:
             return predictions
         for i, prediction in enumerate(predictions):
-            assert len(prediction.size()) == 1
             # Gets first instance of EOS.
             eos = (prediction == end_idx).nonzero(as_tuple=False)
             if len(eos) > 0 and eos[0].item() < len(prediction):
-                # If an eos was decoded and it is not the last one in the
+                # If an EOS was decoded and it is not the last one in the
                 # sequence.
                 eos = eos[0]
             else:
                 # Leaves predictions[i] alone.
                 continue
-            # Hack in case the first prediction is EOS. In this case,
+            # Hack in case the first prediction is EOS. In this case
             # torch.split will result in an error, so we change these 0's to
             # 1's, which will make the entire sequence EOS as intended.
             eos[eos == 0] = 1
@@ -105,12 +104,12 @@ class Evaluator:
             # While waiting on the entire batch to finish.
             pads = (
                 torch.ones(
-                    len(prediction) - len(symbols), device=prediction.device
+                    len(prediction) - len(symbols), device=symbols.device
                 )
                 * pad_idx
             )
             pads[0] = end_idx
-            # Making an in-place udpate to an inference tensor.
+            # Makes an in-place update to an inference tensor.
             with torch.inference_mode():
                 predictions[i] = torch.cat((symbols, pads))
         return predictions
