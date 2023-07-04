@@ -11,9 +11,9 @@ class GenerationProbability(nn.Module):
 
     stdev = 1 / math.sqrt(100)
 
-    W_attention: nn.Linear
-    W_hs: nn.Linear
-    W_inp: nn.Linear
+    w_attention: nn.Linear
+    w_hs: nn.Linear
+    w_inp: nn.Linear
     bias: nn.Parameter
 
     def __init__(
@@ -27,9 +27,9 @@ class GenerationProbability(nn.Module):
             attention_size (int): dimensions of combined encoder attentions.
         """
         super().__init__()
-        self.W_attention = nn.Linear(attention_size, 1, bias=False)
-        self.W_hs = nn.Linear(hidden_size, 1, bias=False)
-        self.W_inp = nn.Linear(embedding_size, 1, bias=False)
+        self.w_attention = nn.Linear(attention_size, 1, bias=False)
+        self.w_hs = nn.Linear(hidden_size, 1, bias=False)
+        self.w_inp = nn.Linear(embedding_size, 1, bias=False)
         self.bias = nn.Parameter(torch.Tensor(1))
         self.bias.data.uniform_(-self.stdev, self.stdev)
 
@@ -39,7 +39,11 @@ class GenerationProbability(nn.Module):
         decoder_hs: torch.Tensor,
         inp: torch.Tensor,
     ) -> torch.Tensor:
-        """Computes Wh * ATTN_t + Ws * HIDDEN_t + Wy * Y_{t-1} + b.
+        """Computes generation probability.
+
+        The formula is:
+
+            w_h * ATTN_t + w_s * HIDDEN_t + w_y * Y_{t-1} + b
 
         Args:
             h_attention (torch.Tensor): combined context vector over source and
@@ -52,8 +56,10 @@ class GenerationProbability(nn.Module):
             (torch.Tensor): generation probability of shape B.
         """
         # -> B x 1 x 1.
-        p_gen = self.W_attention(h_attention) + self.W_hs(decoder_hs)
-        p_gen += self.W_inp(inp) + self.bias.expand(h_attention.size(0), 1, -1)
+        p_gen = self.w_attention(h_attention) + self.w_hs(decoder_hs)
+        p_gen.add_(
+            self.w_inp(inp) + self.bias.expand(h_attention.size(0), 1, -1)
+        )
         # -> B.
         p_gen = torch.sigmoid(p_gen.squeeze(1))
         return p_gen

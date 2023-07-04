@@ -58,12 +58,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             batch_first=True,
             bidirectional=self.bidirectional,
         )
-        encoder_size = self.hidden_size * self.num_directions
         # Initial hidden state whose parameters are shared across all examples.
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
         self.decoder = nn.LSTM(
-            encoder_size + self.embedding_size,
+            self.hidden_size * self.num_directions + self.embedding_size,
             self.hidden_size,
             dropout=self.dropout,
             num_layers=self.decoder_layers,
@@ -73,7 +72,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.log_softmax = nn.LogSoftmax(dim=2)
 
     @property
-    def num_directions(self):
+    def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
     def init_embeddings(
@@ -112,15 +111,15 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         packed = nn.utils.rnn.pack_padded_sequence(
             embedded, source.lengths(), batch_first=True, enforce_sorted=False
         )
-        # -> B x seq_len x encoder_dim, (h0, c0).
-        packed_outs, (H, C) = self.encoder(packed)
+        # -> B x seq_len x encoder_dim, (h, c).
+        packed_outs, (h, c) = self.encoder(packed)
         encoded, _ = nn.utils.rnn.pad_packed_sequence(
             packed_outs,
             batch_first=True,
             padding_value=self.pad_idx,
             total_length=None,
         )
-        return encoded, (H, C)
+        return encoded, (h, c)
 
     def decode_step(
         self,
@@ -458,8 +457,9 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
     def __init__(self, *args, **kwargs):
         """Initializes the encoder-decoder with attention."""
         super().__init__(*args, **kwargs)
-        encoder_size = self.hidden_size * self.num_directions
-        self.attention = attention.Attention(encoder_size, self.hidden_size)
+        self.attention = attention.Attention(
+            self.hidden_size * self.num_directions, self.hidden_size
+        )
 
     def decode_step(
         self,
