@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from . import attention, base
-from .. import batches, defaults
+from .. import data, defaults
 
 
 class LSTMEncoderDecoder(base.BaseEncoderDecoder):
@@ -45,10 +45,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         super().__init__(*args, **kwargs)
         self.bidirectional = bidirectional
         self.source_embeddings = self.init_embeddings(
-            self.vocab_size, self.embedding_size, self.pad_idx
+            self.source_vocab_size + self.features_vocab_size,
+            self.embedding_size,
+            self.pad_idx,
         )
         self.target_embeddings = self.init_embeddings(
-            self.output_size, self.embedding_size, self.pad_idx
+            self.target_vocab_size, self.embedding_size, self.pad_idx
         )
         self.encoder = nn.LSTM(
             self.embedding_size,
@@ -68,7 +70,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             num_layers=self.decoder_layers,
             batch_first=True,
         )
-        self.classifier = nn.Linear(self.hidden_size, self.output_size)
+        self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
         self.log_softmax = nn.LogSoftmax(dim=2)
 
     @property
@@ -93,12 +95,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
 
     def encode(
-        self, source: batches.PaddedTensor
+        self, source: data.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Encodes the input.
 
         Args:
-            source (batches.PaddedTensor): source padded tensors and mask
+            source (data.PaddedTensor): source padded tensors and mask
                 for source, of shape B x seq_len x 1.
 
         Returns:
@@ -166,7 +168,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
         output = self.dropout_layer(output)
         # Classifies into output vocab.
-        # -> B x 1 x output_size.
+        # -> B x 1 x target_vocab_size.
         output = self.classifier(output)
         # Computes log_softmax scores for NLLLoss.
         output = self.log_softmax(output)
@@ -218,7 +220,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                seq_len x batch_size x output_size.
+                seq_len x batch_size x target_vocab_size.
         """
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
@@ -238,7 +240,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Tracks when each sequence has decoded an EOS.
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
-            # pred: B x 1 x output_size.
+            # pred: B x 1 x target_vocab_size.
             output, decoder_hiddens = self.decode_step(
                 decoder_input, decoder_hiddens, encoder_out, encoder_mask
             )
@@ -308,7 +310,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
-            # beam_width x output_size possibilities
+            # beam_width x target_vocab_size possibilities
             likelihoods = []
             hypotheses = []
             # First accumulates all beam_width softmaxes.
@@ -355,9 +357,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in likelihoods:
-                # This is 1 x 1 x output_size since we fixed batch size to 1.
+                # This is 1 x 1 x target_vocab_size since batch size is 1.
                 # We squeeze off the fist 2 dimensions to get a tensor of
-                # output_size.
+                # target_vocab_size.
                 predictions = predictions.squeeze(0).squeeze(0)
                 for j, prob in enumerate(predictions):
                     if return_confidences:
@@ -388,7 +390,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Returns the top-n hypotheses.
         histories = heapq.nlargest(n, hypotheses)
         predictions = torch.tensor([h[1] for h in histories], self.device)
-        # Converts shape to that of `decode`: seq_len x B x output_size.
+        # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
         if return_confidences:
             return (predictions, torch.tensor([h[2] for h in histories]))
@@ -397,34 +399,34 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
     def forward(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                (seq_len, batch_size, output_size).
+                (seq_len, batch_size, target_vocab_size).
         """
-        encoder_out, _ = self.encode(batch.source)
+        encoder_out, _ = self.encode(data.source)
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
                 len(batch),
-                batch.source.mask,
+                data.source.mask,
                 encoder_out,
                 beam_width=self.beam_width,
             )
         else:
             predictions = self.decode(
                 len(batch),
-                batch.source.mask,
+                data.source.mask,
                 encoder_out,
                 self.teacher_forcing if self.training else False,
-                batch.target.padded if batch.target else None,
+                data.target.padded if data.target else None,
             )
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         predictions = predictions.transpose(0, 1)
         return predictions
 
@@ -496,7 +498,7 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
         )
         output = self.dropout_layer(output)
         # Classifies into output vocab.
-        # -> B x 1 x output_size
+        # -> B x 1 x target_vocab_size
         output = self.classifier(output)
         output = self.log_softmax(output)
         return output, hiddens

@@ -7,7 +7,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from .. import batches, defaults
+from .. import data, defaults
 from . import base, positional_encoding
 
 
@@ -47,10 +47,12 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.max_source_length = max_source_length
         self.esq = math.sqrt(self.embedding_size)
         self.source_embeddings = self.init_embeddings(
-            self.vocab_size, self.embedding_size, self.pad_idx
+            self.source_vocab_size + self.features_vocab_size,
+            self.embedding_size,
+            self.pad_idx,
         )
         self.target_embeddings = self.init_embeddings(
-            self.output_size, self.embedding_size, self.pad_idx
+            self.target_vocab_size, self.embedding_size, self.pad_idx
         )
         self.positional_encoding = positional_encoding.PositionalEncoding(
             self.embedding_size, self.pad_idx, self.max_source_length
@@ -84,7 +86,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             num_layers=self.decoder_layers,
             norm=nn.LayerNorm(self.embedding_size),
         )
-        self.classifier = nn.Linear(self.embedding_size, self.output_size)
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int, pad_idx: int
@@ -135,11 +139,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         out = self.dropout_layer(word_embedding + positional_embedding)
         return out
 
-    def encode(self, source: batches.PaddedTensor) -> torch.Tensor:
+    def encode(self, source: data.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
         Args:
-            source (batches.PaddedTensor).
+            source (data.PaddedTensor).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
@@ -182,7 +186,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             memory_key_padding_mask=source_mask,
             tgt_key_padding_mask=target_mask,
         )
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         output = self.classifier(decoder_hidden)
         output = self.log_softmax(output)
         return output
@@ -236,24 +240,24 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             finished = torch.logical_or(
                 finished, (predictions[-1] == self.end_idx)
             )
-            # Breaks when all batches predicted an EOS symbol.
+            # Breaks when all data predicted an EOS symbol.
             # If we have a target (and are thus computing loss),
             # we only break when we have decoded at least the the
             # same number of steps as the target length.
             if finished.all():
                 if targets is None or len(outputs) >= targets.size(-1):
                     break
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         return torch.stack(outputs).transpose(0, 1)
 
     def forward(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
             torch.Tensor.
@@ -278,11 +282,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             output = self.decode(
                 encoder_hidden, batch.source.mask, target_padded, target_mask
             )
-            # -> B x seq_len x output_size.
+            # -> B x seq_len x target_vocab_size.
             output = output[:, :-1, :]
         else:
             encoder_hidden = self.encode(batch.source)
-            # -> B x seq_len x output_size.
+            # -> B x seq_len x target_vocab_size.
             output = self._decode_greedy(
                 encoder_hidden,
                 batch.source.mask,
@@ -355,7 +359,7 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
         """
         # Distinguishes features and chars.
         char_mask = (
-            symbols < (self.vocab_size - self.features_vocab_size)
+            symbols < (self.source_vocab_size - self.features_vocab_size)
         ).long()
         # 1 or 0.
         type_embedding = self.esq * self.type_embedding(char_mask)

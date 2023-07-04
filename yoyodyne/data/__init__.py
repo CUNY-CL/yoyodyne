@@ -2,6 +2,7 @@ import argparse
 
 
 from .. import defaults
+from .batch import PaddedBatch, PaddedTensor  # noqa: F401
 from .datamodule import DataModule  # noqa: F401
 
 

@@ -9,7 +9,7 @@ from maxwell import actions
 from torch import nn
 
 from . import expert, lstm
-from .. import batches
+from .. import data
 
 
 class ActionError(Exception):
@@ -46,7 +46,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
             **kwargs: passed to superclass.
         """
         # Alternate outputs than dataset targets.
-        kwargs["output_size"] = len(expert.actions)
+        kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
         # Model specific variables.
         self.expert = expert  # Oracle to train model.
@@ -55,19 +55,19 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         self.insertions = self.actions.insertions
         # Target embeddings use alternate padding.
         self.target_embeddings = self.init_embeddings(
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             embedding_size=self.embedding_size,
             pad_idx=self.actions.end_idx,
         )
 
     def forward(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor] of encoded prediction values
@@ -500,15 +500,13 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         # Prevents base construction of unused loss function.
         return None
 
-    def training_step(
-        self, batch: batches.PaddedBatch, batch_idx: int
-    ) -> Dict:
+    def training_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         """Runs one step of training.
 
         This is called by the PL Trainer.
 
         Args:
-            batch (batches.PaddedBatch)
+            batch (data.PaddedBatch)
             batch_idx (int).
 
         Returns:
@@ -525,9 +523,7 @@ class TransducerNoFeatures(lstm.LSTMEncoderDecoder):
         )
         return loss
 
-    def validation_step(
-        self, batch: batches.PaddedBatch, batch_idx: int
-    ) -> Dict:
+    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         predictions, loss = self.forward(batch)
         # Evaluation requires prediction as a tensor.
         predictions = self.convert_prediction(predictions)
@@ -608,12 +604,12 @@ class TransducerFeatures(TransducerNoFeatures):
 
     def forward(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
