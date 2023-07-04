@@ -322,7 +322,7 @@ def get_model(
         max_source_length=max_source_length,
         max_target_length=max_target_length,
         optimizer=optimizer,
-        output_size=train_set.index.target_vocab_size,
+        target_vocab_size=train_set.index.target_vocab_size,
         pad_idx=train_set.index.pad_idx,
         scheduler=scheduler,
         scheduler_kwargs=scheduler_kwargs,
