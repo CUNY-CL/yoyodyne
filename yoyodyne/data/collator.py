@@ -1,11 +1,11 @@
 """Collators and related utilities."""
 
-import argparse
 from typing import List
 
 import torch
 
-from . import batches, datasets, defaults, util
+from . import batch, dataset
+from .. import defaults, util
 
 
 class LengthError(Exception):
@@ -16,40 +16,38 @@ class Collator:
     """Pads data."""
 
     pad_idx: int
-    features_offset: int
     has_features: bool
     has_target: bool
+    features_offset: int
+    separate_features: bool
     max_source_length: int
     max_target_length: int
-    separate_features: bool
 
     def __init__(
         self,
-        dataset: datasets.BaseDataset,
-        arch: str,
+        pad_idx,
+        has_features: bool,
+        has_target: bool,
+        separate_features: bool,
+        features_offset: int,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
     ):
         """Initializes the collator.
 
         Args:
-            dataset (dataset.BaseDataset).
+            dataset (dataset.Dataset).
             arch (str).
             max_source_length (int).
             max_target_length (int).
         """
-        self.pad_idx = dataset.index.pad_idx
-        self.has_features = dataset.config.has_features
-        self.has_target = dataset.config.has_target
+        self.pad_idx = pad_idx
+        self.has_features = has_features
+        self.has_target = has_target
+        self.separate_features = separate_features
+        self.features_offset = features_offset
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
-        self.features_offset = (
-            dataset.index.source_vocab_size if self.has_features else 0
-        )
-        self.separate_features = dataset.config.has_features and arch in [
-            "pointer_generator_lstm",
-            "transducer",
-        ]
 
     def _source_length_error(self, padded_length: int) -> None:
         """Callback function to raise the error when the padded length of the
@@ -88,30 +86,28 @@ class Collator:
 
     def concatenate_source_and_features(
         self,
-        itemlist: List[datasets.Item],
+        itemlist: List[dataset.Item],
     ) -> List[torch.Tensor]:
         """Concatenates source and feature tensors."""
         return [
             (
                 torch.cat((item.source, item.features + self.features_offset))
-                if item.has_features
+                if self.has_features
                 else item.source
             )
             for item in itemlist
         ]
 
-    def pad_source(
-        self, itemlist: List[datasets.Item]
-    ) -> batches.PaddedTensor:
+    def pad_source(self, itemlist: List[dataset.Item]) -> batch.PaddedTensor:
         """Pads source.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[dataset.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            batch.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return batch.PaddedTensor(
             [item.source for item in itemlist],
             self.pad_idx,
             self._source_length_error,
@@ -119,17 +115,17 @@ class Collator:
 
     def pad_source_features(
         self,
-        itemlist: List[datasets.Item],
-    ) -> batches.PaddedTensor:
+        itemlist: List[dataset.Item],
+    ) -> batch.PaddedTensor:
         """Pads concatenated source and features.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[dataset.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            batch.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return batch.PaddedTensor(
             self.concatenate_source_and_features(itemlist),
             self.pad_idx,
             self._source_length_error,
@@ -137,74 +133,53 @@ class Collator:
 
     def pad_features(
         self,
-        itemlist: List[datasets.Item],
-    ) -> batches.PaddedTensor:
+        itemlist: List[dataset.Item],
+    ) -> batch.PaddedTensor:
         """Pads features.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[dataset.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            batch.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return batch.PaddedTensor(
             [item.features for item in itemlist], self.pad_idx
         )
 
-    def pad_target(
-        self, itemlist: List[datasets.Item]
-    ) -> batches.PaddedTensor:
+    def pad_target(self, itemlist: List[dataset.Item]) -> batch.PaddedTensor:
         """Pads target.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[dataset.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            batch.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return batch.PaddedTensor(
             [item.target for item in itemlist],
             self.pad_idx,
             self._target_length_warning,
         )
 
-    def __call__(self, itemlist: List[datasets.Item]) -> batches.PaddedBatch:
+    def __call__(self, itemlist: List[dataset.Item]) -> batch.PaddedBatch:
         """Pads all elements of an itemlist.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[dataset.Item]).
 
         Returns:
-            batches.PaddedBatch.
+            batch.PaddedBatch.
         """
         padded_target = self.pad_target(itemlist) if self.has_target else None
         if self.separate_features:
-            return batches.PaddedBatch(
+            return batch.PaddedBatch(
                 self.pad_source(itemlist),
                 features=self.pad_features(itemlist),
                 target=padded_target,
             )
         else:
-            return batches.PaddedBatch(
+            return batch.PaddedBatch(
                 self.pad_source_features(itemlist),
                 target=padded_target,
             )
-
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds collator options to the argument parser.
-
-        Args:
-            parser (argparse.ArgumentParser).
-        """
-        parser.add_argument(
-            "--max_source_length",
-            type=int,
-            default=defaults.MAX_SOURCE_LENGTH,
-            help="Maximum source string length. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--max_target_length",
-            type=int,
-            default=defaults.MAX_TARGET_LENGTH,
-            help="Maximum target string length. Default: %(default)s.",
-        )

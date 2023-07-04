@@ -53,23 +53,6 @@ def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
         raise NotImplementedError(f"Architecture {arch} not found")
 
 
-def get_model_cls_from_argparse_args(
-    args: argparse.Namespace,
-) -> BaseEncoderDecoder:
-    """Creates a model from CLI arguments.
-
-    Args:
-        args (argparse.Namespace).
-
-    Raises:
-        NotImplementedError.
-
-    Returns:
-        BaseEncoderDecoder.
-    """
-    return get_model_cls(args.arch, args.features_col != 0)
-
-
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds model options to an argument parser.
 
