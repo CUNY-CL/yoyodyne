@@ -133,22 +133,15 @@ def _get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-<<<<<<< HEAD
         source_vocab_size=datamodule.index.source_vocab_size,
-=======
-        output_size=datamodule.index.target_vocab_size,
->>>>>>> a39d2d6 (Data module)
+        source_vocab_size=datamodule.index.source_vocab_size,
         pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=schedulers.get_scheduler_kwargs_from_argparse_args(
             args
         ),
         start_idx=datamodule.index.start_idx,
-<<<<<<< HEAD
         target_vocab_size=datamodule.index.target_vocab_size,
-=======
-        vocab_size=datamodule.index.source_vocab_size,
->>>>>>> a39d2d6 (Data module)
     )
 
 
@@ -291,34 +284,8 @@ def main() -> None:
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = _get_trainer_from_argparse_args(args)
-<<<<<<< HEAD
-<<<<<<< HEAD
     datamodule = _get_datamodule_from_argparse_args(args)
     model = _get_model_from_argparse_args(args, datamodule)
-=======
-=======
->>>>>>> a39d2d6 (Data module)
-    train_set, dev_set = _get_datasets_from_argparse_args(args)
-    index = train_set.index.index_path(args.model_dir, args.experiment)
-    train_set.index.write(index)
-    util.log_info(f"Index: {index}")
-    train_loader, dev_loader = get_loaders(
-        train_set,
-        dev_set,
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
-    )
-    model = get_model(train_set, **vars(args))
-<<<<<<< HEAD
->>>>>>> dad69ca (Combines index classes.)
-=======
-=======
-    datamodule = _get_datamodule_from_argparse_args(args)
-    model = _get_model_from_argparse_args(args, datamodule)
->>>>>>> c32516f (Data module.)
->>>>>>> a39d2d6 (Data module)
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:

@@ -6,11 +6,7 @@ import torch
 from torch import nn
 from torch.utils import data
 
-<<<<<<< HEAD
-from . import index, tsv
-=======
 from . import indexes, tsv
->>>>>>> a39d2d6 (Data module)
 from .. import special
 
 
@@ -41,11 +37,7 @@ class Dataset(data.Dataset):
     """Dataset object without feature column."""
 
     samples: List[str]
-<<<<<<< HEAD
-    index: index.Index  # Normally a copy from the DataModule.
-=======
     index: indexes.Index  # Normally a copy from the DataModule.
->>>>>>> a39d2d6 (Data module)
     cell_parser: tsv.CellParser  # Ditto.
 
     def __init__(
@@ -71,11 +63,7 @@ class Dataset(data.Dataset):
     def _encode(
         self,
         symbols: List[str],
-<<<<<<< HEAD
-        symbol_map: index.SymbolMap,
-=======
         symbol_map: indexes.SymbolMap,
->>>>>>> a39d2d6 (Data module)
     ) -> torch.Tensor:
         """Encodes a sequence as a tensor of indices with cell boundary IDs.
 
@@ -144,11 +132,7 @@ class Dataset(data.Dataset):
     def _decode(
         self,
         indices: torch.Tensor,
-<<<<<<< HEAD
-        symbol_map: index.SymbolMap,
-=======
         symbol_map: indexes.SymbolMap,
->>>>>>> a39d2d6 (Data module)
     ) -> Iterator[List[str]]:
         """Decodes the tensor of indices into lists of symbols.
 
