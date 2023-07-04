@@ -34,8 +34,8 @@ class Evaluator:
                 f"Preds batch size ({predictions.size(0)}) and "
                 f"golds batch size ({golds.size(0)} do not match"
             )
-        # Gets the max val at each dim2 in predictions.
-        vals, predictions = torch.max(predictions, dim=2)
+        # Gets the max value at each dim2 in predictions.
+        _, predictions = torch.max(predictions, dim=2)
         # Finalizes the predictions.
         predictions = self.finalize_predictions(predictions, end_idx, pad_idx)
         return self.accuracy(predictions, golds, pad_idx)
