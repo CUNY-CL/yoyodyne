@@ -77,7 +77,6 @@ class DatasetNoFeatures(BaseDataset):
         self.config = config
         self.samples = list(self.config.samples(filename))
         self.index = index if index is not None else self._make_index()
-        assert self.config.has_features is self.index.has_features
 
     @staticmethod
     def read_index(path: str) -> indexes.Index:
@@ -271,18 +270,6 @@ class DatasetNoFeatures(BaseDataset):
 class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
 
-    @staticmethod
-    def read_index(path: str) -> indexes.Index:
-        """Helper for loading index.
-
-        Args:
-            path (str).
-
-        Returns:
-            indexes.Index.
-        """
-        return indexes.Index.read(path)
-
     def _make_index(self) -> indexes.Index:
         """Generates index.
 
@@ -322,7 +309,6 @@ class DatasetFeatures(DatasetNoFeatures):
             source, features, target = self.samples[idx]
         else:
             source, features = self.samples[idx]
-
         source_encoded = self.encode(self.index.source_map, source)
         features_encoded = self.encode(
             self.index.features_map,
@@ -370,7 +356,7 @@ class DatasetFeatures(DatasetNoFeatures):
 def get_dataset(
     filename: str,
     config: dataconfig.DataConfig,
-    index: Optional[Union[indexes.Index, str]] = None,
+    index: Union[indexes.Index, str, None] = None,
 ) -> data.Dataset:
     """Dataset factory.
 
@@ -384,6 +370,6 @@ def get_dataset(
         data.Dataset: the dataset.
     """
     cls = DatasetFeatures if config.has_features else DatasetNoFeatures
-    if index is not None and isinstance(index, str):
+    if isinstance(index, str):
         index = cls.read_index(index)
     return cls(filename, config, index)

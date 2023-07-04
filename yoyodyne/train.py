@@ -465,7 +465,7 @@ def main() -> None:
     pl.seed_everything(args.seed)
     trainer = _get_trainer_from_argparse_args(args)
     train_set, dev_set = _get_datasets_from_argparse_args(args)
-    index = get_index(args.model_dir, args.experiment)
+    index = train_set.index.index_path(args.model_dir, args.experiment)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
     train_loader, dev_loader = get_loaders(
