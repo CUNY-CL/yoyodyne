@@ -30,7 +30,7 @@ class PositionalEncoding(nn.Module):
             pad_idx (int).
             max_source_length (int).
         """
-        super(PositionalEncoding, self).__init__()
+        super().__init__()
         self.pad_idx = pad_idx
         positional_encoding = torch.zeros(max_source_length, d_model)
         position = torch.arange(
@@ -66,6 +66,5 @@ class PositionalEncoding(nn.Module):
         # Selects the tensors from `out` at the specified indices.
         out = out[torch.arange(out.shape[0]).unsqueeze(-1), indices]
         # Zeros out pads.
-        pad_mask = symbols.ne(self.pad_idx).unsqueeze(2)
-        out = out * pad_mask
+        out.mul_(symbols.ne(self.pad_idx).unsqueeze(2))
         return out
