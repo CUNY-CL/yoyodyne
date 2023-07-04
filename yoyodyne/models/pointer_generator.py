@@ -77,7 +77,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         )
         # -> B x seq_len x encoder_dim,
         # (D*layers x B x hidden_size, D*layers x B x hidden_size)
-        packed_outs, (H, C) = encoder(packed)
+        packed_outs, (h, c) = encoder(packed)
         encoded, _ = torch.nn.utils.rnn.pad_packed_sequence(
             packed_outs,
             batch_first=True,
@@ -86,13 +86,13 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
         )
         # Sums over directions, keeping layers.
         # -> num_layers x B x hidden_size.
-        H = H.view(
-            self.encoder_layers, self.num_directions, H.size(1), H.size(2)
+        h = h.view(
+            self.encoder_layers, self.num_directions, h.size(1), h.size(2)
         ).sum(axis=1)
-        C = C.view(
-            self.encoder_layers, self.num_directions, C.size(1), C.size(2)
+        c = c.view(
+            self.encoder_layers, self.num_directions, c.size(1), c.size(2)
         ).sum(axis=1)
-        return encoded, (H, C)
+        return encoded, (h, c)
 
     def decode_step(
         self,
@@ -353,7 +353,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             encoder (torch.nn.LSTM).
 
         Returns:
-            torch.Tensor: sequence of encoded symbols.
+            torch.Tensor, (torch.Tensor, torch.Tensor).
         """
         embedded = embeddings(source.padded)
         embedded = self.dropout_layer(embedded)
@@ -362,7 +362,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         )
         # -> B x seq_len x encoder_dim,
         # (D*layers x B x hidden_size, D*layers x B x hidden_size).
-        packed_outs, (H, C) = encoder(packed)
+        packed_outs, (h, c) = encoder(packed)
         encoded, _ = torch.nn.utils.rnn.pad_packed_sequence(
             packed_outs,
             batch_first=True,
@@ -371,13 +371,13 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         )
         # Sums over directions, keeping layers.
         # -> num_layers x B x hidden_size.
-        H = H.view(
-            self.encoder_layers, self.num_directions, H.size(1), H.size(2)
+        h = h.view(
+            self.encoder_layers, self.num_directions, h.size(1), h.size(2)
         ).sum(axis=1)
-        C = C.view(
-            self.encoder_layers, self.num_directions, C.size(1), C.size(2)
+        c = c.view(
+            self.encoder_layers, self.num_directions, c.size(1), c.size(2)
         ).sum(axis=1)
-        return encoded, (H, C)
+        return encoded, (h, c)
 
     def decode_step(
         self,
