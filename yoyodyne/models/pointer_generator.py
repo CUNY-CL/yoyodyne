@@ -301,6 +301,10 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
         self._check_layer_sizes()
+        # We use the inherited defaults for the source embeddings/encoder.
+        self.feature_embeddings = self.init_embeddings(
+            self.features_vocab_size, self.embedding_size, self.pad_idx
+        )
         self.feature_encoder = nn.LSTM(
             self.embedding_size,
             self.hidden_size,
@@ -557,7 +561,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             batch.source, self.source_embeddings, self.encoder
         )
         features_encoded, (h_features, c_features) = self.encode(
-            batch.features, self.source_embeddings, self.feature_encoder
+            batch.features, self.features_embeddings, self.feature_encoder
         )
         h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))

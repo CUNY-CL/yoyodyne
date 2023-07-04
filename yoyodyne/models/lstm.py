@@ -45,7 +45,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         super().__init__(*args, **kwargs)
         self.bidirectional = bidirectional
         self.source_embeddings = self.init_embeddings(
-            self.source_vocab_size + self.features_vocab_size,
+            self.source_vocab_size,
             self.embedding_size,
             self.pad_idx,
         )
@@ -410,21 +410,21 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             predictions (torch.Tensor): tensor of predictions of shape
                 (seq_len, batch_size, target_vocab_size).
         """
-        encoder_out, _ = self.encode(data.source)
+        encoder_out, _ = self.encode(batch.source)
         if self.beam_width is not None and self.beam_width > 1:
             predictions = self.beam_decode(
                 len(batch),
-                data.source.mask,
+                batch.source.mask,
                 encoder_out,
                 beam_width=self.beam_width,
             )
         else:
             predictions = self.decode(
                 len(batch),
-                data.source.mask,
+                batch.source.mask,
                 encoder_out,
                 self.teacher_forcing if self.training else False,
-                data.target.padded if data.target else None,
+                batch.target.padded if batch.target else None,
             )
         # -> B x seq_len x target_vocab_size.
         predictions = predictions.transpose(0, 1)

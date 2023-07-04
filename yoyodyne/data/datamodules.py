@@ -10,7 +10,7 @@ from . import collators, datasets, indexes, tsv
 
 
 class DataModule(pl.LightningDataModule):
-    """This module holds the index."""
+    """Parses, indexes, collates and loads data."""
 
     tsv_parser: tsv.TsvParser
     cell_parser: tsv.CellParser
@@ -138,7 +138,7 @@ class DataModule(pl.LightningDataModule):
 
     @property
     def source_vocab_size(self) -> int:
-        if self.separate_vocabulary:
+        if self.separate_features:
             return self.index.source_vocab_size
         else:
             return (
