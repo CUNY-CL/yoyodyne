@@ -51,8 +51,8 @@ class TsvParser:
 
     @staticmethod
     def _tsv_reader(path: str) -> Iterator[str]:
-        with open(path, "r") as source:
-            yield from csv.reader(source, delimiter="\t")
+        with open(path, "r") as tsv:
+            yield from csv.reader(tsv, delimiter="\t")
 
     @staticmethod
     def _get_cell(row: List[str], col: int) -> str:
