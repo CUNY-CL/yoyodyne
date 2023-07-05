@@ -132,7 +132,8 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
         Args:
             optimizer (optim.Optimizer): optimizer.
             reduceonplateau_mode (str): Determines whether to reduce the LR
-                when the metric stops decreasing (`min`) or increasing (`max`).
+                when the metric stops decreasing (`loss`) or increasing
+                (`accuracy`).
             reduceonplateau_factor (float): Factor by which the
                 learning rate will be reduced. new_lr = lr * factor.
             reduceonplateau_patience (int): Number of epochs with no
@@ -148,7 +149,7 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
         """
         super().__init__(
             optimizer,
-            mode=reduceonplateau_mode,
+            mode="min" if reduceonplateau_mode == "loss" else "max",
             factor=reduceonplateau_factor,
             patience=reduceonplateau_patience,
             min_lr=min_lr,
@@ -207,9 +208,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--reduceonplateau_mode",
         type=str,
+        choices=["loss", "accuracy"],
         default=defaults.REDUCEONPLATEAU_MODE,
         help="Determines whether to reduce the LR when the "
-        "metric stops decreasing (`min`) or increasing (`max`), "
+        "metric stops decreasing (`loss`) or increasing (`accuracy`), "
         "(reduceonplateau scheduler only). Default: %(default)s.",
     )
     parser.add_argument(

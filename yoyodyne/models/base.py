@@ -337,17 +337,20 @@ class BaseEncoderDecoder(pl.LightningModule):
             "interval": "step",
             "frequency": 1,
         }
-        # For reduce on plateau min, we reduce when val loss stops decreasing.
+        # When using `reduceonplateau_mode loss`, we reduce when
+        # validation loss stops decreasing.
+        # When using `reduceonplateau_mode accuracy`, we reduce
+        # when validation accuracy stops increasing.
         if self.scheduler == "reduceonplateau":
             scheduler_cfg["interval"] = "epoch"
             scheduler_cfg["frequency"] = self.scheduler_kwargs[
                 "check_val_every_n_epoch"
             ]
-            # `val_loss` is minimized
-            if self.scheduler_kwargs.get("reduceonplateau_mode") == "min":
+            if self.scheduler_kwargs.get("reduceonplateau_mode") == "loss":
                 scheduler_cfg["monitor"] = "val_loss"
-            # `val_accuracy` is minimized
-            elif self.scheduler_kwargs.get("reduceonplateau_mode") == "max":
+            elif (
+                self.scheduler_kwargs.get("reduceonplateau_mode") == "accuracy"
+            ):
                 scheduler_cfg["monitor"] = "val_accuracy"
         return [scheduler_cfg]
 
