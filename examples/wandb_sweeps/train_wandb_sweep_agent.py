@@ -22,7 +22,8 @@ def run_train(args: argparse.Namespace) -> None:
     index = train.get_index(args.model_dir, args.experiment)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
-    # Model args come from the wandb sweep config and override conflicting passed via the CLI.
+    # Model arguments come from the wandb sweep config and override any
+    # conflicting arguments passed via the CLI.
     for key, value in dict(wandb.config).items():
         if key in args:
             util.log_info(f"Overridding CLI argument: {key}")
