@@ -129,8 +129,8 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
 
         Args:
             optimizer (optim.Optimizer): optimizer.
-            reduceonplateau_mode (str): Determines whether to reduce the
-                LR when the metric stops decreasing (`min`) or increasing (`max`).
+            reduceonplateau_mode (str): Determines whether to reduce the LR
+                when the metric stops decreasing (`min`) or increasing (`max`).
             reduceonplateau_factor (float): Factor by which the
                 learning rate will be reduced. new_lr = lr * factor.
             reduce_lr_patience (int): Number of epochs with no improvement
