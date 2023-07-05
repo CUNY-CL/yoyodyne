@@ -9,19 +9,7 @@ from torch.utils import data
 from . import collators, dataconfig, datasets, models, util
 
 
-def get_trainer(**kwargs) -> pl.Trainer:
-    """Creates the trainer.
-
-    Args:
-        **kwargs: passed to the trainer.
-
-    Returns:
-        pl.Trainer.
-    """
-    return pl.Trainer(max_epochs=0, **kwargs)
-
-
-def _get_trainer_from_argparse_args(
+def get_trainer_from_argparse_args(
     args: argparse.Namespace,
 ) -> pl.Trainer:
     """Creates the trainer from CLI arguments.
@@ -33,6 +21,21 @@ def _get_trainer_from_argparse_args(
         pl.Trainer.
     """
     return pl.Trainer.from_argparse_args(args, max_epochs=0)
+
+
+def get_model_from_argparse_args(
+    args: argparse.Namespace,
+) -> models.BaseEncoderDecoder:
+    """Reads the model from a checkpoint.
+
+    Args:
+        args (argparse.Namespace).
+
+    Returns:
+        models.BaseEncoderDecoder.
+    """
+    model_cls = models.get_model_cls(args.arch, args.features_col != 0)
+    return model_cls.load_from_checkpoint(args.checkpoint)
 
 
 def get_dataset(
@@ -114,40 +117,6 @@ def _get_loader_from_argparse_args(
         args.max_source_length,
         args.max_target_length,
     )
-
-
-def get_model(
-    arch: str,
-    has_features: bool,
-    checkpoint: str,
-) -> models.BaseEncoderDecoder:
-    """Creates the model from checkpoint.
-
-    Args:
-        arch (str).
-        has_features (bool).
-        checkpoint (str).
-
-    Returns:
-        models.BaseEncoderDecoder.
-    """
-    model_cls = models.get_model_cls(arch, has_features)
-    return model_cls.load_from_checkpoint(checkpoint)
-
-
-def _get_model_from_argparse_args(
-    args: argparse.Namespace,
-) -> models.BaseEncoderDecoder:
-    """Creates the model from CLI arguments.
-
-    Args:
-        args (argparse.Namespace).
-
-    Returns:
-        models.BaseEncoderDecoder.
-    """
-    model_cls = models.get_model_cls_from_argparse_args(args)
-    return model_cls.load_from_checkpoint(args.checkpoint)
 
 
 def _mkdir(output: str) -> None:

@@ -73,7 +73,7 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
     return trainer_callbacks
 
 
-def _get_trainer_from_argparse_args(
+def get_trainer_from_argparse_args(
     args: argparse.Namespace,
 ) -> pl.Trainer:
     """Creates the trainer from CLI arguments.
@@ -93,7 +93,36 @@ def _get_trainer_from_argparse_args(
     )
 
 
-def _get_model_from_argparse_args(
+def get_datamodule_from_argparse_args(
+    args: argparse.Namespace,
+) -> data.DataModule:
+    separate_features = args.features_col != 0 and args.arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    datamodule = data.DataModule(
+        train=args.train,
+        val=args.dev,  # Note name change.
+        batch_size=args.batch_size,
+        source_col=args.source_col,
+        features_col=args.features_col,
+        target_col=args.target_col,
+        source_sep=args.source_sep,
+        features_sep=args.features_sep,
+        target_sep=args.target_sep,
+        tied_vocabulary=args.tied_vocabulary,
+        separate_features=separate_features,
+        max_source_length=args.max_source_length,
+        max_target_length=args.max_target_length,
+    )
+    index_path = datamodule.index.index_path(args.model_dir, args.experiment)
+    datamodule.index.write(index_path)
+    util.log_info(f"Index path: {index_path}")
+    datamodule.log_vocabularies()
+    return datamodule
+
+
+def get_model_from_argparse_args(
     args: argparse.Namespace,
     datamodule: data.DataModule,
 ) -> models.BaseEncoderDecoder:
@@ -247,35 +276,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     pl.Trainer.add_argparse_args(parser)
 
 
-def _get_datamodule_from_argparse_args(
-    args: argparse.Namespace,
-) -> data.DataModule:
-    separate_features = args.features_col != 0 and args.arch in [
-        "pointer_generator_lstm",
-        "transducer",
-    ]
-    datamodule = data.DataModule(
-        train=args.train,
-        val=args.dev,  # Note name change.
-        batch_size=args.batch_size,
-        source_col=args.source_col,
-        features_col=args.features_col,
-        target_col=args.target_col,
-        source_sep=args.source_sep,
-        features_sep=args.features_sep,
-        target_sep=args.target_sep,
-        tied_vocabulary=args.tied_vocabulary,
-        separate_features=separate_features,
-        max_source_length=args.max_source_length,
-        max_target_length=args.max_target_length,
-    )
-    index_path = datamodule.index.index_path(args.model_dir, args.experiment)
-    datamodule.index.write(index_path)
-    util.log_info(f"Index path: {index_path}")
-    datamodule.log_vocabularies()
-    return datamodule
-
-
 def main() -> None:
     """Trainer."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -283,9 +283,9 @@ def main() -> None:
     args = parser.parse_args()
     util.log_arguments(args)
     pl.seed_everything(args.seed)
-    trainer = _get_trainer_from_argparse_args(args)
-    datamodule = _get_datamodule_from_argparse_args(args)
-    model = _get_model_from_argparse_args(args, datamodule)
+    trainer = get_trainer_from_argparse_args(args)
+    datamodule = get_datamodule_from_argparse_args(args)
+    model = get_model_from_argparse_args(args, datamodule)
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:
