@@ -47,9 +47,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.max_source_length = max_source_length
         self.esq = math.sqrt(self.embedding_size)
         self.source_embeddings = self.init_embeddings(
-            self.source_vocab_size + self.features_vocab_size,
-            self.embedding_size,
-            self.pad_idx,
+            self.source_vocab_size, self.embedding_size, self.pad_idx
         )
         self.target_embeddings = self.init_embeddings(
             self.target_vocab_size, self.embedding_size, self.pad_idx

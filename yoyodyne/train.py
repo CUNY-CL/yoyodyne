@@ -163,12 +163,12 @@ def get_model_from_argparse_args(
         max_target_length=args.max_target_length,
         pad_idx=datamodule.index.pad_idx,
         optimizer=args.optimizer,
-        # Some trickery here about separate features.
-        source_vocab_size=datamodule.source_vocab_size,
         scheduler=args.scheduler,
         scheduler_kwargs=schedulers.get_scheduler_kwargs_from_argparse_args(
             args
         ),
+        # Some trickery here about separate features.
+        source_vocab_size=datamodule.source_vocab_size,
         start_idx=datamodule.index.start_idx,
         target_vocab_size=datamodule.index.target_vocab_size,
     )

@@ -6,7 +6,7 @@ import os
 import pytorch_lightning as pl
 from torch.utils import data
 
-from . import collators, dataconfig, datasets, models, util
+from . import collators, dataconfig, datasets, defaults, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -38,30 +38,23 @@ def get_model_from_argparse_args(
     return model_cls.load_from_checkpoint(args.checkpoint)
 
 
-def get_dataset(
-    predict: str,
-    config: dataconfig.DataConfig,
-    index: str,
+def get_dataset_from_argparse_args(
+    args: argparse.Namespace,
 ) -> datasets.BaseDataset:
-    """Creates the dataset.
+    """Creates the dataset from CLI arguments.
 
     Args:
-        predict (str).
-        config (dataconfig.DataConfig).
-        index (str).
+        args (argparse.Namespace).
 
     Returns:
         datasets.BaseDataset.
     """
+    config = dataconfig.DataConfig.from_argparse_args(args)
     # TODO: Since we don't care about the target column, we should be able to
     # set config.source_col = 0 and avoid the overhead for parsing it.
     # This does not work because the modules expect it to be present even if
     # they ignore it.
-    dataset = datasets.get_dataset(predict, config)
-    # TODO: This doesn't actually save us any work, because we've already
-    # computed the index one time.
-    dataset.index = dataset.read_index(index)
-    return dataset
+    return datasets.get_dataset(args.predict, config, args.index)
 
 
 def get_loader(
@@ -93,29 +86,7 @@ def get_loader(
         dataset,
         collate_fn=collator,
         batch_size=batch_size,
-        num_workers=1,  # Our data loading is simple.
-    )
-
-
-def _get_loader_from_argparse_args(
-    args: argparse.Namespace,
-) -> data.DataLoader:
-    """Creates the loader from CLI arguments.
-
-    Args:
-        args (argparse.Namespace).
-
-    Returns:
-        data.DataLoader.
-    """
-    config = dataconfig.DataConfig.from_argparse_args(args)
-    dataset = get_dataset(args.predict, config, args.index)
-    return get_loader(
-        dataset,
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
+        num_workers=1,
     )
 
 
@@ -128,6 +99,50 @@ def _mkdir(output: str) -> None:
     dirname = os.path.dirname(output)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds prediction arguments to parser.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--experiment", required=True, help="Name of experiment"
+    )
+    # Path arguments.
+    parser.add_argument(
+        "--predict",
+        required=True,
+        help="Path to prediction input data TSV",
+    )
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to prediction output data TSV",
+    )
+    parser.add_argument("--index", required=True, help="Path to index (.pkl)")
+    parser.add_argument(
+        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
+    )
+    # Predicting arguments.
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=defaults.BATCH_SIZE,
+        help="Batch size. Default: %(default)s.",
+    )
+    # TODO: add --beam_width.
+    # Data configuration arguments.
+    dataconfig.DataConfig.add_argparse_args(parser)
+    # Collator arguments.
+    collators.Collator.add_argparse_args(parser)
+    # Architecture arguments; the architecture-specific ones are not needed.
+    models.add_argparse_args(parser)
+    # Among the things this adds, the following are likely to be useful:
+    # --accelerator ("gpu" for GPU)
+    # --devices (for multiple device support)
+    pl.Trainer.add_argparse_args(parser)
 
 
 def predict(
@@ -165,47 +180,18 @@ def predict(
 def main() -> None:
     """Predictor."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
-    )
-    # Path arguments.
-    parser.add_argument(
-        "--predict",
-        required=True,
-        help="Path to prediction input data TSV",
-    )
-    parser.add_argument(
-        "--output",
-        required=True,
-        help="Path to prediction output data TSV",
-    )
-    parser.add_argument("--index", required=True, help="Path to index (.pkl)")
-    parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
-    )
-    # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
-    # Architecture arguments.
-    models.add_argparse_args(parser)
-    # Predicting arguments.
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=128,
-        help="Batch size. Default: %(default)s.",
-    )
-    # TODO: add --beam_width.
-    # Among the things this adds, the following are likely to be useful:
-    # --accelerator ("gpu" for GPU)
-    # --devices (for multiple device support)
-    pl.Trainer.add_argparse_args(parser)
+    add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
-    trainer = _get_trainer_from_argparse_args(args)
-    loader = _get_loader_from_argparse_args(args)
-    model = _get_model_from_argparse_args(args)
+    trainer = get_trainer_from_argparse_args(args)
+    loader = get_loader(
+        get_dataset_from_argparse_args(args),
+        args.arch,
+        args.batch_size,
+        args.max_source_length,
+        args.max_target_length,
+    )
+    model = get_model_from_argparse_args(args)
     predict(trainer, model, loader, args.output)
 
 
