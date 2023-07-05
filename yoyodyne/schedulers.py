@@ -7,6 +7,8 @@ from typing import Dict
 
 from torch import optim
 
+from .. import defaults
+
 ALL_SCHEDULER_ARGS = [
     "warmup_steps",
     "start_factor",
@@ -14,7 +16,7 @@ ALL_SCHEDULER_ARGS = [
     "total_decay_steps",
     "reduceonplateau_mode",
     "reduceonplateau_factor",
-    "reduce_lr_patience",
+    "reduceonplateau_patience",
     "min_lr",
     "check_val_every_n_epoch",
 ]
@@ -121,7 +123,7 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
         optimizer,
         reduceonplateau_mode,
         reduceonplateau_factor,
-        reduce_lr_patience,
+        reduceonplateau_patience,
         min_lr,
         **kwargs,
     ):
@@ -133,10 +135,10 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
                 when the metric stops decreasing (`min`) or increasing (`max`).
             reduceonplateau_factor (float): Factor by which the
                 learning rate will be reduced. new_lr = lr * factor.
-            reduce_lr_patience (int): Number of epochs with no improvement
-                before reducing LR.
+            reduceonplateau_patience (int): Number of epochs with no
+                improvement before reducing LR.
             min_lr (float): Lower bound on the learning rate.
-            **kwargs
+            **kwargs: ignored.
 
         Currently lets the following hyperparameters use the pytorch defaults:
             threshold,
@@ -148,7 +150,7 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
             optimizer,
             mode=reduceonplateau_mode,
             factor=reduceonplateau_factor,
-            patience=reduce_lr_patience,
+            patience=reduceonplateau_patience,
             min_lr=min_lr,
         )
 
@@ -177,35 +179,35 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--warmup_steps",
         type=int,
-        default=0,
+        default=defaults.WARMUP_STEPS,
         help="Number of warmup steps (warmupinvsqrt scheduler only). "
         "Default: %(default)s.",
     )
     parser.add_argument(
         "--start_factor",
         type=float,
-        default=1 / 3,
+        default=defaults.START_FACTOR,
         help="Starting multiplier for the LR (lineardecay scheduler "
         "only). Default: %(default)s.",
     )
     parser.add_argument(
         "--end_factor",
         type=float,
-        default=1.0,
+        default=defaults.END_FACTOR,
         help="Multiplier for the LR after --total_decay_steps (lineardecay "
         "scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--total_decay_steps",
         type=int,
-        default=5,
+        default=defaults.TOTAL_DECAY_STEPS,
         help="Number of iterations until the LR multiplier reaches "
         "--end_factor (lineardecay scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--reduceonplateau_mode",
         type=str,
-        default="min",
+        default=defaults.REDUCEONPLATEAU_MODE,
         help="Determines whether to reduce the LR when the "
         "metric stops decreasing (`min`) or increasing (`max`), "
         "(reduceonplateau scheduler only). Default: %(default)s.",
@@ -213,15 +215,15 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--reduceonplateau_factor",
         type=float,
-        default=0.1,
+        default=defaults.REDUCEONPLATEAU_FACTOR,
         help="Factor by which the learning rate will be reduced. "
         "new_lr = lr * factor (reduceonplateau scheduler only). "
         "Default: %(default)s.",
     )
     parser.add_argument(
-        "--reduce_lr_patience",
+        "--reduceonplateau_patience",
         type=int,
-        default=10,
+        default=defaults.REDUCEONPLATEAU_PATIENCE,
         help="Number of epochs with no improvement before "
         "reducing LR (reduceonplateau scheduler only). "
         "Default: %(default)s.",
@@ -229,7 +231,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--min_lr",
         type=int,
-        default=0,
+        default=defaults.MIN_LR,
         help="Lower bound on the learning rate (reduceonplateau "
         "scheduler only). Default: %(default)s.",
     )
