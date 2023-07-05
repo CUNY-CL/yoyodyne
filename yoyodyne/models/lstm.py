@@ -356,7 +356,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 decoder_hiddens,
             ) in likelihoods:
                 # This is 1 x 1 x target_vocab_size since batch size is 1.
-                # We squeeze off the fist 2 dimensions to get a tensor of
+                # We squeeze off the first 2 dimensions to get a tensor of
                 # target_vocab_size.
                 predictions = predictions.squeeze(0).squeeze(0)
                 for j, prob in enumerate(predictions):
