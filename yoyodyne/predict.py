@@ -35,10 +35,6 @@ def get_dataset_from_argparse_args(
         datasets.BaseDataset.
     """
     config = dataconfig.DataConfig.from_argparse_args(args)
-    # TODO: Since we don't care about the target column, we should be able to
-    # set config.source_col = 0 and avoid the overhead for parsing it.
-    # This does not work because the modules expect it to be present even if
-    # they ignore it.
     return datasets.get_dataset(args.predict, config, args.index)
 
 
