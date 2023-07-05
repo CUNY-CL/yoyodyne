@@ -71,7 +71,7 @@ def main() -> None:
     try:
         wandb.agent(
             args.sweep_id,
-            function=functools.partial(run_train, args),
+            function=functools.partial(train_sweep, args),
             project=args.experiment,
             count=args.max_num_runs,
         )
