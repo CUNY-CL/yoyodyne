@@ -14,7 +14,14 @@ class Error(Exception):
     pass
 
 
-def run_train(args: argparse.Namespace) -> None:
+def train_sweep(args: argparse.Namespace) -> None:
+    """Runs a single training run.
+
+    The wandb config data used here comes from the environment.
+
+    Args:
+        args (argparse.Namespace).
+    """
     # Gets trainer to initialize the wandb run.
     trainer = train.get_trainer_from_argparse_args(args)
     pl.seed_everything(args.seed)
@@ -22,15 +29,17 @@ def run_train(args: argparse.Namespace) -> None:
     index = train.get_index(args.model_dir, args.experiment)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
-    # Model args come from the wandb sweep config.
-    kwargs = dict(wandb.config)
-    # Anything not specified in the config is taken from the CLI args.
-    kwargs.update({k: v for k, v in vars(args).items() if k not in kwargs})
+    # Model arguments come from the wandb sweep config and override any
+    # conflicting arguments passed via the CLI.
+    for key, value in dict(wandb.config).items():
+        if key in args:
+            util.log_info(f"Overridding CLI argument: {key}")
+        setattr(args, key, value)
     train_loader, dev_loader = train.get_loaders(
         train_set,
         dev_set,
         args.arch,
-        kwargs["batch_size"],
+        args.batch_size,
         args.max_source_length,
         args.max_target_length,
     )
