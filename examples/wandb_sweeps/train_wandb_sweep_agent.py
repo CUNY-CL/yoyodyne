@@ -14,7 +14,14 @@ class Error(Exception):
     pass
 
 
-def run_train(args: argparse.Namespace) -> None:
+def train_sweep(args: argparse.Namespace) -> None:
+    """Runs a single training run.
+
+    The wandb config data used here comes from the environment.
+
+    Args:
+        args (argparse.Namespace).
+    """
     # Gets trainer to initialize the wandb run.
     trainer = train.get_trainer_from_argparse_args(args)
     pl.seed_everything(args.seed)
@@ -64,7 +71,7 @@ def main() -> None:
     try:
         wandb.agent(
             args.sweep_id,
-            function=functools.partial(run_train, args),
+            function=functools.partial(train_sweep, args),
             project=args.experiment,
             count=args.max_num_runs,
         )
