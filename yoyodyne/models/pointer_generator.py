@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from . import attention, generation_probability, lstm
-from .. import data
+from .. import batches
 
 
 class Error(Exception):
@@ -60,13 +60,13 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
 
     def encode(
         self,
-        source: data.PaddedTensor,
+        source: batches.PaddedTensor,
         encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
         """Encodes the input.
 
         Args:
-            source (data.PaddedTensor).
+            source (batches.PaddedTensor).
             encoder (torch.nn.LSTM).
 
         Returns:
@@ -232,7 +232,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all data predicted an EOS symbol.
+                # Breaks when all batches predicted an EOS symbol.
                 # If we have a target (and are thus computing loss),
                 # we only break when we have decoded at least the the
                 # same number of steps as the target length.
@@ -246,12 +246,12 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: batches.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (batches.PaddedBatch).
 
         Returns:
             torch.Tensor.
@@ -341,7 +341,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
 
     def encode(
         self,
-        source: data.PaddedTensor,
+        source: batches.PaddedTensor,
         embeddings: nn.Embedding,
         encoder: torch.nn.LSTM,
     ) -> torch.Tensor:
@@ -351,7 +351,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         with multiple encoders in derived classes.
 
         Args:
-            source (data.PaddedTensor).
+            source (batches.PaddedTensor).
             embedding (torch.nn.Embedding).
             encoder (torch.nn.LSTM).
 
@@ -532,7 +532,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all data predicted an EOS symbol.
+                # Breaks when all batches predicted an EOS symbol.
                 # If we have a target (and are thus computing loss),
                 # we only break when we have decoded at least the the
                 # same number of steps as the target length.
@@ -546,12 +546,12 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: batches.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (batches.PaddedBatch).
 
         Returns:
             torch.Tensor.
