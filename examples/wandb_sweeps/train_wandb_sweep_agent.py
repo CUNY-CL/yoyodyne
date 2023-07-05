@@ -16,9 +16,9 @@ class Error(Exception):
 
 def run_train(args: argparse.Namespace) -> None:
     # Gets trainer to initialize the wandb run.
-    trainer = train._get_trainer_from_argparse_args(args)
+    trainer = train.get_trainer_from_argparse_args(args)
     pl.seed_everything(args.seed)
-    train_set, dev_set = train._get_datasets_from_argparse_args(args)
+    train_set, dev_set = train.get_datasets_from_argparse_args(args)
     index = train.get_index(args.model_dir, args.experiment)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
@@ -34,7 +34,7 @@ def run_train(args: argparse.Namespace) -> None:
         args.max_source_length,
         args.max_target_length,
     )
-    model = train.get_model(train_set, **kwargs)
+    model = train.get_model_from_argparse_args(train_set, args)
     # Trains and log the best checkpoint.
     best_checkpoint = train.train(
         trainer, model, train_loader, dev_loader, args.train_from

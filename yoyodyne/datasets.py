@@ -78,18 +78,6 @@ class DatasetNoFeatures(BaseDataset):
         self.samples = list(self.config.samples(filename))
         self.index = index if index is not None else self._make_index()
 
-    @staticmethod
-    def read_index(path: str) -> indexes.Index:
-        """Helper for loading index.
-
-        Args:
-            path (str).
-
-        Returns:
-            indexes.Index.
-        """
-        return indexes.Index.read(path)
-
     def _make_index(self) -> indexes.Index:
         """Generates index."""
         source_vocabulary: Set[str] = set()
@@ -371,5 +359,5 @@ def get_dataset(
     """
     cls = DatasetFeatures if config.has_features else DatasetNoFeatures
     if isinstance(index, str):
-        index = cls.read_index(index)
+        index = indexes.Index.read(index)
     return cls(filename, config, index)

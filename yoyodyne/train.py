@@ -83,37 +83,7 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
     return trainer_callbacks
 
 
-def get_trainer(
-    experiment: str,
-    model_dir: str,
-    save_top_k: int,
-    patience: Optional[int] = None,
-    log_wandb: bool = True,
-    **kwargs,
-) -> pl.Trainer:
-    """Creates the trainer.
-
-    Args:
-        experiment (str).
-        model_dir (str).
-        patience (int, optional).
-        save_top_k (int).
-        log_wandb (bool).
-        **kwargs: passed to the trainer.
-
-    Returns:
-        pl.Trainer.
-    """
-    return pl.Trainer(
-        callbacks=_get_callbacks(save_top_k, patience),
-        default_root_dir=model_dir,
-        enable_checkpointing=True,
-        logger=_get_logger(experiment, model_dir, log_wandb),
-        **kwargs,
-    )
-
-
-def _get_trainer_from_argparse_args(
+def get_trainer_from_argparse_args(
     args: argparse.Namespace,
 ) -> pl.Trainer:
     """Creates the trainer from CLI arguments.
@@ -133,36 +103,7 @@ def _get_trainer_from_argparse_args(
     )
 
 
-def get_datasets(
-    train: str,
-    dev: str,
-    config: dataconfig.DataConfig,
-) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
-    """Creates the datasets.
-
-    Args:
-        train (str).
-        dev (str).
-        config (dataconfig.DataConfig)
-
-    Returns:
-        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
-            development datasets.
-    """
-    if config.target_col == 0:
-        raise Error("target_col must be specified for training")
-    train_set = datasets.get_dataset(train, config)
-    dev_set = datasets.get_dataset(dev, config, train_set.index)
-    util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
-    if train_set.has_features:
-        util.log_info(
-            f"Feature vocabulary: {train_set.index.features_map.pprint()}"
-        )
-    util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
-    return train_set, dev_set
-
-
-def _get_datasets_from_argparse_args(
+def get_datasets_from_argparse_args(
     args: argparse.Namespace,
 ) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
     """Creates the datasets from CLI arguments.
@@ -175,7 +116,17 @@ def _get_datasets_from_argparse_args(
             development datasets.
     """
     config = dataconfig.DataConfig.from_argparse_args(args)
-    return get_datasets(args.train, args.dev, config)
+    if config.target_col == 0:
+        raise Error("target_col must be specified for training")
+    train_set = datasets.get_dataset(args.train, config)
+    dev_set = datasets.get_dataset(args.dev, config, train_set.index)
+    util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
+    if train_set.has_features:
+        util.log_info(
+            f"Feature vocabulary: {train_set.index.features_map.pprint()}"
+        )
+    util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
+    return train_set, dev_set
 
 
 def get_loaders(
@@ -222,112 +173,69 @@ def get_loaders(
     return train_loader, dev_loader
 
 
-def get_model(
-    # Data arguments.
+def get_model_from_argparse_args(
     train_set: datasets.BaseDataset,
-    *,
-    # Architecture arguments.
-    arch: str = defaults.ARCH,
-    attention_heads: int = defaults.ATTENTION_HEADS,
-    bidirectional: bool = defaults.BIDIRECTIONAL,
-    decoder_layers: int = defaults.DECODER_LAYERS,
-    embedding_size: int = defaults.EMBEDDING_SIZE,
-    encoder_layers: int = defaults.ENCODER_LAYERS,
-    hidden_size: int = defaults.HIDDEN_SIZE,
-    max_source_length: int = defaults.MAX_SOURCE_LENGTH,
-    max_target_length: int = defaults.MAX_TARGET_LENGTH,
-    # Training arguments.
-    batch_size: int = defaults.BATCH_SIZE,
-    beta1: float = defaults.BETA1,
-    beta2: float = defaults.BETA2,
-    dropout: float = defaults.DROPOUT,
-    learning_rate: float = defaults.LEARNING_RATE,
-    oracle_em_epochs: int = defaults.ORACLE_EM_EPOCHS,
-    oracle_factor: int = defaults.ORACLE_FACTOR,
-    optimizer: str = defaults.OPTIMIZER,
-    sed_params: Optional[str] = None,
-    scheduler: Optional[str] = None,
-    **kwargs,
+    args: argparse.Namespace,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
 
     Args:
-        train_set (datasets.BaseDataset)
-        arch (str).
-        attention_heads (int).
-        bidirectional (bool).
-        decoder_layers (int).
-        embedding_size (int).
-        encoder_layers (int).
-        hidden_size (int).
-        max_target_length (int).
-        max_source_length (int).
-        batch_size (int).
-        beta1 (float).
-        beta2 (float).
-        dropout (float).
-        learning_rate (float).
-        oracle_em_epochs (int).
-        oracle_factor (int).
-        optimizer (str).
-        sed_params (str, optional).
-        scheduler (str, optional).
-        **kwargs
+        train_set (datasets.BaseDataset).
+        args (argparse.Namespace).
 
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(arch, train_set.has_features)
+    model_cls = models.get_model_cls(args.arch, train_set.has_features)
     expert = (
         models.expert.get_expert(
             train_set,
-            epochs=oracle_em_epochs,
-            oracle_factor=oracle_factor,
-            sed_params_path=sed_params,
+            epochs=args.oracle_em_epochs,
+            oracle_factor=args.oracle_factor,
+            sed_params_path=args.sed_params,
         )
-        if arch in ["transducer"]
+        if args.arch in ["transducer"]
         else None
     )
-    scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(
-        **kwargs
-    )
-    separate_features = train_set.has_features and arch in [
+    scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
+    separate_features = train_set.has_features and args.arch in [
         "pointer_generator_lstm",
         "transducer",
     ]
     features_vocab_size = (
         train_set.index.features_vocab_size if train_set.has_features else 0
     )
-    vocab_size = (
+    source_vocab_size = (
         train_set.index.source_vocab_size + features_vocab_size
         if not separate_features
         else train_set.index.source_vocab_size
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
-        arch=arch,
-        attention_heads=attention_heads,
-        beta1=beta1,
-        beta2=beta2,
-        bidirectional=bidirectional,
-        decoder_layers=decoder_layers,
-        dropout=dropout,
-        embedding_size=embedding_size,
-        encoder_layers=encoder_layers,
+        arch=args.arch,
+        attention_heads=args.attention_heads,
+        beta1=args.beta1,
+        beta2=args.beta2,
+        bidirectional=args.bidirectional,
+        decoder_layers=args.decoder_layers,
+        dropout=args.dropout,
+        embedding_size=args.embedding_size,
+        encoder_layers=args.encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
         features_vocab_size=features_vocab_size,
-        hidden_size=hidden_size,
-        learning_rate=learning_rate,
-        max_source_length=max_source_length,
-        max_target_length=max_target_length,
-        optimizer=optimizer,
-        target_vocab_size=train_set.index.target_vocab_size,
+        hidden_size=args.hidden_size,
+        label_smoothing=args.label_smoothing,
+        learning_rate=args.learning_rate,
+        max_source_length=args.max_source_length,
+        max_target_length=args.max_target_length,
+        optimizer=args.optimizer,
         pad_idx=train_set.index.pad_idx,
-        scheduler=scheduler,
+        scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
+        source_vocab_size=source_vocab_size,
         start_idx=train_set.index.start_idx,
-        vocab_size=vocab_size,
+        target_vocab_size=train_set.index.target_vocab_size,
     )
 
 
@@ -356,19 +264,6 @@ def train(
     # TODO: feels flimsy.
     assert type(ckp_callback) is callbacks.ModelCheckpoint
     return ckp_callback.best_model_path
-
-
-def get_index(model_dir: str, experiment: str) -> str:
-    """Computes the index path.
-
-    Args:
-        model_dir (str).
-        experiment (str).
-
-    Returns:
-        str.
-    """
-    return f"{model_dir}/{experiment}/index.pkl"
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -463,8 +358,8 @@ def main() -> None:
     args = parser.parse_args()
     util.log_arguments(args)
     pl.seed_everything(args.seed)
-    trainer = _get_trainer_from_argparse_args(args)
-    train_set, dev_set = _get_datasets_from_argparse_args(args)
+    trainer = get_trainer_from_argparse_args(args)
+    train_set, dev_set = get_datasets_from_argparse_args(args)
     index = train_set.index.index_path(args.model_dir, args.experiment)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")
@@ -476,7 +371,7 @@ def main() -> None:
         args.max_source_length,
         args.max_target_length,
     )
-    model = get_model(train_set, **vars(args))
+    model = get_model_from_argparse_args(train_set, args)
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:

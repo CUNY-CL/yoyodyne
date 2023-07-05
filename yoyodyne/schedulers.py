@@ -151,10 +151,14 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def get_scheduler_kwargs_from_argparse_args(**kwargs) -> Dict:
+def get_scheduler_kwargs_from_argparse_args(args: argparse.Namespace) -> Dict:
     """Gets the Dict of kwargs that will be used to instantiate the scheduler.
+
+    Args:
+        args (argparse.Namespace).
 
     Returns:
         Dict: hyperparameters for the scheduler.
     """
+    kwargs = vars(args)
     return {k: kwargs.get(k) for k in ALL_SCHEDULER_ARGS}

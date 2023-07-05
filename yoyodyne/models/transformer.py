@@ -47,7 +47,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.max_source_length = max_source_length
         self.esq = math.sqrt(self.embedding_size)
         self.source_embeddings = self.init_embeddings(
-            self.vocab_size, self.embedding_size, self.pad_idx
+            self.source_vocab_size, self.embedding_size, self.pad_idx
         )
         self.target_embeddings = self.init_embeddings(
             self.target_vocab_size, self.embedding_size, self.pad_idx
@@ -357,7 +357,7 @@ class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
         """
         # Distinguishes features and chars.
         char_mask = (
-            symbols < (self.vocab_size - self.features_vocab_size)
+            symbols < (self.source_vocab_size - self.features_vocab_size)
         ).long()
         # 1 or 0.
         type_embedding = self.esq * self.type_embedding(char_mask)

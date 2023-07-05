@@ -19,7 +19,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     start_idx: int
     end_idx: int
     # Sizes.
-    vocab_size: int
+    source_vocab_size: int
     features_vocab_size: int
     target_vocab_size: int
     # Optimizer arguments.
@@ -51,9 +51,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         pad_idx,
         start_idx,
         end_idx,
-        vocab_size,
-        target_vocab_size,
+        source_vocab_size,
         features_vocab_size=0,
+        target_vocab_size,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
         learning_rate=defaults.LEARNING_RATE,
@@ -75,7 +75,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.pad_idx = pad_idx
         self.start_idx = start_idx
         self.end_idx = end_idx
-        self.vocab_size = vocab_size
+        self.source_vocab_size = source_vocab_size
         self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
         self.beta1 = beta1
