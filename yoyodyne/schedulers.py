@@ -7,7 +7,7 @@ from typing import Dict
 
 from torch import optim
 
-from .. import defaults
+from . import defaults
 
 ALL_SCHEDULER_ARGS = [
     "warmup_steps",
