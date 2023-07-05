@@ -182,7 +182,7 @@ class PointerGeneratorLSTMEncoderDecoderNoFeatures(lstm.LSTMEncoderDecoder):
             source_enc (torch.Tensor): batch of encoded input symbols.
             source_mask (torch.Tensor): mask for the batch of encoded input
                 symbols.
-            feature_enc (torch.Tensor): batch of encoded feaure symbols.
+            features_enc (torch.Tensor): batch of encoded features symbols.
             teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
             target (torch.Tensor, optional): target symbols;  we
@@ -292,8 +292,9 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
     """
 
     # Constructed inside __init__.
-    feature_attention: attention.Attention
-    feature_encoder: nn.LSTM
+    features_attention: attention.Attention
+    features_embeddings: nn.Embedding
+    features_encoder: nn.LSTM
     linear_h: nn.Linear
     linear_c: nn.Linear
 
@@ -302,10 +303,10 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         super().__init__(*args, **kwargs)
         self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
-        self.feature_embeddings = self.init_embeddings(
+        self.features_embeddings = self.init_embeddings(
             self.features_vocab_size, self.embedding_size, self.pad_idx
         )
-        self.feature_encoder = nn.LSTM(
+        self.features_encoder = nn.LSTM(
             self.embedding_size,
             self.hidden_size,
             num_layers=self.encoder_layers,
@@ -317,7 +318,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         self.linear_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
         self.linear_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
         encoder_size = self.hidden_size * self.num_directions
-        self.feature_attention = attention.Attention(
+        self.features_attention = attention.Attention(
             encoder_size, self.hidden_size
         )
         # Overrides decoder to be larger.
@@ -389,8 +390,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         source_indices: torch.Tensor,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
-        feature_enc: torch.Tensor,
-        feature_mask: torch.Tensor,
+        features_enc: torch.Tensor,
+        features_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs a single step of the decoder.
 
@@ -402,8 +403,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             source_indices (torch.Tensor).
             source_enc (torch.Tensor).
             source_mask (torch.Tensor).
-            feature_enc (torch.Tensor).
-            feature_mask (torch.Tensor).
+            features_enc (torch.Tensor).
+            features_mask (torch.Tensor).
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor].
@@ -415,11 +416,11 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         source_context, source_attention_weights = self.source_attention(
             last_h.transpose(0, 1), source_enc, source_mask
         )
-        feature_context, _ = self.feature_attention(
-            last_h.transpose(0, 1), feature_enc, feature_mask
+        features_context, _ = self.features_attention(
+            last_h.transpose(0, 1), features_enc, features_mask
         )
         # -> B x 1 x 4*hidden_size.
-        context = torch.cat([source_context, feature_context], dim=2)
+        context = torch.cat((source_context, features_context), dim=2)
         # num_layers x B x hidden_size
         _, (h, c) = self.decoder(
             torch.cat((embedded, context), 2), (last_h, last_c)
@@ -460,8 +461,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
         source_indices: torch.Tensor,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
-        feature_enc: torch.Tensor,
-        feature_mask: torch.Tensor,
+        features_enc: torch.Tensor,
+        features_mask: torch.Tensor,
         teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -478,9 +479,9 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             source_enc (torch.Tensor): batch of encoded input symbols.
             source_mask (torch.Tensor): mask for the batch of encoded
                 input symbols.
-            feature_enc (torch.Tensor): batch of encoded feaure symbols.
-            feature_mask (torch.Tensor): mask for the batch of encoded
-                feature symbols.
+            features_enc (torch.Tensor): batch of encoded feaure symbols.
+            features_mask (torch.Tensor): mask for the batch of encoded
+                features symbols.
             teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
             target (torch.Tensor, optional): target symbols;  we
@@ -513,8 +514,8 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
                 source_indices,
                 source_enc,
                 source_mask,
-                feature_enc,
-                feature_mask,
+                features_enc,
+                features_mask,
             )
             predictions.append(output.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
@@ -561,7 +562,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
             batch.source, self.source_embeddings, self.encoder
         )
         features_encoded, (h_features, c_features) = self.encode(
-            batch.features, self.features_embeddings, self.feature_encoder
+            batch.features, self.features_embeddings, self.features_encoder
         )
         h_0 = self.linear_h(torch.cat([h_source, h_features], dim=2))
         c_0 = self.linear_c(torch.cat([c_source, c_features], dim=2))
