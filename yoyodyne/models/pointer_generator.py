@@ -293,7 +293,7 @@ class PointerGeneratorLSTMEncoderDecoderFeatures(
 
     # Constructed inside __init__.
     features_attention: attention.Attention
-    feature_embeddings: nn.Embedding
+    features_embeddings: nn.Embedding
     features_encoder: nn.LSTM
     linear_h: nn.Linear
     linear_c: nn.Linear
