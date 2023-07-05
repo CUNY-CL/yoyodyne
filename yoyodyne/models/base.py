@@ -326,6 +326,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         scheduler_fac = {
             "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
             "lineardecay": schedulers.LinearDecay,
+            "reduceonplateau": schedulers.ReduceOnPlateau,
         }
         scheduler_cls = scheduler_fac[self.scheduler]
         scheduler = scheduler_cls(
@@ -336,6 +337,18 @@ class BaseEncoderDecoder(pl.LightningModule):
             "interval": "step",
             "frequency": 1,
         }
+        # For reduce on plateau min, we reduce when val loss stops decreasing.
+        if self.scheduler == "reduceonplateau":
+            scheduler_cfg["interval"] = "epoch"
+            scheduler_cfg["frequency"] = self.scheduler_kwargs[
+                "check_val_every_n_epoch"
+            ]
+            # `val_loss` is minimized
+            if self.scheduler_kwargs.get("reduceonplateau_mode") == "min":
+                scheduler_cfg["monitor"] = "val_loss"
+            # `val_accuracy` is minimized
+            elif self.scheduler_kwargs.get("reduceonplateau_mode") == "max":
+                scheduler_cfg["monitor"] = "val_accuracy"
         return [scheduler_cfg]
 
     def _get_loss_func(
