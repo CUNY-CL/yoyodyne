@@ -110,7 +110,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             if finished.all():
                 if targets is None or len(outputs) >= targets.size(-1):
                     break
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         return torch.stack(outputs).transpose(0, 1)
 
     def forward(

@@ -16,7 +16,7 @@ import numpy
 from maxwell import actions, sed
 from torch.utils import data
 
-from .. import defaults, util
+from .. import defaults
 
 
 class Error(Exception):
@@ -468,7 +468,6 @@ def get_expert(
             _generate_data_and_encode_vocabulary(train_data, actions),
             epochs=epochs,
         )
-    util.log_info(f"Action vocabulary: {actions}")
     return Expert(actions, sed_aligner, oracle_factor=oracle_factor)
 
 
@@ -495,7 +494,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "(transducer architecture only). Default: %(default)s.",
     )
     parser.add_argument(
-        "--sed_path",
+        "--sed_params",
         type=str,
         help="Path to input SED parameters (transducer architecture only)",
     )

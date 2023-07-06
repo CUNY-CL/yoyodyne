@@ -243,12 +243,12 @@ This section contains instructions for the Yoyodyne maintainers.
     `git push origin release`
 7.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
     if the new version is 3.1.4, the tag should be `v3.1.4`. This can be done:
-    a.  on GitHub itself: click the "Releases" or "Create a new release" link on
+    *  on GitHub itself: click the "Releases" or "Create a new release" link on
         the right-hand side of the Yoyodyne GitHub page) and follow the
         dialogues.
-    b.  from the command-line using `git tag`.
-8.  Build the new release: `python -m build`
-9.  Upload the result to PyPI: `twine upload dist/*`
+    *  from the command-line using `git tag`.
+9.  Build the new release: `python -m build`
+10.  Upload the result to PyPI: `twine upload dist/*`
 
 ## References
 

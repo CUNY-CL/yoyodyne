@@ -98,7 +98,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                seq_len x batch_size x output_size.
+                seq_len x batch_size x target_vocab_size.
         """
         batch_size = encoder_mask.shape[0]
         # Initializes hidden states for decoder LSTM.
@@ -188,7 +188,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
-            # beam_width x output_size possibilities
+            # beam_width x target_vocab_size possibilities
             likelihoods = []
             hypotheses = []
             # First accumulates all beam_width softmaxes.
@@ -237,9 +237,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 char_likelihoods,
                 decoder_hiddens,
             ) in likelihoods:
-                # This is 1 x 1 x output_size since we fixed batch size to 1.
-                # We squeeze off the fist 2 dimensions to get a tensor of
-                # output_size.
+                # This is 1 x 1 x target_vocab_size since we fixed batch size
+                # to 1. We squeeze off the first 2 dimensions to get a tensor
+                # of target_vocab_size.
                 predictions = predictions.squeeze(0).squeeze(0)
                 for j, prob in enumerate(predictions):
                     if return_confidences:
@@ -270,7 +270,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Returns the top-n hypotheses.
         histories = heapq.nlargest(n, hypotheses)
         predictions = torch.tensor([h[1] for h in histories], self.device)
-        # Converts shape to that of `decode`: seq_len x B x output_size.
+        # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
         if return_confidences:
             return (predictions, torch.tensor([h[2] for h in histories]))
@@ -288,7 +288,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             predictions (torch.Tensor): tensor of predictions of shape
-                (seq_len, batch_size, output_size).
+                (seq_len, batch_size, target_vocab_size).
         """
         encoder_out = self.source_encoder(batch.source).output
         if self.beam_width is not None and self.beam_width > 1:
@@ -304,7 +304,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.target else None,
             )
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         predictions = predictions.transpose(0, 1)
         return predictions
 

@@ -4,7 +4,6 @@ Anything which has a tensor member should inherit from nn.Module, run the
 superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
-import abc
 from typing import List, Optional, Set, Union
 
 import torch
@@ -46,30 +45,57 @@ class Item(nn.Module):
 
 
 class BaseDataset(data.Dataset):
-    """Base datatset class, with some core methods."""
+    """Base datatset class."""
+
+    def __init__(self):
+        super().__init__()
+
+
+class DatasetNoFeatures(BaseDataset):
+    """Dataset object without feature column."""
 
     filename: str
     config: dataconfig.DataConfig
     samples: List[List[str]]
-    index: indexes.BaseIndex
+    index: indexes.Index
 
     def __init__(
         self,
         filename,
         config,
-        index: Optional[indexes.BaseIndex] = None,
+        index: Optional[indexes.Index] = None,
     ):
+        """Initializes the dataset.
+
+        Args:
+            filename (str): input filename.
+            config (dataconfig.DataConfig): dataset configuration.
+            other (indexes.Index, optional): if provided,
+                use this index to avoid recomputing it.
+        """
         super().__init__()
         self.config = config
         self.samples = list(self.config.samples(filename))
         self.index = index if index is not None else self._make_index()
 
-    @abc.abstractmethod
-    def _make_index(self) -> None:
-        ...
-
-    def __len__(self) -> int:
-        return len(self.samples)
+    def _make_index(self) -> indexes.Index:
+        """Generates index."""
+        source_vocabulary: Set[str] = set()
+        target_vocabulary: Set[str] = set()
+        if self.config.has_target:
+            for source, target in self.samples:
+                source_vocabulary.update(source)
+                target_vocabulary.update(target)
+            if self.config.tied_vocabulary:
+                source_vocabulary.update(target_vocabulary)
+                target_vocabulary.update(source_vocabulary)
+        else:
+            for source in self.samples:
+                source_vocabulary.update(source)
+        return indexes.Index(
+            source_vocabulary=sorted(source_vocabulary),
+            target_vocabulary=sorted(target_vocabulary),
+        )
 
     def encode(
         self,
@@ -265,21 +291,7 @@ class DatasetNoFeatures(BaseDataset):
 class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
 
-    index: indexes.IndexFeatures
-
-    @staticmethod
-    def read_index(path: str) -> indexes.IndexFeatures:
-        """Helper for loading index.
-
-        Args:
-            path (str).
-
-        Returns:
-            indexes.IndexNoFeatures.
-        """
-        return indexes.IndexFeatures.read(path)
-
-    def _make_index(self) -> indexes.IndexFeatures:
+    def _make_index(self) -> indexes.Index:
         """Generates index.
 
         Same as in superclass, but also handles features.
@@ -299,10 +311,10 @@ class DatasetFeatures(DatasetNoFeatures):
             for source, features in self.samples:
                 source_vocabulary.update(source)
                 features_vocabulary.update(features)
-        return indexes.IndexFeatures(
-            sorted(source_vocabulary),
-            sorted(features_vocabulary),
-            sorted(target_vocabulary),
+        return indexes.Index(
+            source_vocabulary=sorted(source_vocabulary),
+            features_vocabulary=sorted(features_vocabulary),
+            target_vocabulary=sorted(target_vocabulary),
         )
 
     def __getitem__(self, idx: int) -> Item:
@@ -318,7 +330,6 @@ class DatasetFeatures(DatasetNoFeatures):
             source, features, target = self.samples[idx]
         else:
             source, features = self.samples[idx]
-
         source_encoded = self.encode(self.index.source_map, source)
         features_encoded = self.encode(
             self.index.features_map,
@@ -366,20 +377,20 @@ class DatasetFeatures(DatasetNoFeatures):
 def get_dataset(
     filename: str,
     config: dataconfig.DataConfig,
-    index: Optional[Union[indexes.BaseIndex, str]] = None,
+    index: Union[indexes.Index, str, None] = None,
 ) -> data.Dataset:
     """Dataset factory.
 
     Args:
         filename (str): input filename.
         config (dataconfig.DataConfig): dataset configuration.
-        index (Union[index.BaseIndex, str], optional): input index file,
+        index (Union[index.Index, str], optional): input index file,
             or path to index.pkl file.
 
     Returns:
         data.Dataset: the dataset.
     """
     cls = DatasetFeatures if config.has_features else DatasetNoFeatures
-    if index is not None and not isinstance(index, indexes.BaseIndex):
-        index = cls.read_index(index)
+    if isinstance(index, str):
+        index = indexes.Index.read(index)
     return cls(filename, config, index)

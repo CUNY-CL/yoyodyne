@@ -21,9 +21,9 @@ class BaseEncoderDecoder(pl.LightningModule):
     pad_idx: int
     start_idx: int
     # Sizes.
-    features_vocab_size: Optional[int]
-    output_size: int
-    vocab_size: int
+    source_vocab_size: int
+    features_vocab_size: int
+    target_vocab_size: int
     # Optimizer arguments.
     beta1: float
     beta2: float
@@ -56,8 +56,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         pad_idx,
         start_idx,
         end_idx,
-        vocab_size,
-        output_size,
+        source_vocab_size,
+        target_vocab_size,
         source_encoder_cls,
         feature_encoder_cls=None,
         features_vocab_size=0,
@@ -84,21 +84,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.pad_idx = pad_idx
         self.start_idx = start_idx
         self.end_idx = end_idx
-        self.vocab_size = vocab_size
+        self.source_vocab_size = source_vocab_size
         self.features_vocab_size = features_vocab_size
-        self.output_size = output_size
-        # Architecture args.
-        self.beam_width = beam_width
-        self.max_source_length = max_source_length
-        self.max_target_length = max_target_length
-        self.encoder_layers = encoder_layers
-        self.decoder_layers = decoder_layers
-        self.embedding_size = embedding_size
-        self.hidden_size = hidden_size
-        # Regularization.
-        self.dropout = dropout
-        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
-        # Training/optimizer/scheduling args.
+        self.target_vocab_size = target_vocab_size
         self.beta1 = beta1
         self.beta2 = beta2
         self.label_smoothing = label_smoothing
@@ -248,10 +236,10 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             torch.Tensor: loss.
         """
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         predictions = self(batch)
         target_padded = batch.target.padded
-        # -> B x output_size x seq_len. For loss.
+        # -> B x target_vocab_size x seq_len. For loss.
         predictions = predictions.transpose(1, 2)
         loss = self.loss_func(predictions, target_padded)
         self.log(
@@ -280,13 +268,13 @@ class BaseEncoderDecoder(pl.LightningModule):
             Dict[str, float]: validation metrics.
         """
         # Greedy decoding.
-        # -> B x seq_len x output_size.
+        # -> B x seq_len x target_vocab_size.
         target_padded = batch.target.padded
         greedy_predictions = self(batch)
         accuracy = self.evaluator.val_accuracy(
             greedy_predictions, target_padded, self.end_idx, self.pad_idx
         )
-        # -> B x output_size x seq_len. For loss.
+        # -> B x target_vocab_size x seq_len. For loss.
         greedy_predictions = greedy_predictions.transpose(1, 2)
         # Truncates predictions to the size of the target.
         greedy_predictions = torch.narrow(
@@ -338,7 +326,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         """Picks the best index from the vocabulary.
 
         Args:
-            predictions (torch.Tensor): B x seq_len x output_size.
+            predictions (torch.Tensor): B x seq_len x target_vocab_size.
 
         Returns:
             torch.Tensor: indices of the argmax at each timestep.
@@ -435,15 +423,17 @@ class BaseEncoderDecoder(pl.LightningModule):
 
         Args:
             predictions (torch.Tensor): tensor of prediction
-                distribution of shape B x output_size x seq_len.
+                distribution of shape B x target_vocab_size x seq_len.
             target (torch.Tensor): tensor of golds of shape
                 B x seq_len.
 
         Returns:
             torch.Tensor: loss.
         """
-        # -> (B * seq_len) x output_size.
-        predictions = predictions.transpose(1, 2).reshape(-1, self.output_size)
+        # -> (B * seq_len) x target_vocab_size.
+        predictions = predictions.transpose(1, 2).reshape(
+            -1, self.target_vocab_size
+        )
         # -> (B * seq_len) x 1.
         target = target.view(-1, 1)
         non_pad_mask = target.ne(self.pad_idx)
@@ -455,10 +445,10 @@ class BaseEncoderDecoder(pl.LightningModule):
         smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
             non_pad_mask
         ].mean()
-        smooth_loss = smooth_loss / self.output_size
+        smooth_loss = smooth_loss / self.target_vocab_size
         # Combines both according to label smoothing weight.
         loss = (1.0 - self.label_smoothing) * nll_loss
-        loss += self.label_smoothing * smooth_loss
+        loss.add_(self.label_smoothing * smooth_loss)
         return loss
 
     @staticmethod

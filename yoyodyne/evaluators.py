@@ -31,11 +31,11 @@ class Evaluator:
         """
         if predictions.size(0) != golds.size(0):
             raise Error(
-                "Preds batch size ({predictions.size(0)}) and "
-                "golds batch size ({golds.size(0)} do not match"
+                f"Preds batch size ({predictions.size(0)}) and "
+                f"golds batch size ({golds.size(0)} do not match"
             )
-        # Gets the max val at each dim2 in predictions.
-        vals, predictions = torch.max(predictions, dim=2)
+        # Gets the max value at each dim2 in predictions.
+        _, predictions = torch.max(predictions, dim=2)
         # Finalizes the predictions.
         predictions = self.finalize_predictions(predictions, end_idx, pad_idx)
         return self.accuracy(predictions, golds, pad_idx)
@@ -85,29 +85,31 @@ class Evaluator:
         # Not necessary if batch size is 1.
         if predictions.size(0) == 1:
             return predictions
-        for i, x in enumerate(predictions):
-            assert len(x.size()) == 1
+        for i, prediction in enumerate(predictions):
             # Gets first instance of EOS.
-            EOS = (x == end_idx).nonzero(as_tuple=False)
-            if len(EOS) > 0 and EOS[0].item() < len(x):
+            eos = (prediction == end_idx).nonzero(as_tuple=False)
+            if len(eos) > 0 and eos[0].item() < len(prediction):
                 # If an EOS was decoded and it is not the last one in the
                 # sequence.
-                EOS = EOS[0]
+                eos = eos[0]
             else:
                 # Leaves predictions[i] alone.
                 continue
-            # Hack in case the first prediction is EOS. In this case,
+            # Hack in case the first prediction is EOS. In this case
             # torch.split will result in an error, so we change these 0's to
             # 1's, which will make the entire sequence EOS as intended.
-            EOS[EOS == 0] = 1
-            chars, *_ = torch.split(x, EOS)
+            eos[eos == 0] = 1
+            symbols, *_ = torch.split(prediction, eos)
             # Replaces everything after with PAD, to replace erroneous decoding
             # While waiting on the entire batch to finish.
             pads = (
-                torch.ones(len(x) - len(chars), device=chars.device) * pad_idx
+                torch.ones(
+                    len(prediction) - len(symbols), device=symbols.device
+                )
+                * pad_idx
             )
             pads[0] = end_idx
-            # Making an in-place udpate to an inference tensor.
+            # Makes an in-place update to an inference tensor.
             with torch.inference_mode():
-                predictions[i] = torch.cat((chars, pads))
+                predictions[i] = torch.cat((symbols, pads))
         return predictions
