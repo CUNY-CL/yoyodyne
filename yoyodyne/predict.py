@@ -136,22 +136,22 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
+        "--experiment", required=True, help="Name of experiment."
     )
     # Path arguments.
     parser.add_argument(
         "--predict",
         required=True,
-        help="Path to prediction input data TSV",
+        help="Path to prediction input data TSV.",
     )
     parser.add_argument(
         "--output",
         required=True,
-        help="Path to prediction output data TSV",
+        help="Path to prediction output data TSV.",
     )
-    parser.add_argument("--index", required=True, help="Path to index (.pkl)")
+    parser.add_argument("--index", required=True, help="Path to index (.pkl).")
     parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
+        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
     )
     # Predicting arguments.
     parser.add_argument(

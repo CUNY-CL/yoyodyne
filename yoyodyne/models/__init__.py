@@ -74,5 +74,5 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
             "transformer",
         ],
         default="attentive_lstm",
-        help="Model architecture to use",
+        help="Model architecture. Default: %(default)s.",
     )

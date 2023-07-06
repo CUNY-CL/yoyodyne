@@ -286,27 +286,27 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         argparse.ArgumentParser.
     """
     parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
+        "--experiment", required=True, help="Name of experiment."
     )
     # Path arguments.
     parser.add_argument(
         "--train",
         required=True,
-        help="Path to input training data TSV",
+        help="Path to input training data TSV.",
     )
     parser.add_argument(
         "--dev",
         required=True,
-        help="Path to input development data TSV",
+        help="Path to input development data TSV.",
     )
     parser.add_argument(
         "--model_dir",
         required=True,
-        help="Path to output model directory",
+        help="Path to output model directory.",
     )
     parser.add_argument(
         "--train_from",
-        help="Path to ckpt checkpoint to resume training from",
+        help="Path to ckpt checkpoint to resume training from.",
     )
     # Other training arguments.
     parser.add_argument(
@@ -316,7 +316,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Batch size. Default: %(default)s.",
     )
     parser.add_argument(
-        "--patience", type=int, help="Patience for early stopping"
+        "--patience", type=int, help="Patience for early stopping."
     )
     parser.add_argument(
         "--save_top_k",
