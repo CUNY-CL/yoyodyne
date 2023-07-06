@@ -496,5 +496,5 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--sed_params",
         type=str,
-        help="Path to input SED parameters (transducer architecture only)",
+        help="Path to input SED parameters (transducer architecture only).",
     )
