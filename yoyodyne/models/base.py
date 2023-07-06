@@ -380,6 +380,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         scheduler_fac = {
             "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
             "lineardecay": schedulers.LinearDecay,
+            "reduceonplateau": schedulers.ReduceOnPlateau,
         }
         scheduler_cls = scheduler_fac[self.scheduler]
         scheduler = scheduler_cls(
@@ -390,6 +391,21 @@ class BaseEncoderDecoder(pl.LightningModule):
             "interval": "step",
             "frequency": 1,
         }
+        # When using `reduceonplateau_mode loss`, we reduce when
+        # validation loss stops decreasing.
+        # When using `reduceonplateau_mode accuracy`, we reduce
+        # when validation accuracy stops increasing.
+        if self.scheduler == "reduceonplateau":
+            scheduler_cfg["interval"] = "epoch"
+            scheduler_cfg["frequency"] = self.scheduler_kwargs[
+                "check_val_every_n_epoch"
+            ]
+            if self.scheduler_kwargs.get("reduceonplateau_mode") == "loss":
+                scheduler_cfg["monitor"] = "val_loss"
+            elif (
+                self.scheduler_kwargs.get("reduceonplateau_mode") == "accuracy"
+            ):
+                scheduler_cfg["monitor"] = "val_accuracy"
         return [scheduler_cfg]
 
     def _get_loss_func(
