@@ -405,7 +405,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             ]
             mode = self.scheduler_kwargs.get("reduceonplateau_mode")
             if not mode:
-                raise Error("No reduceonplateuamode specified")
+                raise Error("No reduceonplateaumode specified")
             elif mode == "loss":
                 scheduler_cfg["monitor"] = "val_loss"
             elif mode == "accuracy":
