@@ -46,7 +46,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     embedding_size: int
     encoder_layers: int
     decoder_layers: int
-    feature_encoder_cls: Optional[modules.base.BaseModule]
+    features_encoder_cls: Optional[modules.base.BaseModule]
     hidden_size: int
     source_encoder_cls: modules.base.BaseModule
     # Constructed inside __init__.
@@ -63,7 +63,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         source_vocab_size,
         target_vocab_size,
         source_encoder_cls,
-        feature_encoder_cls=None,
+        features_encoder_cls=None,
         features_vocab_size=0,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
@@ -112,7 +112,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.evaluator = evaluators.Evaluator()
         # Checks compatibility with feature encoder and dataloader.
         modules.check_encoder_compatibility(
-            source_encoder_cls, feature_encoder_cls
+            source_encoder_cls, features_encoder_cls
         )
         # Instantiates encoders class.
         self.source_encoder = source_encoder_cls(
@@ -128,8 +128,8 @@ class BaseEncoderDecoder(pl.LightningModule):
             max_source_length=max_source_length,
             **kwargs,
         )
-        self.feature_encoder = (
-            feature_encoder_cls(
+        self.features_encoder = (
+            features_encoder_cls(
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,
@@ -141,13 +141,13 @@ class BaseEncoderDecoder(pl.LightningModule):
                 max_source_length=max_source_length,
                 **kwargs,
             )
-            if feature_encoder_cls is not None
+            if features_encoder_cls is not None
             else None
         )
         self.decoder = self.get_decoder()
         # Saves hyperparameters for PL checkpointing.
         self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "feature_encoder"]
+            ignore=["source_encoder", "decoder", "features_encoder"]
         )
 
     @staticmethod
@@ -221,8 +221,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         raise NotImplementedError
 
     @property
-    def has_feature_encoder(self):
-        return self.feature_encoder is not None
+    def has_features_encoder(self):
+        return self.features_encoder is not None
 
     def training_step(
         self,
