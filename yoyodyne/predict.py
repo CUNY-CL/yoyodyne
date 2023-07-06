@@ -71,52 +71,7 @@ def get_loader(
     )
 
 
-<<<<<<< HEAD
-def _get_loader_from_argparse_args(
-    args: argparse.Namespace,
-) -> data.DataLoader:
-    """Creates the loader from CLI arguments.
-
-    Args:
-        args (argparse.Namespace).
-
-    Returns:
-        data.DataLoader.
-    """
-    config = dataconfig.DataConfig.from_argparse_args(args)
-    dataset = get_dataset(args.predict, config, args.index)
-    return get_loader(
-        dataset,
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
-    )
-
-
-def get_model(
-    arch: str,
-    has_features: bool,
-    checkpoint: str,
-) -> models.BaseEncoderDecoder:
-    """Creates the model from checkpoint.
-
-    Args:
-        arch (str).
-        has_features (bool).
-        checkpoint (str).
-
-    Returns:
-        models.BaseEncoderDecoder.
-    """
-    model_cls = models.get_model_cls(arch)
-    return model_cls.load_from_checkpoint(checkpoint)
-
-
-def _get_model_from_argparse_args(
-=======
 def get_model_from_argparse_args(
->>>>>>> c148eb8cd29f264b02567689ae7703febf712ec5
     args: argparse.Namespace,
 ) -> models.BaseEncoderDecoder:
     """Creates the model from CLI arguments.

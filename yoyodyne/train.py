@@ -4,9 +4,9 @@ import argparse
 from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
+import wandb
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
-import wandb
 
 from . import (
     collators,

@@ -230,64 +230,6 @@ class DatasetNoFeatures(BaseDataset):
         return self.index.has_features
 
 
-class DatasetNoFeatures(BaseDataset):
-    """Dataset object without feature column."""
-
-    index: indexes.IndexNoFeatures
-
-    @staticmethod
-    def read_index(path: str) -> indexes.IndexNoFeatures:
-        """Helper for loading index.
-
-        Args:
-            path (str).
-
-        Returns:
-            indexes.IndexNoFeatures.
-        """
-        return indexes.IndexNoFeatures.read(path)
-
-    def _make_index(self) -> indexes.IndexNoFeatures:
-        """Generates index."""
-        source_vocabulary: Set[str] = set()
-        target_vocabulary: Set[str] = set()
-        if self.config.has_target:
-            for source, target in self.samples:
-                source_vocabulary.update(source)
-                target_vocabulary.update(target)
-            if self.config.tied_vocabulary:
-                source_vocabulary.update(target_vocabulary)
-                target_vocabulary.update(source_vocabulary)
-        else:
-            for source in self.samples:
-                source_vocabulary.update(source)
-        return indexes.IndexNoFeatures(
-            sorted(source_vocabulary), sorted(target_vocabulary)
-        )
-
-    def __getitem__(self, idx: int) -> Item:
-        """Retrieves item by index.
-
-        Args:
-            idx (int).
-
-        Returns:
-            Item.
-        """
-        if self.config.has_target:
-            source, target = self.samples[idx]
-        else:
-            source = self.samples[idx]
-        source_encoded = self.encode(self.index.source_map, source)
-        if self.config.has_target:
-            target_encoded = self.encode(
-                self.index.target_map, target, add_start_tag=False
-            )
-            return Item(source_encoded, target=target_encoded)
-        else:
-            return Item(source_encoded)
-
-
 class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
 

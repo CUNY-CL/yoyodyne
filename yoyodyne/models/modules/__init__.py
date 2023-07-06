@@ -1,7 +1,7 @@
 import argparse
 
 from ... import util
-from .base import BaseEncoder
+from .base import BaseModule
 from .linear import LinearEncoder
 from .lstm import LSTMAttentiveDecoder, LSTMDecoder, LSTMEncoder  # noqa: F401
 from .transformer import TransformerDecoder  # noqa F401
@@ -14,7 +14,7 @@ class EncoderMismatchError(Exception):
 
 def get_encoder_cls(
     encoder_arch: str = None, model_arch: str = None
-) -> BaseEncoder:
+) -> BaseModule:
     """Encoder factory.
 
     Looks up module class for given encoder_arch string. If not found, backs

@@ -51,7 +51,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         self.actions = self.expert.actions
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
-<<<<<<< HEAD
 
     def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
@@ -65,11 +64,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             num_embeddings=self.output_size,
             dropout=self.dropout,
             bidirectional=False,
-=======
-        # Target embeddings use alternate padding.
-        self.target_embeddings = self.init_embeddings(
-            num_embeddings=self.target_vocab_size,
->>>>>>> c148eb8cd29f264b02567689ae7703febf712ec5
             embedding_size=self.embedding_size,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
