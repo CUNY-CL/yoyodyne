@@ -159,8 +159,8 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
         return (
             f"{self.__class__.__name__}("
             f"{self.optimizer}, {self.mode}, "
-            f"{self.factor}, {self.min_lrs}), "
-            f"{self.patience}"
+            f"{self.factor}, {self.min_lrs}, "
+            f"{self.patience})"
         )
 
 
