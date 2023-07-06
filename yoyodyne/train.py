@@ -205,11 +205,11 @@ def get_model_from_argparse_args(
         "pointer_generator_lstm",
         "transducer",
     ]
-    feature_encoder_cls = (
+    features_encoder_cls = (
         models.modules.get_encoder_cls(
-            encoder_arch=args.feature_encoder_arch, model_arch=args.arch
+            encoder_arch=args.features_encoder_arch, model_arch=args.arch
         )
-        if separate_features and args.feature_encoder_arch
+        if separate_features and args.features_encoder_arch
         else None
     )
     features_vocab_size = (
@@ -233,7 +233,7 @@ def get_model_from_argparse_args(
         encoder_layers=args.encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
-        feature_encoder_cls=feature_encoder_cls,
+        features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
         label_smoothing=args.label_smoothing,
@@ -286,27 +286,27 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         argparse.ArgumentParser.
     """
     parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
+        "--experiment", required=True, help="Name of experiment."
     )
     # Path arguments.
     parser.add_argument(
         "--train",
         required=True,
-        help="Path to input training data TSV",
+        help="Path to input training data TSV.",
     )
     parser.add_argument(
         "--dev",
         required=True,
-        help="Path to input development data TSV",
+        help="Path to input development data TSV.",
     )
     parser.add_argument(
         "--model_dir",
         required=True,
-        help="Path to output model directory",
+        help="Path to output model directory.",
     )
     parser.add_argument(
         "--train_from",
-        help="Path to ckpt checkpoint to resume training from",
+        help="Path to ckpt checkpoint to resume training from.",
     )
     # Other training arguments.
     parser.add_argument(
@@ -316,7 +316,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Batch size. Default: %(default)s.",
     )
     parser.add_argument(
-        "--patience", type=int, help="Patience for early stopping"
+        "--patience", type=int, help="Patience for early stopping."
     )
     parser.add_argument(
         "--save_top_k",

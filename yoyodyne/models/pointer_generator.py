@@ -87,7 +87,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
         # Overrides classifier to take larger input.
-        if not self.has_feature_encoder:
+        if not self.has_features_encoder:
             self.classifier = nn.Linear(
                 self.hidden_size + self.source_encoder.output_size,
                 self.target_vocab_size,
@@ -100,8 +100,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         else:
             self.merge_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
             self.merge_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
-            self.feature_attention = modules.attention.Attention(
-                self.feature_encoder.output_size, self.hidden_size
+            self.features_attention = modules.attention.Attention(
+                self.features_encoder.output_size, self.hidden_size
             )
             self.classifier = nn.Linear(
                 self.hidden_size
@@ -113,7 +113,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 self.embedding_size,
                 self.hidden_size,
                 self.source_encoder.output_size
-                + self.feature_encoder.output_size,
+                + self.features_encoder.output_size,
             )
 
     def get_decoder(self) -> modules.lstm.LSTMAttentiveDecoder:
@@ -122,8 +122,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             start_idx=self.start_idx,
             end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size
-            + self.feature_encoder.output_size
-            if self.has_feature_encoder
+            + self.features_encoder.output_size
+            if self.has_features_encoder
             else self.source_encoder.output_size,
             num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
@@ -152,8 +152,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         source_indices: torch.Tensor,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
-        feature_enc: Optional[torch.Tensor] = None,
-        feature_mask: Optional[torch.Tensor] = None,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs a single step of the decoder.
 
@@ -165,8 +165,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             source_indices (torch.Tensor).
             source_enc (torch.Tensor).
             source_mask (torch.Tensor).
-            feature_enc (Optional[torch.Tensor]).
-            feature_mask (Optional[torch.Tensor]).
+            features_enc (Optional[torch.Tensor]).
+            features_mask (Optional[torch.Tensor]).
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor].
@@ -176,12 +176,12 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         context, attention_weights = self.decoder.attention(
             last_h0.transpose(0, 1), source_enc, source_mask
         )
-        if self.has_feature_encoder:
-            feature_context, _ = self.feature_attention(
-                last_h0.transpose(0, 1), feature_enc, feature_mask
+        if self.has_features_encoder:
+            features_context, _ = self.features_attention(
+                last_h0.transpose(0, 1), features_enc, features_mask
             )
             # -> B x 1 x 4*hidden_size.
-            context = torch.cat([context, feature_context], dim=2)
+            context = torch.cat([context, features_context], dim=2)
         _, (h, c) = self.decoder.module(
             torch.cat((embedded, context), 2), (last_h0, last_c0)
         )
@@ -220,8 +220,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         source_indices: torch.Tensor,
         decoder_hiddens: torch.Tensor,
         teacher_forcing: bool,
-        feature_enc: Optional[torch.Tensor] = None,
-        feature_mask: Optional[torch.Tensor] = None,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
@@ -238,9 +238,9 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             decoder_hiddens (torch.Tensor): .
             teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
-            feature_enc (torch.Tensor, optional): batch of encoded feaure
+            features_enc (torch.Tensor, optional): batch of encoded feaure
                 symbols.
-            feature_mask (torch.Tensor, optional): mask for the batch of
+            features_mask (torch.Tensor, optional): mask for the batch of
                 encoded feature symbols.
             target (torch.Tensor, optional): target symbols;  we
                 decode up to `len(target)` symbols. If it is None, then we
@@ -273,8 +273,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 source_indices,
                 source_enc,
                 source_mask,
-                feature_enc=feature_enc,
-                feature_mask=feature_mask,
+                features_enc=features_enc,
+                features_mask=features_mask,
             )
             predictions.append(output.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
@@ -327,7 +327,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             last_hiddens = self.init_hiddens(
                 len(batch), self.source_encoder.layers
             )
-        if not self.has_feature_encoder:
+        if not self.has_features_encoder:
             if self.beam_width is not None and self.beam_width > 1:
                 # predictions = self.beam_decode(
                 # batch_size, x_mask, encoder_out, beam_width=self.beam_width
@@ -343,15 +343,15 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                     target=batch.target.padded if batch.target else None,
                 )
         else:
-            features_encoder_output = self.feature_encoder(batch.features)
+            features_encoder_output = self.features_encoder(batch.features)
             features_encoded = features_encoder_output.output
             if features_encoder_output.has_hiddens:
                 h_features, c_features = features_encoder_output.hiddens
                 h_features, c_features = self._reshape_hiddens(
                     h_features,
                     c_features,
-                    self.feature_encoder.layers,
-                    self.feature_encoder.num_directions,
+                    self.features_encoder.layers,
+                    self.features_encoder.num_directions,
                 )
             else:
                 h_features, c_features = self.init_hiddens(
@@ -363,8 +363,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                     batch.source.padded,
                     last_hiddens,
                     self.teacher_forcing if self.training else False,
-                    feature_enc=features_encoded,
-                    feature_mask=batch.features.mask,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
                     target=batch.target.padded if batch.target else None,
                 )
         return predictions

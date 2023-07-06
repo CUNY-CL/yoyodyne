@@ -169,7 +169,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--scheduler",
         choices=["warmupinvsqrt", "lineardecay", "reduceonplateau"],
-        help="Learning rate scheduler",
+        help="Learning rate scheduler.",
     )
     parser.add_argument(
         "--warmup_steps",
@@ -226,7 +226,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--min_lr",
-        type=int,
+        type=float,
         default=defaults.MIN_LR,
         help="Lower bound on the learning rate (reduceonplateau "
         "scheduler only). Default: %(default)s.",

@@ -58,8 +58,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             start_idx=self.start_idx,
             end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size
-            + self.feature_encoder.output_size
-            if self.has_feature_encoder
+            + self.features_encoder.output_size
+            if self.has_features_encoder
             else self.source_encoder.output_size,
             num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
@@ -89,8 +89,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
 
-        if self.has_feature_encoder:
-            features_encoder_out = self.feature_encoder(batch.features)
+        if self.has_features_encoder:
+            features_encoder_out = self.features_encoder(batch.features)
             features_encoded = features_encoder_out.output
             if features_encoder_out.has_hiddens:
                 h_features, c_features = features_encoder_out.hiddens

@@ -85,25 +85,25 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
             "transformer",
         ],
         default=None,
-        help="Model architecture to use",
+        help="Model architecture to use for the source encoder.",
     )
     parser.add_argument(
-        "--feature_encoder_arch",
+        "--features_encoder_arch",
         choices=[
             "linear",
             "lstm",
             "transformer",
         ],
         default=None,
-        help="Model architecture to use for feature encoding",
+        help="Model architecture to use for the features encoder.",
     )
 
 
-def check_encoder_compatibility(source_encoder_cls, feature_encoder_cls):
-    if feature_encoder_cls is not None and isinstance(
+def check_encoder_compatibility(source_encoder_cls, features_encoder_cls):
+    if features_encoder_cls is not None and isinstance(
         source_encoder_cls, FeatureInvariantTransformerEncoder
     ):
         raise EncoderMismatchError(
-            """The specified encoder type is not compatible with a
-                separate feature encoder"""
+            "The specified encoder type is not compatible with a separate "
+            "feature encoder"
         )
