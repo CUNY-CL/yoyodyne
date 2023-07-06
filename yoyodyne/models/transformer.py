@@ -35,7 +35,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """
         self.attention_heads = attention_heads
         super().__init__(*args, attention_heads=attention_heads, **kwargs)
-        self.classifier = nn.Linear(self.embedding_size, self.output_size)
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
         self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self):
@@ -43,7 +45,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embedding_size=self.embedding_size,

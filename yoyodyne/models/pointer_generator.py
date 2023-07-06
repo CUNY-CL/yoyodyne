@@ -90,7 +90,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         if not self.has_feature_encoder:
             self.classifier = nn.Linear(
                 self.hidden_size + self.source_encoder.output_size,
-                self.output_size,
+                self.target_vocab_size,
             )
             self.generation_probability = GenerationProbability(  # noqa: E501
                 self.embedding_size,
@@ -107,7 +107,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 self.hidden_size
                 + self.source_encoder.output_size
                 + self.feature_encoder.output_size,
-                self.output_size,
+                self.target_vocab_size,
             )
             self.generation_probability = GenerationProbability(  # noqa: E501
                 self.embedding_size,
@@ -125,7 +125,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             + self.feature_encoder.output_size
             if self.has_feature_encoder
             else self.source_encoder.output_size,
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
             bidirectional=False,
             embedding_size=self.embedding_size,
@@ -298,7 +298,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                         -1
                     ):
                         break
-        predictions = torch.stack(predictions)
+        predictions = torch.stack(predictions).transpose(0, 1)
         return predictions
 
     def forward(
