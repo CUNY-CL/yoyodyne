@@ -205,11 +205,11 @@ def get_model_from_argparse_args(
         "pointer_generator_lstm",
         "transducer",
     ]
-    feature_encoder_cls = (
+    features_encoder_cls = (
         models.modules.get_encoder_cls(
-            encoder_arch=args.feature_encoder_arch, model_arch=args.arch
+            encoder_arch=args.features_encoder_arch, model_arch=args.arch
         )
-        if separate_features and args.feature_encoder_arch
+        if separate_features and args.features_encoder_arch
         else None
     )
     features_vocab_size = (
@@ -233,7 +233,7 @@ def get_model_from_argparse_args(
         encoder_layers=args.encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
-        feature_encoder_cls=feature_encoder_cls,
+        features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
         label_smoothing=args.label_smoothing,

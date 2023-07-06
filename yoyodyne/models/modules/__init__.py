@@ -88,7 +88,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Model architecture to use",
     )
     parser.add_argument(
-        "--feature_encoder_arch",
+        "--features_encoder_arch",
         choices=[
             "linear",
             "lstm",
@@ -99,8 +99,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def check_encoder_compatibility(source_encoder_cls, feature_encoder_cls):
-    if feature_encoder_cls is not None and isinstance(
+def check_encoder_compatibility(source_encoder_cls, features_encoder_cls):
+    if features_encoder_cls is not None and isinstance(
         source_encoder_cls, FeatureInvariantTransformerEncoder
     ):
         raise EncoderMismatchError(
