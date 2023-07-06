@@ -205,7 +205,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         choices=["loss", "accuracy"],
         default=defaults.REDUCEONPLATEAU_MODE,
-        help="whether to reduce the LR when the validation loss stops "
+        help="Whether to reduce the LR when the validation loss stops "
         "decreasing (`loss`) or when validation accuracy stops increasing "
         "(`accuracy`) (reduceonplateau scheduler only). Default: %(default)s.",
     )
