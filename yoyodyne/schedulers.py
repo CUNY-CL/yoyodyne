@@ -1,6 +1,5 @@
 """Custom schedulers."""
 
-
 import argparse
 import math
 from typing import Dict
@@ -8,6 +7,7 @@ from typing import Dict
 from torch import optim
 
 from . import defaults
+
 
 ALL_SCHEDULER_ARGS = [
     "warmup_steps",
@@ -109,9 +109,9 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}("
-            f"{self.optimizer}, {self.start_factor}, "
-            f"{self.end_factor}, {self.total_decay_steps})"
+            f"{self.__class__.__name__}({self.optimizer}, "
+            f"{self.start_factor}, {self.end_factor}, "
+            f"{self.total_decay_steps})"
         )
 
 
@@ -129,23 +129,20 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
     ):
         """Initializes the LR scheduler.
 
+        The following hyperparameters are inherited from the PyTorch defaults:
+        threshold, threshold_mode, cooldown, eps.
+
         Args:
             optimizer (optim.Optimizer): optimizer.
-            reduceonplateau_mode (str): Determines whether to reduce the LR
-                when the metric stops decreasing (`loss`) or increasing
-                (`accuracy`).
-            reduceonplateau_factor (float): Factor by which the
-                learning rate will be reduced. new_lr = lr * factor.
-            reduceonplateau_patience (int): Number of epochs with no
+            reduceonplateau_mode (str): whether to reduce the LR when the
+                validation loss stops decreasing ("loss") or when
+                validation accuracy stops increasing ("accuracy").
+            reduceonplateau_factor (float): factor by which the
+                learning rate will be reduced: new_lr = lr * factor.
+            reduceonplateau_patience (int): number of epochs with no
                 improvement before reducing LR.
-            min_lr (float): Lower bound on the learning rate.
+            min_lr (float): lower bound on the learning rate.
             **kwargs: ignored.
-
-        Currently lets the following hyperparameters use the pytorch defaults:
-            threshold,
-            threshold_mode,
-            cooldown,
-            eps,
         """
         super().__init__(
             optimizer,
@@ -157,10 +154,8 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}("
-            f"{self.optimizer}, {self.mode}, "
-            f"{self.factor}, {self.min_lrs}, "
-            f"{self.patience})"
+            f"{self.__class__.__name__}({self.optimizer}, {self.mode}, "
+            f"{self.factor}, {self.min_lrs}, {self.patience})"
         )
 
 
@@ -210,15 +205,15 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         choices=["loss", "accuracy"],
         default=defaults.REDUCEONPLATEAU_MODE,
-        help="Determines whether to reduce the LR when the "
-        "metric stops decreasing (`loss`) or increasing (`accuracy`), "
-        "(reduceonplateau scheduler only). Default: %(default)s.",
+        help="Whether to reduce the LR when the validation loss stops "
+        "decreasing (`loss`) or when validation accuracy stops increasing "
+        "(`accuracy`) (reduceonplateau scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--reduceonplateau_factor",
         type=float,
         default=defaults.REDUCEONPLATEAU_FACTOR,
-        help="Factor by which the learning rate will be reduced. "
+        help="Factor by which the learning rate will be reduced: "
         "new_lr = lr * factor (reduceonplateau scheduler only). "
         "Default: %(default)s.",
     )
