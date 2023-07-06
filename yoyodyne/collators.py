@@ -38,9 +38,11 @@ class Collator:
             max_source_length (int).
             max_target_length (int).
         """
-        self.pad_idx = dataset.index.pad_idx
-        self.has_features = dataset.config.has_features
-        self.has_target = dataset.config.has_target
+        self.index = dataset.index
+        self.pad_idx = self.index.pad_idx
+        self.config = dataset.config
+        self.has_features = self.config.has_features
+        self.has_target = self.config.has_target
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.features_offset = (

@@ -225,31 +225,6 @@ class DatasetNoFeatures(BaseDataset):
             special=special,
         )
 
-    def __len__(self) -> int:
-        return len(self.samples)
-
-    def __getitem__(self, idx: int) -> Item:
-        """Retrieves item by index.
-
-        Args:
-            idx (int).
-
-        Returns:
-            Item.
-        """
-        if self.config.has_target:
-            source, target = self.samples[idx]
-        else:
-            source = self.samples[idx]
-        source_encoded = self.encode(self.index.source_map, source)
-        if self.config.has_target:
-            target_encoded = self.encode(
-                self.index.target_map, target, add_start_tag=False
-            )
-            return Item(source_encoded, target=target_encoded)
-        else:
-            return Item(source_encoded)
-
     @property
     def has_features(self) -> bool:
         return self.index.has_features

@@ -4,9 +4,9 @@ import argparse
 from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
+import wandb
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data
-import wandb
 
 from . import (
     collators,
@@ -186,7 +186,10 @@ def get_model_from_argparse_args(
     Returns:
         models.BaseEncoderDecoder.
     """
-    model_cls = models.get_model_cls(args.arch, train_set.has_features)
+    model_cls = models.get_model_cls(args.arch)
+    source_encoder_cls = models.modules.get_encoder_cls(
+        encoder_arch=args.source_encoder_arch, model_arch=args.arch
+    )
     expert = (
         models.expert.get_expert(
             train_set,
@@ -202,6 +205,13 @@ def get_model_from_argparse_args(
         "pointer_generator_lstm",
         "transducer",
     ]
+    feature_encoder_cls = (
+        models.modules.get_encoder_cls(
+            encoder_arch=args.feature_encoder_arch, model_arch=args.arch
+        )
+        if separate_features and args.feature_encoder_arch
+        else None
+    )
     features_vocab_size = (
         train_set.index.features_vocab_size if train_set.has_features else 0
     )
@@ -223,6 +233,7 @@ def get_model_from_argparse_args(
         encoder_layers=args.encoder_layers,
         end_idx=train_set.index.end_idx,
         expert=expert,
+        feature_encoder_cls=feature_encoder_cls,
         features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
         label_smoothing=args.label_smoothing,
@@ -230,9 +241,11 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
+        output_size=train_set.index.target_vocab_size,
         pad_idx=train_set.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
+        source_encoder_cls=source_encoder_cls,
         source_vocab_size=source_vocab_size,
         start_idx=train_set.index.start_idx,
         target_vocab_size=train_set.index.target_vocab_size,
@@ -329,12 +342,14 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     collators.Collator.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
+    models.modules.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
+    # models.modules.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
@@ -383,7 +398,7 @@ def main() -> None:
         return
     # Otherwise, train and log the best checkpoint.
     best_checkpoint = train(
-        trainer, model, train_loader, dev_loader, args.train_from
+        trainer, model, train_loader, dev_loader, train_from=args.train_from
     )
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 
