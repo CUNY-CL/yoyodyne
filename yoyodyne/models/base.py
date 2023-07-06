@@ -42,9 +42,9 @@ class BaseEncoderDecoder(pl.LightningModule):
     embedding_size: int
     encoder_layers: int
     decoder_layers: int
-    feature_encoder_cls: Optional[modules.base.BaseEncoder]
+    feature_encoder_cls: Optional[modules.base.BaseModule]
     hidden_size: int
-    source_encoder_cls: modules.base.BaseEncoder
+    source_encoder_cls: modules.base.BaseModule
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
     evaluator: evaluators.Evaluator
