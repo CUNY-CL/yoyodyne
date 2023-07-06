@@ -14,6 +14,10 @@ from .. import batches, defaults, evaluators, schedulers
 from . import modules
 
 
+class Error(Exception):
+    pass
+
+
 class BaseEncoderDecoder(pl.LightningModule):
     #  TODO: clean up type checking here.
     # Indices.
@@ -391,21 +395,23 @@ class BaseEncoderDecoder(pl.LightningModule):
             "interval": "step",
             "frequency": 1,
         }
-        # When using `reduceonplateau_mode loss`, we reduce when
-        # validation loss stops decreasing.
-        # When using `reduceonplateau_mode accuracy`, we reduce
-        # when validation accuracy stops increasing.
+        # When using `reduceonplateau_mode loss`, we reduce when validation
+        # loss stops decreasing. When using `reduceonplateau_mode accuracy`,
+        # we reduce when validation accuracy stops increasing.
         if self.scheduler == "reduceonplateau":
             scheduler_cfg["interval"] = "epoch"
             scheduler_cfg["frequency"] = self.scheduler_kwargs[
                 "check_val_every_n_epoch"
             ]
-            if self.scheduler_kwargs.get("reduceonplateau_mode") == "loss":
+            mode = self.scheduler_kwargs.get("reduceonplateau_mode")
+            if not mode:
+                raise Error("No reduceonplateuamode specified")
+            elif mode == "loss":
                 scheduler_cfg["monitor"] = "val_loss"
-            elif (
-                self.scheduler_kwargs.get("reduceonplateau_mode") == "accuracy"
-            ):
+            elif mode == "accuracy":
                 scheduler_cfg["monitor"] = "val_accuracy"
+            else:
+                raise Error(f"reduceonplateau mode not found: {mode}")
         return [scheduler_cfg]
 
     def _get_loss_func(
