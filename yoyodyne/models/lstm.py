@@ -37,7 +37,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Initial hidden state whose parameters are shared across all examples.
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
-        self.classifier = nn.Linear(self.hidden_size, self.output_size)
+        self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
         self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self) -> modules.lstm.LSTMDecoder:
@@ -46,7 +46,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             start_idx=self.start_idx,
             end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
             bidirectional=False,
             embedding_size=self.embedding_size,
@@ -338,7 +338,7 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
             start_idx=self.start_idx,
             end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
             bidirectional=False,
             embedding_size=self.embedding_size,

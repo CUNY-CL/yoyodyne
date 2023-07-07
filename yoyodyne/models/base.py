@@ -103,6 +103,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.label_smoothing = label_smoothing
         self.teacher_forcing = teacher_forcing
         self.beam_width = beam_width
+        self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.decoder_layers = decoder_layers
         self.embedding_size = embedding_size
@@ -119,7 +120,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.source_vocab_size,
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             layers=self.encoder_layers,

@@ -61,7 +61,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             + self.features_encoder.output_size
             if self.has_features_encoder
             else self.source_encoder.output_size,
-            num_embeddings=self.output_size,
+            num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
             bidirectional=False,
             embedding_size=self.embedding_size,
