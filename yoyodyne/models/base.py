@@ -152,9 +152,11 @@ class BaseEncoderDecoder(pl.LightningModule):
         )
         # Logs the module names.
         util.log_info(f"Model: {self.name}")
-        util.log_info(f"Source encoder: {self.source_encoder.name}")
         if self.features_encoder is not None:
+            util.log_info(f"Source encoder: {self.source_encoder.name}")
             util.log_info(f"Features encoder: {self.features_encoder.name}")
+        else:
+            util.log_info(f"Encoder: {self.source_encoder.name}")
         util.log_info(f"Decoder: {self.decoder.name}")
 
     @staticmethod
