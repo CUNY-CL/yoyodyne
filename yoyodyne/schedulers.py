@@ -1,17 +1,23 @@
 """Custom schedulers."""
 
-
 import argparse
 import math
 from typing import Dict
 
 from torch import optim
 
+from . import defaults
+
 ALL_SCHEDULER_ARGS = [
     "warmup_steps",
     "start_factor",
     "end_factor",
     "total_decay_steps",
+    "reduceonplateau_mode",
+    "reduceonplateau_factor",
+    "reduceonplateau_patience",
+    "min_lr",
+    "check_val_every_n_epoch",
 ]
 
 
@@ -102,9 +108,53 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}("
-            f"{self.optimizer}, {self.start_factor}, "
-            f"{self.end_factor}, {self.total_decay_steps})"
+            f"{self.__class__.__name__}({self.optimizer}, "
+            f"{self.start_factor}, {self.end_factor}, "
+            f"{self.total_decay_steps})"
+        )
+
+
+class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
+    """Reduce on plateau scheduler."""
+
+    def __init__(
+        self,
+        optimizer,
+        reduceonplateau_mode,
+        reduceonplateau_factor,
+        reduceonplateau_patience,
+        min_lr,
+        **kwargs,
+    ):
+        """Initializes the LR scheduler.
+
+        The following hyperparameters are inherited from the PyTorch defaults:
+        threshold, threshold_mode, cooldown, eps.
+
+        Args:
+            optimizer (optim.Optimizer): optimizer.
+            reduceonplateau_mode (str): whether to reduce the LR when the
+                validation loss stops decreasing ("loss") or when
+                validation accuracy stops increasing ("accuracy").
+            reduceonplateau_factor (float): factor by which the
+                learning rate will be reduced: new_lr = lr * factor.
+            reduceonplateau_patience (int): number of epochs with no
+                improvement before reducing LR.
+            min_lr (float): lower bound on the learning rate.
+            **kwargs: ignored.
+        """
+        super().__init__(
+            optimizer,
+            mode="min" if reduceonplateau_mode == "loss" else "max",
+            factor=reduceonplateau_factor,
+            patience=reduceonplateau_patience,
+            min_lr=min_lr,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}({self.optimizer}, {self.mode}, "
+            f"{self.factor}, {self.min_lrs}, {self.patience})"
         )
 
 
@@ -118,36 +168,68 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument(
         "--scheduler",
-        choices=["warmupinvsqrt", "lineardecay"],
-        help="Learning rate scheduler",
+        choices=["warmupinvsqrt", "lineardecay", "reduceonplateau"],
+        help="Learning rate scheduler.",
     )
     parser.add_argument(
         "--warmup_steps",
         type=int,
-        default=0,
+        default=defaults.WARMUP_STEPS,
         help="Number of warmup steps (warmupinvsqrt scheduler only). "
         "Default: %(default)s.",
     )
     parser.add_argument(
         "--start_factor",
         type=float,
-        default=1 / 3,
+        default=defaults.START_FACTOR,
         help="Starting multiplier for the LR (lineardecay scheduler "
         "only). Default: %(default)s.",
     )
     parser.add_argument(
         "--end_factor",
         type=float,
-        default=1.0,
+        default=defaults.END_FACTOR,
         help="Multiplier for the LR after --total_decay_steps (lineardecay "
         "scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--total_decay_steps",
         type=int,
-        default=5,
+        default=defaults.TOTAL_DECAY_STEPS,
         help="Number of iterations until the LR multiplier reaches "
         "--end_factor (lineardecay scheduler only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--reduceonplateau_mode",
+        type=str,
+        choices=["loss", "accuracy"],
+        default=defaults.REDUCEONPLATEAU_MODE,
+        help="Whether to reduce the LR when the validation loss stops "
+        "decreasing (`loss`) or when validation accuracy stops increasing "
+        "(`accuracy`) (reduceonplateau scheduler only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--reduceonplateau_factor",
+        type=float,
+        default=defaults.REDUCEONPLATEAU_FACTOR,
+        help="Factor by which the learning rate will be reduced: "
+        "new_lr = lr * factor (reduceonplateau scheduler only). "
+        "Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--reduceonplateau_patience",
+        type=int,
+        default=defaults.REDUCEONPLATEAU_PATIENCE,
+        help="Number of epochs with no improvement before "
+        "reducing LR (reduceonplateau scheduler only). "
+        "Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--min_lr",
+        type=float,
+        default=defaults.MIN_LR,
+        help="Lower bound on the learning rate (reduceonplateau "
+        "scheduler only). Default: %(default)s.",
     )
 
 

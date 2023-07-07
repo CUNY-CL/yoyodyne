@@ -5,18 +5,12 @@ import argparse
 from .. import util
 from .base import BaseEncoderDecoder
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
-from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoderFeatures,
-    PointerGeneratorLSTMEncoderDecoderNoFeatures,
-)
-from .transducer import TransducerFeatures, TransducerNoFeatures
-from .transformer import (
-    FeatureInvariantTransformerEncoderDecoder,
-    TransformerEncoderDecoder,
-)
+from .pointer_generator import PointerGeneratorLSTMEncoderDecoder
+from .transducer import TransducerEncoderDecoder
+from .transformer import TransformerEncoderDecoder
 
 
-def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
+def get_model_cls(arch: str) -> BaseEncoderDecoder:
     """Model factory.
 
     Args:
@@ -32,18 +26,9 @@ def get_model_cls(arch: str, has_features: bool) -> BaseEncoderDecoder:
     model_fac = {
         "attentive_lstm": AttentiveLSTMEncoderDecoder,
         "lstm": LSTMEncoderDecoder,
-        "transducer": TransducerFeatures
-        if has_features
-        else TransducerNoFeatures,
+        "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
+        "transducer": TransducerEncoderDecoder,
         "transformer": TransformerEncoderDecoder,
-        # fmt: off
-        "feature_invariant_transformer":
-            FeatureInvariantTransformerEncoderDecoder,
-        "pointer_generator_lstm":
-            PointerGeneratorLSTMEncoderDecoderFeatures
-            if has_features
-            else PointerGeneratorLSTMEncoderDecoderNoFeatures,
-        # fmt: on
     }
     try:
         model_cls = model_fac[arch]
@@ -57,7 +42,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds model options to an argument parser.
 
     We only add the ones needed to look up the model class itself, with
-    more specific arguments specified in ../train.py.
+    more specific arguments specified in train.py.
 
     Args:
         parser (argparse.ArgumentParser).
@@ -66,12 +51,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--arch",
         choices=[
             "attentive_lstm",
-            "feature_invariant_transformer",
             "lstm",
             "pointer_generator_lstm",
             "transducer",
             "transformer",
         ],
         default="attentive_lstm",
-        help="Model architecture to use",
+        help="Model architecture. Default: %(default)s.",
     )

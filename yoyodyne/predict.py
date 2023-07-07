@@ -50,10 +50,6 @@ def get_dataset_from_argparse_args(
         datasets.BaseDataset.
     """
     config = dataconfig.DataConfig.from_argparse_args(args)
-    # TODO: Since we don't care about the target column, we should be able to
-    # set config.source_col = 0 and avoid the overhead for parsing it.
-    # This does not work because the modules expect it to be present even if
-    # they ignore it.
     return datasets.get_dataset(args.predict, config, args.index)
 
 
@@ -108,22 +104,22 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
+        "--experiment", required=True, help="Name of experiment."
     )
     # Path arguments.
     parser.add_argument(
         "--predict",
         required=True,
-        help="Path to prediction input data TSV",
+        help="Path to prediction input data TSV.",
     )
     parser.add_argument(
         "--output",
         required=True,
-        help="Path to prediction output data TSV",
+        help="Path to prediction output data TSV.",
     )
-    parser.add_argument("--index", required=True, help="Path to index (.pkl)")
+    parser.add_argument("--index", required=True, help="Path to index (.pkl).")
     parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)"
+        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
     )
     # Predicting arguments.
     parser.add_argument(

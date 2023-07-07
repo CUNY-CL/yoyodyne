@@ -25,6 +25,36 @@ class Collator:
     max_source_length: int = defaults.MAX_SOURCE_LENGTH
     max_target_length: int = defaults.MAX_TARGET_LENGTH
 
+    def __init__(
+        self,
+        dataset: datasets.BaseDataset,
+        arch: str,
+        max_source_length: int = defaults.MAX_SOURCE_LENGTH,
+        max_target_length: int = defaults.MAX_TARGET_LENGTH,
+    ):
+        """Initializes the collator.
+
+        Args:
+            dataset (dataset.BaseDataset).
+            arch (str).
+            max_source_length (int).
+            max_target_length (int).
+        """
+        self.index = dataset.index
+        self.pad_idx = self.index.pad_idx
+        self.config = dataset.config
+        self.has_features = self.config.has_features
+        self.has_target = self.config.has_target
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
+        self.features_offset = (
+            dataset.index.source_vocab_size if self.has_features else 0
+        )
+        self.separate_features = dataset.config.has_features and arch in [
+            "pointer_generator_lstm",
+            "transducer",
+        ]
+
     def _source_length_error(self, padded_length: int) -> None:
         """Callback function to raise the error when the padded length of the
         source batch is greater than the `max_source_length` allowed.

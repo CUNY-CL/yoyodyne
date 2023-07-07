@@ -4,7 +4,6 @@ import argparse
 from typing import List, Optional
 
 import pytorch_lightning as pl
-from pytorch_lightning import callbacks, loggers
 import wandb
 
 from . import data, defaults, models, schedulers, util
@@ -25,10 +24,10 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     Returns:
         List: logger.
     """
-    trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
+    trainer_logger = [pl.loggers.CSVLogger(model_dir, name=experiment)]
     if log_wandb:
         trainer_logger.append(
-            loggers.WandbLogger(project=experiment, log_model="all")
+            pl.loggers.WandbLogger(project=experiment, log_model="all")
         )
         # Tells PTL to log best validation accuracy.
         wandb.define_metric("val_accuracy", summary="max")
@@ -51,18 +50,18 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
         List: callbacks.
     """
     trainer_callbacks = [
-        callbacks.ModelCheckpoint(
+        pl.callbacks.ModelCheckpoint(
             save_top_k=save_top_k,
             monitor="val_accuracy",
             mode="max",
             filename="model-{epoch:02d}-{val_accuracy:.2f}",
         ),
-        callbacks.LearningRateMonitor(logging_interval="epoch"),
-        callbacks.TQDMProgressBar(),
+        pl.callbacks.LearningRateMonitor(logging_interval="epoch"),
+        pl.callbacks.TQDMProgressBar(),
     ]
     if patience is not None:
         trainer_callbacks.append(
-            callbacks.early_stopping.EarlyStopping(
+            pl.callbacks.early_stopping.EarlyStopping(
                 monitor="val_accuracy",
                 min_delta=0.0,
                 patience=patience,
@@ -134,8 +133,41 @@ def get_model_from_argparse_args(
     Returns:
         models.BaseEncoderDecoder.
     """
+    model_cls = models.get_model_cls(args.arch)
+    source_encoder_cls = models.modules.get_encoder_cls(
+        encoder_arch=args.source_encoder_arch, model_arch=args.arch
+    )
+    expert = (
+        models.expert.get_expert(
+            datamodule.train_loader().dataset,
+            epochs=args.oracle_em_epochs,
+            oracle_factor=args.oracle_factor,
+            sed_params_path=args.sed_params,
+        )
+        if args.arch in ["transducer"]
+        else None
+    )
+    scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
+    separate_features = datamodule.has_features and args.arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    features_encoder_cls = (
+        models.modules.get_encoder_cls(
+            encoder_arch=args.features_encoder_arch, model_arch=args.arch
+        )
+        if separate_features and args.features_encoder_arch
+        else None
+    )
+    features_vocab_size = (
+        datamodule.index.features_vocab_size if datamodule.has_features else 0
+    )
+    source_vocab_size = (
+        datamodule.index.source_vocab_size + features_vocab_size
+        if not separate_features
+        else datamodule.index.source_vocab_size
+    )
     # Please pass all arguments by keyword and keep in lexicographic order.
-    model_cls = models.get_model_cls(args.arch, args.features_col != 0)
     return model_cls(
         arch=args.arch,
         attention_heads=args.attention_heads,
@@ -147,15 +179,12 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
-        expert=models.expert.get_expert(
-            datamodule.train_loader().dataset,
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
-            sed_params_path=args.sed_params,
-        )
-        if args.arch in ["transducer"]
-        else None,
+        expert=expert,
+        # FIXME: THERE CAN ONLY BE ONE
         features_vocab_size=datamodule.index.features_vocab_size,
+        # features_vocab_size=features_vocab_size,
+        features_encoder_cls=features_encoder_cls,
+        end_idx=datamodule.index.end_idx,
         hidden_size=args.hidden_size,
         label_smoothing=args.label_smoothing,
         learning_rate=args.learning_rate,
@@ -164,11 +193,16 @@ def get_model_from_argparse_args(
         pad_idx=datamodule.index.pad_idx,
         optimizer=args.optimizer,
         scheduler=args.scheduler,
-        scheduler_kwargs=schedulers.get_scheduler_kwargs_from_argparse_args(
-            args
-        ),
+        scheduler_kwargs=scheduler_kwargs,
         # Some trickery here about separate features.
         source_vocab_size=datamodule.source_vocab_size,
+        start_idx=datamodule.index.start_idx,
+        target_vocab_size=datamodule.index.target_vocab_size,
+        pad_idx=datamodule.index.pad_idx,
+        scheduler=args.scheduler,
+        scheduler_kwargs=scheduler_kwargs,
+        source_encoder_cls=source_encoder_cls,
+        source_vocab_size=source_vocab_size,
         start_idx=datamodule.index.start_idx,
         target_vocab_size=datamodule.index.target_vocab_size,
     )
@@ -195,7 +229,7 @@ def train(
     trainer.fit(model, datamodule=datamodule, ckpt_path=train_from)
     ckp_callback = trainer.callbacks[-1]
     # TODO: feels flimsy.
-    assert type(ckp_callback) is callbacks.ModelCheckpoint
+    assert type(ckp_callback) is pl.callbacks.ModelCheckpoint
     return ckp_callback.best_model_path
 
 
@@ -206,31 +240,31 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         argparse.ArgumentParser.
     """
     parser.add_argument(
-        "--experiment", required=True, help="Name of experiment"
+        "--experiment", required=True, help="Name of experiment."
     )
     # Path arguments.
     parser.add_argument(
         "--train",
         required=True,
-        help="Path to input training data TSV",
+        help="Path to input training data TSV.",
     )
     parser.add_argument(
         "--dev",
         required=True,
-        help="Path to input development data TSV",
+        help="Path to input development data TSV.",
     )
     parser.add_argument(
         "--model_dir",
         required=True,
-        help="Path to output model directory",
+        help="Path to output model directory.",
     )
     parser.add_argument(
         "--train_from",
-        help="Path to ckpt checkpoint to resume training from",
+        help="Path to ckpt checkpoint to resume training from.",
     )
     # Other training arguments.
     parser.add_argument(
-        "--patience", type=int, help="Patience for early stopping"
+        "--patience", type=int, help="Patience for early stopping."
     )
     parser.add_argument(
         "--save_top_k",
@@ -254,12 +288,14 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     data.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
+    models.modules.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
+    # models.modules.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:

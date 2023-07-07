@@ -48,7 +48,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` python
+```python
 import yoyodyne
 ```
 
@@ -111,33 +111,50 @@ Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
 symbols of the form `<...>` or `[...]`.
 
-## Architectures
+## Models
 
-The user specifies the model using the `--arch` flag (and in some cases
-additional flags).
+The user specifies the overall architecture for the model using the `--arch`
+flag. The value of this flag specifies the decoder's architecture and whether or
+not an attention mechanism is present. This flag also specifies a default
+architecture for the encoder(s), but it is possible to override this with
+additional flags. Supported values for `--arch` are:
 
--   `attentive_lstm`: This is an LSTM encoder-decoder, with the initial hidden
-    state treated as a learned parameter, and the encoder connected to the
-    decoder by an attention mechanism.
--   `feature_invariant_transformer`: This is a variant of the `transformer`
-    which uses a learned embedding to distinguish input symbols from features.
-    It may be superior to the vanilla transformer when using features.
--   `lstm`: This is similar to the attentive LSTM, but instead of an attention
-    mechanism, the last non-padding hidden state of the encoder is concatenated
-    with the decoder hidden state.
--   `pointer_generator_lstm`: This is an attentive pointer-generator with an
-    LSTM backend. Since this model contains a copy mechanism, it may be superior
-    to the `lstm` when the input and output vocabularies overlap significantly.
--   `transducer`: This is a transducer with an LSTM backend. On model creation,
-    expectation maximization is used to learn a sequence of edit operations, and
-    imitation learning is used to train the model to implement the oracle
-    policy, with roll-in controlled by the `--oracle_factor` flag (default:
-    `1`). Since this model assumes monotonic alignment, it may be superior to
-    attentive models when the alignment between input and output is roughly
-    monotonic and when input and output vocabularies overlap significantly.
--   `transformer`: This is a transformer encoder-decoder with positional
-    encoding and layer normalization. The user may wish to specify the number of
+-   `"attentive_lstm"`: This is an LSTM decoder with LSTM encoders (by default)
+    and an attention mechanism. The initial hidden state is treated as a learned
+    parameter.
+-   `"lstm"`: This is an LSTM decoder with LSTM encoders (by default); in lieu
+    of an attention mechanism, the last non-padding hidden state of the encoder
+    is concatenated with the decoder hidden state.
+-   `pointer_generator_lstm`: This is an LSTM decoder with LSTM encoders (by
+    default) and a pointer-generator mechanism. Since this model contains a copy
+    mechanism, it may be superior to the `lstm` when the input and output
+    vocabularies overlap significantly.
+-   `"transducer"`: This is an LSTM decoder with LSTM encoders (by default) and
+    a neural transducer mechanism. On model creation, expectation maximization
+    is used to learn a sequence of edit operations, and imitation learning is
+    used to train the model to implement the oracle policy, with roll-in
+    controlled by the `--oracle_factor` flag (default: `1`). Since this model
+    assumes monotonic alignment, it may be superior to attentive models when the
+    alignment between input and output is roughly monotonic and when input and
+    output vocabularies overlap significantly.
+-   `"transformer"`: This is a transformer decoder with transformer encoders (by
+    default) and an attention mechanism. Sinusodial positional encodings and
+    layer normalization are used. The user may wish to specify the number of
     attention heads (with `--attention_heads`; default: `4`).
+
+The user can override the default encoder architectures. One can override the
+source encoder using the `--source_encoder_arch` flag:
+
+-   `"feature_invariant_transformer"`: This is a variant of the transformer
+    encoder for use with features; it concatenates source and features and uses
+    a learned embedding to distinguish between source and features symbols.
+-   `"linear"`: This is a linear encoder.
+-   `"lstm"`: This is a LSTM encoder.
+-   `"transformer"`: This is a transformer encoder.
+
+When using features, the user can also specify a non-default features encoder
+using the `--features_encoder_arch` flag (`"linear"`, `"lstm"`,
+`"transformer"`).
 
 For all models, the user may also wish to specify:
 
@@ -146,8 +163,7 @@ For all models, the user may also wish to specify:
 -   `--encoder_layers` (default: `1`): number of encoder layers
 -   `--hidden_size` (default: `512`): hidden layer size
 
-By default, the `attentive_lstm`, `lstm`, `pointer_generator_lstm`, and
-`transducer` models use an bidirectional encoder. One can disable this with the
+By default, LSTM encoders are bidirectional. One can disable this with the
 `--no_bidirectional` flag.
 
 ## Training options
@@ -243,12 +259,12 @@ This section contains instructions for the Yoyodyne maintainers.
     `git push origin release`
 7.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
     if the new version is 3.1.4, the tag should be `v3.1.4`. This can be done:
-    *  on GitHub itself: click the "Releases" or "Create a new release" link on
+    -   on GitHub itself: click the "Releases" or "Create a new release" link on
         the right-hand side of the Yoyodyne GitHub page) and follow the
         dialogues.
-    *  from the command-line using `git tag`.
-9.  Build the new release: `python -m build`
-10.  Upload the result to PyPI: `twine upload dist/*`
+    -   from the command-line using `git tag`.
+8.  Build the new release: `python -m build`
+9.  Upload the result to PyPI: `twine upload dist/*`
 
 ## References
 

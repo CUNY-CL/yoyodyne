@@ -1,14 +1,13 @@
 """Transformer model classes."""
 
 import argparse
-import math
 from typing import Optional
 
 import torch
 from torch import nn
 
 from .. import data, defaults
-from . import base, positional_encoding
+from . import base, modules
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
@@ -16,22 +15,14 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     # Model arguments.
     attention_heads: int
-    max_source_length: int
     # Constructed inside __init__.
-    esq: float
-    source_embeddings: nn.Embedding
-    target_embeddings: nn.Embedding
-    positional_encoding: positional_encoding.PositionalEncoding
-    log_softmax: nn.LogSoftmax
-    encoder: nn.TransformerEncoder
-    decoder: nn.TransformerDecoder
     classifier: nn.Linear
+    log_softmax: nn.LogSoftmax
 
     def __init__(
         self,
         *args,
         attention_heads=defaults.ATTENTION_HEADS,
-        max_source_length=defaults.MAX_SOURCE_LENGTH,
         **kwargs,
     ):
         """Initializes the encoder-decoder with attention.
@@ -42,152 +33,27 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
-        super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
-        self.max_source_length = max_source_length
-        self.esq = math.sqrt(self.embedding_size)
-        self.source_embeddings = self.init_embeddings(
-            self.source_vocab_size, self.embedding_size, self.pad_idx
-        )
-        self.target_embeddings = self.init_embeddings(
-            self.target_vocab_size, self.embedding_size, self.pad_idx
-        )
-        self.positional_encoding = positional_encoding.PositionalEncoding(
-            self.embedding_size, self.pad_idx, self.max_source_length
-        )
-        self.log_softmax = nn.LogSoftmax(dim=2)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=self.embedding_size,
-            dim_feedforward=self.hidden_size,
-            nhead=self.attention_heads,
-            dropout=self.dropout,
-            activation="relu",
-            norm_first=True,
-            batch_first=True,
-        )
-        self.encoder = nn.TransformerEncoder(
-            encoder_layer=encoder_layer,
-            num_layers=self.encoder_layers,
-            norm=nn.LayerNorm(self.embedding_size),
-        )
-        decoder_layer = nn.TransformerDecoderLayer(
-            d_model=self.embedding_size,
-            dim_feedforward=self.hidden_size,
-            nhead=self.attention_heads,
-            dropout=self.dropout,
-            activation="relu",
-            norm_first=True,
-            batch_first=True,
-        )
-        self.decoder = nn.TransformerDecoder(
-            decoder_layer=decoder_layer,
-            num_layers=self.decoder_layers,
-            norm=nn.LayerNorm(self.embedding_size),
-        )
+        super().__init__(*args, attention_heads=attention_heads, **kwargs)
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
+        self.log_softmax = nn.LogSoftmax(dim=2)
 
-    def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return self._xavier_embedding_initialization(
-            num_embeddings, embedding_size, pad_idx
+    def get_decoder(self):
+        return modules.transformer.TransformerDecoder(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            num_embeddings=self.target_vocab_size,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
+            embedding_size=self.embedding_size,
+            attention_heads=self.attention_heads,
+            max_source_length=self.max_source_length,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
         )
-
-    def source_embed(self, symbols: torch.Tensor) -> torch.Tensor:
-        """Embeds the source symbols and adds positional encodings.
-
-        Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
-
-        Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
-        """
-        word_embedding = self.esq * self.source_embeddings(symbols)
-        positional_embedding = self.positional_encoding(symbols)
-        out = self.dropout_layer(word_embedding + positional_embedding)
-        return out
-
-    def target_embed(self, symbols: torch.Tensor) -> torch.Tensor:
-        """Embeds the target symbols and adds positional encodings.
-
-        Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
-
-        Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
-        """
-        word_embedding = self.esq * self.target_embeddings(symbols)
-        positional_embedding = self.positional_encoding(symbols)
-        out = self.dropout_layer(word_embedding + positional_embedding)
-        return out
-
-    def encode(self, source: data.PaddedTensor) -> torch.Tensor:
-        """Encodes the source with the TransformerEncoder.
-
-        Args:
-            source (data.PaddedTensor).
-
-        Returns:
-            torch.Tensor: sequence of encoded symbols.
-        """
-        embedding = self.source_embed(source.padded)
-        return self.encoder(embedding, src_key_padding_mask=source.mask)
-
-    def decode(
-        self,
-        encoder_hidden: torch.Tensor,
-        source_mask: torch.Tensor,
-        target: torch.Tensor,
-        target_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        """Decodes the logits for each step of the output sequence.
-
-        Args:
-            encoder_hidden (torch.Tensor): source encoder hidden state, of
-                shape B x seq_len x hidden_size.
-            source_mask (torch.Tensor): encoder hidden state mask.
-            target (torch.Tensor): current state of targets, which may be the
-                full target, or previous decoded, of shape
-                B x seq_len x hidden_size.
-            target_mask (torch.Tensor): target mask.
-
-        Returns:
-            _type_: log softmax over targets.
-        """
-        target_embedding = self.target_embed(target)
-        target_sequence_length = target_embedding.size(1)
-        # -> seq_len x seq_len.
-        causal_mask = self.generate_square_subsequent_mask(
-            target_sequence_length
-        ).to(self.device)
-        # -> B x seq_len x d_model
-        decoder_hidden = self.decoder(
-            target_embedding,
-            encoder_hidden,
-            tgt_mask=causal_mask,
-            memory_key_padding_mask=source_mask,
-            tgt_key_padding_mask=target_mask,
-        )
-        # -> B x seq_len x target_vocab_size.
-        output = self.classifier(decoder_hidden)
-        output = self.log_softmax(output)
-        return output
 
     def _decode_greedy(
         self,
@@ -225,11 +91,12 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # Uses a dummy mask of all ones.
             target_mask = torch.ones_like(target_tensor, dtype=torch.float)
             target_mask = target_mask == 0
-            output = self.decode(
+            decoder_output = self.decoder(
                 encoder_hidden, source_mask, target_tensor, target_mask
-            )
-            # We only care about the last prediction in the sequence.
-            last_output = output[:, -1, :]
+            ).output
+            logits = self.classifier(decoder_output)
+            log_probs = self.log_softmax(logits)
+            last_output = log_probs[:, -1, :]  # Ignores EOS.
             outputs.append(last_output)
             # -> B x 1 x 1
             _, pred = torch.max(last_output, dim=1)
@@ -276,33 +143,22 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = torch.cat(
                 (starts == self.pad_idx, batch.target.mask), dim=1
             )
-            encoder_hidden = self.encode(batch.source)
-            output = self.decode(
-                encoder_hidden, batch.source.mask, target_padded, target_mask
-            )
-            # -> B x seq_len x target_vocab_size.
-            output = output[:, :-1, :]
+            encoder_output = self.source_encoder(batch.source).output
+            decoder_output = self.decoder(
+                encoder_output, batch.source.mask, target_padded, target_mask
+            ).output
+            logits = self.classifier(decoder_output)
+            log_probs = self.log_softmax(logits)
+            output = log_probs[:, :-1, :]  # Ignore EOS.
         else:
-            encoder_hidden = self.encode(batch.source)
-            # -> B x seq_len x target_vocab_size.
+            encoder_output = self.source_encoder(batch.source).output
+            # -> B x seq_len x output_size.
             output = self._decode_greedy(
-                encoder_hidden,
+                encoder_output,
                 batch.source.mask,
                 batch.target.padded if batch.target else None,
             )
         return output
-
-    @staticmethod
-    def generate_square_subsequent_mask(length: int) -> torch.Tensor:
-        """Generates the target mask so the model cannot see future states.
-
-        Args:
-            length (int): length of the sequence.
-
-        Returns:
-            torch.Tensor: mask of shape length x length.
-        """
-        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -318,54 +174,5 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             type=int,
             default=defaults.ATTENTION_HEADS,
             help="Number of attention heads "
-            "(transformer-backed architectures only. Default: %(default)s.",
+            "(transformer-backed architectures only). Default: %(default)s.",
         )
-
-
-class FeatureInvariantTransformerEncoderDecoder(TransformerEncoderDecoder):
-    """Transformer encoder-decoder with feature invariance.
-
-    After:
-        Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
-        character-level transductions. In Proceedings of the 16th Conference of
-        the European Chapter of the Association for Computational Linguistics:
-        Main Volume, pages 1901-1907.
-    """
-
-    # Constructed inside __init__.
-    type_embedding: nn.Embedding
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Distinguishes features vs. character.
-        self.type_embedding = self.init_embeddings(
-            2, self.embedding_size, self.pad_idx
-        )
-
-    def source_embed(self, symbols: torch.Tensor) -> torch.Tensor:
-        """Embeds the source symbols.
-
-        This adds positional encodings and special embeddings.
-
-        Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
-
-        Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
-        """
-        # Distinguishes features and chars.
-        char_mask = (
-            symbols < (self.source_vocab_size - self.features_vocab_size)
-        ).long()
-        # 1 or 0.
-        type_embedding = self.esq * self.type_embedding(char_mask)
-        word_embedding = self.esq * self.source_embeddings(symbols)
-        positional_embedding = self.positional_encoding(
-            symbols, mask=char_mask
-        )
-        out = self.dropout_layer(
-            word_embedding + positional_embedding + type_embedding
-        )
-        return out
