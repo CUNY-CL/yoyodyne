@@ -47,5 +47,9 @@ class LinearEncoder(LinearModule):
         return base.ModuleOutput(self.embed(source.padded))
 
     @property
+    def name(self) -> str:
+        return "linear"
+
+    @property
     def output_size(self) -> int:
         return self.embedding_size

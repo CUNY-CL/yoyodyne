@@ -179,6 +179,10 @@ class TransformerEncoder(TransformerModule):
     def output_size(self) -> int:
         return self.embedding_size
 
+    @property
+    def name(self) -> str:
+        return "transformer"
+
 
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
     """Encoder for Transformer with feature invariance.
@@ -229,6 +233,10 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             word_embedding + positional_embedding + type_embedding
         )
         return out
+
+    @property
+    def name(self) -> str:
+        return "feature-invariant transformer"
 
 
 class TransformerDecoder(TransformerModule):
@@ -311,3 +319,7 @@ class TransformerDecoder(TransformerModule):
     @property
     def output_size(self) -> int:
         return self.num_embeddings
+
+    @property
+    def name(self) -> str:
+        return "transformer"

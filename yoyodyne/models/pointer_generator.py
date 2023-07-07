@@ -376,3 +376,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         H = H.view(layers, num_directions, H.size(1), H.size(2)).sum(axis=1)
         C = C.view(layers, num_directions, C.size(1), C.size(2)).sum(axis=1)
         return (H, C)
+
+    @property
+    def name(self) -> str:
+        return "pointer-generator"
