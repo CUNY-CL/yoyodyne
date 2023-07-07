@@ -106,7 +106,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             self.classifier = nn.Linear(
                 self.hidden_size
                 + self.source_encoder.output_size
-                + self.feature_encoder.output_size,
+                + self.features_encoder.output_size,
                 self.target_vocab_size,
             )
             self.generation_probability = GenerationProbability(  # noqa: E501
