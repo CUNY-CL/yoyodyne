@@ -324,7 +324,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         default=defaults.SAVE_TOP_K,
         help="Number of checkpoints to save. Default: %(default)s.",
     )
-    parser.add_argument("--seed", type=int, help="Random seed")
+    parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
         "--log_wandb",
         action="store_true",
