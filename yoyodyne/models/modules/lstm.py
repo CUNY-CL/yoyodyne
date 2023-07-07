@@ -99,6 +99,10 @@ class LSTMEncoder(LSTMModule):
     def output_size(self) -> int:
         return self.hidden_size * self.num_directions
 
+    @property
+    def name(self) -> str:
+        return "LSTM"
+
 
 class LSTMDecoder(LSTMModule):
     def __init__(self, *args, decoder_input_size, **kwargs):
@@ -165,6 +169,10 @@ class LSTMDecoder(LSTMModule):
     def output_size(self) -> int:
         return self.num_embeddings
 
+    @property
+    def name(self) -> str:
+        return "LSTM"
+
 
 class LSTMAttentiveDecoder(LSTMDecoder):
     attention_input_size: int
@@ -211,3 +219,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
         )
         output = self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens=hiddens)
+
+    @property
+    def name(self) -> str:
+        return "attentive LSTM"
