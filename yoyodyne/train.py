@@ -65,7 +65,7 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
             save_top_k=save_top_k,
             monitor="val_accuracy",
             mode="max",
-            filename="model-{epoch:02d}-{val_accuracy:.2f}",
+            filename="model-{epoch:03d}-{val_accuracy:.3f}",
         ),
         callbacks.LearningRateMonitor(logging_interval="epoch"),
         callbacks.TQDMProgressBar(),
