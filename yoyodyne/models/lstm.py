@@ -388,6 +388,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         predictions = predictions.transpose(0, 1)
         return predictions
 
+    @property
+    def name(self) -> str:
+        return "LSTM"
+
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         """Adds LSTM configuration options to the argument parser.
@@ -426,3 +430,7 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
             hidden_size=self.hidden_size,
             attention_input_size=self.source_encoder.output_size,
         )
+
+    @property
+    def name(self) -> str:
+        return "attentive LSTM"

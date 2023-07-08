@@ -2,7 +2,6 @@
 
 import argparse
 
-from .. import util
 from .base import BaseEncoderDecoder
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import PointerGeneratorLSTMEncoderDecoder
@@ -31,9 +30,7 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         "transformer": TransformerEncoderDecoder,
     }
     try:
-        model_cls = model_fac[arch]
-        util.log_info(f"Model: {model_cls.__name__}")
-        return model_cls
+        return model_fac[arch]
     except KeyError:
         raise NotImplementedError(f"Architecture {arch} not found")
 

@@ -160,6 +160,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             )
         return output
 
+    @property
+    def name(self) -> str:
+        return "transformer"
+
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         """Adds transformer configuration options to the argument parser.

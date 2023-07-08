@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import data, defaults, evaluators, schedulers
+from .. import data, defaults, evaluators, schedulers, util
 from . import modules
 
 
@@ -150,6 +150,14 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.save_hyperparameters(
             ignore=["source_encoder", "decoder", "features_encoder"]
         )
+        # Logs the module names.
+        util.log_info(f"Model: {self.name}")
+        if self.features_encoder is not None:
+            util.log_info(f"Source encoder: {self.source_encoder.name}")
+            util.log_info(f"Features encoder: {self.features_encoder.name}")
+        else:
+            util.log_info(f"Encoder: {self.source_encoder.name}")
+        util.log_info(f"Decoder: {self.decoder.name}")
 
     @staticmethod
     def _xavier_embedding_initialization(

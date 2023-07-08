@@ -569,5 +569,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 break
         return action
 
+    @property
+    def name(self) -> str:
+        return "transducer"
+
 
 # TODO: Implement beam decoding.

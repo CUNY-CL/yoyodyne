@@ -1,6 +1,5 @@
 import argparse
 
-from ... import util
 from .base import BaseModule
 from .linear import LinearEncoder
 from .lstm import LSTMAttentiveDecoder, LSTMDecoder, LSTMEncoder  # noqa: F401
@@ -49,18 +48,14 @@ def get_encoder_cls(
     }
     if encoder_arch is None:
         try:
-            model_cls = model_to_encoder_fac[model_arch]
-            util.log_info(f"Model: {model_cls.__name__}")
-            return model_cls
+            return model_to_encoder_fac[model_arch]
         except KeyError:
             raise NotImplementedError(
                 f"Encoder compatible with {model_arch} not found"
             )
     else:
         try:
-            model_cls = encoder_fac[encoder_arch]
-            util.log_info(f"Model: {model_cls.__name__}")
-            return model_cls
+            return encoder_fac[encoder_arch]
         except KeyError:
             raise NotImplementedError(
                 f"Encoder architecture {encoder_arch} not found"

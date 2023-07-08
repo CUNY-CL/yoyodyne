@@ -143,7 +143,7 @@ additional flags. Supported values for `--arch` are:
     attention heads (with `--attention_heads`; default: `4`).
 
 The user can override the default encoder architectures. One can override the
-source encoder using the `--source_encoder_arch` flag:
+source encoder using the `--source_encoder` flag:
 
 -   `"feature_invariant_transformer"`: This is a variant of the transformer
     encoder for use with features; it concatenates source and features and uses
@@ -153,7 +153,7 @@ source encoder using the `--source_encoder_arch` flag:
 -   `"transformer"`: This is a transformer encoder.
 
 When using features, the user can also specify a non-default features encoder
-using the `--features_encoder_arch` flag (`"linear"`, `"lstm"`,
+using the `--features_encoder` flag (`"linear"`, `"lstm"`,
 `"transformer"`).
 
 For all models, the user may also wish to specify:

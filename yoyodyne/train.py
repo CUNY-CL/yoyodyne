@@ -54,7 +54,7 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
             save_top_k=save_top_k,
             monitor="val_accuracy",
             mode="max",
-            filename="model-{epoch:02d}-{val_accuracy:.2f}",
+            filename="model-{epoch:03d}-{val_accuracy:.3f}",
         ),
         pl.callbacks.LearningRateMonitor(logging_interval="epoch"),
         pl.callbacks.TQDMProgressBar(),
@@ -272,7 +272,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         default=defaults.SAVE_TOP_K,
         help="Number of checkpoints to save. Default: %(default)s.",
     )
-    parser.add_argument("--seed", type=int, help="Random seed")
+    parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
         "--log_wandb",
         action="store_true",
