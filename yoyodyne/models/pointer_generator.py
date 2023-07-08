@@ -371,11 +371,11 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
 
     @staticmethod
     def _reshape_hiddens(
-        H: torch.Tensor, C: torch.Tensor, layers: int, num_directions: int
+        h: torch.Tensor, c: torch.Tensor, layers: int, num_directions: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        H = H.view(layers, num_directions, H.size(1), H.size(2)).sum(axis=1)
-        C = C.view(layers, num_directions, C.size(1), C.size(2)).sum(axis=1)
-        return (H, C)
+        h = h.view(layers, num_directions, h.size(1), h.size(2)).sum(axis=1)
+        c = c.view(layers, num_directions, c.size(1), c.size(2)).sum(axis=1)
+        return h, c
 
     @property
     def name(self) -> str:
