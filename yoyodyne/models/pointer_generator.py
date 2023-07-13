@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from .. import batches
+from .. import data
 from . import lstm, modules
 
 
@@ -289,7 +289,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all batches predicted an EOS symbol.
+                # Breaks when all data predicted an EOS symbol.
                 # If we have a target (and are thus computing loss),
                 # we only break when we have decoded at least the the
                 # same number of steps as the target length.
@@ -303,12 +303,12 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
 
     def forward(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
             torch.Tensor.

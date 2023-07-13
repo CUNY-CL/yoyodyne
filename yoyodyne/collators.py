@@ -5,7 +5,7 @@ from typing import List
 
 import torch
 
-from . import batches, datasets, defaults, util
+from . import data, datasets, defaults, util
 
 
 class LengthError(Exception):
@@ -102,18 +102,16 @@ class Collator:
             for item in itemlist
         ]
 
-    def pad_source(
-        self, itemlist: List[datasets.Item]
-    ) -> batches.PaddedTensor:
+    def pad_source(self, itemlist: List[datasets.Item]) -> data.PaddedTensor:
         """Pads source.
 
         Args:
             itemlist (List[datasets.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            data.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return data.PaddedTensor(
             [item.source for item in itemlist],
             self.pad_idx,
             self._source_length_error,
@@ -122,16 +120,16 @@ class Collator:
     def pad_source_features(
         self,
         itemlist: List[datasets.Item],
-    ) -> batches.PaddedTensor:
+    ) -> data.PaddedTensor:
         """Pads concatenated source and features.
 
         Args:
             itemlist (List[datasets.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            data.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return data.PaddedTensor(
             self.concatenate_source_and_features(itemlist),
             self.pad_idx,
             self._source_length_error,
@@ -140,54 +138,52 @@ class Collator:
     def pad_features(
         self,
         itemlist: List[datasets.Item],
-    ) -> batches.PaddedTensor:
+    ) -> data.PaddedTensor:
         """Pads features.
 
         Args:
             itemlist (List[datasets.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            data.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return data.PaddedTensor(
             [item.features for item in itemlist], self.pad_idx
         )
 
-    def pad_target(
-        self, itemlist: List[datasets.Item]
-    ) -> batches.PaddedTensor:
+    def pad_target(self, itemlist: List[datasets.Item]) -> data.PaddedTensor:
         """Pads target.
 
         Args:
             itemlist (List[datasets.Item]).
 
         Returns:
-            batches.PaddedTensor.
+            data.PaddedTensor.
         """
-        return batches.PaddedTensor(
+        return data.PaddedTensor(
             [item.target for item in itemlist],
             self.pad_idx,
             self._target_length_warning,
         )
 
-    def __call__(self, itemlist: List[datasets.Item]) -> batches.PaddedBatch:
+    def __call__(self, itemlist: List[datasets.Item]) -> data.PaddedBatch:
         """Pads all elements of an itemlist.
 
         Args:
             itemlist (List[datasets.Item]).
 
         Returns:
-            batches.PaddedBatch.
+            data.PaddedBatch.
         """
         padded_target = self.pad_target(itemlist) if self.has_target else None
         if self.separate_features:
-            return batches.PaddedBatch(
+            return data.PaddedBatch(
                 self.pad_source(itemlist),
                 features=self.pad_features(itemlist),
                 target=padded_target,
             )
         else:
-            return batches.PaddedBatch(
+            return data.PaddedBatch(
                 self.pad_source_features(itemlist),
                 target=padded_target,
             )

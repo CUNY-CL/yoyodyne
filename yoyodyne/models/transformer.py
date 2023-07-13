@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from .. import batches, defaults
+from .. import data, defaults
 from . import base, modules
 
 
@@ -105,7 +105,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             finished = torch.logical_or(
                 finished, (predictions[-1] == self.end_idx)
             )
-            # Breaks when all batches predicted an EOS symbol.
+            # Breaks when all data predicted an EOS symbol.
             # If we have a target (and are thus computing loss),
             # we only break when we have decoded at least the the
             # same number of steps as the target length.
@@ -117,12 +117,12 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
 
     def forward(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
     ) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
             torch.Tensor.
