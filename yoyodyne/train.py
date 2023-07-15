@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning import callbacks, loggers
-from torch.utils import data
+from torch.utils import data as torch_data
 
 from . import (
     collators,
@@ -136,7 +136,7 @@ def get_loaders(
     batch_size: int,
     max_source_length: int,
     max_target_length: int,
-) -> Tuple[data.DataLoader, data.DataLoader]:
+) -> Tuple[torch_data.DataLoader, torch_data.DataLoader]:
     """Creates the loaders.
 
     Args:
@@ -157,14 +157,14 @@ def get_loaders(
         max_source_length,
         max_target_length,
     )
-    train_loader = data.DataLoader(
+    train_loader = torch_data.DataLoader(
         train_set,
         collate_fn=collator,
         batch_size=batch_size,
         shuffle=True,
         num_workers=1,  # Our data loading is simple.
     )
-    dev_loader = data.DataLoader(
+    dev_loader = torch_data.DataLoader(
         dev_set,
         collate_fn=collator,
         batch_size=2 * batch_size,  # Because we're not collecting gradients.
@@ -255,8 +255,8 @@ def get_model_from_argparse_args(
 def train(
     trainer: pl.Trainer,
     model: models.BaseEncoderDecoder,
-    train_loader: data.DataLoader,
-    dev_loader: data.DataLoader,
+    train_loader: torch_data.DataLoader,
+    dev_loader: torch_data.DataLoader,
     train_from: Optional[str] = None,
 ) -> str:
     """Trains the model.

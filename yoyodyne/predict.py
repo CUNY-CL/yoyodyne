@@ -4,7 +4,7 @@ import argparse
 import os
 
 import pytorch_lightning as pl
-from torch.utils import data
+from torch.utils import data as torch_data
 
 from . import collators, dataconfig, data, defaults, models, util
 
@@ -44,7 +44,7 @@ def get_loader(
     batch_size: int,
     max_source_length: int,
     max_target_length: int,
-) -> data.DataLoader:
+) -> torch_data.DataLoader:
     """Creates the loader.
 
     Args:
@@ -55,7 +55,7 @@ def get_loader(
         max_target_length (int).
 
     Returns:
-        data.DataLoader.
+        torch_data.DataLoader.
     """
     collator = collators.Collator(
         dataset,
@@ -63,7 +63,7 @@ def get_loader(
         max_source_length,
         max_target_length,
     )
-    return data.DataLoader(
+    return torch_data.DataLoader(
         dataset,
         collate_fn=collator,
         batch_size=batch_size,
@@ -100,7 +100,7 @@ def _mkdir(output: str) -> None:
 def predict(
     trainer: pl.Trainer,
     model: pl.LightningModule,
-    loader: data.DataLoader,
+    loader: torch_data.DataLoader,
     output: str,
 ) -> None:
     """Predicts from the model.
@@ -108,7 +108,7 @@ def predict(
     Args:
          trainer (pl.Trainer).
          model (pl.LightningModule).
-         loader (data.DataLoader).
+         loader (torch_data.DataLoader).
          output (str).
          target_sep (str).
     """
