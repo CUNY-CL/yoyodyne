@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from torch.utils import data
 
-from . import dataconfig, indexes, special
+from .. import dataconfig, indexes, special
 
 
 class Item(nn.Module):

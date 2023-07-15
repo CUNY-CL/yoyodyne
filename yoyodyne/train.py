@@ -11,7 +11,7 @@ from torch.utils import data
 from . import (
     collators,
     dataconfig,
-    datasets,
+    data,
     defaults,
     models,
     schedulers,
@@ -103,23 +103,23 @@ def get_trainer_from_argparse_args(
     )
 
 
-def get_datasets_from_argparse_args(
+def get_data_from_argparse_args(
     args: argparse.Namespace,
-) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
-    """Creates the datasets from CLI arguments.
+) -> Tuple[data.BaseDataset, data.BaseDataset]:
+    """Creates the data from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
-            development datasets.
+        Tuple[data.BaseDataset, data.BaseDataset]: the training and
+            development data.
     """
     config = dataconfig.DataConfig.from_argparse_args(args)
     if config.target_col == 0:
         raise Error("target_col must be specified for training")
-    train_set = datasets.get_dataset(args.train, config)
-    dev_set = datasets.get_dataset(args.dev, config, train_set.index)
+    train_set = data.get_dataset(args.train, config)
+    dev_set = data.get_dataset(args.dev, config, train_set.index)
     util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
     if train_set.has_features:
         util.log_info(
@@ -130,8 +130,8 @@ def get_datasets_from_argparse_args(
 
 
 def get_loaders(
-    train_set: datasets.BaseDataset,
-    dev_set: datasets.BaseDataset,
+    train_set: data.BaseDataset,
+    dev_set: data.BaseDataset,
     arch: str,
     batch_size: int,
     max_source_length: int,
@@ -140,8 +140,8 @@ def get_loaders(
     """Creates the loaders.
 
     Args:
-        train_set (datasets.BaseDataset).
-        dev_set (datasets.BaseDataset).
+        train_set (data.BaseDataset).
+        dev_set (data.BaseDataset).
         arch (str).
         batch_size (int).
         max_source_length (int).
@@ -174,13 +174,13 @@ def get_loaders(
 
 
 def get_model_from_argparse_args(
-    train_set: datasets.BaseDataset,
+    train_set: data.BaseDataset,
     args: argparse.Namespace,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
 
     Args:
-        train_set (datasets.BaseDataset).
+        train_set (data.BaseDataset).
         args (argparse.Namespace).
 
     Returns:
@@ -374,7 +374,7 @@ def main() -> None:
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
-    train_set, dev_set = get_datasets_from_argparse_args(args)
+    train_set, dev_set = get_data_from_argparse_args(args)
     index = train_set.index.index_path(args.model_dir, args.experiment)
     train_set.index.write(index)
     util.log_info(f"Index: {index}")

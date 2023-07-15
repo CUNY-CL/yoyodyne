@@ -5,7 +5,7 @@ from typing import List
 
 import torch
 
-from . import data, datasets, defaults, util
+from . import data, defaults, util
 
 
 class LengthError(Exception):
@@ -25,7 +25,7 @@ class Collator:
 
     def __init__(
         self,
-        dataset: datasets.BaseDataset,
+        dataset: data.BaseDataset,
         arch: str,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
@@ -90,7 +90,7 @@ class Collator:
 
     def concatenate_source_and_features(
         self,
-        itemlist: List[datasets.Item],
+        itemlist: List[data.Item],
     ) -> List[torch.Tensor]:
         """Concatenates source and feature tensors."""
         return [
@@ -102,11 +102,11 @@ class Collator:
             for item in itemlist
         ]
 
-    def pad_source(self, itemlist: List[datasets.Item]) -> data.PaddedTensor:
+    def pad_source(self, itemlist: List[data.Item]) -> data.PaddedTensor:
         """Pads source.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[data.Item]).
 
         Returns:
             data.PaddedTensor.
@@ -119,12 +119,12 @@ class Collator:
 
     def pad_source_features(
         self,
-        itemlist: List[datasets.Item],
+        itemlist: List[data.Item],
     ) -> data.PaddedTensor:
         """Pads concatenated source and features.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[data.Item]).
 
         Returns:
             data.PaddedTensor.
@@ -137,12 +137,12 @@ class Collator:
 
     def pad_features(
         self,
-        itemlist: List[datasets.Item],
+        itemlist: List[data.Item],
     ) -> data.PaddedTensor:
         """Pads features.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[data.Item]).
 
         Returns:
             data.PaddedTensor.
@@ -151,11 +151,11 @@ class Collator:
             [item.features for item in itemlist], self.pad_idx
         )
 
-    def pad_target(self, itemlist: List[datasets.Item]) -> data.PaddedTensor:
+    def pad_target(self, itemlist: List[data.Item]) -> data.PaddedTensor:
         """Pads target.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[data.Item]).
 
         Returns:
             data.PaddedTensor.
@@ -166,11 +166,11 @@ class Collator:
             self._target_length_warning,
         )
 
-    def __call__(self, itemlist: List[datasets.Item]) -> data.PaddedBatch:
+    def __call__(self, itemlist: List[data.Item]) -> data.PaddedBatch:
         """Pads all elements of an itemlist.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (List[data.Item]).
 
         Returns:
             data.PaddedBatch.

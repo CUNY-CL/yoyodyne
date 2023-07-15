@@ -6,7 +6,7 @@ import os
 import pytorch_lightning as pl
 from torch.utils import data
 
-from . import collators, dataconfig, datasets, defaults, models, util
+from . import collators, dataconfig, data, defaults, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -25,21 +25,21 @@ def get_trainer_from_argparse_args(
 
 def get_dataset_from_argparse_args(
     args: argparse.Namespace,
-) -> datasets.BaseDataset:
+) -> data.BaseDataset:
     """Creates the dataset from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        datasets.BaseDataset.
+        data.BaseDataset.
     """
     config = dataconfig.DataConfig.from_argparse_args(args)
-    return datasets.get_dataset(args.predict, config, args.index)
+    return data.get_dataset(args.predict, config, args.index)
 
 
 def get_loader(
-    dataset: datasets.BaseDataset,
+    dataset: data.BaseDataset,
     arch: str,
     batch_size: int,
     max_source_length: int,
