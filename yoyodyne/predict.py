@@ -6,7 +6,7 @@ import os
 import pytorch_lightning as pl
 from torch.utils import data as torch_data
 
-from . import dataconfig, data, defaults, models, util
+from . import data, defaults, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -161,8 +161,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Batch size. Default: %(default)s.",
     )
     # TODO: add --beam_width.
-    # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
     # Data arguments.
     data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.

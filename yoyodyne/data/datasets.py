@@ -10,7 +10,9 @@ import torch
 from torch import nn
 from torch.utils import data
 
-from .. import dataconfig, indexes, special
+from .. import special
+
+from . import indexes, tsv
 
 
 class Item(nn.Module):
@@ -54,48 +56,29 @@ class BaseDataset(data.Dataset):
 class DatasetNoFeatures(BaseDataset):
     """Dataset object without feature column."""
 
-    filename: str
-    config: dataconfig.DataConfig
-    samples: List[List[str]]
-    index: indexes.Index
+    samples: List[str]
+    index: indexes.Index  # Usually copied.
+    string_parser: tsv.StringParser  # Ditto.
 
     def __init__(
         self,
         filename,
-        config,
-        index: Optional[indexes.Index] = None,
+        tsv_parser,
+        string_parser,
+        index: indexes.Index,
     ):
         """Initializes the dataset.
 
         Args:
             filename (str): input filename.
-            config (dataconfig.DataConfig): dataset configuration.
+            string_parser (tsv.StringParser).
             other (indexes.Index, optional): if provided,
                 use this index to avoid recomputing it.
         """
         super().__init__()
-        self.config = config
-        self.samples = list(self.config.samples(filename))
+        self.samples = list(tsv_parser.samples(filename))
+        self.string_parser = string_parser
         self.index = index if index is not None else self._make_index()
-
-    def _make_index(self) -> indexes.Index:
-        """Generates index."""
-        source_vocabulary: Set[str] = set()
-        target_vocabulary: Set[str] = set()
-        if self.config.has_target:
-            for source, target in self.samples:
-                source_vocabulary.update(source)
-                target_vocabulary.update(target)
-            if self.config.tied_vocabulary:
-                source_vocabulary.update(target_vocabulary)
-                target_vocabulary.update(source_vocabulary)
-        else:
-            for source in self.samples:
-                source_vocabulary.update(source)
-        return indexes.Index(
-            source_vocabulary=sorted(source_vocabulary),
-            target_vocabulary=sorted(target_vocabulary),
-        )
 
     def encode(
         self,
@@ -270,31 +253,9 @@ class DatasetNoFeatures(BaseDataset):
 class DatasetFeatures(DatasetNoFeatures):
     """Dataset object with feature column."""
 
-    def _make_index(self) -> indexes.Index:
-        """Generates index.
-
-        Same as in superclass, but also handles features.
-        """
-        source_vocabulary: Set[str] = set()
-        features_vocabulary: Set[str] = set()
-        target_vocabulary: Set[str] = set()
-        if self.config.has_target:
-            for source, features, target in self.samples:
-                source_vocabulary.update(source)
-                features_vocabulary.update(features)
-                target_vocabulary.update(target)
-            if self.config.tied_vocabulary:
-                source_vocabulary.update(target_vocabulary)
-                target_vocabulary.update(source_vocabulary)
-        else:
-            for source, features in self.samples:
-                source_vocabulary.update(source)
-                features_vocabulary.update(features)
-        return indexes.Index(
-            source_vocabulary=sorted(source_vocabulary),
-            features_vocabulary=sorted(features_vocabulary),
-            target_vocabulary=sorted(target_vocabulary),
-        )
+    samples: List[str]
+    index: indexes.Index  # Usually copied.
+    string_parser: tsv.StringParser  # Ditto.
 
     def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.
@@ -355,21 +316,21 @@ class DatasetFeatures(DatasetNoFeatures):
 
 def get_dataset(
     filename: str,
-    config: dataconfig.DataConfig,
+    string_parser: tsv.StringParser,
     index: Union[indexes.Index, str, None] = None,
 ) -> data.Dataset:
     """Dataset factory.
 
     Args:
         filename (str): input filename.
-        config (dataconfig.DataConfig): dataset configuration.
+        string_parser (tsv.StringParser): string parser.
         index (Union[index.Index, str], optional): input index file,
             or path to index.pkl file.
 
     Returns:
         data.Dataset: the dataset.
     """
-    cls = DatasetFeatures if config.has_features else DatasetNoFeatures
+    cls = DatasetFeatures if string_parser.has_features else DatasetNoFeatures
     if isinstance(index, str):
         index = indexes.Index.read(index)
-    return cls(filename, config, index)
+    return cls(filename, string_parser, index)

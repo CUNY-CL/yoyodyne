@@ -8,14 +8,7 @@ import wandb
 from pytorch_lightning import callbacks, loggers
 from torch.utils import data as torch_data
 
-from . import (
-    dataconfig,
-    data,
-    defaults,
-    models,
-    schedulers,
-    util,
-)
+from . import data, defaults, models, schedulers, util
 
 
 class Error(Exception):
@@ -114,9 +107,15 @@ def get_data_from_argparse_args(
         Tuple[data.BaseDataset, data.BaseDataset]: the training and
             development data.
     """
-    config = dataconfig.DataConfig.from_argparse_args(args)
-    if config.target_col == 0:
+    tsv_parser = data.TsvParser(
+        source_col=args.source_col,
+        features_col=args.features_col,
+        target_col=args.target_col,
+    )
+    if not tsv_parser.has_target:
         raise Error("target_col must be specified for training")
+
+
     train_set = data.get_dataset(args.train, config)
     dev_set = data.get_dataset(args.dev, config, train_set.index)
     util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
@@ -335,8 +334,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         dest="log_wandb",
     )
-    # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
     # Data arguments.
     data.add_argparse_args(parser)
     # Architecture arguments.
