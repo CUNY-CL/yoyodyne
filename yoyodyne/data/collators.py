@@ -5,7 +5,8 @@ from typing import List
 
 import torch
 
-from . import data, defaults, util
+from .. import defaults, util
+from . import batches, datasets
 
 
 class LengthError(Exception):
@@ -25,7 +26,7 @@ class Collator:
 
     def __init__(
         self,
-        dataset: data.BaseDataset,
+        dataset: datasets.BaseDataset,
         arch: str,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
@@ -90,7 +91,7 @@ class Collator:
 
     def concatenate_source_and_features(
         self,
-        itemlist: List[data.Item],
+        itemlist: List[datasets.Item],
     ) -> List[torch.Tensor]:
         """Concatenates source and feature tensors."""
         return [
@@ -102,16 +103,18 @@ class Collator:
             for item in itemlist
         ]
 
-    def pad_source(self, itemlist: List[data.Item]) -> data.PaddedTensor:
+    def pad_source(
+        self, itemlist: List[datasets.Item]
+    ) -> batches.PaddedTensor:
         """Pads source.
 
         Args:
-            itemlist (List[data.Item]).
+            itemlist (List[datasets.Item]).
 
         Returns:
-            data.PaddedTensor.
+            batches.PaddedTensor.
         """
-        return data.PaddedTensor(
+        return batches.PaddedTensor(
             [item.source for item in itemlist],
             self.pad_idx,
             self._source_length_error,
@@ -119,17 +122,17 @@ class Collator:
 
     def pad_source_features(
         self,
-        itemlist: List[data.Item],
-    ) -> data.PaddedTensor:
+        itemlist: List[datasets.Item],
+    ) -> batches.PaddedTensor:
         """Pads concatenated source and features.
 
         Args:
-            itemlist (List[data.Item]).
+            itemlist (List[datasets.Item]).
 
         Returns:
-            data.PaddedTensor.
+            batches.PaddedTensor.
         """
-        return data.PaddedTensor(
+        return batches.PaddedTensor(
             self.concatenate_source_and_features(itemlist),
             self.pad_idx,
             self._source_length_error,
@@ -137,53 +140,55 @@ class Collator:
 
     def pad_features(
         self,
-        itemlist: List[data.Item],
-    ) -> data.PaddedTensor:
+        itemlist: List[datasets.Item],
+    ) -> batches.PaddedTensor:
         """Pads features.
 
         Args:
-            itemlist (List[data.Item]).
+            itemlist (List[datasets.Item]).
 
         Returns:
-            data.PaddedTensor.
+            batches.PaddedTensor.
         """
-        return data.PaddedTensor(
+        return batches.PaddedTensor(
             [item.features for item in itemlist], self.pad_idx
         )
 
-    def pad_target(self, itemlist: List[data.Item]) -> data.PaddedTensor:
+    def pad_target(
+        self, itemlist: List[datasets.Item]
+    ) -> batches.PaddedTensor:
         """Pads target.
 
         Args:
-            itemlist (List[data.Item]).
+            itemlist (List[datasets.Item]).
 
         Returns:
-            data.PaddedTensor.
+            batches.PaddedTensor.
         """
-        return data.PaddedTensor(
+        return batches.PaddedTensor(
             [item.target for item in itemlist],
             self.pad_idx,
             self._target_length_warning,
         )
 
-    def __call__(self, itemlist: List[data.Item]) -> data.PaddedBatch:
+    def __call__(self, itemlist: List[datasets.Item]) -> batches.PaddedBatch:
         """Pads all elements of an itemlist.
 
         Args:
-            itemlist (List[data.Item]).
+            itemlist (List[datasets.Item]).
 
         Returns:
-            data.PaddedBatch.
+            batches.PaddedBatch.
         """
         padded_target = self.pad_target(itemlist) if self.has_target else None
         if self.separate_features:
-            return data.PaddedBatch(
+            return batches.PaddedBatch(
                 self.pad_source(itemlist),
                 features=self.pad_features(itemlist),
                 target=padded_target,
             )
         else:
-            return data.PaddedBatch(
+            return batches.PaddedBatch(
                 self.pad_source_features(itemlist),
                 target=padded_target,
             )

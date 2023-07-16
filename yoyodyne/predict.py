@@ -6,7 +6,7 @@ import os
 import pytorch_lightning as pl
 from torch.utils import data as torch_data
 
-from . import collators, dataconfig, data, defaults, models, util
+from . import dataconfig, data, defaults, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -57,7 +57,7 @@ def get_loader(
     Returns:
         torch_data.DataLoader.
     """
-    collator = collators.Collator(
+    collator = data.Collator(
         dataset,
         arch,
         max_source_length,
@@ -163,8 +163,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     # TODO: add --beam_width.
     # Data configuration arguments.
     dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
+    # Data arguments.
+    data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.
     models.add_argparse_args(parser)
     # Among the things this adds, the following are likely to be useful:

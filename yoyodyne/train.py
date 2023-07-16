@@ -9,7 +9,6 @@ from pytorch_lightning import callbacks, loggers
 from torch.utils import data as torch_data
 
 from . import (
-    collators,
     dataconfig,
     data,
     defaults,
@@ -151,7 +150,7 @@ def get_loaders(
         Tuple[data.DataLoader, data.DataLoader]: the training and development
             loaders.
     """
-    collator = collators.Collator(
+    collator = data.Collator(
         train_set,
         arch,
         max_source_length,
@@ -338,8 +337,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     # Data configuration arguments.
     dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
+    # Data arguments.
+    data.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
