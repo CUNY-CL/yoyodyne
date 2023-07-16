@@ -1,16 +1,10 @@
+"""Data classes."""
+
 import argparse
 
 from .. import defaults
-
+from .datamodules import DataModule  # noqa: F401
 from .batches import PaddedBatch, PaddedTensor  # noqa: F401
-from .collators import Collator  # noqa: F401
-from .datasets import Item  # noqa: F401
-from .datasets import BaseDataset  # noqa: F401
-from .datasets import DatasetNoFeatures  # noqa: F401
-from .datasets import DatasetFeatures  # noqa: F401
-from .datasets import get_dataset  # noqa: F401
-from .indexes import Index  # noqa: F401
-from .tsv import TsvParser, StringParser  # noqa: F401
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -74,12 +68,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         dest="tied_vocabulary",
         default=True,
     )
-    # parser.add_argument(
-    #    "--batch_size",
-    #    type=int,
-    #    default=defaults.BATCH_SIZE,
-    #    help="Batch size. Default: %(default)s.",
-    # )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=defaults.BATCH_SIZE,
+        help="Batch size. Default: %(default)s.",
+    )
     parser.add_argument(
         "--max_source_length",
         type=int,

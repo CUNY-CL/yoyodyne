@@ -49,7 +49,7 @@ def get_model_cls_from_argparse_args(
     Returns:
         BaseEncoderDecoder.
     """
-    return get_model_cls(args.arch, args.features_col != 0)
+    return get_model_cls(args.arch)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

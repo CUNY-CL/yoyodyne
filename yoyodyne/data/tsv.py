@@ -67,10 +67,6 @@ class TsvParser:
         return row[col - 1]  # -1 because we're using one-based indexing.
 
     @property
-    def has_source(self) -> bool:
-        return True
-
-    @property
     def has_features(self) -> bool:
         return self.features_col != 0
 

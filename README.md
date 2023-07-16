@@ -101,7 +101,7 @@ checkpoint, the **full path to the checkpoint** should be specified with for the
 the provided model checkpoint.
 
 During training, we save the best `--save_top_k` checkpoints (by default, 1)
-ranked according to accuracy on the `--dev` set. For example, `--save_top_k 5`
+ranked according to accuracy on the `--val` set. For example, `--save_top_k 5`
 will save the top 5 most accurate models.
 
 ## Reserved symbols

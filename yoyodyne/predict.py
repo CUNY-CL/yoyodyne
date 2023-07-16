@@ -4,9 +4,8 @@ import argparse
 import os
 
 import pytorch_lightning as pl
-from torch.utils import data as torch_data
 
-from . import data, defaults, models, util
+from . import data, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -23,61 +22,35 @@ def get_trainer_from_argparse_args(
     return pl.Trainer.from_argparse_args(args, max_epochs=0)
 
 
-def get_dataset_from_argparse_args(
+def get_datamodule_from_argparse_args(
     args: argparse.Namespace,
-) -> data.BaseDataset:
+) -> data.DataModule:
     """Creates the dataset from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        data.BaseDataset.
+        data.DataModule.
     """
-    tsv_parser = data.TsvParser(
+    separate_features = args.features_col != 0 and args.arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    # TODO(kbg): reuse index?
+    return data.DataModule(
+        predict=args.predict,
+        batch_size=args.batch_size,
         source_col=args.source_col,
         features_col=args.features_col,
         target_col=args.target_col,
-    )
-    string_parser = data.StringParser(
         source_sep=args.source_sep,
         features_sep=args.features_sep,
         target_sep=args.target_sep,
-    )
-    index = data.Index.read(args.index)
-    return data.get_dataset(args.predict, tsv_parser, string_parser, index)
-
-
-def get_loader(
-    dataset: data.BaseDataset,
-    arch: str,
-    batch_size: int,
-    max_source_length: int,
-    max_target_length: int,
-) -> torch_data.DataLoader:
-    """Creates the loader.
-
-    Args:
-        dataset (data.Dataset).
-        arch (str).
-        batch_size (int).
-        max_source_length (int).
-        max_target_length (int).
-
-    Returns:
-        torch_data.DataLoader.
-    """
-    collator = data.Collator(
-        dataset,
-        arch,
-        max_source_length,
-        max_target_length,
-    )
-    return torch_data.DataLoader(
-        dataset,
-        collate_fn=collator,
-        batch_size=batch_size,
-        num_workers=1,
+        tied_vocabulary=args.tied_vocabulary,
+        separate_features=separate_features,
+        max_source_length=args.max_source_length,
+        max_target_length=args.max_target_length,
     )
 
 
@@ -109,8 +82,8 @@ def _mkdir(output: str) -> None:
 
 def predict(
     trainer: pl.Trainer,
-    model: pl.LightningModule,
-    loader: torch_data.DataLoader,
+    model: models.BaseEncoderDecoder,
+    datamodule: data.DataModule,
     output: str,
 ) -> None:
     """Predicts from the model.
@@ -118,25 +91,19 @@ def predict(
     Args:
          trainer (pl.Trainer).
          model (pl.LightningModule).
-         loader (torch_data.DataLoader).
+         dataomdule (data.DataModule).
          output (str).
-         target_sep (str).
     """
-    dataset = loader.dataset
-    target_sep = dataset.config.target_sep
     util.log_info(f"Writing to {output}")
     _mkdir(output)
+    decode_target = datamodule.predict_dataloader().dataset.decode_target
     with open(output, "w") as sink:
-        for batch in trainer.predict(model, dataloaders=loader):
+        for batch in trainer.predict(model, datamodule=datamodule):
             batch = model.evaluator.finalize_predictions(
-                batch, dataset.index.end_idx, dataset.index.pad_idx
+                batch, datamodule.index.end_idx, datamodule.index.pad_idx
             )
-            for prediction in dataset.decode_target(
-                batch,
-                symbols=True,
-                special=False,
-            ):
-                print(target_sep.join(prediction), file=sink)
+            for prediction in decode_target(batch):
+                print(prediction, file=sink)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -163,13 +130,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
     )
-    # Predicting arguments.
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=defaults.BATCH_SIZE,
-        help="Batch size. Default: %(default)s.",
-    )
+    # Prediction arguments.
     # TODO: add --beam_width.
     # Data arguments.
     data.add_argparse_args(parser)
@@ -188,15 +149,9 @@ def main() -> None:
     args = parser.parse_args()
     util.log_arguments(args)
     trainer = get_trainer_from_argparse_args(args)
-    loader = get_loader(
-        get_dataset_from_argparse_args(args),
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
-    )
+    datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args)
-    predict(trainer, model, loader, args.output)
+    predict(trainer, model, datamodule, args.output)
 
 
 if __name__ == "__main__":

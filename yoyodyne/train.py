@@ -1,7 +1,7 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional
 
 import pytorch_lightning as pl
 import wandb
@@ -95,133 +95,44 @@ def get_trainer_from_argparse_args(
     )
 
 
-def get_data_from_argparse_args(
+def get_datamodule_from_argparse_args(
     args: argparse.Namespace,
-) -> Tuple[data.BaseDataset, data.BaseDataset]:
-    """Creates the data from CLI arguments.
+) -> data.DataModule:
+    """Creates the datamodule from CLI arguments.
 
     Args:
-        args (argparse.Namespace).
+        args (Argparse.Namespace).
 
     Returns:
-        Tuple[data.BaseDataset, data.BaseDataset]: the training and
-            development data.
+        data.DataModule.
     """
-    tsv_parser = data.TsvParser(
-        source_col=args.source_col,
-        features_col=args.features_col,
-        target_col=args.target_col,
-    )
-    if not tsv_parser.has_target:
-        raise Error("target_col must be specified for training")
-    string_parser = data.StringParser(
-        source_sep=args.source_sep,
-        features_sep=args.features_sep,
-        target_sep=args.target_sep,
-    )
-    # TODO: move this into the data module.
-    separate_features = tsv_parser.has_features and args.arch in [
+    separate_features = args.features_col != 0 and args.arch in [
         "pointer_generator_lstm",
         "transducer",
     ]
-    # Computes index.
-    source_vocabulary: Set[str] = set()
-    features_vocabulary: Set[str] = set()
-    target_vocabulary: Set[str] = set()
-    for path in [args.train, args.dev]:
-        if tsv_parser.has_features:
-            if tsv_parser.has_target:
-                for source, features, target in tsv_parser.samples(path):
-                    source_vocabulary.update(
-                        string_parser.source_symbols(source)
-                    )
-                    features_vocabulary.update(
-                        string_parser.features_symbols(features)
-                    )
-                    target_vocabulary.update(
-                        string_parser.target_symbols(target)
-                    )
-            else:
-                for source, features in tsv_parser.samples(path):
-                    source_vocabulary.update(
-                        string_parser.source_symbols(source)
-                    )
-                    features_vocabulary.update(
-                        string_parser.features_symbols(features)
-                    )
-        elif tsv_parser.has_target:
-            for source, target in tsv_parser.samples(path):
-                source_vocabulary.update(string_parser.source_symbols(source))
-                target_vocabulary.update(string_parser.target_symbols(target))
-        else:
-            for source in tsv_parser.samples(path):
-                source_vocabulary.update(string_parser.source_symbols(source))
-        if tsv_parser.has_target and args.tied_vocabulary:
-            source_vocabulary.update(target_vocabulary)
-            target_vocabulary.update(source_vocabulary)
-    index = data.Index(
-        source_vocabulary=sorted(source_vocabulary),
-        features_vocabulary=sorted(features_vocabulary)
-        if separate_features
-        else None,
-        target_vocabulary=sorted(target_vocabulary),
+    datamodule = data.DataModule(
+        train=args.train,
+        val=args.val,
+        batch_size=args.batch_size,
+        source_col=args.source_col,
+        features_col=args.features_col,
+        target_col=args.target_col,
+        source_sep=args.source_sep,
+        features_sep=args.features_sep,
+        target_sep=args.target_sep,
+        tied_vocabulary=args.tied_vocabulary,
+        separate_features=separate_features,
+        max_source_length=args.max_source_length,
+        max_target_length=args.max_target_length,
     )
-    util.log_info(f"Source vocabulary: {index.source_map.pprint()}")
-    if tsv_parser.has_features:
-        util.log_info(f"Feature vocabulary: {index.features_map.pprint()}")
-    util.log_info(f"Target vocabulary: {index.target_map.pprint()}")
-    train_set = data.get_dataset(args.train, tsv_parser, string_parser, index)
-    dev_set = data.get_dataset(args.dev, tsv_parser, string_parser, index)
-    return train_set, dev_set
-
-
-def get_loaders(
-    train_set: data.BaseDataset,
-    dev_set: data.BaseDataset,
-    arch: str,
-    batch_size: int,
-    max_source_length: int,
-    max_target_length: int,
-) -> Tuple[torch_data.DataLoader, torch_data.DataLoader]:
-    """Creates the loaders.
-
-    Args:
-        train_set (data.BaseDataset).
-        dev_set (data.BaseDataset).
-        arch (str).
-        batch_size (int).
-        max_source_length (int).
-        max_target_length (int).
-
-    Returns:
-        Tuple[data.DataLoader, data.DataLoader]: the training and development
-            loaders.
-    """
-    collator = data.Collator(
-        train_set,
-        arch,
-        max_source_length,
-        max_target_length,
-    )
-    train_loader = torch_data.DataLoader(
-        train_set,
-        collate_fn=collator,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=1,  # Our data loading is simple.
-    )
-    dev_loader = torch_data.DataLoader(
-        dev_set,
-        collate_fn=collator,
-        batch_size=2 * batch_size,  # Because we're not collecting gradients.
-        num_workers=1,
-    )
-    return train_loader, dev_loader
+    datamodule.write_index(args.model_dir, args.experiment)
+    datamodule.log_vocabularies()
+    return datamodule
 
 
 def get_model_from_argparse_args(
-    train_set: data.BaseDataset,
     args: argparse.Namespace,
+    datamodule: data.DataModule,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
 
@@ -238,7 +149,7 @@ def get_model_from_argparse_args(
     )
     expert = (
         models.expert.get_expert(
-            train_set,
+            datamodule.train_loader().dataset,
             epochs=args.oracle_em_epochs,
             oracle_factor=args.oracle_factor,
             sed_params_path=args.sed_params,
@@ -247,7 +158,7 @@ def get_model_from_argparse_args(
         else None
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
-    separate_features = train_set.has_features and args.arch in [
+    separate_features = datamodule.has_features and args.arch in [
         "pointer_generator_lstm",
         "transducer",
     ]
@@ -259,12 +170,12 @@ def get_model_from_argparse_args(
         else None
     )
     features_vocab_size = (
-        train_set.index.features_vocab_size if train_set.has_features else 0
+        datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
     source_vocab_size = (
-        train_set.index.source_vocab_size + features_vocab_size
+        datamodule.index.source_vocab_size + features_vocab_size
         if not separate_features
-        else train_set.index.source_vocab_size
+        else datamodule.index.source_vocab_size
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
@@ -277,7 +188,7 @@ def get_model_from_argparse_args(
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
-        end_idx=train_set.index.end_idx,
+        end_idx=datamodule.index.end_idx,
         expert=expert,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
@@ -287,14 +198,14 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        output_size=train_set.index.target_vocab_size,
-        pad_idx=train_set.index.pad_idx,
+        output_size=datamodule.index.target_vocab_size,
+        pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_encoder_cls=source_encoder_cls,
         source_vocab_size=source_vocab_size,
-        start_idx=train_set.index.start_idx,
-        target_vocab_size=train_set.index.target_vocab_size,
+        start_idx=datamodule.index.start_idx,
+        target_vocab_size=datamodule.index.target_vocab_size,
     )
 
 
@@ -341,9 +252,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to input training data TSV.",
     )
     parser.add_argument(
-        "--dev",
+        "--val",
         required=True,
-        help="Path to input development data TSV.",
+        help="Path to input validation data TSV.",
     )
     parser.add_argument(
         "--model_dir",
@@ -355,12 +266,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to ckpt checkpoint to resume training from.",
     )
     # Other training arguments.
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=defaults.BATCH_SIZE,
-        help="Batch size. Default: %(default)s.",
-    )
     parser.add_argument(
         "--patience", type=int, help="Patience for early stopping."
     )
@@ -418,32 +323,19 @@ def main() -> None:
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
-    train_set, dev_set = get_data_from_argparse_args(args)
-    index = train_set.index.index_path(args.model_dir, args.experiment)
-    train_set.index.write(index)
-    util.log_info(f"Index: {index}")
-    train_loader, dev_loader = get_loaders(
-        train_set,
-        dev_set,
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
-    )
-    model = get_model_from_argparse_args(train_set, args)
+    datamodule = get_datamodule_from_argparse_args(args)
+    model = get_model_from_argparse_args(args, datamodule)
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:
         raise Error("Batch auto-scaling is not supported")
         return
     if args.auto_lr_find:
-        result = trainer.tuner.lr_find(model, train_loader, dev_loader)
+        result = trainer.tuner.lr_find(model, datamodule=datamodule)
         util.log_info(f"Best initial LR: {result.suggestion():.8f}")
         return
     # Otherwise, train and log the best checkpoint.
-    best_checkpoint = train(
-        trainer, model, train_loader, dev_loader, train_from=args.train_from
-    )
+    best_checkpoint = train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 
 
