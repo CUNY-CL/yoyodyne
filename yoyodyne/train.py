@@ -1,7 +1,7 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 import pytorch_lightning as pl
 import wandb
@@ -114,16 +114,64 @@ def get_data_from_argparse_args(
     )
     if not tsv_parser.has_target:
         raise Error("target_col must be specified for training")
-
-
-    train_set = data.get_dataset(args.train, config)
-    dev_set = data.get_dataset(args.dev, config, train_set.index)
-    util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
-    if train_set.has_features:
-        util.log_info(
-            f"Feature vocabulary: {train_set.index.features_map.pprint()}"
-        )
-    util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
+    string_parser = data.StringParser(
+        source_sep=args.source_sep,
+        features_sep=args.features_sep,
+        target_sep=args.target_sep,
+    )
+    # TODO: move this into the data module.
+    separate_features = tsv_parser.has_features and args.arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    # Computes index.
+    source_vocabulary: Set[str] = set()
+    features_vocabulary: Set[str] = set()
+    target_vocabulary: Set[str] = set()
+    for path in [args.train, args.dev]:
+        if tsv_parser.has_features:
+            if tsv_parser.has_target:
+                for source, features, target in tsv_parser.samples(path):
+                    source_vocabulary.update(
+                        string_parser.source_symbols(source)
+                    )
+                    features_vocabulary.update(
+                        string_parser.features_symbols(features)
+                    )
+                    target_vocabulary.update(
+                        string_parser.target_symbols(target)
+                    )
+            else:
+                for source, features in tsv_parser.samples(path):
+                    source_vocabulary.update(
+                        string_parser.source_symbols(source)
+                    )
+                    features_vocabulary.update(
+                        string_parser.features_symbols(features)
+                    )
+        elif tsv_parser.has_target:
+            for source, target in tsv_parser.samples(path):
+                source_vocabulary.update(string_parser.source_symbols(source))
+                target_vocabulary.update(string_parser.target_symbols(target))
+        else:
+            for source in tsv_parser.samples(path):
+                source_vocabulary.update(string_parser.source_symbols(source))
+        if tsv_parser.has_target and args.tied_vocabulary:
+            source_vocabulary.update(target_vocabulary)
+            target_vocabulary.update(source_vocabulary)
+    index = data.Index(
+        source_vocabulary=sorted(source_vocabulary),
+        features_vocabulary=sorted(features_vocabulary)
+        if separate_features
+        else None,
+        target_vocabulary=sorted(target_vocabulary),
+    )
+    util.log_info(f"Source vocabulary: {index.source_map.pprint()}")
+    if tsv_parser.has_features:
+        util.log_info(f"Feature vocabulary: {index.features_map.pprint()}")
+    util.log_info(f"Target vocabulary: {index.target_map.pprint()}")
+    train_set = data.get_dataset(args.train, tsv_parser, string_parser, index)
+    dev_set = data.get_dataset(args.dev, tsv_parser, string_parser, index)
     return train_set, dev_set
 
 

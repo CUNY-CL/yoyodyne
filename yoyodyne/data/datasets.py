@@ -4,7 +4,7 @@ Anything which has a tensor member should inherit from nn.Module, run the
 superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
-from typing import List, Optional, Set, Union
+from typing import List, Optional, Union
 
 import torch
 from torch import nn
@@ -49,16 +49,24 @@ class Item(nn.Module):
 class BaseDataset(data.Dataset):
     """Base datatset class."""
 
+    samples: List[str]
+    index: indexes.Index  # Usually copied.
+    string_parser: tsv.StringParser  # Ditto.
+
     def __init__(self):
         super().__init__()
+
+    @property
+    def has_features(self) -> bool:
+        return self.index.has_features
+
+    @property
+    def has_target(self) -> bool:
+        return self.index.has_target
 
 
 class DatasetNoFeatures(BaseDataset):
     """Dataset object without feature column."""
-
-    samples: List[str]
-    index: indexes.Index  # Usually copied.
-    string_parser: tsv.StringParser  # Ditto.
 
     def __init__(
         self,
@@ -78,7 +86,7 @@ class DatasetNoFeatures(BaseDataset):
         super().__init__()
         self.samples = list(tsv_parser.samples(filename))
         self.string_parser = string_parser
-        self.index = index if index is not None else self._make_index()
+        self.index = index
 
     def encode(
         self,
@@ -208,22 +216,6 @@ class DatasetNoFeatures(BaseDataset):
             special=special,
         )
 
-    @property
-    def has_features(self) -> bool:
-        return self.index.has_features
-
-    @staticmethod
-    def read_index(path: str) -> indexes.Index:
-        """Helper for loading index.
-
-        Args:
-            path (str).
-
-        Returns:
-            indexes.IndexNoFeatures.
-        """
-        return indexes.Index.read(path)
-
     def __getitem__(self, idx: int) -> Item:
         """Retrieves item by index.
 
@@ -233,12 +225,12 @@ class DatasetNoFeatures(BaseDataset):
         Returns:
             Item.
         """
-        if self.config.has_target:
+        if self.has_target:
             source, target = self.samples[idx]
         else:
             source = self.samples[idx]
         source_encoded = self.encode(self.index.source_map, source)
-        if self.config.has_target:
+        if self.has_target:
             target_encoded = self.encode(
                 self.index.target_map, target, add_start_tag=False
             )
@@ -266,7 +258,7 @@ class DatasetFeatures(DatasetNoFeatures):
         Returns:
             Item.
         """
-        if self.config.has_target:
+        if self.has_target:
             source, features, target = self.samples[idx]
         else:
             source, features = self.samples[idx]
@@ -277,7 +269,7 @@ class DatasetFeatures(DatasetNoFeatures):
             add_start_tag=False,
             add_end_tag=False,
         )
-        if self.config.has_target:
+        if self.has_target:
             return Item(
                 source_encoded,
                 target=self.encode(
@@ -316,6 +308,7 @@ class DatasetFeatures(DatasetNoFeatures):
 
 def get_dataset(
     filename: str,
+    tsv_parser: tsv.TsvParser,
     string_parser: tsv.StringParser,
     index: Union[indexes.Index, str, None] = None,
 ) -> data.Dataset:
@@ -323,14 +316,12 @@ def get_dataset(
 
     Args:
         filename (str): input filename.
-        string_parser (tsv.StringParser): string parser.
-        index (Union[index.Index, str], optional): input index file,
-            or path to index.pkl file.
+        tsv_parser (tsv.TsvParser).
+        string_parser (tsv.StringParser).
+        index (indexes.Index).
 
     Returns:
         data.Dataset: the dataset.
     """
-    cls = DatasetFeatures if string_parser.has_features else DatasetNoFeatures
-    if isinstance(index, str):
-        index = indexes.Index.read(index)
-    return cls(filename, string_parser, index)
+    cls = DatasetFeatures if tsv_parser.has_features else DatasetNoFeatures
+    return cls(filename, tsv_parser, string_parser, index)

@@ -41,15 +41,14 @@ class Collator:
         """
         self.index = dataset.index
         self.pad_idx = self.index.pad_idx
-        self.config = dataset.config
-        self.has_features = self.config.has_features
-        self.has_target = self.config.has_target
+        self.has_features = dataset.has_features
+        self.has_target = dataset.has_target
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.features_offset = (
             dataset.index.source_vocab_size if self.has_features else 0
         )
-        self.separate_features = dataset.config.has_features and arch in [
+        self.separate_features = dataset.has_features and arch in [
             "pointer_generator_lstm",
             "transducer",
         ]

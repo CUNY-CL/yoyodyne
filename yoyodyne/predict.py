@@ -34,8 +34,18 @@ def get_dataset_from_argparse_args(
     Returns:
         data.BaseDataset.
     """
-    config = dataconfig.DataConfig.from_argparse_args(args)
-    return data.get_dataset(args.predict, config, args.index)
+    tsv_parser = data.TsvParser(
+        source_col=args.source_col,
+        features_col=args.features_col,
+        target_col=args.target_col,
+    )
+    string_parser = data.StringParser(
+        source_sep=args.source_sep,
+        features_sep=args.features_sep,
+        target_sep=args.target_sep,
+    )
+    index = data.Index.read(args.index)
+    return data.get_dataset(args.predict, tsv_parser, string_parser, index)
 
 
 def get_loader(

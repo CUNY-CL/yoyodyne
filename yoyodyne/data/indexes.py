@@ -4,7 +4,7 @@ import os
 import pickle
 from typing import Dict, List, Optional, Set
 
-from . import special
+from .. import special
 
 
 class SymbolMap:

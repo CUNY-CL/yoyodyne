@@ -144,7 +144,7 @@ class StringParser:
 
     @staticmethod
     def _get_symbols(string: str, sep: str) -> List[str]:
-        return list(string) if not sep else sep.split(cell)
+        return list(string) if not sep else sep.split(string)
 
     def source_symbols(self, string: str) -> List[str]:
         return self._get_symbols(string, self.features_sep)
