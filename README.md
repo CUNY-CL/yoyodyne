@@ -56,8 +56,8 @@ import yoyodyne
 
 ### Training
 
-Training is performed by the [`yoyodyne-train`](yoyodyne.train.py%60) script.
-One must specify the following required arguments:
+Training is performed by the [`yoyodyne-train`](yoyodyne.train.py) script. One
+must specify the following required arguments:
 
 -   `--train`: path to TSV file containing training data
 -   `--val`: path to TSV file containing validation data
@@ -98,11 +98,12 @@ the third contains semi-colon delimited feature strings:
 
 this format is specified by `--features-col 3`.
 
-Alternatively, for the SIGMORPHON 2016 shared task data format:
+Alternatively, for the [SIGMORPHON 2016 shared
+task](https://sigmorphon.github.io/sharedtasks/2016/) data:
 
     source   feat1,feat2,...    target
 
-this format is specified by `--features-col 2 --features-sep , --target-col 3`.
+this format is specified by `--features_col 2 --features_sep , --target_col 3`.
 
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
