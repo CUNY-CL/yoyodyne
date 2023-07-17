@@ -91,18 +91,18 @@ def predict(
     Args:
          trainer (pl.Trainer).
          model (pl.LightningModule).
-         dataomdule (data.DataModule).
+         datamdule (data.DataModule).
          output (str).
     """
     util.log_info(f"Writing to {output}")
     _mkdir(output)
-    decode_target = datamodule.predict_dataloader().dataset.decode_target
+    loader = datamodule.predict_dataloader()
     with open(output, "w") as sink:
-        for batch in trainer.predict(model, datamodule=datamodule):
+        for batch in trainer.predict(model, loader):
             batch = model.evaluator.finalize_predictions(
                 batch, datamodule.index.end_idx, datamodule.index.pad_idx
             )
-            for prediction in decode_target(batch):
+            for prediction in loader.dataset.decode_target(batch):
                 print(prediction, file=sink)
 
 

@@ -72,8 +72,7 @@ class Dataset(data.Dataset):
         """Encodes a sequence as a tensor of indices with string boundary IDs.
 
         Args:
-            string (str): string to be encoded.
-            sep (str): separator to use.
+            symbols (List[str]): symbols to be encoded.
             symbol_map (indexes.SymbolMap): symbol map to encode with.
 
         Returns:

@@ -66,6 +66,7 @@ class TsvParser:
     @staticmethod
     def _get_string(row: List[str], col: int) -> str:
         """Returns a string from a row by index.
+
         Args:
            row (List[str]): the split row.
            col (int): the column index.
