@@ -132,9 +132,7 @@ class DataModule(pl.LightningDataModule):
 
     def write_index(self, model_dir: str, experiment: str) -> None:
         """Writes the index."""
-        index_path = self.index.index_path(model_dir, experiment)
-        self.index.write(index_path)
-        util.log_info(f"Index path: {index_path}")
+        self.index.write(model_dir, experiment)
 
     @property
     def has_features(self) -> int:

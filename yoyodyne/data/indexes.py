@@ -4,7 +4,7 @@ import os
 import pickle
 from typing import Dict, List, Optional, Set
 
-from .. import special
+from .. import special, util
 
 
 class SymbolMap:
@@ -84,22 +84,9 @@ class Index:
 
     # Serialization support.
 
-    @staticmethod
-    def index_path(model_dir: str, experiment: str) -> str:
-        """Computes the index path.
-
-        Args:
-            model_dir (str).
-            experiment (str).
-
-        Returns:
-            str.
-        """
-        return f"{model_dir}/{experiment}/index.pkl"
-
     @classmethod
     def read(cls, path: str):
-        """Loads symbol mappings.
+        """Loads index.
 
         Args:
             path (str): input path.
@@ -111,12 +98,15 @@ class Index:
             setattr(index, key, value)
         return index
 
-    def write(self, path: str) -> None:
-        """Saves index.
+    def write(self, model_dir: str, experiment: str) -> None:
+        """Writes index.
 
         Args:
-            path (str): output path.
+            model_dir (str).
+            experiment (str).
         """
+        path = f"{model_dir}/{experiment}/index.pkl"
+        util.log_info(f"Index path: {path}")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as sink:
             pickle.dump(vars(self), sink)

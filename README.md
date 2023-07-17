@@ -65,7 +65,7 @@ must specify the following required arguments:
 -   `--model_dir`: path for model metadata and checkpoints output during
     training
 
-The user can also specify as well as various optional training and architectural
+The user can also specify various optional training and architectural
 arguments. See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for
 more information.
 

@@ -124,7 +124,7 @@ def get_datamodule_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
     )
-    datamodule.write_index(args.model_dir, args.experiment)
+    datamodule.index.write(args.model_dir, args.experiment)
     datamodule.log_vocabularies()
     return datamodule
 
