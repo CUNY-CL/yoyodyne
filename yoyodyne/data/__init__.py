@@ -5,6 +5,7 @@ import argparse
 from .. import defaults
 from .datamodules import DataModule  # noqa: F401
 from .batches import PaddedBatch, PaddedTensor  # noqa: F401
+from .indexes import Index  # noqa: F401
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

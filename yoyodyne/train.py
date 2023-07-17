@@ -241,10 +241,15 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         argparse.ArgumentParser.
     """
+    # Path arguments.
+    parser.add_argument(
+        "--model_dir",
+        required=True,
+        help="Path to output model directory.",
+    )
     parser.add_argument(
         "--experiment", required=True, help="Name of experiment."
     )
-    # Path arguments.
     parser.add_argument(
         "--train",
         required=True,
@@ -254,11 +259,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--val",
         required=True,
         help="Path to input validation data TSV.",
-    )
-    parser.add_argument(
-        "--model_dir",
-        required=True,
-        help="Path to output model directory.",
     )
     parser.add_argument(
         "--train_from",

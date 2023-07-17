@@ -41,6 +41,8 @@ class DataModule(pl.LightningDataModule):
         separate_features: bool = False,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
+        # Indexing.
+        index: Optional[indexes.Index] = None,
     ):
         super().__init__()
         self.parser = tsv.TsvParser(
@@ -55,6 +57,24 @@ class DataModule(pl.LightningDataModule):
         self.val = val
         self.predict = predict
         self.test = test
+        self.batch_size = batch_size
+        self.separate_features = separate_features
+        self.index = (
+            index if index is not None else self._make_index(tied_vocabulary)
+        )
+        self.collator = collators.Collator(
+            pad_idx=self.index.pad_idx,
+            has_features=self.index.has_features,
+            has_target=self.index.has_target,
+            separate_features=separate_features,
+            features_offset=self.index.source_vocab_size
+            if self.index.has_features
+            else 0,
+            max_source_length=max_source_length,
+            max_target_length=max_target_length,
+        )
+
+    def _make_index(self, tied_vocabulary: bool) -> indexes.Index:
         # Computes index.
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
@@ -80,8 +100,7 @@ class DataModule(pl.LightningDataModule):
             if self.parser.has_target and tied_vocabulary:
                 source_vocabulary.update(target_vocabulary)
                 target_vocabulary.update(source_vocabulary)
-        self.separate_features = separate_features
-        self.index = indexes.Index(
+        return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
             features_vocabulary=sorted(features_vocabulary)
             if features_vocabulary
@@ -89,20 +108,6 @@ class DataModule(pl.LightningDataModule):
             target_vocabulary=sorted(target_vocabulary)
             if target_vocabulary
             else None,
-        )
-        # Stores batch size.
-        self.batch_size = batch_size
-        # Makes collator.
-        self.collator = collators.Collator(
-            pad_idx=self.index.pad_idx,
-            has_features=self.index.has_features,
-            has_target=self.index.has_target,
-            separate_features=separate_features,
-            features_offset=self.index.source_vocab_size
-            if self.index.has_features
-            else 0,
-            max_source_length=max_source_length,
-            max_target_length=max_target_length,
         )
 
     # Helpers.

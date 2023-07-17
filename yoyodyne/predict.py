@@ -37,7 +37,7 @@ def get_datamodule_from_argparse_args(
         "pointer_generator_lstm",
         "transducer",
     ]
-    # TODO(kbg): reuse index?
+    index = data.Index.read(args.model_dir, args.experiment)
     return data.DataModule(
         predict=args.predict,
         batch_size=args.batch_size,
@@ -51,6 +51,7 @@ def get_datamodule_from_argparse_args(
         separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
+        index=index,
     )
 
 
@@ -112,10 +113,18 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (argparse.ArgumentParser).
     """
+    # Path arguments.
+    parser.add_argument(
+        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
+    )
+    parser.add_argument(
+        "--model_dir",
+        required=True,
+        help="Path to output model directory.",
+    )
     parser.add_argument(
         "--experiment", required=True, help="Name of experiment."
     )
-    # Path arguments.
     parser.add_argument(
         "--predict",
         required=True,
@@ -125,10 +134,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--output",
         required=True,
         help="Path to prediction output data TSV.",
-    )
-    parser.add_argument("--index", required=True, help="Path to index (.pkl).")
-    parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
     )
     # Prediction arguments.
     # TODO: add --beam_width.

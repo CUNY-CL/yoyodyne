@@ -59,11 +59,11 @@ import yoyodyne
 Training is performed by the [`yoyodyne-train`](yoyodyne.train.py) script. One
 must specify the following required arguments:
 
--   `--train`: path to TSV file containing training data
--   `--val`: path to TSV file containing validation data
 -   `--experiment`: name of experiment (pick something unique)
 -   `--model_dir`: path for model metadata and checkpoints output during
     training
+-   `--train`: path to TSV file containing training data
+-   `--val`: path to TSV file containing validation data
 
 The user can also specify various optional training and architectural
 arguments. See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for
@@ -74,10 +74,10 @@ more information.
 Prediction is performed by the [`yoyodyne-predict`](yoyodyne.predict.py%60)
 script. One must specify the following required arguments:
 
--   `--predict`: path to TSV file containing data to be predicted
--   `--checkpoint`: path to checkpoint
+-   `--model_dir`: path for model metadata
 -   `--experiment`: name of experiment
--   `--index`: path to index
+-   `--checkpoint`: path to checkpoint
+-   `--predict`: path to TSV file containing data to be predicted
 -   `--output`: path for predictions
 
 Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
