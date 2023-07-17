@@ -289,7 +289,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all sequences have predicted an EOS symbol.If we
+                # Breaks when all sequences have predicted an EOS symbol. If we
                 # have a target (and are thus computing loss), we only break
                 # when we have decoded at least the the same number of steps as
                 # the target length.
