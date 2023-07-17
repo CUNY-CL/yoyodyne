@@ -228,4 +228,4 @@ class Dataset(data.Dataset):
                 target=self.encode_target(target),
             )
         else:
-            return Item(source=self.encode_source(self.samples[idx]))
+            return Item(source=self.encode_source(source))

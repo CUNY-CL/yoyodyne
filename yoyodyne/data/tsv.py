@@ -9,7 +9,7 @@ import csv
 import dataclasses
 from typing import Iterator, List, Tuple, Union
 
-from .. import defaults, util
+from .. import defaults
 
 
 class Error(Exception):
@@ -50,15 +50,13 @@ class TsvParser:
     def __post_init__(self) -> None:
         # This is automatically called after initialization.
         if self.source_col < 1:
-            raise Error(f"Invalid source column: {self.source_col}")
+            raise Error(f"Out of range source column: {self.source_col}")
         if self.features_col < 0:
-            raise Error(f"Invalid features column: {self.features_col}")
-        if self.features_col != 0:
-            util.log_info("Including features")
+            raise Error(f"Out of range features column: {self.features_col}")
+        if self.features_col < 0:
+            raise Error(f"Out of range features column: {self.features_col}")
         if self.target_col < 0:
-            raise Error(f"Invalid target column: {self.target_col}")
-        if self.target_col == 0:
-            util.log_info("Ignoring targets in input")
+            raise Error(f"Out of range target column: {self.target_col}")
 
     @staticmethod
     def _tsv_reader(path: str) -> Iterator[str]:
@@ -121,7 +119,7 @@ class TsvParser:
 
     @staticmethod
     def _get_symbols(string: str, sep: str) -> List[str]:
-        return list(string) if not sep else sep.split(string)
+        return list(string) if not sep else string.split(sep)
 
     def source_symbols(self, string: str) -> List[str]:
         return self._get_symbols(string, self.source_sep)

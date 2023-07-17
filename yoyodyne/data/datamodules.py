@@ -83,11 +83,12 @@ class DataModule(pl.LightningDataModule):
         self.separate_features = separate_features
         self.index = indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
-            # These two are stored as nulls if empty.
             features_vocabulary=sorted(features_vocabulary)
-            if self.separate_features
+            if features_vocabulary
             else None,
-            target_vocabulary=sorted(target_vocabulary),
+            target_vocabulary=sorted(target_vocabulary)
+            if target_vocabulary
+            else None,
         )
         # Stores batch size.
         self.batch_size = batch_size
