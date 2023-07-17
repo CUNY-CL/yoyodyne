@@ -28,7 +28,7 @@ class PaddedTensor(nn.Module):
     ):
         """Constructs the padded tensor from a list of tensors.
 
-        The optional pad_len argument can be used, e.g., to keep all data
+        The optional pad_len argument can be used, e.g., to keep all batches
         the exact same length, which improves performance on certain
         accelerators. If not specified, it will be computed using the length
         of the longest input tensor.
