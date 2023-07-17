@@ -56,12 +56,11 @@ import yoyodyne
 
 ### Training
 
-Training is performed by the [`yoyodyne-train`](yoyodyne.train.py) script. One
+Training is performed by the [`yoyodyne-train`](yoyodyne/train.py) script. One
 must specify the following required arguments:
 
+-   `--model_dir`: path for model metadata and checkpoints
 -   `--experiment`: name of experiment (pick something unique)
--   `--model_dir`: path for model metadata and checkpoints output during
-    training
 -   `--train`: path to TSV file containing training data
 -   `--val`: path to TSV file containing validation data
 
@@ -71,7 +70,7 @@ more information.
 
 ### Prediction
 
-Prediction is performed by the [`yoyodyne-predict`](yoyodyne.predict.py%60)
+Prediction is performed by the [`yoyodyne-predict`](yoyodyne/predict.py)
 script. One must specify the following required arguments:
 
 -   `--model_dir`: path for model metadata
