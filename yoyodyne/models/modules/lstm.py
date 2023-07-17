@@ -5,7 +5,7 @@ from typing import Tuple
 import torch
 from torch import nn
 
-from ... import batches, defaults
+from ... import data, defaults
 from . import attention, base
 
 
@@ -58,12 +58,12 @@ class LSTMModule(base.BaseModule):
 
 class LSTMEncoder(LSTMModule):
     def forward(
-        self, source: batches.PaddedTensor
+        self, source: data.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Encodes the input.
 
         Args:
-            source (batches.PaddedTensor): source padded tensors and mask
+            source (data.PaddedTensor): source padded tensors and mask
                 for source, of shape B x seq_len x 1.
 
         Returns:

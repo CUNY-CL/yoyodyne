@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from ... import batches
+from ... import data
 from . import base
 
 
@@ -146,11 +146,11 @@ class TransformerModule(base.BaseModule):
 
 
 class TransformerEncoder(TransformerModule):
-    def forward(self, source: batches.PaddedTensor) -> torch.Tensor:
+    def forward(self, source: data.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
         Args:
-            source (batches.PaddedTensor).
+            source (data.PaddedTensor).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.

@@ -4,9 +4,8 @@ import argparse
 import os
 
 import pytorch_lightning as pl
-from torch.utils import data
 
-from . import collators, dataconfig, datasets, defaults, models, util
+from . import data, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -23,51 +22,36 @@ def get_trainer_from_argparse_args(
     return pl.Trainer.from_argparse_args(args, max_epochs=0)
 
 
-def get_dataset_from_argparse_args(
+def get_datamodule_from_argparse_args(
     args: argparse.Namespace,
-) -> datasets.BaseDataset:
+) -> data.DataModule:
     """Creates the dataset from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        datasets.BaseDataset.
+        data.DataModule.
     """
-    config = dataconfig.DataConfig.from_argparse_args(args)
-    return datasets.get_dataset(args.predict, config, args.index)
-
-
-def get_loader(
-    dataset: datasets.BaseDataset,
-    arch: str,
-    batch_size: int,
-    max_source_length: int,
-    max_target_length: int,
-) -> data.DataLoader:
-    """Creates the loader.
-
-    Args:
-        dataset (data.Dataset).
-        arch (str).
-        batch_size (int).
-        max_source_length (int).
-        max_target_length (int).
-
-    Returns:
-        data.DataLoader.
-    """
-    collator = collators.Collator(
-        dataset,
-        arch,
-        max_source_length,
-        max_target_length,
-    )
-    return data.DataLoader(
-        dataset,
-        collate_fn=collator,
-        batch_size=batch_size,
-        num_workers=1,
+    separate_features = args.features_col != 0 and args.arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    index = data.Index.read(args.model_dir, args.experiment)
+    return data.DataModule(
+        predict=args.predict,
+        batch_size=args.batch_size,
+        source_col=args.source_col,
+        features_col=args.features_col,
+        target_col=args.target_col,
+        source_sep=args.source_sep,
+        features_sep=args.features_sep,
+        target_sep=args.target_sep,
+        tied_vocabulary=args.tied_vocabulary,
+        separate_features=separate_features,
+        max_source_length=args.max_source_length,
+        max_target_length=args.max_target_length,
+        index=index,
     )
 
 
@@ -99,8 +83,8 @@ def _mkdir(output: str) -> None:
 
 def predict(
     trainer: pl.Trainer,
-    model: pl.LightningModule,
-    loader: data.DataLoader,
+    model: models.BaseEncoderDecoder,
+    datamodule: data.DataModule,
     output: str,
 ) -> None:
     """Predicts from the model.
@@ -108,25 +92,19 @@ def predict(
     Args:
          trainer (pl.Trainer).
          model (pl.LightningModule).
-         loader (data.DataLoader).
+         datamdule (data.DataModule).
          output (str).
-         target_sep (str).
     """
-    dataset = loader.dataset
-    target_sep = dataset.config.target_sep
     util.log_info(f"Writing to {output}")
     _mkdir(output)
+    loader = datamodule.predict_dataloader()
     with open(output, "w") as sink:
-        for batch in trainer.predict(model, dataloaders=loader):
+        for batch in trainer.predict(model, loader):
             batch = model.evaluator.finalize_predictions(
-                batch, dataset.index.end_idx, dataset.index.pad_idx
+                batch, datamodule.index.end_idx, datamodule.index.pad_idx
             )
-            for prediction in dataset.decode_target(
-                batch,
-                symbols=True,
-                special=False,
-            ):
-                print(target_sep.join(prediction), file=sink)
+            for prediction in loader.dataset.decode_target(batch):
+                print(prediction, file=sink)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -135,10 +113,18 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (argparse.ArgumentParser).
     """
+    # Path arguments.
+    parser.add_argument(
+        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
+    )
+    parser.add_argument(
+        "--model_dir",
+        required=True,
+        help="Path to output model directory.",
+    )
     parser.add_argument(
         "--experiment", required=True, help="Name of experiment."
     )
-    # Path arguments.
     parser.add_argument(
         "--predict",
         required=True,
@@ -149,22 +135,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to prediction output data TSV.",
     )
-    parser.add_argument("--index", required=True, help="Path to index (.pkl).")
-    parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
-    )
-    # Predicting arguments.
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=defaults.BATCH_SIZE,
-        help="Batch size. Default: %(default)s.",
-    )
+    # Prediction arguments.
     # TODO: add --beam_width.
-    # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
+    # Data arguments.
+    data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.
     models.add_argparse_args(parser)
     # Among the things this adds, the following are likely to be useful:
@@ -180,15 +154,9 @@ def main() -> None:
     args = parser.parse_args()
     util.log_arguments(args)
     trainer = get_trainer_from_argparse_args(args)
-    loader = get_loader(
-        get_dataset_from_argparse_args(args),
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
-    )
+    datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args)
-    predict(trainer, model, loader, args.output)
+    predict(trainer, model, datamodule, args.output)
 
 
 if __name__ == "__main__":

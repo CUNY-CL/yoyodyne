@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn, optim
 
-from .. import batches, defaults, evaluators, schedulers, util
+from .. import data, defaults, evaluators, schedulers, util
 from . import modules
 
 
@@ -235,7 +235,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
     def training_step(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
         batch_idx: int,
     ) -> torch.Tensor:
         """Runs one step of training.
@@ -243,7 +243,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         This is called by the PL Trainer.
 
         Args:
-            batch (batches.PaddedBatch)
+            batch (data.PaddedBatch)
             batch_idx (int).
 
         Returns:
@@ -266,7 +266,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
     def validation_step(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
         batch_idx: int,
     ) -> Dict:
         """Runs one validation step.
@@ -274,7 +274,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         This is called by the PL Trainer.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
             batch_idx (int).
 
         Returns:
@@ -316,7 +316,7 @@ class BaseEncoderDecoder(pl.LightningModule):
 
     def predict_step(
         self,
-        batch: batches.PaddedBatch,
+        batch: data.PaddedBatch,
         batch_idx: int,
     ) -> torch.Tensor:
         """Runs one predict step.
@@ -324,7 +324,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         This is called by the PL Trainer.
 
         Args:
-            batch (batches.PaddedBatch).
+            batch (data.PaddedBatch).
             batch_idx (int).
 
         Returns:

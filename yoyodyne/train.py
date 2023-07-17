@@ -1,22 +1,14 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning import callbacks, loggers
-from torch.utils import data
+from torch.utils import data as torch_data
 
-from . import (
-    collators,
-    dataconfig,
-    datasets,
-    defaults,
-    models,
-    schedulers,
-    util,
-)
+from . import data, defaults, models, schedulers, util
 
 
 class Error(Exception):
@@ -43,7 +35,6 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
         wandb.define_metric("val_accuracy", summary="max")
         # Logs the path to local artifacts made by PTL.
         wandb.config.update({"local_run_dir": trainer_logger[0].log_dir})
-
     return trainer_logger
 
 
@@ -103,84 +94,49 @@ def get_trainer_from_argparse_args(
     )
 
 
-def get_datasets_from_argparse_args(
+def get_datamodule_from_argparse_args(
     args: argparse.Namespace,
-) -> Tuple[datasets.BaseDataset, datasets.BaseDataset]:
-    """Creates the datasets from CLI arguments.
+) -> data.DataModule:
+    """Creates the datamodule from CLI arguments.
 
     Args:
-        args (argparse.Namespace).
+        args (Argparse.Namespace).
 
     Returns:
-        Tuple[datasets.BaseDataset, datasets.BaseDataset]: the training and
-            development datasets.
+        data.DataModule.
     """
-    config = dataconfig.DataConfig.from_argparse_args(args)
-    if config.target_col == 0:
-        raise Error("target_col must be specified for training")
-    train_set = datasets.get_dataset(args.train, config)
-    dev_set = datasets.get_dataset(args.dev, config, train_set.index)
-    util.log_info(f"Source vocabulary: {train_set.index.source_map.pprint()}")
-    if train_set.has_features:
-        util.log_info(
-            f"Feature vocabulary: {train_set.index.features_map.pprint()}"
-        )
-    util.log_info(f"Target vocabulary: {train_set.index.target_map.pprint()}")
-    return train_set, dev_set
-
-
-def get_loaders(
-    train_set: datasets.BaseDataset,
-    dev_set: datasets.BaseDataset,
-    arch: str,
-    batch_size: int,
-    max_source_length: int,
-    max_target_length: int,
-) -> Tuple[data.DataLoader, data.DataLoader]:
-    """Creates the loaders.
-
-    Args:
-        train_set (datasets.BaseDataset).
-        dev_set (datasets.BaseDataset).
-        arch (str).
-        batch_size (int).
-        max_source_length (int).
-        max_target_length (int).
-
-    Returns:
-        Tuple[data.DataLoader, data.DataLoader]: the training and development
-            loaders.
-    """
-    collator = collators.Collator(
-        train_set,
-        arch,
-        max_source_length,
-        max_target_length,
+    separate_features = args.features_col != 0 and args.arch in [
+        "pointer_generator_lstm",
+        "transducer",
+    ]
+    datamodule = data.DataModule(
+        train=args.train,
+        val=args.val,
+        batch_size=args.batch_size,
+        source_col=args.source_col,
+        features_col=args.features_col,
+        target_col=args.target_col,
+        source_sep=args.source_sep,
+        features_sep=args.features_sep,
+        target_sep=args.target_sep,
+        tied_vocabulary=args.tied_vocabulary,
+        separate_features=separate_features,
+        max_source_length=args.max_source_length,
+        max_target_length=args.max_target_length,
     )
-    train_loader = data.DataLoader(
-        train_set,
-        collate_fn=collator,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=1,  # Our data loading is simple.
-    )
-    dev_loader = data.DataLoader(
-        dev_set,
-        collate_fn=collator,
-        batch_size=2 * batch_size,  # Because we're not collecting gradients.
-        num_workers=1,
-    )
-    return train_loader, dev_loader
+    datamodule.index.write(args.model_dir, args.experiment)
+    datamodule.log_vocabularies()
+    return datamodule
 
 
 def get_model_from_argparse_args(
-    train_set: datasets.BaseDataset,
     args: argparse.Namespace,
+    datamodule: data.DataModule,
 ) -> models.BaseEncoderDecoder:
     """Creates the model.
 
     Args:
-        train_set (datasets.BaseDataset).
+        train_set (data.BaseDataset).
         args (argparse.Namespace).
 
     Returns:
@@ -192,7 +148,7 @@ def get_model_from_argparse_args(
     )
     expert = (
         models.expert.get_expert(
-            train_set,
+            datamodule.train_dataloader().dataset,
             epochs=args.oracle_em_epochs,
             oracle_factor=args.oracle_factor,
             sed_params_path=args.sed_params,
@@ -201,7 +157,7 @@ def get_model_from_argparse_args(
         else None
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
-    separate_features = train_set.has_features and args.arch in [
+    separate_features = datamodule.has_features and args.arch in [
         "pointer_generator_lstm",
         "transducer",
     ]
@@ -213,12 +169,12 @@ def get_model_from_argparse_args(
         else None
     )
     features_vocab_size = (
-        train_set.index.features_vocab_size if train_set.has_features else 0
+        datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
     source_vocab_size = (
-        train_set.index.source_vocab_size + features_vocab_size
+        datamodule.index.source_vocab_size + features_vocab_size
         if not separate_features
-        else train_set.index.source_vocab_size
+        else datamodule.index.source_vocab_size
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
@@ -231,7 +187,7 @@ def get_model_from_argparse_args(
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
-        end_idx=train_set.index.end_idx,
+        end_idx=datamodule.index.end_idx,
         expert=expert,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
@@ -241,22 +197,22 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        output_size=train_set.index.target_vocab_size,
-        pad_idx=train_set.index.pad_idx,
+        output_size=datamodule.index.target_vocab_size,
+        pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_encoder_cls=source_encoder_cls,
         source_vocab_size=source_vocab_size,
-        start_idx=train_set.index.start_idx,
-        target_vocab_size=train_set.index.target_vocab_size,
+        start_idx=datamodule.index.start_idx,
+        target_vocab_size=datamodule.index.target_vocab_size,
     )
 
 
 def train(
     trainer: pl.Trainer,
     model: models.BaseEncoderDecoder,
-    train_loader: data.DataLoader,
-    dev_loader: data.DataLoader,
+    train_loader: torch_data.DataLoader,
+    dev_loader: torch_data.DataLoader,
     train_from: Optional[str] = None,
 ) -> str:
     """Trains the model.
@@ -285,36 +241,30 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         argparse.ArgumentParser.
     """
-    parser.add_argument(
-        "--experiment", required=True, help="Name of experiment."
-    )
     # Path arguments.
-    parser.add_argument(
-        "--train",
-        required=True,
-        help="Path to input training data TSV.",
-    )
-    parser.add_argument(
-        "--dev",
-        required=True,
-        help="Path to input development data TSV.",
-    )
     parser.add_argument(
         "--model_dir",
         required=True,
         help="Path to output model directory.",
     )
     parser.add_argument(
+        "--experiment", required=True, help="Name of experiment."
+    )
+    parser.add_argument(
+        "--train",
+        required=True,
+        help="Path to input training data TSV.",
+    )
+    parser.add_argument(
+        "--val",
+        required=True,
+        help="Path to input validation data TSV.",
+    )
+    parser.add_argument(
         "--train_from",
         help="Path to ckpt checkpoint to resume training from.",
     )
     # Other training arguments.
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=defaults.BATCH_SIZE,
-        help="Batch size. Default: %(default)s.",
-    )
     parser.add_argument(
         "--patience", type=int, help="Patience for early stopping."
     )
@@ -336,10 +286,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         dest="log_wandb",
     )
-    # Data configuration arguments.
-    dataconfig.DataConfig.add_argparse_args(parser)
-    # Collator arguments.
-    collators.Collator.add_argparse_args(parser)
+    # Data arguments.
+    data.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
@@ -374,32 +322,19 @@ def main() -> None:
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
-    train_set, dev_set = get_datasets_from_argparse_args(args)
-    index = train_set.index.index_path(args.model_dir, args.experiment)
-    train_set.index.write(index)
-    util.log_info(f"Index: {index}")
-    train_loader, dev_loader = get_loaders(
-        train_set,
-        dev_set,
-        args.arch,
-        args.batch_size,
-        args.max_source_length,
-        args.max_target_length,
-    )
-    model = get_model_from_argparse_args(train_set, args)
+    datamodule = get_datamodule_from_argparse_args(args)
+    model = get_model_from_argparse_args(args, datamodule)
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:
         raise Error("Batch auto-scaling is not supported")
         return
     if args.auto_lr_find:
-        result = trainer.tuner.lr_find(model, train_loader, dev_loader)
+        result = trainer.tuner.lr_find(model, datamodule=datamodule)
         util.log_info(f"Best initial LR: {result.suggestion():.8f}")
         return
     # Otherwise, train and log the best checkpoint.
-    best_checkpoint = train(
-        trainer, model, train_loader, dev_loader, train_from=args.train_from
-    )
+    best_checkpoint = train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 
 

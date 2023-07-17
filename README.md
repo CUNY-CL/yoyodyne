@@ -54,8 +54,32 @@ import yoyodyne
 
 ## Usage
 
-See [`yoyodyne-predict --help`](yoyodyne/predict.py) and
-[`yoyodyne-train --help`](yoyodyne/train.py).
+### Training
+
+Training is performed by the [`yoyodyne-train`](yoyodyne/train.py) script. One
+must specify the following required arguments:
+
+-   `--model_dir`: path for model metadata and checkpoints
+-   `--experiment`: name of experiment (pick something unique)
+-   `--train`: path to TSV file containing training data
+-   `--val`: path to TSV file containing validation data
+
+The user can also specify various optional training and architectural
+arguments. See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for
+more information.
+
+### Prediction
+
+Prediction is performed by the [`yoyodyne-predict`](yoyodyne/predict.py)
+script. One must specify the following required arguments:
+
+-   `--model_dir`: path for model metadata
+-   `--experiment`: name of experiment
+-   `--checkpoint`: path to checkpoint
+-   `--predict`: path to TSV file containing data to be predicted
+-   `--output`: path for predictions
+
+Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
 ## Data format
 
@@ -73,11 +97,12 @@ the third contains semi-colon delimited feature strings:
 
 this format is specified by `--features-col 3`.
 
-Alternatively, for the SIGMORPHON 2016 shared task data format:
+Alternatively, for the [SIGMORPHON 2016 shared
+task](https://sigmorphon.github.io/sharedtasks/2016/) data:
 
     source   feat1,feat2,...    target
 
-this format is specified by `--features-col 2 --features-sep , --target-col 3`.
+this format is specified by `--features_col 2 --features_sep , --target_col 3`.
 
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
@@ -101,7 +126,7 @@ checkpoint, the **full path to the checkpoint** should be specified with for the
 the provided model checkpoint.
 
 During training, we save the best `--save_top_k` checkpoints (by default, 1)
-ranked according to accuracy on the `--dev` set. For example, `--save_top_k 5`
+ranked according to accuracy on the `--val` set. For example, `--save_top_k 5`
 will save the top 5 most accurate models.
 
 ## Reserved symbols
@@ -153,8 +178,7 @@ source encoder using the `--source_encoder` flag:
 -   `"transformer"`: This is a transformer encoder.
 
 When using features, the user can also specify a non-default features encoder
-using the `--features_encoder` flag (`"linear"`, `"lstm"`,
-`"transformer"`).
+using the `--features_encoder` flag (`"linear"`, `"lstm"`, `"transformer"`).
 
 For all models, the user may also wish to specify:
 
