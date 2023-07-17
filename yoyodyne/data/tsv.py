@@ -1,15 +1,13 @@
 """TSV parsing.
 
-The TsvParser yield string tuples from TSV files using 1-based indexing.
-
-The CellParser converts between raw strings ("strings") and lists of string
-symbols.
+The TsvParser yields data from TSV files using 1-based indexing and custom
+separators.
 """
 
 
 import csv
 import dataclasses
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Union
 
 from .. import defaults, util
 
@@ -22,7 +20,7 @@ class Error(Exception):
 
 @dataclasses.dataclass
 class TsvParser:
-    """Streams rows from a TSV file.
+    """Streams data from a TSV file.
 
     Args:
         source_col (int, optional): 1-indexed column in TSV containing
@@ -31,11 +29,23 @@ class TsvParser:
             features strings.
         target_col (int, optional): 1-indexed column in TSV containing
             target strings.
+        source_sep (str, optional): string used to split source string into
+            symbols; an empty string indicates that each Unicode codepoint is
+            its own symbol.
+        features_sep (str, optional): string used to split features string into
+            symbols; an empty string indicates that each Unicode codepoint is
+            its own symbol.
+        target_sep (str, optional): string used to split target string into
+            symbols; an empty string indicates that each Unicode codepoint is
+            its own symbol.
     """
 
     source_col: int = defaults.SOURCE_COL
     features_col: int = defaults.FEATURES_COL
     target_col: int = defaults.TARGET_COL
+    source_sep: str = defaults.SOURCE_SEP
+    features_sep: str = defaults.FEATURES_SEP
+    target_sep: str = defaults.TARGET_SEP
 
     def __post_init__(self) -> None:
         # This is automatically called after initialization.
@@ -74,76 +84,47 @@ class TsvParser:
     def has_target(self) -> bool:
         return self.target_col != 0
 
-    def source_samples(self, path: str) -> Iterator[str]:
-        """Yields source."""
-        for row in self._tsv_reader(path):
-            yield self._get_string(row, self.source_col)
-
-    def source_target_samples(self, path: str) -> Iterator[Tuple[str, str]]:
-        """Yields source and target."""
-        for row in self._tsv_reader(path):
-            source = self._get_string(row, self.source_col)
-            target = self._get_string(row, self.target_col)
-            yield source, target
-
-    def source_features_target_samples(
+    def samples(
         self, path: str
-    ) -> Iterator[Tuple[str, str, str]]:
-        """Yields source, features, and target."""
+    ) -> Iterator[
+        Union[
+            List[str],
+            Tuple[List[str], List[str]],
+            Tuple[List[str], List[str], List[str]],
+        ]
+    ]:
+        """Yields source, and features and/or target if available."""
         for row in self._tsv_reader(path):
-            source = self._get_string(row, self.source_col)
-            features = self._get_string(row, self.features_col)
-            target = self._get_string(row, self.target_col)
-            yield source, features, target
-
-    def source_features_samples(self, path: str) -> Iterator[Tuple[str, str]]:
-        """Yields source, and features."""
-        for row in self._tsv_reader(path):
-            source = self._get_string(row, self.source_col)
-            features = self._get_string(row, self.features_col)
-            yield source, features
-
-    def samples(self, path: str) -> Iterator[Tuple[str, ...]]:
-        """Picks the right one."""
-        if self.has_features:
-            if self.has_target:
-                self.source_features_target_samples(path)
+            source = self.source_symbols(
+                self._get_string(row, self.source_col)
+            )
+            if self.has_features:
+                features = self.features_symbols(
+                    self._get_string(row, self.features_col)
+                )
+                if self.has_target:
+                    target = self.target_symbols(
+                        self._get_string(row, self.target_col)
+                    )
+                    yield source, features, target
+                else:
+                    yield source, features
+            elif self.has_target:
+                target = self.target_symbols(
+                    self._get_string(row, self.target_col)
+                )
+                yield source, target
             else:
-                return self.source_features_samples(path)
-        elif self.has_target:
-            return self.source_target_samples(path)
-        else:
-            return self.source_samples(path)
+                yield source
 
-
-@dataclasses.dataclass
-class StringParser:
-    """Parses strings from the TSV file into lists of symbols.
-
-    Args:
-        source_sep (str, optional): string used to split source string into
-            symbols; an empty string indicates that each Unicode codepoint is
-            its own symbol.
-        features_sep (str, optional): string used to split features string into
-            symbols; an empty string indicates that each Unicode codepoint is
-            its own symbol.
-        target_sep (str, optional): string used to split target string into
-            symbols; an empty string indicates that each Unicode codepoint is
-            its own symbol.
-    """
-
-    source_sep: str = defaults.SOURCE_SEP
-    features_sep: str = defaults.FEATURES_SEP
-    target_sep: str = defaults.TARGET_SEP
-
-    # Parsing methods.
+    # String parsing methods.
 
     @staticmethod
     def _get_symbols(string: str, sep: str) -> List[str]:
         return list(string) if not sep else sep.split(string)
 
     def source_symbols(self, string: str) -> List[str]:
-        return self._get_symbols(string, self.features_sep)
+        return self._get_symbols(string, self.source_sep)
 
     def features_symbols(self, string: str) -> List[str]:
         # We deliberately obfuscate these to avoid overlap with source.

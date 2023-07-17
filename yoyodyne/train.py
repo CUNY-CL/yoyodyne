@@ -35,7 +35,6 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
         wandb.define_metric("val_accuracy", summary="max")
         # Logs the path to local artifacts made by PTL.
         wandb.config.update({"local_run_dir": trainer_logger[0].log_dir})
-
     return trainer_logger
 
 
@@ -149,7 +148,7 @@ def get_model_from_argparse_args(
     )
     expert = (
         models.expert.get_expert(
-            datamodule.train_loader().dataset,
+            datamodule.train_dataloader().dataset,
             epochs=args.oracle_em_epochs,
             oracle_factor=args.oracle_factor,
             sed_params_path=args.sed_params,

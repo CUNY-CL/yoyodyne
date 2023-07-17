@@ -52,9 +52,9 @@ class Item(nn.Module):
 class Dataset(data.Dataset):
     """Datatset class."""
 
-    samples: List[str]
+    samples: List[List[str]]
     index: indexes.Index  # Usually copied from the DataModule.
-    string_parser: tsv.StringParser  # Ditto.
+    parser: tsv.TsvParser  # Ditto.
 
     @property
     def has_features(self) -> bool:
@@ -87,44 +87,41 @@ class Dataset(data.Dataset):
             dtype=torch.long,
         )
 
-    def encode_source(self, string: str) -> torch.Tensor:
+    def encode_source(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a source string, padding with start and end tags.
 
         Args:
-            string (str).
+            symbols (List[str]).
 
         Returns:
             torch.Tensor.
         """
         wrapped = [special.START]
-        wrapped.extend(self.string_parser.source_symbols(string))
+        wrapped.extend(symbols)
         wrapped.append(special.END)
         return self._encode(wrapped, self.index.source_map)
 
-    def encode_features(self, string: str) -> torch.Tensor:
+    def encode_features(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a features string.
 
         Args:
-            string (str).
+            symbols (List[str]).
 
         Returns:
             torch.Tensor.
         """
-        return self._encode(
-            self.string_parser.features_symbols(string),
-            self.index.features_map,
-        )
+        return self._encode(symbols, self.index.features_map)
 
-    def encode_target(self, string: str) -> torch.Tensor:
+    def encode_target(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a features string, padding with end tags.
 
         Args:
-            string (str).
+            symbols (List[str]).
 
         Returns:
             torch.Tensor.
         """
-        wrapped = self.string_parser.target_symbols(string)
+        wrapped = symbols
         wrapped.append(special.END)
         return self._encode(wrapped, self.index.target_map)
 
@@ -164,7 +161,7 @@ class Dataset(data.Dataset):
             str: Decoded source strings.
         """
         for symbols in self._decode(indices, self.index.source_map):
-            yield self.string_parser.source_string(symbols)
+            yield self.parser.source_string(symbols)
 
     def decode_features(
         self,
@@ -179,7 +176,7 @@ class Dataset(data.Dataset):
             str: Decoded features strings.
         """
         for symbols in self._decode(indices, self.index.target_map):
-            yield self.string_parser.feature_string(symbols)
+            yield self.parser.feature_string(symbols)
 
     def decode_target(
         self,
@@ -194,7 +191,7 @@ class Dataset(data.Dataset):
             str: Decoded target strings.
         """
         for symbols in self._decode(indices, self.index.target_map):
-            yield self.string_parser.target_string(symbols)
+            yield self.parser.target_string(symbols)
 
     # Required API.
 
@@ -231,5 +228,4 @@ class Dataset(data.Dataset):
                 target=self.encode_target(target),
             )
         else:
-            source = self.samples[idx]
-            return Item(source=self.encode_source(source))
+            return Item(source=self.encode_source(self.samples[idx]))

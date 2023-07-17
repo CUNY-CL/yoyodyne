@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Optional, Set
+from typing import Iterator, Optional, Set
 
 import pytorch_lightning as pl
 from torch.utils import data
@@ -12,8 +12,7 @@ from . import collators, datasets, indexes, tsv
 class DataModule(pl.LightningDataModule):
     """Parses, indexes, collates and loads data."""
 
-    tsv_parser: tsv.TsvParser
-    string_parser: tsv.StringParser
+    parser: tsv.TsvParser
     index: indexes.Index
     batch_size: int
     collator: collators.Collator
@@ -44,9 +43,13 @@ class DataModule(pl.LightningDataModule):
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
     ):
         super().__init__()
-        self.tsv_parser = tsv.TsvParser(source_col, features_col, target_col)
-        self.string_parser = tsv.StringParser(
-            source_sep, features_sep, target_sep
+        self.parser = tsv.TsvParser(
+            source_col=source_col,
+            features_col=features_col,
+            target_col=target_col,
+            source_sep=source_sep,
+            features_sep=features_sep,
+            target_sep=target_sep,
         )
         self.train = train
         self.val = val
@@ -56,45 +59,25 @@ class DataModule(pl.LightningDataModule):
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
-        for path in [self.train, self.val, self.predict, self.test]:
-            if path is None:
-                continue
-            if self.tsv_parser.has_features:
-                if self.tsv_parser.has_target:
-                    for source, features, target in self.tsv_parser.samples(
-                        path
-                    ):
-                        source_vocabulary.update(
-                            self.string_parser.source_symbols(source)
-                        )
-                        features_vocabulary.update(
-                            self.string_parser.features_symbols(features)
-                        )
-                        target_vocabulary.update(
-                            self.string_parser.target_symbols(target)
-                        )
+        for path in self.paths:
+            if self.parser.has_features:
+                if self.parser.has_target:
+                    for source, features, target in self.parser.samples(path):
+                        source_vocabulary.update(source)
+                        features_vocabulary.update(features)
+                        target_vocabulary.update(target)
                 else:
-                    for source, features in self.tsv_parser.samples(path):
-                        source_vocabulary.update(
-                            self.string_parser.source_symbols(source)
-                        )
-                        features_vocabulary.update(
-                            self.string_parser.features_symbols(features)
-                        )
-            elif self.tsv_parser.has_target:
-                for source, target in self.tsv_parser.samples(path):
-                    source_vocabulary.update(
-                        self.string_parser.source_symbols(source)
-                    )
-                    target_vocabulary.update(
-                        self.string_parser.target_symbols(target)
-                    )
+                    for source, features in self.parser.samples(path):
+                        source_vocabulary.update(source)
+                        features_vocabulary.update(features)
+            elif self.parser.has_target:
+                for source, target in self.parser.samples(path):
+                    source_vocabulary.update(source)
+                    target_vocabulary.update(target)
             else:
-                for source in self.tsv_parser.samples(path):
-                    source_vocabulary.update(
-                        self.string_parser.source_symbols(source)
-                    )
-            if self.tsv_parser.has_target and tied_vocabulary:
+                for source in self.parser.samples(path):
+                    source_vocabulary.update(source)
+            if self.parser.has_target and tied_vocabulary:
                 source_vocabulary.update(target_vocabulary)
                 target_vocabulary.update(source_vocabulary)
         self.separate_features = separate_features
@@ -122,6 +105,17 @@ class DataModule(pl.LightningDataModule):
         )
 
     # Helpers.
+
+    @property
+    def paths(self) -> Iterator[str]:
+        if self.train is not None:
+            yield self.train
+        if self.val is not None:
+            yield self.val
+        if self.predict is not None:
+            yield self.predict
+        if self.test is not None:
+            yield self.test
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
@@ -160,9 +154,9 @@ class DataModule(pl.LightningDataModule):
 
     def _dataset(self, path: str) -> datasets.Dataset:
         return datasets.Dataset(
-            list(self.tsv_parser.samples(path)),
+            list(self.parser.samples(path)),
             self.index,
-            self.string_parser,
+            self.parser,
         )
 
     # Required API.

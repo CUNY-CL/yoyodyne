@@ -54,8 +54,33 @@ import yoyodyne
 
 ## Usage
 
-See [`yoyodyne-predict --help`](yoyodyne/predict.py) and
-[`yoyodyne-train --help`](yoyodyne/train.py).
+### Training
+
+Training is performed by the [`yoyodyne-train`](yoyodyne.train.py%60) script.
+One must specify the following required arguments:
+
+-   `--train`: path to TSV file containing training data
+-   `--val`: path to TSV file containing validation data
+-   `--experiment`: name of experiment (pick something unique)
+-   `--model_dir`: path for model metadata and checkpoints output during
+    training
+
+The user can also specify as well as various optional training and architectural
+arguments. See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for
+more information.
+
+### Prediction
+
+Prediction is performed by the [`yoyodyne-predict`](yoyodyne.predict.py%60)
+script. One must specify the following required arguments:
+
+-   `--predict`: path to TSV file containing data to be predicted
+-   `--checkpoint`: path to checkpoint
+-   `--experiment`: name of experiment
+-   `--index`: path to index
+-   `--output`: path for predictions
+
+Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
 ## Data format
 
@@ -153,8 +178,7 @@ source encoder using the `--source_encoder` flag:
 -   `"transformer"`: This is a transformer encoder.
 
 When using features, the user can also specify a non-default features encoder
-using the `--features_encoder` flag (`"linear"`, `"lstm"`,
-`"transformer"`).
+using the `--features_encoder` flag (`"linear"`, `"lstm"`, `"transformer"`).
 
 For all models, the user may also wish to specify:
 
