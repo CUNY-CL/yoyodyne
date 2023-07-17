@@ -139,10 +139,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
                 )
-                # Breaks when all data predicted an EOS symbol.
-                # If we have a target (and are thus computing loss),
-                # we only break when we have decoded at least the the
-                # same number of steps as the target length.
+                # Breaks when all sequences have predicted an EOS symbol. If we
+                # have a target (and are thus computing loss), we only break
+                # when we have decoded at least the the same number of steps as
+                # the target length.
                 if finished.all():
                     if target is None or decoder_input.size(-1) >= target.size(
                         -1
