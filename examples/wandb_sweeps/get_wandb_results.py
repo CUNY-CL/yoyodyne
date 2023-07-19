@@ -17,8 +17,12 @@ def main():
         required=True,
         help="ID for the sweep to run the agent in.",
     )
-    parser.add_argument("--entity", required=True, help="Entity name.")
-    parser.add_argument("--project", required=True, help="Project name.")
+    parser.add_argument(
+        "--entity", required=True, help="The entity scope for the project."
+    )
+    parser.add_argument(
+        "--project", required=True, help="The project of the sweep."
+    )
     parser.add_argument(
         "--output", required=True, help="Path for results TSV."
     )
