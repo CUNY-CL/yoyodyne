@@ -141,9 +141,10 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             Error.
         """
         if self.encoder_layers != self.decoder_layers:
-            msg = "encoder_layers needs to be the same as decoder_layers."
-            msg += f" {self.encoder_layers} != {self.decoder_layers}."
-            raise Error(msg)
+            raise Error(
+                "The number of encoder and decoder layers must match "
+                f"({self.encoder_layers} != {self.decoder_layers})"
+            )
 
     def decode_step(
         self,
