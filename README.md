@@ -218,7 +218,7 @@ A non-exhaustive list includes:
 -   Seeding:
     -   `--seed`
 -   [Weights & Biases](https://wandb.ai/site):
-    -   `--wandb` (default: `False`): enables Weights & Biases tracking
+    -   `--log_wandb` (default: `False`): enables Weights & Biases tracking
 
 ## Hyperparameter tuning
 
