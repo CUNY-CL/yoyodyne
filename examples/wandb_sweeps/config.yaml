@@ -1,0 +1,32 @@
+method: random
+metric:
+  name: val_accuracy
+  goal: maximize
+parameters:
+  embedding_size:
+    distribution: q_uniform
+    q: 16
+    min: 16
+    max: 1024
+  hidden_size:
+    distribution: q_uniform
+    q: 16
+    min: 16
+    max: 1024
+  dropout:
+    distribution: uniform
+    min: 0
+    max: 0.5
+  batch_size:
+    distribution: q_uniform
+    q: 16
+    min: 16
+    max: 128
+  learning_rate:
+    distribution: log_uniform_values
+    min: 0.00001
+    max: 0.01
+  label_smoothing:
+    distribution: uniform
+    min: 0.0
+    max: 0.2

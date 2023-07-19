@@ -1,19 +1,33 @@
-# W&B Sweeps
+W&B Sweeps
+==========
 
-Example scripts for making a W&B sweep, training agents in the sweep space, and downloading the results. Read about W&B sweeps [here](https://docs.wandb.ai/guides/sweeps).
+This directory contains example scripts for running a hyperparameter sweep with
+[Weights & Biases](https://wandb.ai/site).
 
-- The example in [make_wandb_sweep.py](make_wandb_sweep.py) is just one possible hyparparameter grid. You should edit that file directly to build a hyperparameter grid for your problem.
-- Consider also that you can run a bayes search instead of the default random search. See [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#configuration-keys)
-- When running [train_wandb_sweep_agent.py](train_wandb_sweep_agent.py) you need the `project_name` and `sweep_id` from an existing sweep. Then, it can be called with the same arguments as `yoyodyne-train` where any hyperparameters in the sweep config will override command-line hyperparameter args.
+-   [`config.yaml`](config.yaml.py) contains just one possible hyparparameter
+    grid, designed for random search over an attentive LSTM; edit that file
+    directly to build a hyperparameter grid appropriate for your problem.
+-   Consider also running Bayesian search (`method: bayes`) instead of random
+    search; see
+    [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#configuration-keys)
+    for more information.
+-   When running [`train_wandb_sweep.py`](train_wandb_sweep.py) you must provide
+    the `--entity`, `--project` and `--sweep_id`. It can otherwise be called
+    with the same arguments as `yoyodyne-train` where any hyperparameters in the
+    sweep config will override command-line hyperparameter arguments.
+-   By default `random` and `bayes` search run indefinitely, until they are
+    killed. To specify a fixed number of samples, provide the `--count` argument
+    to [`train_wandb_sweep.py`](train_wandb_sweep.py).
 
-## Usage
+For more information about W&B sweeps, [read
+here](https://docs.wandb.ai/guides/sweeps).
 
-```
-# Creates a wandb sweep
-python examples/wandb_sweeps/make_wandb_sweep.py --sweep_name foo
-# Runs an agent to train on hyperparameters sampled from the sweep
-# Defaults to a single run.
-python train_wandb_sweep_agent.py --sweep_id bar --experiment baz ...
-# Pulls results from the sweep from the wandb API
-python get_wandb_results.py --project_name entity/baz --output_filepath output.tsv
-```
+Usage
+-----
+
+    # Creates a sweep; save the sweep ID for later.
+    wandb sweep --entity nasa --project apollo config.yaml
+    # Runs the sweep itself.
+    ./train_wandb_sweep.py --entity nasa --project apollo --sweep_id ...
+    # Retrieves results.
+    ./get_wandb_results.py --entity nasa --project apollo --output results.tsv
