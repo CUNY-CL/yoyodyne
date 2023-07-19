@@ -30,7 +30,3 @@ parameters:
     distribution: uniform
     min: 0.0
     max: 0.2
-  encoder_layers:
-    values: [1, 2]
-  decoder_layers:
-    values: [1, 2]
