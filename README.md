@@ -153,7 +153,8 @@ additional flags. Supported values for `--arch` are:
 -   `pointer_generator_lstm`: This is an LSTM decoder with LSTM encoders (by
     default) and a pointer-generator mechanism. Since this model contains a copy
     mechanism, it may be superior to the `lstm` when the input and output
-    vocabularies overlap significantly.
+    vocabularies overlap significantly. Note that this model requires that the
+    number of `--encoder_layers` and `--decoder_layers` match.
 -   `"transducer"`: This is an LSTM decoder with LSTM encoders (by default) and
     a neural transducer mechanism. On model creation, expectation maximization
     is used to learn a sequence of edit operations, and imitation learning is
