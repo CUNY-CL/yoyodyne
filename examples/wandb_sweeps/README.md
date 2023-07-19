@@ -15,6 +15,9 @@ This directory contains example scripts for running a hyperparameter sweep with
     the `--entity`, `--project` and `--sweep_id`. It can otherwise be called
     with the same arguments as `yoyodyne-train` where any hyperparameters in the
     sweep config will override command-line hyperparameter arguments.
+-   By default `random` and `bayes` search run indefinitely, until they are
+    killed. To specify a fixed number of samples, provide the `--count` argument
+    to [`train_wandb_sweep.py`](train_wandb_sweep.py).
 
 For more information about W&B sweeps, [read
 here](https://docs.wandb.ai/guides/sweeps).
