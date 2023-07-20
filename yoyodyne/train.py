@@ -124,6 +124,8 @@ def get_datamodule_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
     )
+    if not datamodule.has_target:
+        raise Error("No target column specified")
     datamodule.index.write(args.model_dir, args.experiment)
     datamodule.log_vocabularies()
     return datamodule

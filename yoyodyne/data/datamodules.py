@@ -64,11 +64,11 @@ class DataModule(pl.LightningDataModule):
         )
         self.collator = collators.Collator(
             pad_idx=self.index.pad_idx,
-            has_features=self.index.has_features,
-            has_target=self.index.has_target,
+            has_features=self.has_features,
+            has_target=self.has_target,
             separate_features=separate_features,
             features_offset=self.index.source_vocab_size
-            if self.index.has_features
+            if self.has_features
             else 0,
             max_source_length=max_source_length,
             max_target_length=max_target_length,
@@ -80,8 +80,8 @@ class DataModule(pl.LightningDataModule):
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
         for path in self.paths:
-            if self.parser.has_features:
-                if self.parser.has_target:
+            if self.has_features:
+                if self.has_target:
                     for source, features, target in self.parser.samples(path):
                         source_vocabulary.update(source)
                         features_vocabulary.update(features)
@@ -90,14 +90,14 @@ class DataModule(pl.LightningDataModule):
                     for source, features in self.parser.samples(path):
                         source_vocabulary.update(source)
                         features_vocabulary.update(features)
-            elif self.parser.has_target:
+            elif self.has_target:
                 for source, target in self.parser.samples(path):
                     source_vocabulary.update(source)
                     target_vocabulary.update(target)
             else:
                 for source in self.parser.samples(path):
                     source_vocabulary.update(source)
-            if self.parser.has_target and tied_vocabulary:
+            if self.has_target and tied_vocabulary:
                 source_vocabulary.update(target_vocabulary)
                 target_vocabulary.update(source_vocabulary)
         return indexes.Index(
@@ -126,11 +126,11 @@ class DataModule(pl.LightningDataModule):
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
         util.log_info(f"Source vocabulary: {self.index.source_map.pprint()}")
-        if self.index.has_features:
+        if self.has_features:
             util.log_info(
                 f"Features vocabulary: {self.index.features_map.pprint()}"
             )
-        if self.index.has_target:
+        if self.has_target:
             util.log_info(
                 f"Target vocabulary: {self.index.target_map.pprint()}"
             )
@@ -141,11 +141,11 @@ class DataModule(pl.LightningDataModule):
 
     @property
     def has_features(self) -> int:
-        return self.index.has_features
+        return self.parser.has_features
 
     @property
     def has_target(self) -> int:
-        return self.index.has_target
+        return self.parser.has_target
 
     @property
     def source_vocab_size(self) -> int:

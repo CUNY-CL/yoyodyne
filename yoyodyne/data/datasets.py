@@ -58,11 +58,11 @@ class Dataset(data.Dataset):
 
     @property
     def has_features(self) -> bool:
-        return self.index.has_features
+        return self.parser.has_features
 
     @property
     def has_target(self) -> bool:
-        return self.index.has_target
+        return self.parser.has_target
 
     def _encode(
         self,
@@ -206,8 +206,8 @@ class Dataset(data.Dataset):
         Returns:
             Item.
         """
-        if self.index.has_features:
-            if self.index.has_target:
+        if self.has_features:
+            if self.has_target:
                 source, features, target = self.samples[idx]
                 return Item(
                     source=self.encode_source(source),
@@ -220,11 +220,12 @@ class Dataset(data.Dataset):
                     source=self.encode_source(source),
                     features=self.encode_features(features),
                 )
-        elif self.index.has_target:
+        elif self.has_target:
             source, target = self.samples[idx]
             return Item(
                 source=self.encode_source(source),
                 target=self.encode_target(target),
             )
         else:
+            source = self.samples[idx]
             return Item(source=self.encode_source(source))

@@ -64,22 +64,24 @@ must specify the following required arguments:
 -   `--train`: path to TSV file containing training data
 -   `--val`: path to TSV file containing validation data
 
-The user can also specify various optional training and architectural
-arguments. See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for
-more information.
+The user can also specify various optional training and architectural arguments.
+See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for more
+information.
 
 ### Prediction
 
-Prediction is performed by the [`yoyodyne-predict`](yoyodyne/predict.py)
-script. One must specify the following required arguments:
+Prediction is performed by the [`yoyodyne-predict`](yoyodyne/predict.py) script.
+One must specify the following required arguments:
 
 -   `--model_dir`: path for model metadata
 -   `--experiment`: name of experiment
 -   `--checkpoint`: path to checkpoint
--   `--predict`: path to TSV file containing data to be predicted
+-   `--predict`: path to file containing data to be predicted
 -   `--output`: path for predictions
 
-Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
+The `--predict` file can either be a TSV file or an ordinary TXT file with one
+source string per line; in the latter case, specify `--target_col 0`. Run
+[`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
 ## Data format
 
