@@ -79,7 +79,7 @@ class Index:
             SymbolMap(features_vocabulary) if features_vocabulary else None
         )
         self.target_map = (
-            SymbolMap(target_vocabulary) if source_vocabulary else None
+            SymbolMap(target_vocabulary) if target_vocabulary else None
         )
 
     # Serialization support.

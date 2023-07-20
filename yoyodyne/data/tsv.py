@@ -53,8 +53,6 @@ class TsvParser:
             raise Error(f"Out of range source column: {self.source_col}")
         if self.features_col < 0:
             raise Error(f"Out of range features column: {self.features_col}")
-        if self.features_col < 0:
-            raise Error(f"Out of range features column: {self.features_col}")
         if self.target_col < 0:
             raise Error(f"Out of range target column: {self.target_col}")
 
