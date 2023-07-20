@@ -4,11 +4,15 @@
 import argparse
 import functools
 import traceback
+import warnings
 
 import pytorch_lightning as pl
 import wandb
 
 from yoyodyne import train, util
+
+
+warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
 
 
 class Error(Exception):
