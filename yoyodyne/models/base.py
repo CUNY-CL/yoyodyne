@@ -284,7 +284,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         # -> B x seq_len x target_vocab_size.
         target_padded = batch.target.padded
         greedy_predictions = self(batch)
-        accuracy = self.evaluator.val_accuracy(
+        correct, total, _ = self.evaluator.val_accuracy(
             greedy_predictions, target_padded, self.end_idx, self.pad_idx
         )
         # -> B x target_vocab_size x seq_len. For loss.
@@ -294,7 +294,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             greedy_predictions, 2, 0, target_padded.size(1)
         )
         loss = self.loss_func(greedy_predictions, target_padded)
-        return {"val_accuracy": accuracy, "val_loss": loss}
+        return {"val_correct": correct, "val_total": total, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
         """Computes average loss and average accuracy.
@@ -305,11 +305,17 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             Dict: averaged metrics over all validation steps.
         """
-        keys = validation_step_outputs[0].keys()
-        # Shortens name to do comprehension below.
-        # TODO: there has to be a more elegant way to do this.
-        V = validation_step_outputs
-        metrics = {k: sum([v[k] for v in V]) / len(V) for k in keys}
+        num_steps = len(validation_step_outputs)
+        avg_val_loss = (
+            sum([v["val_loss"] for v in validation_step_outputs]) / num_steps
+        )
+        num_correct = sum([v["val_correct"] for v in validation_step_outputs])
+        num_total = sum([v["val_total"] for v in validation_step_outputs])
+        metrics = {
+            "val_loss": avg_val_loss,
+            "val_accuracy": num_correct / num_total,
+        }
+
         for metric, value in metrics.items():
             self.log(metric, value, prog_bar=True)
         return metrics

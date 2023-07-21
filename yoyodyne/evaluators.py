@@ -60,7 +60,7 @@ class Evaluator:
         )[0].size()[0]
         # Gets the batch size (total_count).
         total_count = predictions.size(0)
-        return corr_count / total_count
+        return corr_count, total_count, corr_count / total_count
 
     @staticmethod
     def finalize_predictions(

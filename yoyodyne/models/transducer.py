@@ -533,12 +533,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         predictions = self.evaluator.finalize_predictions(
             predictions, self.end_idx, self.pad_idx
         )
-        return {
-            "val_accuracy": self.evaluator.accuracy(
-                predictions, batch.target.padded, self.pad_idx
-            ),
-            "val_loss": loss,
-        }
+
+        correct, total, _ = self.evaluator.accuracy(
+            predictions, batch.target.padded, self.pad_idx
+        )
+        return {"val_correct": correct, "val_total": total, "val_loss": loss}
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
         predictions, _ = self.forward(
