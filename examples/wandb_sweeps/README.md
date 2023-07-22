@@ -1,5 +1,4 @@
-W&B Sweeps
-==========
+# W&B Sweeps
 
 This directory contains example scripts for running a hyperparameter sweep with
 [Weights & Biases](https://wandb.ai/site).
@@ -22,12 +21,23 @@ This directory contains example scripts for running a hyperparameter sweep with
 For more information about W&B sweeps, [read
 here](https://docs.wandb.ai/guides/sweeps).
 
-Usage
------
+## Usage
 
-    # Creates a sweep; save the sweep ID for later.
-    wandb sweep --entity nasa --project apollo config.yaml
+Execute the following to create and run the sweep; here `${ENTITY}` and
+`${PROJECT}` are assumed to be pre-specified environmental variables.
+
+    # Creates a sweep; save the sweep ID as ${SWEEP_ID} for later.
+    wandb sweep --entity "${ENTITY}" --project "${PROJECT}" config.yaml
     # Runs the sweep itself.
-    ./train_wandb_sweep.py --entity nasa --project apollo --sweep_id ...
-    # Retrieves results.
-    ./get_wandb_results.py --entity nasa --project apollo --output results.tsv
+    ./train_wandb_sweep.py --entity "${ENTITY}" --project "${PPROJECT}" --sweep_id "${SWEEP_ID}" ...
+
+Then, one can retrieve the results as follows:
+
+1.  Visit the following URL:
+    `https://wandb.ai/${ENTITY}/${PROJECT}/sweeps/${SWEEP_ID}`
+
+2.  Switch to "table view" by either clicking on the spreadsheet icon in the top
+    left or typing Ctrl+J.
+
+3.  Click on the downward arrow link, select "CSV Export", then click "Save as
+    CSV".
