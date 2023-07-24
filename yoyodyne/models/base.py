@@ -284,7 +284,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         # -> B x seq_len x target_vocab_size.
         target_padded = batch.target.padded
         greedy_predictions = self(batch)
-        correct, total, _ = self.evaluator.val_accuracy(
+        val_eval_item = self.evaluator.evaluate(
             greedy_predictions, target_padded, self.end_idx, self.pad_idx
         )
         # -> B x target_vocab_size x seq_len. For loss.
@@ -294,7 +294,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             greedy_predictions, 2, 0, target_padded.size(1)
         )
         loss = self.loss_func(greedy_predictions, target_padded)
-        return {"val_correct": correct, "val_total": total, "val_loss": loss}
+        return {"val_eval_item": val_eval_item, "val_loss": loss}
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
         """Computes average loss and average accuracy.
@@ -309,11 +309,10 @@ class BaseEncoderDecoder(pl.LightningModule):
         avg_val_loss = (
             sum([v["val_loss"] for v in validation_step_outputs]) / num_steps
         )
-        num_correct = sum([v["val_correct"] for v in validation_step_outputs])
-        num_total = sum([v["val_total"] for v in validation_step_outputs])
+        epoch_eval = sum(v["val_eval_item"] for v in validation_step_outputs)
         metrics = {
             "val_loss": avg_val_loss,
-            "val_accuracy": num_correct / num_total,
+            "val_accuracy": epoch_eval.accuracy,
         }
 
         for metric, value in metrics.items():

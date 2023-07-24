@@ -1,5 +1,8 @@
 """Evaluators."""
 
+from __future__ import annotations
+from dataclasses import dataclass
+
 import torch
 from torch.nn import functional
 
@@ -8,16 +11,55 @@ class Error(Exception):
     pass
 
 
+@dataclass
+class EvalItem:
+    num_correct: int
+    num_predicted: int
+
+    @property
+    def accuracy(self) -> float:
+        """Computes the accuracy."""
+        return self.num_correct / self.num_predicted
+
+    def __add__(self, other_eval: EvalItem) -> EvalItem:
+        """Adds two EvalItems by summing along both attributes.
+
+        Args:
+            other_eval (EvalItem): The other eval item to add to self.
+
+        Returns:
+            EvalItem.
+        """
+        return EvalItem(
+            self.num_correct + other_eval.num_correct,
+            self.num_predicted + other_eval.num_predicted,
+        )
+
+    def __radd__(self, start_val: int) -> EvalItem:
+        """The initial add when calling `sum` on an iterable of EvalItems.
+        A zero values start value is provided.
+
+        Args:
+            start_val (int): A zero for calling the first add in an iterable.
+
+        Returns:
+            EvalItem.
+        """
+        return EvalItem(
+            self.num_correct + start_val, self.num_predicted + start_val
+        )
+
+
 class Evaluator:
     """Evaluates predictions."""
 
-    def val_accuracy(
+    def evaluate(
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
         end_idx: int,
         pad_idx: int,
-    ) -> float:
+    ) -> EvalItem:
         """Computes the exact word match accuracy.
 
         Args:
@@ -38,14 +80,14 @@ class Evaluator:
         _, predictions = torch.max(predictions, dim=2)
         # Finalizes the predictions.
         predictions = self.finalize_predictions(predictions, end_idx, pad_idx)
-        return self.accuracy(predictions, golds, pad_idx)
+        return self.get_eval_item(predictions, golds, pad_idx)
 
     @staticmethod
-    def accuracy(
+    def get_eval_item(
         predictions: torch.Tensor,
         golds: torch.Tensor,
         pad_idx: int,
-    ) -> float:
+    ) -> EvalItem:
         if predictions.size(1) > golds.size(1):
             predictions = predictions[:, : golds.size(1)]
         elif predictions.size(1) < golds.size(1):
@@ -58,9 +100,9 @@ class Evaluator:
         corr_count = torch.where(
             (predictions.to(golds.device) == golds).all(dim=1)
         )[0].size()[0]
-        # Gets the batch size (total_count).
-        total_count = predictions.size(0)
-        return corr_count, total_count, corr_count / total_count
+        return EvalItem(
+            num_correct=corr_count, num_predicted=predictions.size(0)
+        )
 
     @staticmethod
     def finalize_predictions(
