@@ -137,8 +137,8 @@ def get_model_from_argparse_args(
     """Creates the model.
 
     Args:
-        train_set (data.BaseDataset).
         args (argparse.Namespace).
+        datamodule (data.DataModule).
 
     Returns:
         models.BaseEncoderDecoder.
