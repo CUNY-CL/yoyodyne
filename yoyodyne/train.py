@@ -6,7 +6,6 @@ from typing import List, Optional
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning import callbacks, loggers
-from torch.utils import data as torch_data
 
 from . import data, defaults, models, schedulers, util
 
@@ -213,8 +212,7 @@ def get_model_from_argparse_args(
 def train(
     trainer: pl.Trainer,
     model: models.BaseEncoderDecoder,
-    train_loader: torch_data.DataLoader,
-    dev_loader: torch_data.DataLoader,
+    datamodule: data.DataModule,
     train_from: Optional[str] = None,
 ) -> str:
     """Trains the model.
@@ -222,15 +220,14 @@ def train(
     Args:
          trainer (pl.Trainer).
          model (models.BaseEncoderDecoder).
-         train_loader (data.DataLoader).
-         dev_loader (data.DataLoader).
+         datamodule (data.DataModule).
          train_from (str, optional): if specified, starts training from this
             checkpoint.
 
     Returns:
         str: path to best checkpoint.
     """
-    trainer.fit(model, train_loader, dev_loader, ckpt_path=train_from)
+    trainer.fit(model, datamodule, ckpt_path=train_from)
     ckp_callback = trainer.callbacks[-1]
     # TODO: feels flimsy.
     assert type(ckp_callback) is callbacks.ModelCheckpoint
