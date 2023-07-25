@@ -1,7 +1,7 @@
 """Evaluators."""
 
 from __future__ import annotations
-from dataclasses import dataclass
+import dataclasses
 
 import torch
 from torch.nn import functional
@@ -11,7 +11,7 @@ class Error(Exception):
     pass
 
 
-@dataclass
+@dataclasses.dataclass
 class EvalItem:
     num_correct: int
     num_predicted: int
@@ -36,11 +36,11 @@ class EvalItem:
         )
 
     def __radd__(self, start_val: int) -> EvalItem:
-        """The initial add when calling `sum` on an iterable of EvalItems.
-        A zero values start value is provided.
+        """Reverse add. Expects a zero-valued integer.
 
         Args:
-            start_val (int): A zero for calling the first add in an iterable.
+            start_val (int): An initial value for calling the first add in an
+                iterable. Expected to be 0.
 
         Returns:
             EvalItem.

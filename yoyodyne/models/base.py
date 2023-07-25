@@ -314,7 +314,6 @@ class BaseEncoderDecoder(pl.LightningModule):
             "val_loss": avg_val_loss,
             "val_accuracy": epoch_eval.accuracy,
         }
-
         for metric, value in metrics.items():
             self.log(metric, value, prog_bar=True)
         return metrics
