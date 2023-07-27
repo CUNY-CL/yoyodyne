@@ -3,7 +3,7 @@
 This directory contains example scripts for running a hyperparameter sweep with
 [Weights & Biases](https://wandb.ai/site).
 
--   [`config.yaml`](config.yaml.py) contains just one possible hyparparameter
+-   [`config.yaml`](config.yaml) contains just one possible hyparparameter
     grid, designed for random search over an attentive LSTM; edit that file
     directly to build a hyperparameter grid appropriate for your problem.
 -   Consider also running Bayesian search (`method: bayes`) instead of random
