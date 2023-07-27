@@ -7,11 +7,11 @@ parameters:
     distribution: q_uniform
     q: 16
     min: 16
-    max: 1024
+    max: 512
   hidden_size:
     distribution: q_uniform
-    q: 16
-    min: 16
+    q: 32
+    min: 32
     max: 1024
   dropout:
     distribution: uniform
