@@ -58,18 +58,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "is its own symbol. Default: %(default)r.",
     )
     parser.add_argument(
-        "--tied_vocabulary",
-        action="store_true",
-        default=defaults.TIED_VOCABULARY,
-        help="Share source and target embeddings. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--no_tied_vocabulary",
-        action="store_false",
-        dest="tied_vocabulary",
-        default=True,
-    )
-    parser.add_argument(
         "--batch_size",
         type=int,
         default=defaults.BATCH_SIZE,
