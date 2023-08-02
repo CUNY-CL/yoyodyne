@@ -118,7 +118,6 @@ def get_datamodule_from_argparse_args(
         source_sep=args.source_sep,
         features_sep=args.features_sep,
         target_sep=args.target_sep,
-        tied_vocabulary=args.tied_vocabulary,
         separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,

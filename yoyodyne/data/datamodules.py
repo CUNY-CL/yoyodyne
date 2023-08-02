@@ -34,8 +34,6 @@ class DataModule(pl.LightningDataModule):
         source_sep: str = defaults.SOURCE_SEP,
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
-        # Vocabulary options.
-        tied_vocabulary: bool = defaults.TIED_VOCABULARY,
         # Collator options.
         batch_size=defaults.BATCH_SIZE,
         separate_features: bool = False,
@@ -59,9 +57,7 @@ class DataModule(pl.LightningDataModule):
         self.test = test
         self.batch_size = batch_size
         self.separate_features = separate_features
-        self.index = (
-            index if index is not None else self._make_index(tied_vocabulary)
-        )
+        self.index = index if index is not None else self._make_index()
         self.collator = collators.Collator(
             pad_idx=self.index.pad_idx,
             has_features=self.has_features,
@@ -74,7 +70,7 @@ class DataModule(pl.LightningDataModule):
             max_target_length=max_target_length,
         )
 
-    def _make_index(self, tied_vocabulary: bool) -> indexes.Index:
+    def _make_index(self) -> indexes.Index:
         # Computes index.
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
@@ -97,9 +93,6 @@ class DataModule(pl.LightningDataModule):
             else:
                 for source in self.parser.samples(path):
                     source_vocabulary.update(source)
-            if self.has_target and tied_vocabulary:
-                source_vocabulary.update(target_vocabulary)
-                target_vocabulary.update(source_vocabulary)
         return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
             features_vocabulary=sorted(features_vocabulary)
