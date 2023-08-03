@@ -30,12 +30,12 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
     -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle feature information.
--   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
--   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
--   🚧 UNDER CONSTRUCTION 🚧: Releases are made regularly.
 -   It uses validation accuracy (not loss) for model selection and early
     stoppping.
-
+-   Releases are made regularly.
+-   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
+-   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
+   
 ## Install
 
 First install dependencies:
@@ -284,14 +284,15 @@ This section contains instructions for the Yoyodyne maintainers.
 5.  Commit your changes: `git commit -m "your commit message here"`
 6.  Push your changes. E.g., if your branch is called "release":
     `git push origin release`
-7.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
+7.  Submit a PR for your release and wait for it to be merged into `master`.
+8.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
     if the new version is 3.1.4, the tag should be `v3.1.4`. This can be done:
     -   on GitHub itself: click the "Releases" or "Create a new release" link on
         the right-hand side of the Yoyodyne GitHub page) and follow the
         dialogues.
     -   from the command-line using `git tag`.
-8.  Build the new release: `python -m build`
-9.  Upload the result to PyPI: `twine upload dist/*`
+9.  Build the new release: `python -m build`
+10.  Upload the result to PyPI: `twine upload dist/*`
 
 ## References
 
