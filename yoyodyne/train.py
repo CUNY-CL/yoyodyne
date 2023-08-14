@@ -1,7 +1,8 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-from typing import List, Optional
+import math
+from typing import List, Optional, Tuple
 
 import pytorch_lightning as pl
 import wandb
@@ -91,6 +92,43 @@ def get_trainer_from_argparse_args(
         enable_checkpointing=True,
         logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
     )
+
+
+def get_batch_size_and_accumulation_steps(
+    batch_size: int, max_batch_size: int
+) -> Tuple[int, int]:
+    """Calculates a batch size and number of gradient accumulation steps
+    s.t. the requested `batch_size` can fit on a device that can only
+    compute `max_batch_size` at a time.
+
+    Args:
+        batch_size (int): The requested effective batch_size
+        max_batch_size (int): The maximum that can fit on the device
+
+    Returns:
+        Tuple[int, int]: The actual batch size `b`, and the accumulation
+        factor `k`. This tells the trainer to train for `k` steps of
+        batches with size `b` before backpropogating.
+    """
+    if batch_size <= max_batch_size:
+        return batch_size, 1
+
+    # Otherwise we want the smallest k s.t. batch_size can be evenly split
+    accumulation_steps = math.ceil(batch_size / max_batch_size)
+    new_batch_size = batch_size / accumulation_steps
+
+    while not new_batch_size.is_integer():
+        accumulation_steps += 1
+        new_batch_size = batch_size / accumulation_steps
+
+    if accumulation_steps > 1:
+        util.log_info(
+            f"Using batch_size={new_batch_size} with {accumulation_steps} "
+            "accumulation steps for the requested effective batch_size "
+            f"of {batch_size}"
+        )
+
+    return int(new_batch_size), accumulation_steps
 
 
 def get_datamodule_from_argparse_args(
@@ -267,6 +305,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--patience", type=int, help="Patience for early stopping."
     )
     parser.add_argument(
+        "--max_batch_size",
+        type=int,
+        help="Max batch size for one training "
+        "step. This tells us to do gradient accumulation if the requested "
+        "batch size is greater than the max batch size.",
+    )
+    parser.add_argument(
         "--save_top_k",
         type=int,
         default=defaults.SAVE_TOP_K,
@@ -317,6 +362,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     add_argparse_args(parser)
     args = parser.parse_args()
+    if args.max_batch_size is not None:
+        batch_size, accumulation_steps = get_batch_size_and_accumulation_steps(
+            args.batch_size, args.max_batch_size
+        )
+        args.batch_size = batch_size
+        args.accumulation_steps = accumulation_steps
     util.log_arguments(args)
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
