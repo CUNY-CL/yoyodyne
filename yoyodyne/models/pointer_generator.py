@@ -69,7 +69,7 @@ class GenerationProbability(nn.Module):
 
 
 class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
-    """Pointer-generator model with an LSTM backend and no features.
+    """Pointer-generator model with an LSTM backend.
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:

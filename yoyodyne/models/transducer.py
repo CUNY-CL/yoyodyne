@@ -17,7 +17,7 @@ class ActionError(Exception):
 
 
 class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
-    """Transducer model with an LSTM backend and no features.
+    """Transducer model with an LSTM backend.
 
     After:
         Makarov, P., and Clematide, S. 2018. Imitation learning for neural
