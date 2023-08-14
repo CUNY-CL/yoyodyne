@@ -108,7 +108,7 @@ def get_batch_size_and_accumulation_steps(
     Returns:
         Tuple[int, int]: The actual batch size `b`, and the accumulation
         factor `k`. This tells the trainer to train for `k` steps of
-        batches with size `b` before backpropogating.
+            batches with size `b` before backpropogating.
     """
     if batch_size <= max_batch_size:
         return batch_size, 1
