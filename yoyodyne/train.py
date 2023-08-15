@@ -113,7 +113,7 @@ def get_batch_size_and_accumulation_steps(
     if batch_size <= max_batch_size:
         return batch_size, 1
 
-    # Otherwise we want the smallest k s.t. batch_size can be evenly split
+    # Otherwise we want the smallest k s.t. batch_size can be evenly split.
     accumulation_steps = math.ceil(batch_size / max_batch_size)
     new_batch_size = batch_size / accumulation_steps
 
