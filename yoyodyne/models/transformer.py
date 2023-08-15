@@ -17,7 +17,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     attention_heads: int
     # Constructed inside __init__.
     classifier: nn.Linear
-    log_softmax: nn.LogSoftmax
 
     def __init__(
         self,
@@ -38,7 +37,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self):
         return modules.transformer.TransformerDecoder(
@@ -95,8 +93,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
                 encoder_hidden, source_mask, target_tensor, target_mask
             ).output
             logits = self.classifier(decoder_output)
-            log_probs = self.log_softmax(logits)
-            last_output = log_probs[:, -1, :]  # Ignores EOS.
+            last_output = logits[:, -1, :]  # Ignores EOS.
             outputs.append(last_output)
             # -> B x 1 x 1
             _, pred = torch.max(last_output, dim=1)
@@ -148,8 +145,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
                 encoder_output, batch.source.mask, target_padded, target_mask
             ).output
             logits = self.classifier(decoder_output)
-            log_probs = self.log_softmax(logits)
-            output = log_probs[:, :-1, :]  # Ignore EOS.
+            output = logits[:, :-1, :]  # Ignore EOS.
         else:
             encoder_output = self.source_encoder(batch.source).output
             # -> B x seq_len x output_size.

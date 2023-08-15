@@ -1,7 +1,7 @@
 """Pointer-generator model classes."""
 
 import math
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 from torch import nn
@@ -358,17 +358,76 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 h_features, c_features = self.init_hiddens(
                     len(batch), self.source_encoder.layers
                 )
-                predictions = self.decode(
-                    source_encoded,
-                    batch.source.mask,
-                    batch.source.padded,
-                    last_hiddens,
-                    self.teacher_forcing if self.training else False,
-                    features_enc=features_encoded,
-                    features_mask=batch.features.mask,
-                    target=batch.target.padded if batch.target else None,
-                )
+            predictions = self.decode(
+                source_encoded,
+                batch.source.mask,
+                batch.source.padded,
+                last_hiddens,
+                self.teacher_forcing if self.training else False,
+                features_enc=features_encoded,
+                features_mask=batch.features.mask,
+                target=batch.target.padded if batch.target else None,
+            )
         return predictions
+
+    def _get_loss_func(
+        self, reduction: str
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Returns the actual function used to compute loss.
+
+        Args:
+            reduction (str): reduction for the loss function (e.g., "mean").
+
+        Returns:
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
+        """
+        if not self.label_smoothing:
+            return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
+        else:
+            return self._smooth_nllloss
+
+    def _smooth_nllloss(
+        self, predictions: torch.Tensor, target: torch.Tensor
+    ) -> torch.Tensor:
+        """Computes the NLLLoss with a smoothing factor such that some proportion of
+        the output distribution is replaced with a uniform distribution.
+
+        After:
+
+            https://github.com/NVIDIA/DeepLearningExamples/blob/
+            8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
+            ConvNets/image_classification/smoothing.py#L18
+
+        Args:
+            predictions (torch.Tensor): tensor of prediction
+                distribution of shape B x target_vocab_size x seq_len.
+            target (torch.Tensor): tensor of golds of shape
+                B x seq_len.
+
+        Returns:
+            torch.Tensor: loss.
+        """
+        # -> (B * seq_len) x target_vocab_size.
+        predictions = predictions.transpose(1, 2).reshape(
+            -1, self.target_vocab_size
+        )
+        # -> (B * seq_len) x 1.
+        target = target.view(-1, 1)
+        non_pad_mask = target.ne(self.pad_idx)
+        # Gets the ordinary loss.
+        nll_loss = -predictions.gather(dim=-1, index=target)[
+            non_pad_mask
+        ].mean()
+        # Gets the smoothed loss.
+        smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
+            non_pad_mask
+        ].mean()
+        smooth_loss = smooth_loss / self.target_vocab_size
+        # Combines both according to label smoothing weight.
+        loss = (1.0 - self.label_smoothing) * nll_loss
+        loss.add_(self.label_smoothing * smooth_loss)
+        return loss
 
     @staticmethod
     def _reshape_hiddens(
