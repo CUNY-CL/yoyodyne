@@ -387,8 +387,9 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
     def _smooth_nllloss(
         self, predictions: torch.Tensor, target: torch.Tensor
     ) -> torch.Tensor:
-        """Computes the NLLLoss with a smoothing factor such that some proportion
-        of the output distribution is replaced with a uniform distribution.
+        """Computes the NLLLoss with a smoothing factor such that some
+        proportion of the output distribution is replaced with a
+        uniform distribution.
 
         After:
 
