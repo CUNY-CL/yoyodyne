@@ -35,7 +35,7 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 -   Releases are made regularly.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
-   
+
 ## Install
 
 First install dependencies:
@@ -199,6 +199,7 @@ A non-exhaustive list includes:
 
 -   Batch size:
     -   `--batch_size` (default: `32`)
+    -   `--accumulate_grad_batches` (default: not enabled)
 -   Regularization:
     -   `--dropout` (default: `0.2`)
     -   `--label_smoothing` (default: `0.0`)
@@ -223,19 +224,31 @@ A non-exhaustive list includes:
 -   [Weights & Biases](https://wandb.ai/site):
     -   `--log_wandb` (default: `False`): enables Weights & Biases tracking
 
-## Hyperparameter tuning
+### Simulating large batches
+
+At times one may wish to train with a larger batch size than will fit in "in
+core". For example, suppose one wishes to fit with a batch size of 4,096, but
+this gives an out of memory exception. Then, with minimal overhead, one could
+simulate an effective batch size of 4,096 by using batches (`--batch_size`) of
+1,024, accumulating gradients from 4 batches
+([`--accumulate_grad_batches`](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3))
+per update:
+
+    yoyodyne-train --batch_size 1024 --accumulate_grad_batches 4 ...
+
+### Automatic tuning
+
+`yododyne-train --auto_lr_find` uses a heuristic ([Smith
+2017](https://ieeexplore.ieee.org/abstract/document/7926641)) to propose an
+initial learning rate. Batch auto-scaling is not supported.
+
+### Hyperparameter tuning
 
 **No neural model should be deployed without proper hyperparameter tuning.**
 However, the default options give a reasonable initial settings for an attentive
 biLSTM. For transformer-based architectures, experiment with multiple encoder
 and decoder layers, much larger batches, and the warmup-plus-inverse square root
 decay scheduler.
-
-### Automatic tuning
-
-`yododyne-train --auto_lr_find` uses a heuristic (see [Smith
-2017](https://ieeexplore.ieee.org/abstract/document/7926641)) to propose an
-initial learning rate. Batch auto-scaling is not supported.
 
 ### Weights & Biases tuning
 
@@ -292,7 +305,7 @@ This section contains instructions for the Yoyodyne maintainers.
         dialogues.
     -   from the command-line using `git tag`.
 9.  Build the new release: `python -m build`
-10.  Upload the result to PyPI: `twine upload dist/*`
+10. Upload the result to PyPI: `twine upload dist/*`
 
 ## References
 
