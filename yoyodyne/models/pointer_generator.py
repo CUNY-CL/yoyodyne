@@ -373,7 +373,15 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
     def _get_loss_func(
         self,
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Returns the actual function used to compute loss.
+        """Returns the actual function used to compute loss.After:
+
+        After:
+
+            This overrides the loss function behavior in
+            models.base.BaseEncoderDecoder because we need to use NLLLoss in
+            order to factor the addition of two seperate probability
+            distributions. Thus, we also add our own implementation of label
+            smoothing.
 
         Returns:
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
