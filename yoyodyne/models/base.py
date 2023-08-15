@@ -95,7 +95,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.beta2 = beta2
         self.label_smoothing = label_smoothing
         self.learning_rate = learning_rate
-        self.loss_func = self._get_loss_func("mean")
+        self.loss_func = self._get_loss_func()
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.scheduler_kwargs = scheduler_kwargs
@@ -428,63 +428,18 @@ class BaseEncoderDecoder(pl.LightningModule):
         return [scheduler_cfg]
 
     def _get_loss_func(
-        self, reduction: str
+        self,
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Returns the actual function used to compute loss.
-
-        Args:
-            reduction (str): reduction for the loss function (e.g., "mean").
 
         Returns:
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
                 loss function.
         """
-        # TODO(kbg): swap this out for CrossEntropyLoss?
-        if not self.label_smoothing:
-            return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
-        else:
-            return self._smooth_nllloss
-
-    # TODO(kbg): use the label smoothing in CrossEntropyLoss.
-
-    def _smooth_nllloss(
-        self, predictions: torch.Tensor, target: torch.Tensor
-    ) -> torch.Tensor:
-        """After:
-
-            https://github.com/NVIDIA/DeepLearningExamples/blob/
-            8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
-            ConvNets/image_classification/smoothing.py#L18
-
-        Args:
-            predictions (torch.Tensor): tensor of prediction
-                distribution of shape B x target_vocab_size x seq_len.
-            target (torch.Tensor): tensor of golds of shape
-                B x seq_len.
-
-        Returns:
-            torch.Tensor: loss.
-        """
-        # -> (B * seq_len) x target_vocab_size.
-        predictions = predictions.transpose(1, 2).reshape(
-            -1, self.target_vocab_size
+        return nn.CrossEntropyLoss(
+            ignore_index=self.pad_idx,
+            label_smoothing=self.label_smoothing,
         )
-        # -> (B * seq_len) x 1.
-        target = target.view(-1, 1)
-        non_pad_mask = target.ne(self.pad_idx)
-        # Gets the ordinary loss.
-        nll_loss = -predictions.gather(dim=-1, index=target)[
-            non_pad_mask
-        ].mean()
-        # Gets the smoothed loss.
-        smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
-            non_pad_mask
-        ].mean()
-        smooth_loss = smooth_loss / self.target_vocab_size
-        # Combines both according to label smoothing weight.
-        loss = (1.0 - self.label_smoothing) * nll_loss
-        loss.add_(self.label_smoothing * smooth_loss)
-        return loss
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:

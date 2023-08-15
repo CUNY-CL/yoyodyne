@@ -38,7 +38,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
-        self.log_softmax = nn.LogSoftmax(dim=2)
 
     def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
@@ -125,8 +124,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             )
             decoder_output, decoder_hiddens = decoded.output, decoded.hiddens
             logits = self.classifier(decoder_output)
-            output = self.log_softmax(logits)
-            predictions.append(output.squeeze(1))
+            predictions.append(logits.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
             # for this step.
             if teacher_forcing:
@@ -134,7 +132,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             # Otherwise we pass the top pred to the next timestep
             # (i.e., student forcing, greedy decoding).
             else:
-                decoder_input = self._get_predicted(output)
+                decoder_input = self._get_predicted(logits)
                 # Updates to track which sequences have decoded an EOS.
                 finished = torch.logical_or(
                     finished, (decoder_input == self.end_idx)
@@ -191,7 +189,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             # beam_width x target_vocab_size possibilities
             likelihoods = []
             hypotheses = []
-            # First accumulates all beam_width softmaxes.
+            # First accumulates all beam_width predictions.
             for (
                 beam_likelihood,
                 beam_idxs,
@@ -219,10 +217,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                     decoder_input, decoder_hiddens, encoder_out, encoder_mask
                 )
                 logits = self.classifier(decoded.output)
-                predictions = self.log_softmax(logits)
                 likelihoods.append(
                     (
-                        predictions,
+                        logits,
                         beam_likelihood,
                         beam_idxs,
                         char_likelihoods,
