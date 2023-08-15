@@ -371,19 +371,16 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         return predictions
 
     def _get_loss_func(
-        self, reduction: str
+        self
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Returns the actual function used to compute loss.
-
-        Args:
-            reduction (str): reduction for the loss function (e.g., "mean").
 
         Returns:
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
                 loss function.
         """
         if not self.label_smoothing:
-            return nn.NLLLoss(ignore_index=self.pad_idx, reduction=reduction)
+            return nn.NLLLoss(ignore_index=self.pad_idx)
         else:
             return self._smooth_nllloss
 
