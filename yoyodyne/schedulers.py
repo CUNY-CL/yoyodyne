@@ -16,7 +16,7 @@ ALL_SCHEDULER_ARGS = [
     "reduceonplateau_mode",
     "reduceonplateau_factor",
     "reduceonplateau_patience",
-    "min_lr",
+    "min_learning_rate",
     "check_val_every_n_epoch",
 ]
 
@@ -24,9 +24,9 @@ ALL_SCHEDULER_ARGS = [
 class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
     """Linear warmup and then inverse square root decay.
 
-    Linearly increases learning rate from 0 to 1 over the warmup steps, then
-    decreases learning rate from 1 to 0 using an inverse root square schedule
-    over the remaining steps.
+    Linearly increases learning rate from 0 to the learning rate over the
+    warmup steps, then decreases learning rate according to an inverse root
+    square schedule.
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
@@ -123,7 +123,7 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
         reduceonplateau_mode,
         reduceonplateau_factor,
         reduceonplateau_patience,
-        min_lr,
+        min_learning_rate,
         **kwargs,
     ):
         """Initializes the LR scheduler.
@@ -137,10 +137,10 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
                 validation loss stops decreasing ("loss") or when
                 validation accuracy stops increasing ("accuracy").
             reduceonplateau_factor (float): factor by which the
-                learning rate will be reduced: new_lr = lr * factor.
+                learning rate will be reduced: `new_lr *= factor`.
             reduceonplateau_patience (int): number of epochs with no
                 improvement before reducing LR.
-            min_lr (float): lower bound on the learning rate.
+            min_learning_rate (float): lower bound on the learning rate.
             **kwargs: ignored.
         """
         super().__init__(
@@ -148,13 +148,13 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
             mode="min" if reduceonplateau_mode == "loss" else "max",
             factor=reduceonplateau_factor,
             patience=reduceonplateau_patience,
-            min_lr=min_lr,
+            min_learning_rate=min_learning_rate,
         )
 
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}({self.optimizer}, {self.mode}, "
-            f"{self.factor}, {self.min_lrs}, {self.patience})"
+            f"{self.factor}, {self.min_learning_rate}, {self.patience})"
         )
 
 
@@ -225,7 +225,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "Default: %(default)s.",
     )
     parser.add_argument(
-        "--min_lr",
+        "--min_learning_rate",
         type=float,
         default=defaults.MIN_LR,
         help="Lower bound on the learning rate (reduceonplateau "
