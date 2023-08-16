@@ -1,4 +1,5 @@
-# Yoyodyne 🪀
+Yoyodyne 🪀
+==========
 
 [![PyPI
 version](https://badge.fury.io/py/yoyodyne.svg)](https://pypi.org/project/yoyodyne)
@@ -17,7 +18,8 @@ models are particularly well-suited for problems where the source-target
 alignments are roughly monotonic (e.g., `transducer`) and/or where source and
 target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
 
-## Philosophy
+Philosophy
+----------
 
 Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 (Ott et al. 2019) but differs on several key points of design:
@@ -36,7 +38,8 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 
-## Install
+Install
+-------
 
 First install dependencies:
 
@@ -52,7 +55,8 @@ It can then be imported like a regular Python module:
 import yoyodyne
 ```
 
-## Usage
+Usage
+-----
 
 ### Training
 
@@ -83,7 +87,8 @@ The `--predict` file can either be a TSV file or an ordinary TXT file with one
 source string per line; in the latter case, specify `--target_col 0`. Run
 [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
-## Data format
+Data format
+-----------
 
 The default data format is a two-column TSV file in which the first column is
 the source string and the second the target string.
@@ -109,7 +114,8 @@ this format is specified by `--features_col 2 --features_sep , --target_col 3`.
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
 
-## Model checkpointing
+Model checkpointing
+-------------------
 
 Checkpointing is handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
@@ -131,14 +137,16 @@ During training, we save the best `--save_top_k` checkpoints (by default, 1)
 ranked according to accuracy on the `--val` set. For example, `--save_top_k 5`
 will save the top 5 most accurate models.
 
-## Reserved symbols
+Reserved symbols
+----------------
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
 symbols of the form `<...>` or `[...]`.
 
-## Models
+Models
+------
 
 The user specifies the overall architecture for the model using the `--arch`
 flag. The value of this flag specifies the decoder's architecture and whether or
@@ -193,7 +201,8 @@ For all models, the user may also wish to specify:
 By default, LSTM encoders are bidirectional. One can disable this with the
 `--no_bidirectional` flag.
 
-## Training options
+Training options
+----------------
 
 A non-exhaustive list includes:
 
@@ -223,6 +232,26 @@ A non-exhaustive list includes:
     -   `--seed`
 -   [Weights & Biases](https://wandb.ai/site):
     -   `--log_wandb` (default: `False`): enables Weights & Biases tracking
+
+### Schedulers
+
+By default, Yoyodye uses a constant learning rate during training, but best
+practice is to gradually decreasing learning rate as the model approaches
+convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
+schedulers are supported and are selected with `--scheduler`:
+
+-   `lineardecay`: linearly decreases the learning rate (multiplying it by
+    `--start_factor`) for `--total_decay_steps` steps, then decreases the
+    learning rate by `--end_factor`.
+-   `reduceonplateau`: reduces the learning rate (multiplying it by
+    `--reduceonplateau_factor`) after `--reduceonplateau_patience` epochs with
+    no improvement (when the loss stops decreasing if `--reduceonplateau loss`,
+    or when the validation accuracy stops increasing if
+    `--reduceonplateaumode accuracy`) until the learning rate is less than or
+    equal to `--min_lr`.
+-   `warmupinvsqrt`: linearly increases the learning rate from 0 to 1 for
+    `--warmup_steps` steps, then decreases learning rate on an inverse root
+    square schedule for the remaining steps.
 
 ### Simulating large batches
 
@@ -255,7 +284,8 @@ decay scheduler.
 [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
 Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
-## Accelerators
+Accelerators
+------------
 
 [Hardware
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
@@ -264,7 +294,8 @@ GPU (`--accelerator gpu`), [other
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
 may also be supported but not all have been tested yet.
 
-## Precision
+Precision
+---------
 
 By default, training uses 32-bit precision. However, the `--precision` flag
 allows the user to perform training with half precision (`16`) or with the
@@ -273,14 +304,16 @@ format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) if
 supported by the accelerator. This may reduce the size of the model and batches
 in memory, allowing one to use larger batches.
 
-## Examples
+Examples
+--------
 
 The [`examples`](examples) directory contains interesting examples, including:
 
 -   [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
     Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
-## For developers
+For developers
+--------------
 
 *Developers, developers, developers!* - Steve Ballmer
 
@@ -307,7 +340,8 @@ This section contains instructions for the Yoyodyne maintainers.
 9.  Build the new release: `python -m build`
 10. Upload the result to PyPI: `twine upload dist/*`
 
-## References
+References
+----------
 
 Ott, M., Edunov, S., Baevski, A., Fan, A., Gross, S., Ng, N., Grangier, D., and
 Auli, M. 2019. [fairseq: a fast, extensible toolkit for sequence
