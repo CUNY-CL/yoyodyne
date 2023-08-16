@@ -1,7 +1,7 @@
 """Transformer model classes."""
 
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -71,6 +71,26 @@ class PositionalEncoding(nn.Module):
         pad_mask = symbols.ne(self.pad_idx).unsqueeze(2)
         out = out * pad_mask
         return out
+
+
+class AttentionOutput:
+    """Tracks an attention output during the forward pass.
+    
+    This object can be passed into a hook to the Transformer forward pass
+    in order to modify it's behavior such that certaina ttention weights are 
+    returned, and then stored in self.outputs."""
+    def __init__(self):
+        self.outputs = []
+
+    def __call__(self, module, module_in, module_out):
+        """Stores the second return argument of `module`.
+        
+        This is intended to be called on a multiehaded attention, which returns
+        both the contextualized representation, and the attention weights."""
+        self.outputs.append(module_out[1])
+
+    def clear(self):
+        self.outputs = []
 
 
 class TransformerModule(base.BaseModule):
@@ -286,7 +306,7 @@ class TransformerDecoder(TransformerModule):
             memory_key_padding_mask=source_mask,
             tgt_key_padding_mask=target_mask,
         )
-        return base.ModuleOutput(output)
+        return base.ModuleOutput(output, embeddings=target_embedding)
 
     def get_module(self) -> nn.TransformerDecoder:
         decoder_layer = nn.TransformerDecoderLayer(
@@ -323,3 +343,40 @@ class TransformerDecoder(TransformerModule):
     @property
     def name(self) -> str:
         return "transformer"
+
+
+class TransformerDecoderWithMhaWeights(TransformerDecoder):
+    """TransformerDecoder with an `attention_output` property.
+    
+    `attention_output` tracks the output of multiheaded attention from each decoder step
+    wrt the encoded input. This is achieved with a hook into the forward pass.
+
+    After:
+        Hook idea is taken from 
+        https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91"""
+
+    def __init__(self, *args, **kwargs):
+        """Initializes the TransformerDecoderWithMhaWeights object."""
+        super().__init__(*args, **kwargs)
+        # Call this to get the actual cross attentions
+        self.attention_output = AttentionOutput()
+        # multihead_attn refers to the attention from decoder to encoder.
+        self.patch_attention(self.module.layers[-1].multihead_attn)
+        self.hook_handle = self.module.layers[-1].multihead_attn.register_forward_hook(
+            self.attention_output
+        )
+
+    def patch_attention(self, attention_module: torch.nn.Module) -> None:
+        """Wraps a module's forward pass such that `need_weights` is True.
+
+        Args:
+            attention_module (torch.nn.Module): The module from which we want
+                to track multiheaded attention weights.
+        """
+        forward_orig = attention_module.forward
+
+        def wrap(*args, **kwargs):
+            kwargs["need_weights"] = True
+            return forward_orig(*args, **kwargs)
+
+        attention_module.forward = wrap
