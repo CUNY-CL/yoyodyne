@@ -248,7 +248,7 @@ schedulers are supported and are selected with `--scheduler`:
     no improvement (when the loss stops decreasing if `--reduceonplateau loss`,
     or when the validation accuracy stops increasing if
     `--reduceonplateaumode accuracy`) until the learning rate is less than or
-    equal to `--min_learning_Rate`.
+    equal to `--min_learning_rate`.
 -   `warmupinvsqrt`: linearly increases the learning rate from 0 to
     `--learning_rate` for `--warmup_steps` steps, then decreases learning rate
     according to an inverse root square schedule.
