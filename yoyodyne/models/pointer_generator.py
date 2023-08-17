@@ -71,7 +71,76 @@ class GenerationProbability(nn.Module):
         return p_gen
 
 
-class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
+class PointerGenerator(nn.Module):
+
+    # Constructed inside __init__.
+    geneneration_probability: GenerationProbability
+
+    def _get_loss_func(
+        self,
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Returns the actual function used to compute loss.
+
+        This overrides the loss function behavior in
+        models.base.BaseEncoderDecoder because we need to use NLLLoss in
+        order to factor the addition of two separate probability
+        distributions. An NLLLoss-compatible implementation of label smoothing
+        is also provided when label smoothing is requested.
+
+        Returns:
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
+        """
+        if not self.label_smoothing:
+            return nn.NLLLoss(ignore_index=self.pad_idx)
+        else:
+            return self._smooth_nllloss
+
+    def _smooth_nllloss(
+        self, predictions: torch.Tensor, target: torch.Tensor
+    ) -> torch.Tensor:
+        """Computes the NLLLoss with a smoothing factor such that some
+        proportion of the output distribution is replaced with a
+        uniform distribution.
+
+        After:
+
+            https://github.com/NVIDIA/DeepLearningExamples/blob/
+            8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
+            ConvNets/image_classification/smoothing.py#L18
+
+        Args:
+            predictions (torch.Tensor): tensor of prediction
+                distribution of shape B x target_vocab_size x seq_len.
+            target (torch.Tensor): tensor of golds of shape
+                B x seq_len.
+
+        Returns:
+            torch.Tensor: loss.
+        """
+        # -> (B * seq_len) x target_vocab_size.
+        predictions = predictions.transpose(1, 2).reshape(
+            -1, self.target_vocab_size
+        )
+        # -> (B * seq_len) x 1.
+        target = target.view(-1, 1)
+        non_pad_mask = target.ne(self.pad_idx)
+        # Gets the ordinary loss.
+        nll_loss = -predictions.gather(dim=-1, index=target)[
+            non_pad_mask
+        ].mean()
+        # Gets the smoothed loss.
+        smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
+            non_pad_mask
+        ].mean()
+        smooth_loss = smooth_loss / self.target_vocab_size
+        # Combines both according to label smoothing weight.
+        loss = (1.0 - self.label_smoothing) * nll_loss
+        loss.add_(self.label_smoothing * smooth_loss)
+        return loss
+
+
+class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder, PointerGenerator):
     """Pointer-generator model with an LSTM backend.
 
     After:
@@ -80,9 +149,6 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
         55th Annual Meeting of the Association for Computational Linguistics
         (Volume 1: Long Papers), pages 1073-1083.
     """
-
-    # Constructed inside __init__.
-    geneneration_probability: GenerationProbability
 
     def __init__(self, *args, **kwargs):
         """Initializes the pointer-generator model with an LSTM backend."""
@@ -277,8 +343,6 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
                 source_indices,
                 source_enc,
                 source_mask,
-                features_enc=features_enc,
-                features_mask=features_mask,
             )
             predictions.append(output.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
@@ -373,69 +437,6 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             )
         return predictions
 
-    def _get_loss_func(
-        self,
-    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Returns the actual function used to compute loss.
-
-        This overrides the loss function behavior in
-        models.base.BaseEncoderDecoder because we need to use NLLLoss in
-        order to factor the addition of two separate probability
-        distributions. An NLLLoss-compatible implementation of label smoothing
-        is also provided when label smoothing is requested.
-
-        Returns:
-            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
-                loss function.
-        """
-        if not self.label_smoothing:
-            return nn.NLLLoss(ignore_index=self.pad_idx)
-        else:
-            return self._smooth_nllloss
-
-    def _smooth_nllloss(
-        self, predictions: torch.Tensor, target: torch.Tensor
-    ) -> torch.Tensor:
-        """Computes the NLLLoss with a smoothing factor such that some
-        proportion of the output distribution is replaced with a
-        uniform distribution.
-
-        After:
-
-            https://github.com/NVIDIA/DeepLearningExamples/blob/
-            8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
-            ConvNets/image_classification/smoothing.py#L18
-
-        Args:
-            predictions (torch.Tensor): tensor of prediction
-                distribution of shape B x target_vocab_size x seq_len.
-            target (torch.Tensor): tensor of golds of shape
-                B x seq_len.
-
-        Returns:
-            torch.Tensor: loss.
-        """
-        # -> (B * seq_len) x target_vocab_size.
-        predictions = predictions.transpose(1, 2).reshape(
-            -1, self.target_vocab_size
-        )
-        # -> (B * seq_len) x 1.
-        target = target.view(-1, 1)
-        non_pad_mask = target.ne(self.pad_idx)
-        # Gets the ordinary loss.
-        nll_loss = -predictions.gather(dim=-1, index=target)[
-            non_pad_mask
-        ].mean()
-        # Gets the smoothed loss.
-        smooth_loss = -predictions.sum(dim=-1, keepdim=True)[
-            non_pad_mask
-        ].mean()
-        smooth_loss = smooth_loss / self.target_vocab_size
-        # Combines both according to label smoothing weight.
-        loss = (1.0 - self.label_smoothing) * nll_loss
-        loss.add_(self.label_smoothing * smooth_loss)
-        return loss
-
     @staticmethod
     def _reshape_hiddens(
         h: torch.Tensor, c: torch.Tensor, layers: int, num_directions: int
@@ -450,8 +451,8 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
 
 
 class PointerGeneratorTransformerEncoderDecoder(
+    PointerGenerator,
     transformer.TransformerEncoderDecoder,
-    PointerGeneratorLSTMEncoderDecoder
 ):
     """Pointer-generator model with a Transformer backend.
 
@@ -463,8 +464,37 @@ class PointerGeneratorTransformerEncoderDecoder(
         Linguistics.
     """
 
+    # Model arguments.
+    feature_attention_heads: int
+
+    def __init__(self, *args, feature_attention_heads, **kwargs):
+        self.feature_attention_heads = feature_attention_heads
+        super().__init__(*args, **kwargs)
+        if not self.has_features_encoder:
+            self.generation_probability = GenerationProbability(  # noqa: E501
+                self.embedding_size,
+                self.embedding_size,
+                self.source_encoder.output_size,
+            )
+        else:
+            self.features_attention = modules.attention.Attention(
+                self.features_encoder.output_size, self.hidden_size
+            )
+            # Embedding size * 2 because feature representations are concatenated.
+            # TODO: We probably want a seeprate feature embedding size?
+            # self.classifier = nn.Linear(
+            #     self.embedding_size * 2, self.target_vocab_size
+            # )
+            # TODO: Use d_model for all for now.
+            self.generation_probability = GenerationProbability(  # noqa: E501
+                self.embedding_size,
+                self.embedding_size,#* 2,
+                self.embedding_size,
+                # self.source_encoder.output_size + self.features_encoder.output_size,
+            )
+
     def get_decoder(self):
-        return modules.transformer.TransformerDecoderWithMhaWeights(
+        return modules.transformer.TransformerPointerDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -473,6 +503,8 @@ class PointerGeneratorTransformerEncoderDecoder(
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             attention_heads=self.attention_heads,
+            seperate_features=self.has_features_encoder,
+            feature_attention_heads=self.feature_attention_heads,
             max_source_length=self.max_source_length,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
@@ -485,6 +517,8 @@ class PointerGeneratorTransformerEncoderDecoder(
         source_indices: torch.Tensor,
         target_tensor: torch.Tensor,
         target_mask: torch.Tensor,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Runs the decoder in one step.
 
@@ -506,7 +540,12 @@ class PointerGeneratorTransformerEncoderDecoder(
                 target_seq_len is inferred form the target_tensor.
         """
         decoder_output = self.decoder(
-            encoder_outputs, source_mask, target_tensor, target_mask
+            encoder_outputs,
+            source_mask,
+            target_tensor,
+            target_mask, 
+            features_memory=features_enc,
+            features_memory_mask=features_mask,
         )
         tgt_embeddings = decoder_output.embeddings
         decoder_output = decoder_output.output
@@ -555,6 +594,8 @@ class PointerGeneratorTransformerEncoderDecoder(
         source_mask: torch.Tensor,
         source_indices: torch.Tensor,
         targets: Optional[torch.Tensor],
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
@@ -592,6 +633,8 @@ class PointerGeneratorTransformerEncoderDecoder(
                 source_indices,
                 target_tensor,
                 target_mask,
+                features_enc,
+                features_mask
             )
             scores = scores[:, -1, :] 
             # Puts scores in log space.
@@ -646,7 +689,17 @@ class PointerGeneratorTransformerEncoderDecoder(
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
-                raise NotImplementedError
+                scores = self.decode_step(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    target_padded,
+                    target_mask,
+                    features_enc=features_encoded,
+                )
+                scores = scores[:, :-1, :]  # Ignore EOS.
+                # Puts scores in log space.
+                output = torch.log(scores)
             else:
                 if self.beam_width is not None and self.beam_width > 1:
                     # predictions = self.beam_decode(
@@ -668,7 +721,13 @@ class PointerGeneratorTransformerEncoderDecoder(
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
-                raise NotImplementedError
+                output = self._decode_greedy(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    batch.target.padded if batch.target else None,
+                    features_enc=features_encoded,
+                )
             else:
                 # -> B x seq_len x output_size.
                 output = self._decode_greedy(

@@ -345,18 +345,22 @@ class TransformerDecoder(TransformerModule):
         return "transformer"
 
 
-class TransformerDecoderWithMhaWeights(TransformerDecoder):
-    """TransformerDecoder with an `attention_output` property.
+class TransformerPointerDecoder(TransformerDecoder):
+    """TransformerDecoder with seperate features and `attention_output`.
     
     `attention_output` tracks the output of multiheaded attention from each decoder step
-    wrt the encoded input. This is achieved with a hook into the forward pass.
+    wrt the encoded input. This is achieved with a hook into the forward pass. We additionally
+    expect seperately decoded features, which are passed through `feature_attention_heads`
+    multiheaded attentions from each decoder step wrt the encoded features.
 
     After:
         Hook idea is taken from 
         https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, seperate_features, feature_attention_heads, **kwargs):
         """Initializes the TransformerDecoderWithMhaWeights object."""
+        self.seperate_features = seperate_features
+        self.feature_attention_heads = feature_attention_heads
         super().__init__(*args, **kwargs)
         # Call this to get the actual cross attentions
         self.attention_output = AttentionOutput()
@@ -365,6 +369,90 @@ class TransformerDecoderWithMhaWeights(TransformerDecoder):
         self.hook_handle = self.module.layers[-1].multihead_attn.register_forward_hook(
             self.attention_output
         )
+
+    def forward(
+        self,
+        encoder_hidden: torch.Tensor,
+        source_mask: torch.Tensor,
+        target: torch.Tensor,
+        target_mask: torch.Tensor,
+        features_memory: Optional[torch.Tensor]=None,
+        features_memory_mask: Optional[torch.Tensor]=None,
+    ) -> torch.Tensor:
+        """Performs single pass of decoder module.
+
+        Args:
+            encoder_hidden (torch.Tensor): source encoder hidden state, of
+                shape B x seq_len x hidden_size.
+            source_mask (torch.Tensor): encoder hidden state mask.
+            target (torch.Tensor): current state of targets, which may be the
+                full target, or previous decoded, of shape
+                B x seq_len x hidden_size.
+            target_mask (torch.Tensor): target mask.
+
+        Returns:
+            torch.Tensor: torch tensor of decoder outputs.
+        """
+        target_embedding = self.embed(target)
+        target_sequence_length = target_embedding.size(1)
+        # -> seq_len x seq_len.
+        causal_mask = self.generate_square_subsequent_mask(
+            target_sequence_length
+        ).to(self.device)
+        # -> B x seq_len x d_model
+        if self.seperate_features:
+            output = self.module(
+                target_embedding,
+                encoder_hidden,
+                features_memory=features_memory,
+                tgt_mask=causal_mask,
+                memory_key_padding_mask=source_mask,
+                features_memory_mask=features_memory_mask,
+                tgt_key_padding_mask=target_mask,
+            )
+        else:
+            output = self.module(
+                target_embedding,
+                encoder_hidden,
+                tgt_mask=causal_mask,
+                memory_key_padding_mask=source_mask,
+                tgt_key_padding_mask=target_mask,
+            )
+
+        return base.ModuleOutput(output, embeddings=target_embedding)
+
+    def get_module(self) -> nn.TransformerDecoder:
+        if self.seperate_features:
+            decoder_layer = TransformerDecoderLayerSeperateFeatures(
+                d_model=self.decoder_input_size,
+                dim_feedforward=self.hidden_size,
+                nhead=self.attention_heads,
+                nfeature_heads=self.feature_attention_heads,
+                dropout=self.dropout,
+                activation="relu",
+                norm_first=True,
+                batch_first=True,
+            )
+            return TransformerDecoderSeperateFeatures(
+                decoder_layer=decoder_layer,
+                num_layers=self.layers,
+                norm=nn.LayerNorm(self.embedding_size),
+            )
+        else:
+            decoder_layer = nn.TransformerDecoderLayer(
+                d_model=self.decoder_input_size,
+                dim_feedforward=self.hidden_size,
+                nhead=self.attention_heads,
+                dropout=self.dropout,
+                activation="relu",
+                norm_first=True,
+                batch_first=True,
+            )
+            return nn.TransformerDecoder(
+                decoder_layer=decoder_layer,
+                num_layers=self.layers,
+                norm=nn.LayerNorm(self.embedding_size),
+            )
 
     def patch_attention(self, attention_module: torch.nn.Module) -> None:
         """Wraps a module's forward pass such that `need_weights` is True.
@@ -380,3 +468,182 @@ class TransformerDecoderWithMhaWeights(TransformerDecoder):
             return forward_orig(*args, **kwargs)
 
         attention_module.forward = wrap
+
+
+class TransformerDecoderSeperateFeatures(nn.TransformerDecoder):
+
+    def forward(
+        self,
+        tgt: torch.Tensor,
+        memory: torch.Tensor,
+        features_memory: torch.Tensor,
+        tgt_mask: Optional[torch.Tensor] = None,
+        memory_mask: Optional[torch.Tensor] = None,
+        features_memory_mask: Optional[torch.Tensor] = None,
+        tgt_key_padding_mask: Optional[torch.Tensor] = None,
+        memory_key_padding_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Pass the inputs (and mask) through the decoder layer in turn.
+
+        Args:
+            tgt: the sequence to the decoder (required).
+            memory: the sequence from the last layer of the encoder (required).
+            features_memory: 
+            tgt_mask: the mask for the tgt sequence (optional).
+            memory_mask: the mask for the memory sequence (optional).
+            features_memory_mask: (optional).
+            tgt_key_padding_mask: the mask for the tgt keys per batch (optional).
+            memory_key_padding_mask: the mask for the memory keys per batch (optional).
+
+        Shape:
+            see the docs in Transformer class.
+        """
+        output = tgt
+
+        for mod in self.layers:
+            output = mod(
+                output,
+                memory,
+                features_memory,
+                tgt_mask=tgt_mask,
+                memory_mask=memory_mask,
+                features_memory_mask=features_memory_mask,
+                tgt_key_padding_mask=tgt_key_padding_mask,
+                memory_key_padding_mask=memory_key_padding_mask,
+            )
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output
+
+
+class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
+    def __init__(self, *args, nfeature_heads, **kwargs):
+        super().__init__(*args, **kwargs)
+        factory_kwargs = {"device": kwargs.get("device"), "dtype": kwargs.get("dtype")}
+        self.feature_multihead_attn = nn.MultiheadAttention(
+            kwargs["d_model"], # TODO: Seperate feature embedding size?
+            nfeature_heads,
+            dropout=kwargs["dropout"],
+            batch_first=kwargs["batch_first"],
+            **factory_kwargs,
+        )
+        self.symbols_linear = nn.Linear(
+            kwargs["d_model"],
+            int(kwargs["dim_feedforward"] / 2), # FIXME: This will break when used if odd dim_feedforward
+            bias=kwargs.get("bias"),
+            **factory_kwargs,
+        )
+        self.features_linear = nn.Linear(
+            kwargs["d_model"], # TODO: Seperate feature embedding size?
+            int(kwargs["dim_feedforward"] / 2), # FIXME: This will break when used if odd dim_feedforward 
+            bias=kwargs.get("bias"),
+            **factory_kwargs,
+        )
+        
+    def forward(
+        self,
+        tgt: torch.Tensor,
+        memory: torch.Tensor,
+        features_memory: torch.Tensor,
+        tgt_mask: Optional[torch.Tensor] = None,
+        memory_mask: Optional[torch.Tensor] = None,
+        features_memory_mask: Optional[torch.Tensor] = None,
+        tgt_key_padding_mask: Optional[torch.Tensor] = None,
+        memory_key_padding_mask: Optional[torch.Tensor] = None,
+        tgt_is_causal: bool = False,
+        memory_is_causal: bool = False,
+    ) -> torch.Tensor:
+        r"""Pass the inputs (and mask) through the decoder layer.
+
+        Args:
+            tgt: the sequence to the decoder layer (required).
+            memory: the sequence from the last layer of the encoder (required).
+            tgt_mask: the mask for the tgt sequence (optional).
+            memory_mask: the mask for the memory sequence (optional).
+            tgt_key_padding_mask: the mask for the tgt keys per batch (optional).
+            memory_key_padding_mask: the mask for the memory keys per batch (optional).
+            tgt_is_causal: If specified, applies a causal mask as tgt mask.
+                Mutually exclusive with providing tgt_mask. Default: ``False``.
+            memory_is_causal: If specified, applies a causal mask as tgt mask.
+                Mutually exclusive with providing memory_mask. Default: ``False``.
+        Shape:
+            see the docs in Transformer class.
+        """
+        # see Fig. 1 of https://arxiv.org/pdf/2002.04745v1.pdf
+
+        x = tgt
+        if self.norm_first:
+            x = x + self._sa_block(
+                self.norm1(x),
+                tgt_mask,
+                tgt_key_padding_mask,
+                # is_causal=tgt_is_causal # FIXME: Introduced in torch 2.0
+            )
+            x = self.norm2(x)
+            symbol_attention = self._mha_block(
+                x,
+                memory,
+                memory_mask,
+                memory_key_padding_mask,
+                # memory_is_causal, # FIXME Introduced in torch 2.0
+            )
+            symbol_attention = self.symbols_linear(symbol_attention)
+            feature_attention = self._features_mha_block(
+                x,
+                features_memory,
+                features_memory_mask,
+                features_memory_mask,
+                # memory_is_causal, # FIXME Introduced in torch 2.0
+            )
+            feature_attention = self.features_linear(feature_attention)
+            x = torch.cat([symbol_attention, feature_attention], dim=2)
+            x = x + self._ff_block(self.norm3(x))
+        else:
+            x = self.norm1(x + self._sa_block(
+                x,
+                tgt_mask,
+                tgt_key_padding_mask,
+                # is_causal=tgt_is_causal # FIXME: Introduced in torch 2.0
+            ))
+            symbol_attention = self._mha_block(
+                x,
+                memory,
+                memory_mask,
+                memory_key_padding_mask,
+                # memory_is_causal, # FIXME Introduced in torch 2.0
+            )
+            symbol_attention = self.symbols_linear(symbol_attention)
+            feature_attention = self._features_mha_block(
+                x,
+                features_memory,
+                features_memory_mask,
+                features_memory_mask,
+                # memory_is_causal, # FIXME Introduced in torch 2.0
+            )
+            feature_attention = self.features_linear(feature_attention)
+            x = x + torch.cat([symbol_attention, feature_attention], dim=2)
+            x = self.norm2(x)
+            x = self.norm3(x + self._ff_block(x))
+
+        return x
+
+    def _features_mha_block(
+        self,
+        x: torch.Tensor,
+        mem: torch.Tensor,
+        attn_mask: Optional[torch.Tensor],
+        key_padding_mask: Optional[torch.Tensor],
+        # is_causal: bool = False,# FIXME: Introduced in torch 2.0
+    ) -> torch.Tensor:
+        x = self.feature_multihead_attn(
+            x,
+            mem,
+            mem,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            # is_causal=is_causal, # FIXME: Introduced in torch 2.0
+            need_weights=False,
+        )[0]
+        return self.dropout2(x)

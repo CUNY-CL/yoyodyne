@@ -176,3 +176,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             help="Number of attention heads "
             "(transformer-backed architectures only. Default: %(default)s.",
         )
+        parser.add_argument(
+            "--feature_attention_heads",
+            type=int,
+            default=defaults.FEATURE_ATTENTION_HEADS,
+            help="Number of feature attention heads "
+            "(transformer-backed pointer-generator only. Default: %(default)s.",
+        )
