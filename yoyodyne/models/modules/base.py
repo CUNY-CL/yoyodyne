@@ -24,7 +24,7 @@ class ModuleOutput:
     @property
     def has_hiddens(self) -> bool:
         return self.hiddens is not None
-    
+
     @property
     def has_embeddings(self) -> bool:
         return self.embeddings is not None

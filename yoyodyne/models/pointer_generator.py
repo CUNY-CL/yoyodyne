@@ -48,30 +48,37 @@ class GenerationProbability(nn.Module):
         target_embeddings: torch.Tensor,
     ) -> torch.Tensor:
         """Computes the generation probability
-        
+
         This is a function of the context vectors, decoder hidden states, and
-        target embeddings, where each is first mapped to a scalar value by a learnable
-        weight matrix.
+        target embeddings, where each is first mapped to a scalar value by a
+        learnable weight matrix.
 
         Args:
-            attention_context (torch.Tensor): combined context vector over source and
-                features of shape B x sequence_length x attention_size.
+            attention_context (torch.Tensor): combined context vector over
+                source and features of shape
+                B x sequence_length x attention_size.
             decoder_hiddens (torch.Tensor): decoder hidden state of shape
                 B x sequence_length x hidden_size.
-            target_embeddings (torch.Tensor): decoder input of shape B x sequence_length x embedding_size.
+            target_embeddings (torch.Tensor): decoder input of shape
+                B x sequence_length x embedding_size.
 
         Returns:
             (torch.Tensor): generation probability of shape B.
         """
         # -> B x sequence_length x 1.
-        p_gen = self.W_attention(attention_context) + self.W_hs(decoder_hiddens)
-        p_gen += self.W_emb(target_embeddings) + self.bias.expand(attention_context.size(0), 1, -1)
+        p_gen = self.W_attention(attention_context) + self.W_hs(
+            decoder_hiddens
+        )
+        p_gen += self.W_emb(target_embeddings) + self.bias.expand(
+            attention_context.size(0), 1, -1
+        )
         # -> B x sequence_length.
         p_gen = torch.sigmoid(p_gen.squeeze(1))
         return p_gen
 
 
 class PointerGenerator(nn.Module):
+    """Base pointer generator"""
 
     # Constructed inside __init__.
     geneneration_probability: GenerationProbability
@@ -140,7 +147,9 @@ class PointerGenerator(nn.Module):
         return loss
 
 
-class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder, PointerGenerator):
+class PointerGeneratorLSTMEncoderDecoder(
+    lstm.LSTMEncoderDecoder, PointerGenerator
+):
     """Pointer-generator model with an LSTM backend.
 
     After:
@@ -447,7 +456,7 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder, PointerGenerat
 
     @property
     def name(self) -> str:
-        return "pointer-generator"
+        return "pointer-generator LSTM"
 
 
 class PointerGeneratorTransformerEncoderDecoder(
@@ -468,6 +477,7 @@ class PointerGeneratorTransformerEncoderDecoder(
     feature_attention_heads: int
 
     def __init__(self, *args, feature_attention_heads, **kwargs):
+        """Initializes a pointer-generator model with transformer backend."""
         self.feature_attention_heads = feature_attention_heads
         super().__init__(*args, **kwargs)
         if not self.has_features_encoder:
@@ -480,17 +490,10 @@ class PointerGeneratorTransformerEncoderDecoder(
             self.features_attention = modules.attention.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
-            # Embedding size * 2 because feature representations are concatenated.
-            # TODO: We probably want a seeprate feature embedding size?
-            # self.classifier = nn.Linear(
-            #     self.embedding_size * 2, self.target_vocab_size
-            # )
-            # TODO: Use d_model for all for now.
             self.generation_probability = GenerationProbability(  # noqa: E501
                 self.embedding_size,
-                self.embedding_size,#* 2,
                 self.embedding_size,
-                # self.source_encoder.output_size + self.features_encoder.output_size,
+                self.embedding_size,
             )
 
     def get_decoder(self):
@@ -509,7 +512,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
         )
-    
+
     def decode_step(
         self,
         encoder_outputs: torch.Tensor,
@@ -522,10 +525,11 @@ class PointerGeneratorTransformerEncoderDecoder(
     ) -> torch.Tensor:
         """Runs the decoder in one step.
 
-        This will work on any sequence length, and returns output probabilities
-        for all targets, meaning we can use this method for greedy decoding,
-        wherein only a single new token is decoded at a time, or for teacher-forced
-        training, wherein all tokens can be decoded in parallel with a diagonal mask.
+        This will work on any sequence length, and returns output
+        probabilities for all targets, meaning we can use this method for
+        greedy decoding, wherein only a single new token is decoded at a time,
+        or for teacher-forced training, wherein all tokens can be decoded in
+        parallel with a diagonal mask.
 
         Args:
             encoder_outputs (torch.Tensor): Encoded output representations.
@@ -533,9 +537,11 @@ class PointerGeneratorTransformerEncoderDecoder(
             source_indices (torch.Tensor): Source token vocabulary ids.
             target_tensor (torch.Tensor): Target token vocabulary ids.
             target_mask (torch.Tensor): Mask for the target tokens.
+            features_enc (Optional[torch.Tensor]): Encoded features.
+            features_mask (Optional[torch.Tensor]): Mask for encoded features.
 
         Returns:
-            torch.Tensor: Output probabilities of the shape 
+            torch.Tensor: Output probabilities of the shape
                 B x target_seq_len x target_vocab_size, where
                 target_seq_len is inferred form the target_tensor.
         """
@@ -543,7 +549,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             encoder_outputs,
             source_mask,
             target_tensor,
-            target_mask, 
+            target_mask,
             features_memory=features_enc,
             features_memory_mask=features_mask,
         )
@@ -574,10 +580,8 @@ class PointerGeneratorTransformerEncoderDecoder(
         # Scatters the attention weights onto the ptr_probs tensor
         # at their vocab indices in order to get outputs
         # that match the indexing of the generation probability.
-        ptr_probs.scatter_add_(
-            2, repeated_source_indices, mha_outputs
-        )
-        # A matrix of 'context' vectors from applying attention 
+        ptr_probs.scatter_add_(2, repeated_source_indices, mha_outputs)
+        # A matrix of 'context' vectors from applying attention
         # to the encoder representations wrt each decoder step.
         context = torch.bmm(mha_outputs, encoder_outputs)
         # Probability of generating (from output_probs).
@@ -587,7 +591,7 @@ class PointerGeneratorTransformerEncoderDecoder(
         ptr_scores = (1 - gen_probs) * ptr_probs
         gen_scores = gen_probs * output_probs
         return gen_scores + ptr_scores
-        
+
     def _decode_greedy(
         self,
         encoder_hidden: torch.Tensor,
@@ -602,10 +606,13 @@ class PointerGeneratorTransformerEncoderDecoder(
         Args:
             encoder_hidden (torch.Tensor): Hidden states from the encoder.
             source_mask (torch.Tensor): Mask for the encoded source tokens.
+            source_indices (torch.Tensor): Indices of the source symbols.
             targets (torch.Tensor, optional): The optional target tokens,
                 which is only used for early stopping during validation
                 if the decoder has predicted [EOS] for every sequence in
                 the batch.
+            features_enc (Optional[torch.Tensor]): Encoded features.
+            features_mask (Optional[torch.Tensor]): Mask for encoded features.
 
         Returns:
             torch.Tensor: predictions from the decoder.
@@ -634,9 +641,9 @@ class PointerGeneratorTransformerEncoderDecoder(
                 target_tensor,
                 target_mask,
                 features_enc,
-                features_mask
+                features_mask,
             )
-            scores = scores[:, -1, :] 
+            scores = scores[:, -1, :]
             # Puts scores in log space.
             last_output = torch.log(scores)
             outputs.append(last_output)
@@ -656,7 +663,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                     break
         # -> B x seq_len x target_vocab_size.
         return torch.stack(outputs).transpose(0, 1)
-    
+
     def forward(
         self,
         batch: data.PaddedBatch,
@@ -686,9 +693,16 @@ class PointerGeneratorTransformerEncoderDecoder(
             target_mask = torch.cat(
                 (starts == self.pad_idx, batch.target.mask), dim=1
             )
+            features_encoded = None
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
+            if self.beam_width is not None and self.beam_width > 1:
+                # predictions = self.beam_decode(
+                # batch_size, x_mask, encoder_out, beam_width=self.beam_width
+                # )
+                raise NotImplementedError
+            else:
                 scores = self.decode_step(
                     source_encoded,
                     batch.source.mask,
@@ -700,44 +714,21 @@ class PointerGeneratorTransformerEncoderDecoder(
                 scores = scores[:, :-1, :]  # Ignore EOS.
                 # Puts scores in log space.
                 output = torch.log(scores)
-            else:
-                if self.beam_width is not None and self.beam_width > 1:
-                    # predictions = self.beam_decode(
-                    # batch_size, x_mask, encoder_out, beam_width=self.beam_width
-                    # )
-                    raise NotImplementedError
-                else:
-                    scores = self.decode_step(
-                        source_encoded,
-                        batch.source.mask,
-                        batch.source.padded,
-                        target_padded,
-                        target_mask,
-                    )
-                    scores = scores[:, :-1, :]  # Ignore EOS.
-                    # Puts scores in log space.
-                    output = torch.log(scores)
         else:
+            features_encoded = None
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
-                output = self._decode_greedy(
-                    source_encoded,
-                    batch.source.mask,
-                    batch.source.padded,
-                    batch.target.padded if batch.target else None,
-                    features_enc=features_encoded,
-                )
-            else:
-                # -> B x seq_len x output_size.
-                output = self._decode_greedy(
-                    source_encoded,
-                    batch.source.mask,
-                    batch.source.padded,
-                    batch.target.padded if batch.target else None,
-                )
+            # -> B x seq_len x output_size.
+            output = self._decode_greedy(
+                source_encoded,
+                batch.source.mask,
+                batch.source.padded,
+                batch.target.padded if batch.target else None,
+                features_enc=features_encoded,
+            )
         return output
-    
+
     @property
     def name(self) -> str:
-        return "pointer-generator-transformer"
+        return "pointer-generator transformer"
