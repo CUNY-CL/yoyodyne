@@ -1,7 +1,7 @@
 """Transformer model classes."""
 
 import math
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch import nn
@@ -79,6 +79,9 @@ class AttentionOutput:
     This object can be passed into a hook to the Transformer forward pass
     in order to modify its behavior such that certain attention weights are
     returned, and then stored in self.outputs."""
+
+    # Model arguments.
+    outputs: List
 
     def __init__(self):
         """Initializes an AttentionOutput."""
@@ -229,48 +232,48 @@ class TransformerDecoderSeperateFeatures(nn.TransformerDecoder):
 
     def forward(
         self,
-        tgt: torch.Tensor,
+        target: torch.Tensor,
         memory: torch.Tensor,
         features_memory: torch.Tensor,
-        tgt_mask: Optional[torch.Tensor] = None,
+        target_mask: Optional[torch.Tensor] = None,
         memory_mask: Optional[torch.Tensor] = None,
         features_memory_mask: Optional[torch.Tensor] = None,
-        tgt_key_padding_mask: Optional[torch.Tensor] = None,
+        target_key_padding_mask: Optional[torch.Tensor] = None,
         memory_key_padding_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Pass the inputs (and mask) through the decoder layer in turn.
 
         Args:
-            tgt (torch.Tensor): the sequence to the decoder.
+            target (torch.Tensor): the sequence to the decoder.
             memory (torch.Tensor): the sequence from the last layer of the
                 encoder.
             features_memory (torch.Tensor): the sequence from the last layer
                 of the features encoder.
-            tgt_mask (Optional[torch.Tensor], optional): the mask for the tgt
-                sequence. Defaults to None.
+            target_mask (Optional[torch.Tensor], optional): the mask for the
+                target sequence. Defaults to None.
             memory_mask (Optional[torch.Tensor], optional): the mask for the
                 memory sequence. Defaults to None.
             features_memory_mask (Optional[torch.Tensor], optional): the mask
                 for the features. Defaults to None.
-            tgt_key_padding_mask (Optional[torch.Tensor], optional): the mask
-                for the tgt keys per batch. Defaults to None.
+            target_key_padding_mask (Optional[torch.Tensor], optional): the
+                mask for the target keys per batch. Defaults to None.
             memory_key_padding_mask (Optional[torch.Tensor], optional): the
                 mask for the memory keys per batch. Defaults to None.
 
         Returns:
             torch.Tensor: Output tensor.
         """
-        output = tgt
+        output = target
 
         for mod in self.layers:
             output = mod(
                 output,
                 memory,
                 features_memory,
-                tgt_mask=tgt_mask,
+                target_mask=target_mask,
                 memory_mask=memory_mask,
                 features_memory_mask=features_memory_mask,
-                tgt_key_padding_mask=tgt_key_padding_mask,
+                target_key_padding_mask=target_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,
             )
 
@@ -320,51 +323,52 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
 
     def forward(
         self,
-        tgt: torch.Tensor,
+        target: torch.Tensor,
         memory: torch.Tensor,
         features_memory: torch.Tensor,
-        tgt_mask: Optional[torch.Tensor] = None,
+        target_mask: Optional[torch.Tensor] = None,
         memory_mask: Optional[torch.Tensor] = None,
         features_memory_mask: Optional[torch.Tensor] = None,
-        tgt_key_padding_mask: Optional[torch.Tensor] = None,
+        target_key_padding_mask: Optional[torch.Tensor] = None,
         memory_key_padding_mask: Optional[torch.Tensor] = None,
-        tgt_is_causal: bool = False,
+        target_is_causal: bool = False,
         memory_is_causal: bool = False,
     ) -> torch.Tensor:
         """Pass the inputs (and mask) through the decoder layer.
 
         Args:
-            tgt (torch.Tensor): the sequence to the decoder layer.
+            target (torch.Tensor): the sequence to the decoder layer.
             memory (torch.Tensor): the sequence from the last layer of the
                 encoder.
             features_memory (torch.Tensor): the mask for the features.
-            tgt_mask (Optional[torch.Tensor], optional): the mask for the
-                tgt sequence. Defaults to None.
+            target_mask (Optional[torch.Tensor], optional): the mask for the
+                target sequence. Defaults to None.
             memory_mask (Optional[torch.Tensor], optional): the mask for the
                 memory sequence. Defaults to None.
             features_memory_mask (Optional[torch.Tensor], optional): the mask
                 for the features. Defaults to None.
-            tgt_key_padding_mask (Optional[torch.Tensor], optional): the mask
-                for the tgt keys per batch. Defaults to None.
+            target_key_padding_mask (Optional[torch.Tensor], optional): the
+                mask for the target keys per batch. Defaults to None.
             memory_key_padding_mask (Optional[torch.Tensor], optional): the
                 mask for the memory keys per batch
-            tgt_is_causal (bool, optional): If specified, applies a causal
-                mask as tgt mask. Mutually exclusive with providing tgt_mask.
-                Defaults to False.
+            target_is_causal (bool, optional): If specified, applies a causal
+                mask as target mask. Mutually exclusive with providing
+                target_mask. Defaults to False.
             memory_is_causal (bool, optional): If specified, applies a causal
-                mask as tgt mask. Mutually exclusive with providing
+                mask as target mask. Mutually exclusive with providing
                 memory_mask. Defaults to False.
 
         Returns:
             torch.Tensor: Ouput tensor.
         """
-        x = tgt
+        x = target
         if self.norm_first:
             x = x + self._sa_block(
                 self.norm1(x),
-                tgt_mask,
-                tgt_key_padding_mask,
-                # is_causal=tgt_is_causal # FIXME: Introduced in torch 2.0
+                target_mask,
+                target_key_padding_mask,
+                # FIXME: Introduced in torch 2.0
+                # is_causal=target_is_causal
             )
             x = self.norm2(x)
             symbol_attention = self._mha_block(
@@ -372,7 +376,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 memory,
                 memory_mask,
                 memory_key_padding_mask,
-                # memory_is_causal, # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0
+                # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
@@ -381,7 +386,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 features_memory,
                 features_memory_mask,
                 features_memory_mask,
-                # memory_is_causal, # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0
+                # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             feature_attention = self.features_linear(feature_attention)
@@ -392,9 +398,10 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 x
                 + self._sa_block(
                     x,
-                    tgt_mask,
-                    tgt_key_padding_mask,
-                    # is_causal=tgt_is_causal # FIXME: Introduced in torch 2.0
+                    target_mask,
+                    target_key_padding_mask,
+                    # FIXME: Introduced in torch 2.0
+                    # is_causal=target_is_causal
                 )
             )
             symbol_attention = self._mha_block(
@@ -402,7 +409,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 memory,
                 memory_mask,
                 memory_key_padding_mask,
-                # memory_is_causal, # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0
+                # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
@@ -411,7 +419,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 features_memory,
                 features_memory_mask,
                 features_memory_mask,
-                # memory_is_causal, # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0
+                # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             feature_attention = self.features_linear(feature_attention)
@@ -427,7 +436,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
         mem: torch.Tensor,
         attn_mask: Optional[torch.Tensor],
         key_padding_mask: Optional[torch.Tensor],
-        # is_causal: bool = False,# FIXME: Introduced in torch 2.0
+        # FIXME: Introduced in torch 2.0
+        # is_causal: bool = False,
     ) -> torch.Tensor:
         """runs the multihead attention block that attends to features.
 
@@ -450,7 +460,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
             mem,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
-            # is_causal=is_causal, # FIXME: Introduced in torch 2.0
+            # FIXME: Introduced in torch 2.0
+            # is_causal=is_causal,
             need_weights=False,
         )[0]
         return self.dropout2(x)
@@ -554,9 +565,9 @@ class TransformerDecoder(TransformerModule):
         output = self.module(
             target_embedding,
             encoder_hidden,
-            tgt_mask=causal_mask,
+            target_mask=causal_mask,
             memory_key_padding_mask=source_mask,
-            tgt_key_padding_mask=target_mask,
+            target_key_padding_mask=target_mask,
         )
         return base.ModuleOutput(output, embeddings=target_embedding)
 
@@ -603,7 +614,7 @@ class TransformerPointerDecoder(TransformerDecoder):
     `attention_output` tracks the output of multiheaded attention from each
     decoder step wrt the encoded input. This is achieved with a hook into the
     forward pass. We additionally expect seperately decoded features, which
-    are passed through `feature_attention_heads` multiheaded attentions from
+    are passed through `features_attention_heads` multiheaded attentions from
     each decoder step wrt the encoded features.
 
     After:
@@ -611,11 +622,11 @@ class TransformerPointerDecoder(TransformerDecoder):
         https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91"""
 
     def __init__(
-        self, *args, seperate_features, feature_attention_heads, **kwargs
+        self, *args, seperate_features, features_attention_heads, **kwargs
     ):
         """Initializes the TransformerDecoderWithMhaWeights object."""
         self.seperate_features = seperate_features
-        self.feature_attention_heads = feature_attention_heads
+        self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
         # Call this to get the actual cross attentions
         self.attention_output = AttentionOutput()
@@ -663,18 +674,18 @@ class TransformerPointerDecoder(TransformerDecoder):
                 target_embedding,
                 encoder_hidden,
                 features_memory=features_memory,
-                tgt_mask=causal_mask,
+                target_mask=causal_mask,
                 memory_key_padding_mask=source_mask,
                 features_memory_mask=features_memory_mask,
-                tgt_key_padding_mask=target_mask,
+                target_key_padding_mask=target_mask,
             )
         else:
             output = self.module(
                 target_embedding,
                 encoder_hidden,
-                tgt_mask=causal_mask,
+                target_mask=causal_mask,
                 memory_key_padding_mask=source_mask,
-                tgt_key_padding_mask=target_mask,
+                target_key_padding_mask=target_mask,
             )
 
         return base.ModuleOutput(output, embeddings=target_embedding)
@@ -685,7 +696,7 @@ class TransformerPointerDecoder(TransformerDecoder):
                 d_model=self.decoder_input_size,
                 dim_feedforward=self.hidden_size,
                 nhead=self.attention_heads,
-                nfeature_heads=self.feature_attention_heads,
+                nfeature_heads=self.features_attention_heads,
                 dropout=self.dropout,
                 activation="relu",
                 norm_first=True,

@@ -182,7 +182,7 @@ def get_model_from_argparse_args(
     return model_cls(
         arch=args.arch,
         attention_heads=args.attention_heads,
-        feature_attention_heads=args.feature_attention_heads,
+        features_attention_heads=args.features_attention_heads,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,

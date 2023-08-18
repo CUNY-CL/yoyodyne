@@ -470,11 +470,11 @@ class PointerGeneratorTransformerEncoderDecoder(
     """
 
     # Model arguments.
-    feature_attention_heads: int
+    features_attention_heads: int
 
-    def __init__(self, *args, feature_attention_heads, **kwargs):
+    def __init__(self, *args, features_attention_heads, **kwargs):
         """Initializes a pointer-generator model with transformer backend."""
-        self.feature_attention_heads = feature_attention_heads
+        self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
         if not self.has_features_encoder:
             self.generation_probability = GenerationProbability(  # noqa: E501
@@ -503,7 +503,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             embedding_size=self.embedding_size,
             attention_heads=self.attention_heads,
             seperate_features=self.has_features_encoder,
-            feature_attention_heads=self.feature_attention_heads,
+            features_attention_heads=self.features_attention_heads,
             max_source_length=self.max_source_length,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
@@ -549,7 +549,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             features_memory=features_enc,
             features_memory_mask=features_mask,
         )
-        tgt_embeddings = decoder_output.embeddings
+        target_embeddings = decoder_output.embeddings
         decoder_output = decoder_output.output
         # Outputs from multi-headed attention from each decoder step to
         # the encoded inputs.
@@ -582,7 +582,7 @@ class PointerGeneratorTransformerEncoderDecoder(
         context = torch.bmm(mha_outputs, encoder_outputs)
         # Probability of generating (from output_dist).
         gen_probs = self.generation_probability(
-            context, decoder_output, tgt_embeddings
+            context, decoder_output, target_embeddings
         )
         scaled_ptr_dist = ptr_dist * (1 - gen_probs)
         scaled_output_dist = output_dist * gen_probs
