@@ -181,7 +181,7 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        attention_heads=args.attention_heads,
+        source_attention_heads=args.source_attention_heads,
         features_attention_heads=args.features_attention_heads,
         beta1=args.beta1,
         beta2=args.beta2,

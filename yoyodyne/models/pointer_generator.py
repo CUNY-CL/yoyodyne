@@ -501,7 +501,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embedding_size=self.embedding_size,
-            attention_heads=self.attention_heads,
+            source_attention_heads=self.source_attention_heads,
             seperate_features=self.has_features_encoder,
             features_attention_heads=self.features_attention_heads,
             max_source_length=self.max_source_length,

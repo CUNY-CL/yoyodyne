@@ -14,26 +14,26 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     """Transformer encoder-decoder."""
 
     # Model arguments.
-    attention_heads: int
+    source_attention_heads: int
     # Constructed inside __init__.
     classifier: nn.Linear
 
     def __init__(
         self,
         *args,
-        attention_heads=defaults.ATTENTION_HEADS,
+        source_attention_heads=defaults.SOURCE_ATTENTION_HEADS,
         **kwargs,
     ):
         """Initializes the encoder-decoder with attention.
 
         Args:
-            attention_heads (int).
+            source_attention_heads (int).
             max_source_length (int).
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
-        self.attention_heads = attention_heads
-        super().__init__(*args, attention_heads=attention_heads, **kwargs)
+        self.source_attention_heads = source_attention_heads
+        super().__init__(*args, source_attention_heads=source_attention_heads, **kwargs)
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
@@ -47,7 +47,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embedding_size=self.embedding_size,
-            attention_heads=self.attention_heads,
+            source_attention_heads=self.source_attention_heads,
             max_source_length=self.max_source_length,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
@@ -170,9 +170,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             parser (argparse.ArgumentParser).
         """
         parser.add_argument(
-            "--attention_heads",
+            "--source_attention_heads",
             type=int,
-            default=defaults.ATTENTION_HEADS,
+            default=defaults.SOURCE_ATTENTION_HEADS,
             help="Number of attention heads "
             "(transformer-backed architectures only. Default: %(default)s.",
         )

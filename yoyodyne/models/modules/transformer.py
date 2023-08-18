@@ -117,7 +117,7 @@ class TransformerModule(base.BaseModule):
     """Base module for Transformer."""
 
     # Model arguments.
-    attention_heads: int
+    source_attention_heads: int
     # Constructed inside __init__.
     esq: float
     module: nn.TransformerEncoder
@@ -126,7 +126,7 @@ class TransformerModule(base.BaseModule):
     def __init__(
         self,
         *args,
-        attention_heads,
+        source_attention_heads,
         max_source_length: int,
         **kwargs,
     ):
@@ -134,17 +134,17 @@ class TransformerModule(base.BaseModule):
 
         Args:
             *args: passed to superclass.
-            attention_heads (int).
+            source_attention_heads (int).
             max_source_length (int).
             **kwargs: passed to superclass.
         """
         super().__init__(
             *args,
-            attention_heads=attention_heads,
+            source_attention_heads=source_attention_heads,
             max_source_length=max_source_length,
             **kwargs,
         )
-        self.attention_heads = attention_heads
+        self.source_attention_heads = source_attention_heads
         self.esq = math.sqrt(self.embedding_size)
         self.module = self.get_module()
         self.positional_encoding = PositionalEncoding(
@@ -202,7 +202,7 @@ class TransformerEncoder(TransformerModule):
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=self.embedding_size,
             dim_feedforward=self.hidden_size,
-            nhead=self.attention_heads,
+            nhead=self.source_attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
@@ -568,7 +568,7 @@ class TransformerDecoder(TransformerModule):
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=self.decoder_input_size,
             dim_feedforward=self.hidden_size,
-            nhead=self.attention_heads,
+            nhead=self.source_attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
@@ -687,7 +687,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             decoder_layer = TransformerDecoderLayerSeperateFeatures(
                 d_model=self.decoder_input_size,
                 dim_feedforward=self.hidden_size,
-                nhead=self.attention_heads,
+                nhead=self.source_attention_heads,
                 nfeature_heads=self.features_attention_heads,
                 dropout=self.dropout,
                 activation="relu",
@@ -703,7 +703,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             decoder_layer = nn.TransformerDecoderLayer(
                 d_model=self.decoder_input_size,
                 dim_feedforward=self.hidden_size,
-                nhead=self.attention_heads,
+                nhead=self.source_attention_heads,
                 dropout=self.dropout,
                 activation="relu",
                 norm_first=True,

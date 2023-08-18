@@ -168,7 +168,7 @@ additional flags. Supported values for `--arch` are:
 -   `"transformer"`: This is a transformer decoder with transformer encoders (by
     default) and an attention mechanism. Sinusodial positional encodings and
     layer normalization are used. The user may wish to specify the number of
-    attention heads (with `--attention_heads`; default: `4`).
+    attention heads (with `--source_attention_heads`; default: `4`).
 
 The user can override the default encoder architectures. One can override the
 source encoder using the `--source_encoder` flag:
