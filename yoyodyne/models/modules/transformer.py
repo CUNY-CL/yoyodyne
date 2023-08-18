@@ -305,17 +305,15 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
         )
         self.symbols_linear = nn.Linear(
             kwargs["d_model"],
-            int(
-                kwargs["dim_feedforward"] / 2
-            ),  # FIXME: This will break when used if odd dim_feedforward
+            # FIXME: This will break when used if odd dim_feedforward
+            int(kwargs["dim_feedforward"] / 2),
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
         self.features_linear = nn.Linear(
             kwargs["d_model"],  # TODO: Seperate feature embedding size?
-            int(
-                kwargs["dim_feedforward"] / 2
-            ),  # FIXME: This will break when used if odd dim_feedforward
+            # FIXME: This will break when used if odd dim_feedforward
+            int(kwargs["dim_feedforward"] / 2),
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
