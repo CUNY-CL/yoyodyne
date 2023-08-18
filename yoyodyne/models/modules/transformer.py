@@ -69,6 +69,7 @@ class PositionalEncoding(nn.Module):
         out = out[torch.arange(out.shape[0]).unsqueeze(-1), indices]
         # Zeros out pads.
         pad_mask = symbols.ne(self.pad_idx).unsqueeze(2)
+        # TODO: consider in-place mul_.
         out = out * pad_mask
         return out
 
@@ -180,9 +181,8 @@ class TransformerModule(base.BaseModule):
         """
         word_embedding = self.esq * self.embeddings(symbols)
         positional_embedding = self.positional_encoding(symbols)
-        out = self.dropout_layer(word_embedding + positional_embedding)
-        return out
-
+        return self.dropout_layer(word_embedding + positional_embedding)
+        
 
 class TransformerEncoder(TransformerModule):
     def forward(self, source: data.PaddedTensor) -> torch.Tensor:
@@ -276,22 +276,20 @@ class TransformerDecoderSeperateFeatures(nn.TransformerDecoder):
                 target_key_padding_mask=target_key_padding_mask,
                 memory_key_padding_mask=memory_key_padding_mask,
             )
-
         if self.norm is not None:
             output = self.norm(output)
-
         return output
 
 
 class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
-    """Transformer decoder layer with seperate features.
+    """Transformer decoder layer with separate features.
 
-    Each decode step get's a second multihead attention representation
+    Each decode step gets a second multihead attention representation
     wrt the encoded features. This and the original multihead attention
-    representation wrt the encoded symbols are then compressed in a
+    representation w.r.t. the encoded symbols are then compressed in a
     linear layer and finally concatenated.
 
-    The implementation is otherwise identical to nn.TransformerDecoderLayer"""
+    The implementation is otherwise identical to nn.TransformerDecoderLayer."""
 
     def __init__(self, *args, nfeature_heads, **kwargs):
         super().__init__(*args, **kwargs)
@@ -300,7 +298,7 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
             "dtype": kwargs.get("dtype"),
         }
         self.feature_multihead_attn = nn.MultiheadAttention(
-            kwargs["d_model"],  # TODO: Seperate feature embedding size?
+            kwargs["d_model"],  # TODO: Separate feature embedding size?
             nfeature_heads,
             dropout=kwargs["dropout"],
             batch_first=kwargs["batch_first"],
@@ -345,10 +343,10 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 target sequence. Defaults to None.
             memory_mask (Optional[torch.Tensor], optional): the mask for the
                 memory sequence. Defaults to None.
-            features_memory_mask (Optional[torch.Tensor], optional): the mask
+            features_memory_mask (torch.Tensor, optional): the mask
                 for the features. Defaults to None.
-            target_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the target keys per batch. Defaults to None.
+            target_key_padding_mask (Optional[torch.Tensor], optional): the mask
+                for the target keys per batch. Defaults to None.
             memory_key_padding_mask (Optional[torch.Tensor], optional): the
                 mask for the memory keys per batch
             target_is_causal (bool, optional): If specified, applies a causal
@@ -367,8 +365,7 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 self.norm1(x),
                 target_mask,
                 target_key_padding_mask,
-                # FIXME: Introduced in torch 2.0
-                # is_causal=target_is_causal
+                # is_causal=target_is_causal # FIXME: Introduced in torch 2.0
             )
             x = self.norm2(x)
             symbol_attention = self._mha_block(
@@ -400,8 +397,7 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                     x,
                     target_mask,
                     target_key_padding_mask,
-                    # FIXME: Introduced in torch 2.0
-                    # is_causal=target_is_causal
+                    # is_causal=target_is_causal # FIXME: Introduced in torch 2.0
                 )
             )
             symbol_attention = self._mha_block(
@@ -427,7 +423,6 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
             x = x + torch.cat([symbol_attention, feature_attention], dim=2)
             x = self.norm2(x)
             x = self.norm3(x + self._ff_block(x))
-
         return x
 
     def _features_mha_block(
@@ -439,17 +434,16 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
         # FIXME: Introduced in torch 2.0
         # is_causal: bool = False,
     ) -> torch.Tensor:
-        """runs the multihead attention block that attends to features.
+        """Runs the multihead attention block that attends to features.
 
         Args:
-            x (torch.Tensor): The `query` tensor, i.e the previous decoded
+            x (torch.Tensor): The `query` tensor, i.e. the previous decoded
                 embeddings.
             mem (torch.Tensor): The `keys` and `values`, i.e. the encoded
                 features.
-            attn_mask (Optional[torch.Tensor]): the mask
-                for the features.
-            key_padding_mask (Optional[torch.Tensor]): the mask
-                for the feature keys per batch.
+            attn_mask (torch.Tensor, optional): the mask for the features.
+            key_padding_mask (torch.Tensor, optional): the mask for the
+                feature keys per batch.
 
         Returns:
             torch.Tensor: Concatenated attention head tensors.
@@ -468,7 +462,7 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
 
 
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
-    """Encoder for Transformer with feature invariance.
+    """Encoder for transformer with feature invariance.
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
@@ -502,11 +496,10 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             embedded (torch.Tensor): embedded tensor of shape
                 B x seq_len x embed_dim.
         """
-        # Distinguishes features and chars.
+        # Distinguishes features and chars; 1 or 0.
         char_mask = (
             symbols < (self.num_embeddings - self.features_vocab_size)
         ).long()
-        # 1 or 0.
         type_embedding = self.esq * self.type_embedding(char_mask)
         word_embedding = self.esq * self.embeddings(symbols)
         positional_embedding = self.positional_encoding(
@@ -561,7 +554,7 @@ class TransformerDecoder(TransformerModule):
         causal_mask = self.generate_square_subsequent_mask(
             target_sequence_length
         ).to(self.device)
-        # -> B x seq_len x d_model
+        # -> B x seq_len x d_model.
         output = self.module(
             target_embedding,
             encoder_hidden,
@@ -618,8 +611,8 @@ class TransformerPointerDecoder(TransformerDecoder):
     each decoder step wrt the encoded features.
 
     After:
-        Hook idea is taken from
-        https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91"""
+        https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91
+    """
 
     def __init__(
         self, *args, seperate_features, features_attention_heads, **kwargs
@@ -687,7 +680,6 @@ class TransformerPointerDecoder(TransformerDecoder):
                 memory_key_padding_mask=source_mask,
                 target_key_padding_mask=target_mask,
             )
-
         return base.ModuleOutput(output, embeddings=target_embedding)
 
     def get_module(self) -> nn.TransformerDecoder:
@@ -731,9 +723,9 @@ class TransformerPointerDecoder(TransformerDecoder):
                 to track multiheaded attention weights.
         """
         forward_orig = attention_module.forward
-
+        
         def wrap(*args, **kwargs):
             kwargs["need_weights"] = True
             return forward_orig(*args, **kwargs)
-
+            
         attention_module.forward = wrap
