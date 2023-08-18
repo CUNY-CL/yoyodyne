@@ -287,7 +287,7 @@ class PointerGeneratorLSTMEncoderDecoder(
         scaled_ptr_dist = ptr_dist * (1 - gen_probs)
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
-    
+
     def decode(
         self,
         source_enc: torch.Tensor,

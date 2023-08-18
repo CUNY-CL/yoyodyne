@@ -29,7 +29,8 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         "attentive_lstm": AttentiveLSTMEncoderDecoder,
         "lstm": LSTMEncoderDecoder,
         "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
-        "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,
+        "pointer_generator_transformer":
+            PointerGeneratorTransformerEncoderDecoder,
         "transducer": TransducerEncoderDecoder,
         "transformer": TransformerEncoderDecoder,
     }
