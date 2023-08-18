@@ -182,7 +182,7 @@ class TransformerModule(base.BaseModule):
         word_embedding = self.esq * self.embeddings(symbols)
         positional_embedding = self.positional_encoding(symbols)
         return self.dropout_layer(word_embedding + positional_embedding)
-        
+
 
 class TransformerEncoder(TransformerModule):
     def forward(self, source: data.PaddedTensor) -> torch.Tensor:
@@ -345,8 +345,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 memory sequence. Defaults to None.
             features_memory_mask (torch.Tensor, optional): the mask
                 for the features. Defaults to None.
-            target_key_padding_mask (Optional[torch.Tensor], optional): the mask
-                for the target keys per batch. Defaults to None.
+            target_key_padding_mask (Optional[torch.Tensor], optional): the
+                mask for the target keys per batch. Defaults to None.
             memory_key_padding_mask (Optional[torch.Tensor], optional): the
                 mask for the memory keys per batch
             target_is_causal (bool, optional): If specified, applies a causal
@@ -365,7 +365,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                 self.norm1(x),
                 target_mask,
                 target_key_padding_mask,
-                # is_causal=target_is_causal # FIXME: Introduced in torch 2.0
+                # FIXME: Introduced in torch 2.0
+                # is_causal=target_is_causal
             )
             x = self.norm2(x)
             symbol_attention = self._mha_block(
@@ -397,7 +398,8 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
                     x,
                     target_mask,
                     target_key_padding_mask,
-                    # is_causal=target_is_causal # FIXME: Introduced in torch 2.0
+                    # FIXME: Introduced in torch 2.0
+                    # is_causal=target_is_causal
                 )
             )
             symbol_attention = self._mha_block(
@@ -723,9 +725,9 @@ class TransformerPointerDecoder(TransformerDecoder):
                 to track multiheaded attention weights.
         """
         forward_orig = attention_module.forward
-        
+
         def wrap(*args, **kwargs):
             kwargs["need_weights"] = True
             return forward_orig(*args, **kwargs)
-            
+
         attention_module.forward = wrap
