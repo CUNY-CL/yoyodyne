@@ -73,8 +73,7 @@ class GenerationProbability(nn.Module):
             attention_context.size(0), 1, -1
         )
         # -> B x sequence_length.
-        p_gen = torch.sigmoid(p_gen.squeeze(1))
-        return p_gen
+        return torch.sigmoid(p_gen)
 
 
 class PointerGenerator(nn.Module):
@@ -260,16 +259,16 @@ class PointerGeneratorLSTMEncoderDecoder(
                 last_h0.transpose(0, 1), features_enc, features_mask
             )
             # -> B x 1 x 4*hidden_size.
-            context = torch.cat([context, features_context], dim=2)
+            context = torch.cat([context, context], dim=2)
         _, (h, c) = self.decoder.module(
             torch.cat((embedded, context), 2), (last_h0, last_c0)
         )
         # -> B x 1 x hidden_size
         hidden = h[-1, :, :].unsqueeze(1)
-        output_probs = self.classifier(torch.cat([hidden, context], dim=2))
-        output_probs = nn.functional.softmax(output_probs, dim=2)
+        output_dist = self.classifier(torch.cat([hidden, context], dim=2))
+        output_dist = nn.functional.softmax(output_dist, dim=2)
         # -> B x 1 x target_vocab_size.
-        ptr_probs = torch.zeros(
+        ptr_dist = torch.zeros(
             symbol.size(0),
             self.target_vocab_size,
             device=self.device,
@@ -278,20 +277,17 @@ class PointerGeneratorLSTMEncoderDecoder(
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x target_vocab_size.
-        ptr_probs.scatter_add_(
+        ptr_dist.scatter_add_(
             2, source_indices.unsqueeze(1), attention_weights
         )
-        # Probability of generating (from output_probs).
+        # Probability of generating (from output_dist).
         gen_probs = self.generation_probability(
             context, hidden, embedded
         ).unsqueeze(2)
-        ptr_scores = (1 - gen_probs) * ptr_probs
-        gen_scores = gen_probs * output_probs
-        scores = gen_scores + ptr_scores
-        # Puts scores in log space.
-        scores = torch.log(scores)
-        return scores, (h, c)
-
+        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
+        scaled_output_dist = output_dist * gen_probs
+        return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
+    
     def decode(
         self,
         source_enc: torch.Tensor,
@@ -563,9 +559,9 @@ class PointerGeneratorTransformerEncoderDecoder(
         # Clears the stored attention result.
         self.decoder.attention_output.clear()
         logits = self.classifier(decoder_output)
-        output_probs = nn.functional.softmax(logits, dim=2)
+        output_dist = nn.functional.softmax(logits, dim=2)
         # -> B x target_seq_len x target_vocab_size.
-        ptr_probs = torch.zeros(
+        ptr_dist = torch.zeros(
             mha_outputs.size(0),
             mha_outputs.size(1),
             self.target_vocab_size,
@@ -577,20 +573,20 @@ class PointerGeneratorTransformerEncoderDecoder(
         repeated_source_indices = source_indices.unsqueeze(1).repeat(
             1, mha_outputs.size(1), 1
         )
-        # Scatters the attention weights onto the ptr_probs tensor
+        # Scatters the attention weights onto the ptr_dist tensor
         # at their vocab indices in order to get outputs
         # that match the indexing of the generation probability.
-        ptr_probs.scatter_add_(2, repeated_source_indices, mha_outputs)
+        ptr_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
         # A matrix of 'context' vectors from applying attention
         # to the encoder representations wrt each decoder step.
         context = torch.bmm(mha_outputs, encoder_outputs)
-        # Probability of generating (from output_probs).
+        # Probability of generating (from output_dist).
         gen_probs = self.generation_probability(
             context, decoder_output, tgt_embeddings
         )
-        ptr_scores = (1 - gen_probs) * ptr_probs
-        gen_scores = gen_probs * output_probs
-        return gen_scores + ptr_scores
+        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
+        scaled_output_dist = output_dist * gen_probs
+        return torch.log(scaled_output_dist + scaled_ptr_dist)
 
     def _decode_greedy(
         self,
@@ -643,9 +639,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                 features_enc,
                 features_mask,
             )
-            scores = scores[:, -1, :]
-            # Puts scores in log space.
-            last_output = torch.log(scores)
+            last_output = scores[:, -1, :]
             outputs.append(last_output)
             # -> B x 1 x 1
             _, pred = torch.max(last_output, dim=1)
@@ -703,7 +697,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                 # )
                 raise NotImplementedError
             else:
-                scores = self.decode_step(
+                output = self.decode_step(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
@@ -711,9 +705,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                     target_mask,
                     features_enc=features_encoded,
                 )
-                scores = scores[:, :-1, :]  # Ignore EOS.
-                # Puts scores in log space.
-                output = torch.log(scores)
+                output = output[:, :-1, :]  # Ignore EOS.
         else:
             features_encoded = None
             if self.has_features_encoder:
