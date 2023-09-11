@@ -96,8 +96,9 @@ the source string and the second the target string.
     source   target
 
 To enable the use of a feature column, one specifies a (non-zero) argument to
-`--features_col`. For instance in the SIGMORPHON 2017 shared task, the first-
-column is the source (a lemma), the second is the target (the inflection), and
+`--features_col`. For instance in the [SIGMORPHON 2017 shared
+task](https://sigmorphon.github.io/sharedtasks/2017/), the first column is the
+source (a lemma), the second is the target (the inflection), and
 the third contains semi-colon delimited feature strings:
 
     source   target    feat1;feat2;...
