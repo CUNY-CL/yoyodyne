@@ -189,7 +189,7 @@ source encoder using the `--source_encoder` flag:
 -   `transformer`: This is a transformer encoder.
 
 When using features, the user can also specify a non-default features encoder
-using the `--features_encoder` flag (`"linear"`, `"lstm"`, `"transformer"`).
+using the `--features_encoder` flag (`linear`, `lstm`, `transformer`).
 
 For all models, the user may also wish to specify:
 
