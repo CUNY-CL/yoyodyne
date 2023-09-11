@@ -154,18 +154,18 @@ not an attention mechanism is present. This flag also specifies a default
 architecture for the encoder(s), but it is possible to override this with
 additional flags. Supported values for `--arch` are:
 
--   `"attentive_lstm"`: This is an LSTM decoder with LSTM encoders (by default)
+-   `attentive_lstm`: This is an LSTM decoder with LSTM encoders (by default)
     and an attention mechanism. The initial hidden state is treated as a learned
     parameter.
--   `"lstm"`: This is an LSTM decoder with LSTM encoders (by default); in lieu
+-   `lstm`: This is an LSTM decoder with LSTM encoders (by default); in lieu
     of an attention mechanism, the last non-padding hidden state of the encoder
     is concatenated with the decoder hidden state.
--   `"pointer_generator_lstm"`: This is an LSTM decoder with LSTM encoders (by
+-   `pointer_generator_lstm`: This is an LSTM decoder with LSTM encoders (by
     default) and a pointer-generator mechanism. Since this model contains a copy
     mechanism, it may be superior to the `lstm` when the input and output
     vocabularies overlap significantly. Note that this model requires that the
     number of `--encoder_layers` and `--decoder_layers` match.
--   `"transducer"`: This is an LSTM decoder with LSTM encoders (by default) and
+-   `transducer`: This is an LSTM decoder with LSTM encoders (by default) and
     a neural transducer mechanism. On model creation, expectation maximization
     is used to learn a sequence of edit operations, and imitation learning is
     used to train the model to implement the oracle policy, with roll-in
@@ -173,7 +173,7 @@ additional flags. Supported values for `--arch` are:
     assumes monotonic alignment, it may be superior to attentive models when the
     alignment between input and output is roughly monotonic and when input and
     output vocabularies overlap significantly.
--   `"transformer"`: This is a transformer decoder with transformer encoders (by
+-   `transformer`: This is a transformer decoder with transformer encoders (by
     default) and an attention mechanism. Sinusodial positional encodings and
     layer normalization are used. The user may wish to specify the number of
     attention heads (with `--attention_heads`; default: `4`).
@@ -181,12 +181,12 @@ additional flags. Supported values for `--arch` are:
 The user can override the default encoder architectures. One can override the
 source encoder using the `--source_encoder` flag:
 
--   `"feature_invariant_transformer"`: This is a variant of the transformer
+-   `feature_invariant_transformer`: This is a variant of the transformer
     encoder for use with features; it concatenates source and features and uses
     a learned embedding to distinguish between source and features symbols.
--   `"linear"`: This is a linear encoder.
--   `"lstm"`: This is a LSTM encoder.
--   `"transformer"`: This is a transformer encoder.
+-   `linear`: This is a linear encoder.
+-   `lstm`: This is a LSTM encoder.
+-   `transformer`: This is a transformer encoder.
 
 When using features, the user can also specify a non-default features encoder
 using the `--features_encoder` flag (`"linear"`, `"lstm"`, `"transformer"`).
@@ -235,7 +235,7 @@ A non-exhaustive list includes:
 
 ### Schedulers
 
-By default, Yoyodye uses a constant learning rate during training, but best
+By default, Yoyodyne uses a constant learning rate during training, but best
 practice is to gradually decreasing learning rate as the model approaches
 convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
 schedulers are supported and are selected with `--scheduler`:
