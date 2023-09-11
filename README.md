@@ -160,7 +160,7 @@ additional flags. Supported values for `--arch` are:
 -   `"lstm"`: This is an LSTM decoder with LSTM encoders (by default); in lieu
     of an attention mechanism, the last non-padding hidden state of the encoder
     is concatenated with the decoder hidden state.
--   `pointer_generator_lstm`: This is an LSTM decoder with LSTM encoders (by
+-   `"pointer_generator_lstm"`: This is an LSTM decoder with LSTM encoders (by
     default) and a pointer-generator mechanism. Since this model contains a copy
     mechanism, it may be superior to the `lstm` when the input and output
     vocabularies overlap significantly. Note that this model requires that the
