@@ -33,7 +33,7 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 -   It has support for using features to condition decoding, with
     architecture-specific code to handle feature information.
 -   It uses validation accuracy (not loss) for model selection and early
-    stoppping.
+    stopping.
 -   Releases are made regularly.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
