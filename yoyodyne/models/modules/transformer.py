@@ -223,11 +223,11 @@ class TransformerEncoder(TransformerModule):
         return "transformer"
 
 
-class TransformerDecoderSeperateFeatures(nn.TransformerDecoder):
-    """A Transformer decoder with seperate features.
+class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
+    """A Transformer decoder with separate features.
 
-    Adding seperate features into the transformer stack is implemented with
-    TransformerDecoderLayerSeperateFeatures layers.
+    Adding separate features into the transformer stack is implemented with
+    TransformerDecoderLayerseparateFeatures layers.
     """
 
     def forward(
@@ -281,7 +281,7 @@ class TransformerDecoderSeperateFeatures(nn.TransformerDecoder):
         return output
 
 
-class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
+class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
     """Transformer decoder layer with separate features.
 
     Each decode step gets a second multihead attention representation
@@ -312,7 +312,7 @@ class TransformerDecoderLayerSeperateFeatures(nn.TransformerDecoderLayer):
             **factory_kwargs,
         )
         self.features_linear = nn.Linear(
-            kwargs["d_model"],  # TODO: Seperate feature embedding size?
+            kwargs["d_model"],  # TODO: Separate feature embedding size?
             # FIXME: This will break when used if odd dim_feedforward
             int(kwargs["dim_feedforward"] / 2),
             bias=kwargs.get("bias"),
@@ -604,11 +604,11 @@ class TransformerDecoder(TransformerModule):
 
 
 class TransformerPointerDecoder(TransformerDecoder):
-    """TransformerDecoder with seperate features and `attention_output`.
+    """TransformerDecoder with separate features and `attention_output`.
 
     `attention_output` tracks the output of multiheaded attention from each
     decoder step wrt the encoded input. This is achieved with a hook into the
-    forward pass. We additionally expect seperately decoded features, which
+    forward pass. We additionally expect separately decoded features, which
     are passed through `features_attention_heads` multiheaded attentions from
     each decoder step wrt the encoded features.
 
@@ -617,10 +617,10 @@ class TransformerPointerDecoder(TransformerDecoder):
     """
 
     def __init__(
-        self, *args, seperate_features, features_attention_heads, **kwargs
+        self, *args, separate_features, features_attention_heads, **kwargs
     ):
         """Initializes the TransformerDecoderWithMhaWeights object."""
-        self.seperate_features = seperate_features
+        self.separate_features = separate_features
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
         # Call this to get the actual cross attentions
@@ -664,7 +664,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             target_sequence_length
         ).to(self.device)
         # -> B x seq_len x d_model
-        if self.seperate_features:
+        if self.separate_features:
             output = self.module(
                 target_embedding,
                 encoder_hidden,
@@ -685,8 +685,8 @@ class TransformerPointerDecoder(TransformerDecoder):
         return base.ModuleOutput(output, embeddings=target_embedding)
 
     def get_module(self) -> nn.TransformerDecoder:
-        if self.seperate_features:
-            decoder_layer = TransformerDecoderLayerSeperateFeatures(
+        if self.separate_features:
+            decoder_layer = TransformerDecoderLayerSeparateFeatures(
                 d_model=self.decoder_input_size,
                 dim_feedforward=self.hidden_size,
                 nhead=self.source_attention_heads,
@@ -696,7 +696,7 @@ class TransformerPointerDecoder(TransformerDecoder):
                 norm_first=True,
                 batch_first=True,
             )
-            return TransformerDecoderSeperateFeatures(
+            return TransformerDecoderSeparateFeatures(
                 decoder_layer=decoder_layer,
                 num_layers=self.layers,
                 norm=nn.LayerNorm(self.embedding_size),
