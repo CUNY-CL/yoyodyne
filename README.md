@@ -115,6 +115,14 @@ this format is specified by `--features_col 2 --features_sep , --target_col 3`.
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
 
+Reserved symbols
+----------------
+
+Yoyodyne reserves symbols of the form `<...>` for internal use.
+Feature-conditioned models also use `[...]` to avoid clashes between feature
+symbols and source and target symbols. Therefore, users should not provide any
+symbols of the form `<...>` or `[...]`.
+
 Model checkpointing
 -------------------
 
@@ -137,14 +145,6 @@ the provided model checkpoint.
 During training, we save the best `--save_top_k` checkpoints (by default, 1)
 ranked according to accuracy on the `--val` set. For example, `--save_top_k 5`
 will save the top 5 most accurate models.
-
-Reserved symbols
-----------------
-
-Yoyodyne reserves symbols of the form `<...>` for internal use.
-Feature-conditioned models also use `[...]` to avoid clashes between feature
-symbols and source and target symbols. Therefore, users should not provide any
-symbols of the form `<...>` or `[...]`.
 
 Models
 ------
