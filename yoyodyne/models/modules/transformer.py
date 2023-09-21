@@ -307,14 +307,14 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
         self.symbols_linear = nn.Linear(
             kwargs["d_model"],
             # FIXME: This will break when used if odd dim_feedforward
-            int(kwargs["dim_feedforward"] / 2),
+            int(kwargs["d_model"] / 2),
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
         self.features_linear = nn.Linear(
             kwargs["d_model"],  # TODO: Separate feature embedding size?
             # FIXME: This will break when used if odd dim_feedforward
-            int(kwargs["dim_feedforward"] / 2),
+            int(kwargs["d_model"] / 2),
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
@@ -425,6 +425,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             x = x + torch.cat([symbol_attention, feature_attention], dim=2)
             x = self.norm2(x)
             x = self.norm3(x + self._ff_block(x))
+
         return x
 
     def _features_mha_block(
@@ -678,9 +679,9 @@ class TransformerPointerDecoder(TransformerDecoder):
             output = self.module(
                 target_embedding,
                 encoder_hidden,
-                target_mask=causal_mask,
+                tgt_mask=causal_mask,
                 memory_key_padding_mask=source_mask,
-                target_key_padding_mask=target_mask,
+                tgt_key_padding_mask=target_mask,
             )
         return base.ModuleOutput(output, embeddings=target_embedding)
 
