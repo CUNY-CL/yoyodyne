@@ -483,9 +483,8 @@ class PointerGeneratorTransformerEncoderDecoder(
                 self.source_encoder.output_size,
             )
         else:
-            self.features_attention = modules.attention.Attention(
-                self.features_encoder.output_size, self.hidden_size
-            )
+            # Removes inherited features attention.
+            self.features_attention = None
             self.generation_probability = GenerationProbability(  # noqa: E501
                 self.embedding_size,
                 self.embedding_size,
