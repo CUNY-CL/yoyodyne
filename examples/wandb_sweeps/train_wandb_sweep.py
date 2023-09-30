@@ -32,7 +32,7 @@ def train_sweep(args: argparse.Namespace) -> None:
     # conflicting arguments passed via the CLI.
     for key, value in dict(wandb.config).items():
         if key in args:
-            util.log_info(f"Overridding CLI argument: {key}")
+            util.log_info(f"Overriding CLI argument: {key}")
         setattr(args, key, value)
     pl.seed_everything(args.seed)
     trainer = train.get_trainer_from_argparse_args(args)
