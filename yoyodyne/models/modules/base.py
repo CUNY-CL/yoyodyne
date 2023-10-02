@@ -1,6 +1,4 @@
-"""Base model class, with PL integration.
-
-This also includes init_embeddings, which has to go somewhere.
+"""Base module class, with PL integration.
 """
 
 import dataclasses
@@ -35,12 +33,12 @@ class BaseModule(pl.LightningModule):
     # Regularization arguments.
     dropout: float
     # Model arguments.
+    embeddings: nn.Embedding
     embedding_size: int
     hidden_size: int
     layers: int
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
-    embeddings: nn.Embedding
 
     def __init__(
         self,
@@ -48,9 +46,10 @@ class BaseModule(pl.LightningModule):
         pad_idx,
         start_idx,
         end_idx,
+        embeddings,
+        embedding_size,
         num_embeddings,
         dropout=defaults.DROPOUT,
-        embedding_size=defaults.EMBEDDING_SIZE,
         layers=defaults.ENCODER_LAYERS,
         hidden_size=defaults.HIDDEN_SIZE,
         **kwargs,  # Ignored.
@@ -59,82 +58,13 @@ class BaseModule(pl.LightningModule):
         self.pad_idx = pad_idx
         self.start_idx = start_idx
         self.end_idx = end_idx
-        self.num_embeddings = num_embeddings
         self.dropout = dropout
+        self.embeddings = embeddings
         self.embedding_size = embedding_size
+        self.num_embeddings = num_embeddings
         self.layers = layers
         self.hidden_size = hidden_size
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
-        self.embeddings = self.init_embeddings(
-            self.num_embeddings, self.embedding_size, self.pad_idx
-        )
-
-    @staticmethod
-    def _xavier_embedding_initialization(
-        num_embeddings: int, embedding_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Initializes the embeddings layer using Xavier initialization.
-
-        The pad embeddings are also zeroed out.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        embedding_layer = nn.Embedding(num_embeddings, embedding_size)
-        # Xavier initialization.
-        nn.init.normal_(
-            embedding_layer.weight, mean=0, std=embedding_size**-0.5
-        )
-        # Zeroes out pad embeddings.
-        if pad_idx is not None:
-            nn.init.constant_(embedding_layer.weight[pad_idx], 0.0)
-        return embedding_layer
-
-    @staticmethod
-    def _normal_embedding_initialization(
-        num_embeddings: int, embedding_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Initializes the embeddings layer from a normal distribution.
-
-        The pad embeddings are also zeroed out.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        embedding_layer = nn.Embedding(num_embeddings, embedding_size)
-        # Zeroes out pad embeddings.
-        if pad_idx is not None:
-            nn.init.constant_(embedding_layer.weight[pad_idx], 0.0)
-        return embedding_layer
-
-    @staticmethod
-    def init_embeddings(
-        num_embed: int, embed_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Method interface for initializing the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Raises:
-            NotImplementedError: This method needs to be overridden.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        raise NotImplementedError
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
         """Embeds the source symbols and adds positional encodings.
