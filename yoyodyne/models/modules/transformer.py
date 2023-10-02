@@ -223,62 +223,58 @@ class TransformerEncoder(TransformerModule):
         return "transformer"
 
 
-class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
-    """A Transformer decoder with separate features.
+class FeatureInvariantTransformerEncoder(TransformerEncoder):
+    """Encoder for transformer with feature invariance.
 
-    Adding separate features into the transformer stack is implemented with
-    TransformerDecoderLayerseparateFeatures layers.
+    After:
+        Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
+        character-level transductions. In Proceedings of the 16th Conference of
+        the European Chapter of the Association for Computational Linguistics:
+        Main Volume, pages 1901-1907.
     """
 
-    def forward(
-        self,
-        target: torch.Tensor,
-        memory: torch.Tensor,
-        features_memory: torch.Tensor,
-        target_mask: Optional[torch.Tensor] = None,
-        memory_mask: Optional[torch.Tensor] = None,
-        features_memory_mask: Optional[torch.Tensor] = None,
-        target_key_padding_mask: Optional[torch.Tensor] = None,
-        memory_key_padding_mask: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """Pass the inputs (and mask) through the decoder layer in turn.
+    features_vocab_size: int
+    # Constructed inside __init__.
+    type_embedding: nn.Embedding
+
+    def __init__(self, *args, features_vocab_size, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Distinguishes features vs. character.
+        self.features_vocab_size = features_vocab_size
+        self.type_embedding = self.init_embeddings(
+            2, self.embedding_size, self.pad_idx
+        )
+
+    def embed(self, symbols: torch.Tensor) -> torch.Tensor:
+        """Embeds the source symbols.
+
+        This adds positional encodings and special embeddings.
 
         Args:
-            target (torch.Tensor): the sequence to the decoder.
-            memory (torch.Tensor): the sequence from the last layer of the
-                encoder.
-            features_memory (torch.Tensor): the sequence from the last layer
-                of the features encoder.
-            target_mask (Optional[torch.Tensor], optional): the mask for the
-                target sequence. Defaults to None.
-            memory_mask (Optional[torch.Tensor], optional): the mask for the
-                memory sequence. Defaults to None.
-            features_memory_mask (Optional[torch.Tensor], optional): the mask
-                for the features. Defaults to None.
-            target_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the target keys per batch. Defaults to None.
-            memory_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the memory keys per batch. Defaults to None.
+            symbols (torch.Tensor): batch of symbols to embed of shape
+                B x seq_len.
 
         Returns:
-            torch.Tensor: Output tensor.
+            embedded (torch.Tensor): embedded tensor of shape
+                B x seq_len x embed_dim.
         """
-        output = target
+        # Distinguishes features and chars; 1 or 0.
+        char_mask = (
+            symbols < (self.num_embeddings - self.features_vocab_size)
+        ).long()
+        type_embedding = self.esq * self.type_embedding(char_mask)
+        word_embedding = self.esq * self.embeddings(symbols)
+        positional_embedding = self.positional_encoding(
+            symbols, mask=char_mask
+        )
+        out = self.dropout_layer(
+            word_embedding + positional_embedding + type_embedding
+        )
+        return out
 
-        for mod in self.layers:
-            output = mod(
-                output,
-                memory,
-                features_memory,
-                target_mask=target_mask,
-                memory_mask=memory_mask,
-                features_memory_mask=features_memory_mask,
-                target_key_padding_mask=target_key_padding_mask,
-                memory_key_padding_mask=memory_key_padding_mask,
-            )
-        if self.norm is not None:
-            output = self.norm(output)
-        return output
+    @property
+    def name(self) -> str:
+        return "feature-invariant transformer"
 
 
 class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
@@ -464,58 +460,62 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
         return self.dropout2(x)
 
 
-class FeatureInvariantTransformerEncoder(TransformerEncoder):
-    """Encoder for transformer with feature invariance.
+class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
+    """A Transformer decoder with separate features.
 
-    After:
-        Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
-        character-level transductions. In Proceedings of the 16th Conference of
-        the European Chapter of the Association for Computational Linguistics:
-        Main Volume, pages 1901-1907.
+    Adding separate features into the transformer stack is implemented with
+    TransformerDecoderLayerseparateFeatures layers.
     """
 
-    features_vocab_size: int
-    # Constructed inside __init__.
-    type_embedding: nn.Embedding
-
-    def __init__(self, *args, features_vocab_size, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Distinguishes features vs. character.
-        self.features_vocab_size = features_vocab_size
-        self.type_embedding = self.init_embeddings(
-            2, self.embedding_size, self.pad_idx
-        )
-
-    def embed(self, symbols: torch.Tensor) -> torch.Tensor:
-        """Embeds the source symbols.
-
-        This adds positional encodings and special embeddings.
+    def forward(
+        self,
+        target: torch.Tensor,
+        memory: torch.Tensor,
+        features_memory: torch.Tensor,
+        target_mask: Optional[torch.Tensor] = None,
+        memory_mask: Optional[torch.Tensor] = None,
+        features_memory_mask: Optional[torch.Tensor] = None,
+        target_key_padding_mask: Optional[torch.Tensor] = None,
+        memory_key_padding_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Pass the inputs (and mask) through the decoder layer in turn.
 
         Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
+            target (torch.Tensor): the sequence to the decoder.
+            memory (torch.Tensor): the sequence from the last layer of the
+                encoder.
+            features_memory (torch.Tensor): the sequence from the last layer
+                of the features encoder.
+            target_mask (Optional[torch.Tensor], optional): the mask for the
+                target sequence. Defaults to None.
+            memory_mask (Optional[torch.Tensor], optional): the mask for the
+                memory sequence. Defaults to None.
+            features_memory_mask (Optional[torch.Tensor], optional): the mask
+                for the features. Defaults to None.
+            target_key_padding_mask (Optional[torch.Tensor], optional): the
+                mask for the target keys per batch. Defaults to None.
+            memory_key_padding_mask (Optional[torch.Tensor], optional): the
+                mask for the memory keys per batch. Defaults to None.
 
         Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
+            torch.Tensor: Output tensor.
         """
-        # Distinguishes features and chars; 1 or 0.
-        char_mask = (
-            symbols < (self.num_embeddings - self.features_vocab_size)
-        ).long()
-        type_embedding = self.esq * self.type_embedding(char_mask)
-        word_embedding = self.esq * self.embeddings(symbols)
-        positional_embedding = self.positional_encoding(
-            symbols, mask=char_mask
-        )
-        out = self.dropout_layer(
-            word_embedding + positional_embedding + type_embedding
-        )
-        return out
+        output = target
 
-    @property
-    def name(self) -> str:
-        return "feature-invariant transformer"
+        for mod in self.layers:
+            output = mod(
+                output,
+                memory,
+                features_memory,
+                target_mask=target_mask,
+                memory_mask=memory_mask,
+                features_memory_mask=features_memory_mask,
+                target_key_padding_mask=target_key_padding_mask,
+                memory_key_padding_mask=memory_key_padding_mask,
+            )
+        if self.norm is not None:
+            output = self.norm(output)
+        return output
 
 
 class TransformerDecoder(TransformerModule):
@@ -620,7 +620,7 @@ class TransformerPointerDecoder(TransformerDecoder):
     def __init__(
         self, *args, separate_features, features_attention_heads, **kwargs
     ):
-        """Initializes the TransformerDecoderWithMhaWeights object."""
+        """Initializes the TransformerPointerDecoder object."""
         self.separate_features = separate_features
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
@@ -676,6 +676,8 @@ class TransformerPointerDecoder(TransformerDecoder):
                 target_key_padding_mask=target_mask,
             )
         else:
+            # TODO: Resolve mismatch between our 'target'
+            # naming convention and pytorch 'tgt'
             output = self.module(
                 target_embedding,
                 encoder_hidden,
