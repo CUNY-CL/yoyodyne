@@ -55,8 +55,9 @@ class Index:
     For consistency, one is recommended to lexicographically sort the
     vocabularies ahead of time."""
 
-    source_map: SymbolMap
-    target_map: SymbolMap
+    source_vocabulary: List[str]
+    target_vocabulary: List[str]
+    vocab_map: SymbolMap
     features_map: Optional[SymbolMap]
 
     def __init__(
@@ -74,12 +75,13 @@ class Index:
             target_vocabulary (List[str], optional).
         """
         super().__init__()
-        self.source_map = SymbolMap(source_vocabulary)
+        self.source_vocabulary = source_vocabulary
+        self.target_vocabulary = target_vocabulary
+        self.vocab_map = SymbolMap(
+            list(sorted(set(source_vocabulary) & set(target_vocabulary)))
+        )
         self.features_map = (
             SymbolMap(features_vocabulary) if features_vocabulary else None
-        )
-        self.target_map = (
-            SymbolMap(target_vocabulary) if target_vocabulary else None
         )
 
     # Serialization support.
@@ -132,7 +134,7 @@ class Index:
 
     @property
     def source_vocab_size(self) -> int:
-        return len(self.source_map)
+        return len(self.source_vocabulary)
 
     @property
     def has_features(self) -> bool:
@@ -144,27 +146,31 @@ class Index:
 
     @property
     def has_target(self) -> bool:
-        return self.target_map is not None
+        return self.target_vocabulary is not None
 
     @property
     def target_vocab_size(self) -> int:
-        return len(self.target_map)
+        return len(self.target_vocabulary)
+
+    @property
+    def vocab_size(self) -> int:
+        return len(self.vocab_map)
 
     @property
     def pad_idx(self) -> int:
-        return self.source_map.index(special.PAD)
+        return self.vocab_map.index(special.PAD)
 
     @property
     def start_idx(self) -> int:
-        return self.source_map.index(special.START)
+        return self.vocab_map.index(special.START)
 
     @property
     def end_idx(self) -> int:
-        return self.source_map.index(special.END)
+        return self.vocab_map.index(special.END)
 
     @property
     def unk_idx(self) -> int:
-        return self.source_map.index(special.UNK)
+        return self.vocab_map.index(special.UNK)
 
     @property
     def special_idx(self) -> Set[int]:

@@ -36,8 +36,23 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         super().__init__(
             *args, source_attention_heads=source_attention_heads, **kwargs
         )
-        self.classifier = nn.Linear(
-            self.embedding_size, self.target_vocab_size
+        self.classifier = nn.Linear(self.embedding_size, self.vocab_size)
+
+    def init_embeddings(
+        self, num_embeddings: int, embedding_size: int, pad_idx: int
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+            pad_idx (int): index of pad symbol.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return self._xavier_embedding_initialization(
+            num_embeddings, embedding_size, pad_idx
         )
 
     def get_decoder(self):
@@ -45,11 +60,11 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
-            num_embeddings=self.target_vocab_size,
             decoder_input_size=self.source_encoder.output_size,
-            dropout=self.dropout,
+            embeddings=self.embeddings,
             embedding_size=self.embedding_size,
-            source_attention_heads=self.source_attention_heads,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
             max_source_length=self.max_source_length,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,

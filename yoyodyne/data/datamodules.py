@@ -106,15 +106,13 @@ class DataModule(pl.LightningDataModule):
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
-        util.log_info(f"Source vocabulary: {self.index.source_map.pprint()}")
+        util.log_info(f"Source vocabulary: {self.index.source_vocabulary}")
         if self.has_features:
             util.log_info(
                 f"Features vocabulary: {self.index.features_map.pprint()}"
             )
         if self.has_target:
-            util.log_info(
-                f"Target vocabulary: {self.index.target_map.pprint()}"
-            )
+            util.log_info(f"Target vocabulary: {self.index.target_vocabulary}")
 
     def write_index(self, model_dir: str, experiment: str) -> None:
         """Writes the index."""
