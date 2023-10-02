@@ -78,7 +78,7 @@ class Index:
         self.source_vocabulary = source_vocabulary
         self.target_vocabulary = target_vocabulary
         self.vocab_map = SymbolMap(
-            list(sorted(set(source_vocabulary) & set(target_vocabulary)))
+            list(sorted(set(source_vocabulary) | set(target_vocabulary)))
         )
         self.features_map = (
             SymbolMap(features_vocabulary) if features_vocabulary else None
