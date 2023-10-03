@@ -4,7 +4,10 @@ import argparse
 
 from .base import BaseEncoderDecoder
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
-from .pointer_generator import PointerGeneratorLSTMEncoderDecoder
+from .pointer_generator import (
+    PointerGeneratorLSTMEncoderDecoder,
+    PointerGeneratorTransformerEncoderDecoder,
+)
 from .transducer import TransducerEncoderDecoder
 from .transformer import TransformerEncoderDecoder
 
@@ -26,6 +29,7 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         "attentive_lstm": AttentiveLSTMEncoderDecoder,
         "lstm": LSTMEncoderDecoder,
         "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
+        "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
         "transducer": TransducerEncoderDecoder,
         "transformer": TransformerEncoderDecoder,
     }
@@ -67,6 +71,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
             "attentive_lstm",
             "lstm",
             "pointer_generator_lstm",
+            "pointer_generator_transformer",
             "transducer",
             "transformer",
         ],

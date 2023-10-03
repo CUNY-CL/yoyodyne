@@ -19,10 +19,15 @@ class ModuleOutput:
 
     output: torch.Tensor
     hiddens: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+    embeddings: Optional[torch.Tensor] = None
 
     @property
     def has_hiddens(self) -> bool:
         return self.hiddens is not None
+
+    @property
+    def has_embeddings(self) -> bool:
+        return self.embeddings is not None
 
 
 class BaseModule(pl.LightningModule):

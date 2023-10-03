@@ -106,6 +106,7 @@ def get_datamodule_from_argparse_args(
     """
     separate_features = args.features_col != 0 and args.arch in [
         "pointer_generator_lstm",
+        "pointer_generator_transformer",
         "transducer",
     ]
     datamodule = data.DataModule(
@@ -159,6 +160,7 @@ def get_model_from_argparse_args(
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
         "pointer_generator_lstm",
+        "pointer_generator_transformer",
         "transducer",
     ]
     features_encoder_cls = (
@@ -179,7 +181,8 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        attention_heads=args.attention_heads,
+        source_attention_heads=args.source_attention_heads,
+        features_attention_heads=args.features_attention_heads,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
