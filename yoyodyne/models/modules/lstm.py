@@ -38,23 +38,6 @@ class LSTMModule(base.BaseModule):
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
-    def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return self._normal_embedding_initialization(
-            num_embeddings, embedding_size, pad_idx
-        )
-
 
 class LSTMEncoder(LSTMModule):
     def forward(

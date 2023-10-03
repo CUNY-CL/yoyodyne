@@ -171,10 +171,10 @@ def get_model_from_argparse_args(
     features_vocab_size = (
         datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
-    source_vocab_size = (
-        datamodule.index.source_vocab_size + features_vocab_size
+    vocab_size = (
+        datamodule.index.vocab_size + features_vocab_size
         if not separate_features
-        else datamodule.index.source_vocab_size
+        else datamodule.index.vocab_size
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
@@ -197,14 +197,12 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        output_size=datamodule.index.target_vocab_size,
         pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_encoder_cls=source_encoder_cls,
-        source_vocab_size=source_vocab_size,
+        vocab_size=vocab_size,
         start_idx=datamodule.index.start_idx,
-        target_vocab_size=datamodule.index.target_vocab_size,
     )
 
 

@@ -3,7 +3,6 @@
 from typing import Tuple
 
 import torch
-from torch import nn
 
 from ... import data
 from . import base
@@ -12,22 +11,7 @@ from . import base
 class LinearModule(base.BaseModule):
     """Simple linear embedding module."""
 
-    def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return self._normal_embedding_initialization(
-            num_embeddings, embedding_size, pad_idx
-        )
+    pass
 
 
 class LinearEncoder(LinearModule):

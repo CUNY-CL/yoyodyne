@@ -125,10 +125,11 @@ class PointerGeneratorLSTMEncoderDecoder(lstm.LSTMEncoderDecoder):
             + self.features_encoder.output_size
             if self.has_features_encoder
             else self.source_encoder.output_size,
-            num_embeddings=self.target_vocab_size,
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
             dropout=self.dropout,
             bidirectional=False,
-            embedding_size=self.embedding_size,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
             attention_input_size=self.source_encoder.output_size,

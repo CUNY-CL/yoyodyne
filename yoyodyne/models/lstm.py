@@ -39,16 +39,34 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
 
+    def init_embeddings(
+        self, num_embeddings: int, embedding_size: int, pad_idx: int
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+            pad_idx (int): index of pad symbol.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return self._normal_embedding_initialization(
+            num_embeddings, embedding_size, pad_idx
+        )
+
     def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
-            num_embeddings=self.target_vocab_size,
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
             dropout=self.dropout,
             bidirectional=False,
-            embedding_size=self.embedding_size,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
         )
@@ -339,10 +357,11 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
             start_idx=self.start_idx,
             end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
-            num_embeddings=self.target_vocab_size,
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
             dropout=self.dropout,
             bidirectional=False,
-            embedding_size=self.embedding_size,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
             attention_input_size=self.source_encoder.output_size,

@@ -98,7 +98,7 @@ class Dataset(data.Dataset):
         wrapped = [special.START]
         wrapped.extend(symbols)
         wrapped.append(special.END)
-        return self._encode(wrapped, self.index.source_map)
+        return self._encode(wrapped, self.index.vocab_map)
 
     def encode_features(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a features string.
@@ -122,7 +122,7 @@ class Dataset(data.Dataset):
         """
         wrapped = symbols
         wrapped.append(special.END)
-        return self._encode(wrapped, self.index.target_map)
+        return self._encode(wrapped, self.index.vocab_map)
 
     # Decoding.
 
@@ -159,7 +159,7 @@ class Dataset(data.Dataset):
         Yields:
             str: Decoded source strings.
         """
-        for symbols in self._decode(indices, self.index.source_map):
+        for symbols in self._decode(indices, self.index.vocab_map):
             yield self.parser.source_string(symbols)
 
     def decode_features(
@@ -174,7 +174,7 @@ class Dataset(data.Dataset):
         Yields:
             str: Decoded features strings.
         """
-        for symbols in self._decode(indices, self.index.target_map):
+        for symbols in self._decode(indices, self.index.features_map):
             yield self.parser.feature_string(symbols)
 
     def decode_target(
@@ -189,7 +189,7 @@ class Dataset(data.Dataset):
         Yields:
             str: Decoded target strings.
         """
-        for symbols in self._decode(indices, self.index.target_map):
+        for symbols in self._decode(indices, self.index.vocab_map):
             yield self.parser.target_string(symbols)
 
     # Required API.
