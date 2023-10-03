@@ -459,14 +459,13 @@ class PointerGeneratorTransformerEncoderDecoder(
     PointerGenerator,
     transformer.TransformerEncoderDecoder,
 ):
-    """Pointer-generator model with a Transformer backend.
+    """Pointer-generator model with a transformer backend.
 
     After:
-        Assaf Singer and Katharina Kann. 2020. The NYU-CUBoulder Systems for
+        Singer, A., and Kann, K. 2020. The NYU-CUBoulder Systems for
         SIGMORPHON 2020 Task 0 and Task 2. In Proceedings of the 17th
         SIGMORPHON Workshop on Computational Research in Phonetics, Phonology,
-        and Morphology, pages 90–98, Online. Association for Computational
-        Linguistics.
+        and Morphology, pages 90–98.
     """
 
     # Model arguments.
@@ -553,7 +552,7 @@ class PointerGeneratorTransformerEncoderDecoder(
         # Outputs from multi-headed attention from each decoder step to
         # the encoded inputs.
         # Values have been averaged over each attention head.
-        # -> B x tgt_seq_len x src_seq_len
+        # -> B x tgt_seq_len x src_seq_len.
         mha_outputs = self.decoder.attention_output.outputs[0]
         # Clears the stored attention result.
         self.decoder.attention_output.clear()
@@ -568,16 +567,16 @@ class PointerGeneratorTransformerEncoderDecoder(
             dtype=mha_outputs.dtype,
         )
         # Repeats the source indices for each target.
-        # -> B x tgt_seq_len x src_seq_len
+        # -> B x tgt_seq_len x src_seq_len.
         repeated_source_indices = source_indices.unsqueeze(1).repeat(
             1, mha_outputs.size(1), 1
         )
-        # Scatters the attention weights onto the ptr_dist tensor
-        # at their vocab indices in order to get outputs
-        # that match the indexing of the generation probability.
+        # Scatters the attention weights onto the ptr_dist tensor at their
+        # vocab indices in order to get outputs that match the indexing of the
+        # generation probability.
         ptr_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
-        # A matrix of 'context' vectors from applying attention
-        # to the encoder representations wrt each decoder step.
+        # A matrix of context vectors from applying attention to the encoder
+        # representations w.r.t. each decoder step.
         context = torch.bmm(mha_outputs, encoder_outputs)
         # Probability of generating (from output_dist).
         gen_probs = self.generation_probability(
@@ -640,7 +639,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             )
             last_output = scores[:, -1, :]
             outputs.append(last_output)
-            # -> B x 1 x 1
+            # -> B x 1 x 1.
             _, pred = torch.max(last_output, dim=1)
             predictions.append(pred)
             # Updates to track which sequences have decoded an EOS.

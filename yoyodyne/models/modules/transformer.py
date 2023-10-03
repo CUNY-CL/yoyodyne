@@ -93,7 +93,7 @@ class AttentionOutput:
         module: nn.Module,
         module_in: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
         module_out: Tuple[torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         """Stores the second return argument of `module`.
 
         This is intended to be called on a multiehaded attention, which returns
@@ -108,7 +108,7 @@ class AttentionOutput:
         """
         self.outputs.append(module_out[1])
 
-    def clear(self):
+    def clear(self) -> None:
         """Clears the outputs."""
         self.outputs.clear()
 
@@ -361,7 +361,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 self.norm1(x),
                 target_mask,
                 target_key_padding_mask,
-                # FIXME: Introduced in torch 2.0
+                # FIXME: Introduced in torch 2.0.
                 # is_causal=target_is_causal
             )
             x = self.norm2(x)
@@ -370,7 +370,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 memory,
                 memory_mask,
                 memory_key_padding_mask,
-                # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0.
                 # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
@@ -380,7 +380,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 features_memory,
                 features_memory_mask,
                 features_memory_mask,
-                # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0.
                 # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
@@ -394,7 +394,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                     x,
                     target_mask,
                     target_key_padding_mask,
-                    # FIXME: Introduced in torch 2.0
+                    # FIXME: Introduced in torch 2.0.
                     # is_causal=target_is_causal
                 )
             )
@@ -403,7 +403,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 memory,
                 memory_mask,
                 memory_key_padding_mask,
-                # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0.
                 # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
@@ -413,7 +413,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 features_memory,
                 features_memory_mask,
                 features_memory_mask,
-                # FIXME Introduced in torch 2.0
+                # FIXME Introduced in torch 2.0.
                 # memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
@@ -421,7 +421,6 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             x = x + torch.cat([symbol_attention, feature_attention], dim=2)
             x = self.norm2(x)
             x = self.norm3(x + self._ff_block(x))
-
         return x
 
     def _features_mha_block(
@@ -430,7 +429,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
         mem: torch.Tensor,
         attn_mask: Optional[torch.Tensor],
         key_padding_mask: Optional[torch.Tensor],
-        # FIXME: Introduced in torch 2.0
+        # FIXME: Introduced in torch 2.0.
         # is_causal: bool = False,
     ) -> torch.Tensor:
         """Runs the multihead attention block that attends to features.
@@ -453,7 +452,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             mem,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
-            # FIXME: Introduced in torch 2.0
+            # FIXME: Introduced in torch 2.0.
             # is_causal=is_causal,
             need_weights=False,
         )[0]
@@ -501,7 +500,6 @@ class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
             torch.Tensor: Output tensor.
         """
         output = target
-
         for mod in self.layers:
             output = mod(
                 output,
@@ -624,7 +622,7 @@ class TransformerPointerDecoder(TransformerDecoder):
         self.separate_features = separate_features
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
-        # Call this to get the actual cross attentions
+        # Call this to get the actual cross attentions.
         self.attention_output = AttentionOutput()
         # multihead_attn refers to the attention from decoder to encoder.
         self.patch_attention(self.module.layers[-1].multihead_attn)
@@ -664,7 +662,7 @@ class TransformerPointerDecoder(TransformerDecoder):
         causal_mask = self.generate_square_subsequent_mask(
             target_sequence_length
         ).to(self.device)
-        # -> B x seq_len x d_model
+        # -> B x seq_len x d_model.
         if self.separate_features:
             output = self.module(
                 target_embedding,
@@ -676,8 +674,8 @@ class TransformerPointerDecoder(TransformerDecoder):
                 target_key_padding_mask=target_mask,
             )
         else:
-            # TODO: Resolve mismatch between our 'target'
-            # naming convention and pytorch 'tgt'
+            # TODO: Resolve mismatch between our 'target' naming convention and
+            # torch's use of `tgt`.
             output = self.module(
                 target_embedding,
                 encoder_hidden,
