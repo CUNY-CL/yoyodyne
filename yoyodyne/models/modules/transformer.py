@@ -559,9 +559,9 @@ class TransformerDecoder(TransformerModule):
         output = self.module(
             target_embedding,
             encoder_hidden,
-            target_mask=causal_mask,
+            tgt_mask=causal_mask,
             memory_key_padding_mask=source_mask,
-            target_key_padding_mask=target_mask,
+            tgt_key_padding_mask=target_mask,
         )
         return base.ModuleOutput(output, embeddings=target_embedding)
 
