@@ -148,7 +148,7 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
             mode="min" if reduceonplateau_mode == "loss" else "max",
             factor=reduceonplateau_factor,
             patience=reduceonplateau_patience,
-            min_learning_rate=min_learning_rate,
+            min_lr=min_learning_rate,
         )
 
     def __repr__(self) -> str:
