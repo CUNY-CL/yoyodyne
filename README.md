@@ -17,7 +17,7 @@ models are particularly well-suited for problems where the source-target
 alignments are roughly monotonic (e.g., `transducer`) and/or where source and
 target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
 
-## ehilosophy
+## Philosophy
 
 Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 (Ott et al. 2019) but differs on several key points of design:
