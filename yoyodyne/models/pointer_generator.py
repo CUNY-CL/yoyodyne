@@ -251,7 +251,7 @@ class PointerGeneratorLSTMEncoderDecoder(
         """
         embedded = self.decoder.embed(symbol)
         last_h0, last_c0 = last_hiddens
-        context, attention_weights = self.decoder.attention(
+        source_context, attention_weights = self.decoder.attention(
             last_h0.transpose(0, 1), source_enc, source_mask
         )
         if self.has_features_encoder:
@@ -259,7 +259,9 @@ class PointerGeneratorLSTMEncoderDecoder(
                 last_h0.transpose(0, 1), features_enc, features_mask
             )
             # -> B x 1 x 4*hidden_size.
-            context = torch.cat([context, features_context], dim=2)
+            context = torch.cat([source_context, features_context], dim=2)
+        else:
+            context = source_context
         _, (h, c) = self.decoder.module(
             torch.cat((embedded, context), 2), (last_h0, last_c0)
         )
