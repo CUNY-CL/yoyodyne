@@ -72,7 +72,7 @@ class GenerationProbability(nn.Module):
         p_gen += self.W_emb(target_embeddings) + self.bias.expand(
             attention_context.size(0), 1, -1
         )
-        # -> B x sequence_length.
+        # -> B x 1 x sequence_length.
         return torch.sigmoid(p_gen)
 
 
@@ -259,7 +259,7 @@ class PointerGeneratorLSTMEncoderDecoder(
                 last_h0.transpose(0, 1), features_enc, features_mask
             )
             # -> B x 1 x 4*hidden_size.
-            context = torch.cat([context, context], dim=2)
+            context = torch.cat([context, features_context], dim=2)
         _, (h, c) = self.decoder.module(
             torch.cat((embedded, context), 2), (last_h0, last_c0)
         )
@@ -281,9 +281,7 @@ class PointerGeneratorLSTMEncoderDecoder(
             2, source_indices.unsqueeze(1), attention_weights
         )
         # Probability of generating (from output_dist).
-        gen_probs = self.generation_probability(
-            context, hidden, embedded
-        ).unsqueeze(2)
+        gen_probs = self.generation_probability(context, hidden, embedded)
         scaled_ptr_dist = ptr_dist * (1 - gen_probs)
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
@@ -348,6 +346,8 @@ class PointerGeneratorLSTMEncoderDecoder(
                 source_indices,
                 source_enc,
                 source_mask,
+                features_enc=features_enc,
+                features_mask=features_mask,
             )
             predictions.append(output.squeeze(1))
             # In teacher forcing mode the next input is the gold symbol
@@ -634,8 +634,8 @@ class PointerGeneratorTransformerEncoderDecoder(
                 source_indices,
                 target_tensor,
                 target_mask,
-                features_enc,
-                features_mask,
+                features_enc=features_enc,
+                features_mask=features_mask,
             )
             last_output = scores[:, -1, :]
             outputs.append(last_output)
