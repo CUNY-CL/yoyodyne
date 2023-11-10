@@ -120,7 +120,7 @@ class Dataset(data.Dataset):
         Returns:
             torch.Tensor.
         """
-        wrapped = symbols
+        wrapped = [s for s in symbols]
         wrapped.append(special.END)
         return self._encode(wrapped, self.index.target_map)
 
