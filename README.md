@@ -40,7 +40,9 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 
 ### Local installation
 
-Yoyodyne currently supports Python 3.9 and 3.10. [#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker Python \> 3.10 support.
+Yoyodyne currently supports Python 3.9 and 3.10.
+[#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker Python
+\> 3.10 support.
 
 First install dependencies:
 
@@ -52,7 +54,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` python
+```python
 import yoyodyne
 ```
 
