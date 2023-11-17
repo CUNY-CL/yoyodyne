@@ -41,8 +41,8 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 ### Local installation
 
 Yoyodyne currently supports Python 3.9 and 3.10.
-[#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker Python
-\> 3.10 support.
+[#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker to
+Python \> 3.10 support.
 
 First install dependencies:
 
