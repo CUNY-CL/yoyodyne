@@ -36,7 +36,13 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 
-## Install
+## Installation
+
+### Local installation
+
+Yoyodyne currently supports Python 3.9 and 3.10.
+[#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker to
+Python \> 3.10 support.
 
 First install dependencies:
 
@@ -48,9 +54,17 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` python
+```python
 import yoyodyne
 ```
+
+### Google Colab
+
+Yoyodyne is compatible with [Google Colab](https://colab.research.google.com/)
+GPU runtimes. [This
+notebook](https://colab.research.google.com/drive/1O4VWvpqLrCxxUvyYMbGH9HOyXQSoh5bP?usp=sharing)
+provides a worked example. Colab also provides access to TPU runtimes, but this
+is not yet compatible with Yoyodyne to our knowledge.
 
 ## Usage
 
