@@ -29,7 +29,8 @@ Execute the following to create and run the sweep; here `${ENTITY}` and
     # Creates a sweep; save the sweep ID as ${SWEEP_ID} for later.
     wandb sweep --entity "${ENTITY}" --project "${PROJECT}" config.yaml
     # Runs the sweep itself.
-    ./train_wandb_sweep.py --entity "${ENTITY}" --project "${PROJECT}" --sweep_id "${SWEEP_ID}" ...
+    ./train_wandb_sweep.py --entity "${ENTITY}" --project "${PROJECT}" \
+         --sweep_id "${SWEEP_ID}" --count "${COUNT}" ...
 
 Then, one can retrieve the results as follows:
 
