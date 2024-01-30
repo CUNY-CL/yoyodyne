@@ -63,9 +63,9 @@ class DataModule(pl.LightningDataModule):
             has_features=self.has_features,
             has_target=self.has_target,
             separate_features=separate_features,
-            features_offset=self.index.source_vocab_size
-            if self.has_features
-            else 0,
+            features_offset=(
+                self.index.source_vocab_size if self.has_features else 0
+            ),
             max_source_length=max_source_length,
             max_target_length=max_target_length,
         )
@@ -95,12 +95,12 @@ class DataModule(pl.LightningDataModule):
                     source_vocabulary.update(source)
         return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
-            features_vocabulary=sorted(features_vocabulary)
-            if features_vocabulary
-            else None,
-            target_vocabulary=sorted(target_vocabulary)
-            if target_vocabulary
-            else None,
+            features_vocabulary=(
+                sorted(features_vocabulary) if features_vocabulary else None
+            ),
+            target_vocabulary=(
+                sorted(target_vocabulary) if target_vocabulary else None
+            ),
         )
 
     # Helpers.

@@ -156,5 +156,4 @@ class BaseModule(pl.LightningModule):
         return self.dropout_layer(embedded)
 
     @property
-    def output_size(self) -> int:
-        ...
+    def output_size(self) -> int: ...

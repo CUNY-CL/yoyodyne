@@ -198,10 +198,12 @@ class PointerGeneratorLSTMEncoderDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
-            decoder_input_size=self.source_encoder.output_size
-            + self.features_encoder.output_size
-            if self.has_features_encoder
-            else self.source_encoder.output_size,
+            decoder_input_size=(
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+                if self.has_features_encoder
+                else self.source_encoder.output_size
+            ),
             num_embeddings=self.target_vocab_size,
             dropout=self.dropout,
             bidirectional=False,
