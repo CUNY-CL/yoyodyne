@@ -10,13 +10,14 @@ Class stores valid edit actions for given dataset.
 import abc
 import argparse
 import dataclasses
+
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
 import numpy
+import random
 from maxwell import actions, sed
 from torch.utils import data
-
-from .. import defaults
+from .. import defaults, util
 
 
 class Error(Exception):
@@ -92,8 +93,14 @@ class ActionVocabulary:
     def encode_unseen_action(self, action: actions.Edit) -> int:
         """Encodes action unseen in training.
 
-        Operates same as encode_action but does not expand lookup table.
+        Since actions are defined by training vocab, unseen actions
+        indicate an issue in conversion from training to vocab. For
+        debugging we log the action and replace with a random one for
+        exploration.
         """
+        if action not in self.w2i:
+            util.log_info(f"Action {action} passed to SED expert is invalid. Using random action instead. Check training set and index.")
+            action = random.choice(list(self.w2i.keys()))
         return self.lookup(action)
 
     def __len__(self) -> int:

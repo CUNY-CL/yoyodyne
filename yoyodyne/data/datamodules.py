@@ -75,24 +75,23 @@ class DataModule(pl.LightningDataModule):
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
-        for path in self.paths:
-            if self.has_features:
-                if self.has_target:
-                    for source, features, target in self.parser.samples(path):
-                        source_vocabulary.update(source)
-                        features_vocabulary.update(features)
-                        target_vocabulary.update(target)
-                else:
-                    for source, features in self.parser.samples(path):
-                        source_vocabulary.update(source)
-                        features_vocabulary.update(features)
-            elif self.has_target:
-                for source, target in self.parser.samples(path):
+        if self.has_features:
+            if self.has_target:
+                for source, features, target in self.parser.samples(self.train):
                     source_vocabulary.update(source)
+                    features_vocabulary.update(features)
                     target_vocabulary.update(target)
             else:
-                for source in self.parser.samples(path):
+                for source, features in self.parser.samples(self.train):
                     source_vocabulary.update(source)
+                    features_vocabulary.update(features)
+        elif self.has_target:
+            for source, target in self.parser.samples(self.train):
+                source_vocabulary.update(source)
+                target_vocabulary.update(target)
+        else:
+            for source in self.parser.samples(self.train):
+                source_vocabulary.update(source)
         return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
             features_vocabulary=(
