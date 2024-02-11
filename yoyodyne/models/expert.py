@@ -99,7 +99,10 @@ class ActionVocabulary:
         exploration.
         """
         if action not in self.w2i:
-            util.log_info(f"Action {action} passed to SED expert is invalid. Using random action instead. Check training set and index.")
+            util.log_info(
+                f"""Action {action} passed to SED expert is invalid.
+                Using random action instead. Check training set and index."""
+            )
             action = random.choice(list(self.w2i.keys()))
         return self.lookup(action)
 

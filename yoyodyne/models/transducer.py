@@ -501,7 +501,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         return log_sum_exp_terms - normalization_term
 
     def _get_loss_func(
-        self
+        self,
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         # Prevents base construction of unused loss function.
         return None
