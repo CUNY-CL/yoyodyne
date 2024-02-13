@@ -76,7 +76,9 @@ class DataModule(pl.LightningDataModule):
         target_vocabulary: Set[str] = set()
         if self.has_features:
             if self.has_target:
-                for source, features, target in self.parser.samples(self.train):  # noqa: E501
+                for source, features, target in self.parser.samples(
+                    self.train
+                ):
                     source_vocabulary.update(source)
                     features_vocabulary.update(features)
                     target_vocabulary.update(target)
