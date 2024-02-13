@@ -25,7 +25,6 @@ class DataModule(pl.LightningDataModule):
         val: Optional[str] = None,
         predict: Optional[str] = None,
         test: Optional[str] = None,
-        index_path: Optional[str] = None,
         # TSV parsing arguments.
         source_col: int = defaults.SOURCE_COL,
         features_col: int = defaults.FEATURES_COL,
@@ -103,19 +102,6 @@ class DataModule(pl.LightningDataModule):
                 sorted(target_vocabulary) if target_vocabulary else None
             ),
         )
-
-    # Helpers.
-
-    @property
-    def paths(self) -> Iterator[str]:
-        if self.train is not None:
-            yield self.train
-        if self.val is not None:
-            yield self.val
-        if self.predict is not None:
-            yield self.predict
-        if self.test is not None:
-            yield self.test
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
