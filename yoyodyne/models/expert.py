@@ -93,10 +93,7 @@ class ActionVocabulary:
     def encode_unseen_action(self, action: actions.Edit) -> int:
         """Encodes action unseen in training.
 
-        Since actions are defined by training vocab, unseen actions
-        indicate an issue in conversion from training to vocab. For
-        debugging we log the action and replace with a random one for
-        exploration.
+        Operates same as encode_action but does not expand lookup table.
         """
         if action not in self.w2i:
             util.log_info(

@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Iterator, Optional, Set
+from typing import Optional, Set
 
 import pytorch_lightning as pl
 from torch.utils import data
@@ -76,9 +76,7 @@ class DataModule(pl.LightningDataModule):
         target_vocabulary: Set[str] = set()
         if self.has_features:
             if self.has_target:
-                for source, features, target in self.parser.samples(
-                    self.train
-                ):
+                for source, features, target in self.parser.samples(self.train):  # noqa: E501
                     source_vocabulary.update(source)
                     features_vocabulary.update(features)
                     target_vocabulary.update(target)
