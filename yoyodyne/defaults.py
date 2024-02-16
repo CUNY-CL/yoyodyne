@@ -37,6 +37,11 @@ SAVE_TOP_K = 1
 LOG_WANDB = False
 TEACHER_FORCING = True
 
+# Masking arguments
+SOURCE_COVERAGE = 1.0
+FEATURES_COVERAGE = 1.0
+TARGET_COVERAGE = 1.0
+
 # LR Scheduler arguments.
 WARMUP_STEPS = 0
 START_FACTOR = 1 / 3

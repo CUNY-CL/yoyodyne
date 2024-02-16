@@ -58,6 +58,33 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "is its own symbol. Default: %(default)r.",
     )
     parser.add_argument(
+        "--source_coverage",
+        type=float,
+        default=defaults.SOURCE_COVERAGE,
+        help="Percentage of source vocabulary to encode; "
+        "tokens occuring in less than X'%' of training data "
+        "will be replaced by <UNK> token during training. "
+        "Default: no tokens are filtered.",
+    )
+    parser.add_argument(
+        "--target_coverage",
+        type=float,
+        default=defaults.TARGET_COVERAGE,
+        help="Percentage of target vocabulary to encode; "
+        "tokens occuring in less than X'%' of training data "
+        "will be replaced by <UNK> token during training. "
+        "Default: no tokens are filtered.",
+    )
+    parser.add_argument(
+        "--features_coverage",
+        type=float,
+        default=defaults.FEATURES_COVERAGE,
+        help="Percentage of feature vocabulary to encode; "
+        "tokens occuring in less than X'%' of training data "
+        "will be replaced by <UNK> token during training. "
+        "Default: no tokens are filtered.",
+    )
+    parser.add_argument(
         "--batch_size",
         type=int,
         default=defaults.BATCH_SIZE,
