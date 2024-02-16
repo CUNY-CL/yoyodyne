@@ -80,11 +80,14 @@ class Index:
 
         Args:
             source_vocabulary (Counter[str]).
-            source_coverage (float, optional): Percent of tokens coverd by source_vocabulary.
+            source_coverage (float, optional): Percent of tokens coverd
+            by source_vocabulary.
                 Default: 1.0 (All tokens are present)
-            features_vocabulary (Counter[str], optional): Percent of tokens coverd by features_vocabulary.
+            features_vocabulary (Counter[str], optional): Percent of tokens
+            coverd by features_vocabulary.
                 Default: 1.0 (All tokens are present)
-            target_vocabulary (Counter[str], optional): Percent of tokens coverd by target_vocabulary.
+            target_vocabulary (Counter[str], optional): Percent of tokens
+            coverd by target_vocabulary.
                 Default: 1.0 (All tokens are present)
         """
         super().__init__()
