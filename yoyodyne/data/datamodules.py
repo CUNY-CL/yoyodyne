@@ -1,7 +1,6 @@
 """Data modules."""
 
-from collections import Counter
-from typing import Iterator, Optional, Set
+from typing import Optional, Set
 
 import pytorch_lightning as pl
 from torch.utils import data
@@ -35,10 +34,6 @@ class DataModule(pl.LightningDataModule):
         source_sep: str = defaults.SOURCE_SEP,
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
-        # Masking arguments
-        source_coverage: float = defaults.SOURCE_COVERAGE,
-        features_coverage: float = defaults.FEATURES_COVERAGE,
-        target_coverage: float = defaults.TARGET_COVERAGE,
         # Collator options.
         batch_size=defaults.BATCH_SIZE,
         separate_features: bool = False,
@@ -62,15 +57,7 @@ class DataModule(pl.LightningDataModule):
         self.test = test
         self.batch_size = batch_size
         self.separate_features = separate_features
-        self.index = (
-            index
-            if index is not None
-            else self._make_index(
-                source_coverage=source_coverage,
-                target_coverage=target_coverage,
-                features_coverage=features_coverage,
-            )
-        )
+        self.index = index if index is not None else self._make_index()
         self.collator = collators.Collator(
             pad_idx=self.index.pad_idx,
             has_features=self.has_features,
@@ -83,17 +70,11 @@ class DataModule(pl.LightningDataModule):
             max_target_length=max_target_length,
         )
 
-    def _make_index(
-        self,
-        source_coverage: float = 1.0,
-        target_coverage: float = 1.0,
-        features_coverage: float = 1.0,
-    ) -> indexes.Index:
+    def _make_index(self) -> indexes.Index:
         # Computes index.
-        source_vocabulary: Set[str] = Counter()
-        target_vocabulary: Set[str] = Counter()
-        features_vocabulary: Set[str] = Counter()
-
+        source_vocabulary: Set[str] = set()
+        features_vocabulary: Set[str] = set()
+        target_vocabulary: Set[str] = set()
         if self.has_features:
             if self.has_target:
                 for source, features, target in self.parser.samples(
@@ -114,30 +95,14 @@ class DataModule(pl.LightningDataModule):
             for source in self.parser.samples(self.train):
                 source_vocabulary.update(source)
         return indexes.Index(
-            source_vocabulary=source_vocabulary,
-            source_coverage=source_coverage,
+            source_vocabulary=sorted(source_vocabulary),
             features_vocabulary=(
-                features_vocabulary if features_vocabulary else None
+                sorted(features_vocabulary) if features_vocabulary else None
             ),
-            features_coverage=features_coverage,
             target_vocabulary=(
-                target_vocabulary if target_vocabulary else None
+                sorted(target_vocabulary) if target_vocabulary else None
             ),
-            target_coverage=target_coverage,
         )
-
-    # Helpers.
-
-    @property
-    def paths(self) -> Iterator[str]:
-        if self.train is not None:
-            yield self.train
-        if self.val is not None:
-            yield self.val
-        if self.predict is not None:
-            yield self.predict
-        if self.test is not None:
-            yield self.test
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""

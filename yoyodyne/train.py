@@ -114,11 +114,8 @@ def get_datamodule_from_argparse_args(
         val=args.val,
         batch_size=args.batch_size,
         source_col=args.source_col,
-        source_coverage=args.source_coverage,
         features_col=args.features_col,
-        features_coverage=args.features_coverage,
         target_col=args.target_col,
-        target_coverage=args.target_coverage,
         source_sep=args.source_sep,
         features_sep=args.features_sep,
         target_sep=args.target_sep,
@@ -266,7 +263,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--train_from",
-        help="Path to checkpoint to initialize model from.",
+        help="Path to ckpt checkpoint to resume training from.",
     )
     # Other training arguments.
     parser.add_argument(

@@ -1,10 +1,9 @@
 """Symbol index."""
 
 import os
-import math
 import pickle
 from typing import Dict, List, Optional, Set
-from collections import Counter
+
 from .. import special
 
 
@@ -14,15 +13,9 @@ class SymbolMap:
     index2symbol: List[str]
     symbol2index: Dict[str, int]
 
-    def __init__(self, vocabulary: Counter[str, int], p=1.0):
-        # Filters to cover p% of vocabulary.
-        n = len(vocabulary)
-        print(n)
-        vocab = [c for (c, _) in vocabulary.most_common(int(math.ceil(p * n)))]
-        vocab.sort()
-        print(len(vocab))
+    def __init__(self, vocabulary: List[str]):
         # Keeps special.SPECIAL first to maintain overlap with features.
-        self._index2symbol = special.SPECIAL + vocab
+        self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
 
     def __len__(self) -> int:
@@ -69,38 +62,24 @@ class Index:
     def __init__(
         self,
         *,
-        source_vocabulary: Counter[str, int],
-        source_coverage: Optional[float] = 1.0,
-        features_vocabulary: Optional[Counter[str, int]] = None,
-        features_coverage: Optional[float] = 1.0,
-        target_vocabulary: Optional[Counter[str, int]] = None,
-        target_coverage: Optional[float] = 1.0,
+        source_vocabulary: List[str],
+        features_vocabulary: Optional[List[str]] = None,
+        target_vocabulary: Optional[List[str]] = None,
     ):
         """Initializes the index.
 
         Args:
-            source_vocabulary (Counter[str]).
-            source_coverage (float, optional): Percent of tokens coverd
-            by source_vocabulary.
-                Default: 1.0 (All tokens are present)
-            features_vocabulary (Counter[str], optional): Percent of tokens
-            coverd by features_vocabulary.
-                Default: 1.0 (All tokens are present)
-            target_vocabulary (Counter[str], optional): Percent of tokens
-            coverd by target_vocabulary.
-                Default: 1.0 (All tokens are present)
+            source_vocabulary (List[str]).
+            features_vocabulary (List[str], optional).
+            target_vocabulary (List[str], optional).
         """
         super().__init__()
-        self.source_map = SymbolMap(source_vocabulary, p=source_coverage)
+        self.source_map = SymbolMap(source_vocabulary)
         self.features_map = (
-            SymbolMap(features_vocabulary, p=features_coverage)
-            if features_vocabulary
-            else None
+            SymbolMap(features_vocabulary) if features_vocabulary else None
         )
         self.target_map = (
-            SymbolMap(target_vocabulary, p=target_coverage)
-            if target_vocabulary
-            else None
+            SymbolMap(target_vocabulary) if target_vocabulary else None
         )
 
     # Serialization support.
