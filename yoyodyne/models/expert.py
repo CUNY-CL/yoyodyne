@@ -14,13 +14,12 @@ import dataclasses
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
 import numpy
-import random
 from maxwell import actions, sed
 from torch.utils import data
-from .. import defaults, util
+from .. import defaults
 
 
-class Error(Exception):
+class ActionError(Exception):
     pass
 
 
@@ -95,13 +94,10 @@ class ActionVocabulary:
 
         Operates same as encode_action but does not expand lookup table.
         """
-        if action not in self.w2i:
-            util.log_info(
-                f"""Action {action} passed to SED expert is invalid.
-                Using random action instead. Check training set and index."""
-            )
-            action = random.choice(list(self.w2i.keys()))
-        return self.lookup(action)
+        if action in self.w2i:
+            return self.lookup(action)
+        else:
+            raise ActionError("Action {action} is outside vocabulary.")
 
     def __len__(self) -> int:
         return len(self.i2w)
@@ -339,7 +335,7 @@ class Expert(abc.ABC):
                     s_offset = alignment
                     t_offset = suffix_begin
                 else:
-                    raise Error(f"Unknown action: {action}")
+                    raise ActionError(f"Unknown action: {action}")
                 sequence_cost = self.aligner.action_sequence_cost(
                     source, target, s_offset, t_offset
                 )

@@ -12,10 +12,6 @@ from .. import data
 from . import expert, lstm, modules
 
 
-class ActionError(Exception):
-    pass
-
-
 class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     """Transducer model with an LSTM backend.
 
@@ -373,7 +369,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             elif isinstance(action, actions.Edit):
                 remapped_action = action
             else:
-                raise ActionError(
+                raise expert.ActionError(
                     f"Unknown action: {action}, {score}, "
                     f"action_scores: {action_scores}"
                 )
@@ -475,7 +471,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             elif isinstance(a, actions.End):
                 prediction[i].append(self.end_idx)
             else:
-                raise ActionError(f"Unknown action: {action[i]}")
+                raise expert.ActionError(f"Unknown action: {action[i]}")
         return alignment + alignment_update
 
     @staticmethod
