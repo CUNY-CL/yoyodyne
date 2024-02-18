@@ -97,7 +97,7 @@ class ActionVocabulary:
         if action in self.w2i:
             return self.lookup(action)
         else:
-            raise ActionError(f"Action {action} is outside vocabulary.")
+            raise ActionError(f"Action {action} is out of vocabulary")
 
     def __len__(self) -> int:
         return len(self.i2w)
