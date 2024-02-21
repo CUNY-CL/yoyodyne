@@ -30,6 +30,8 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
         trainer_logger.append(loggers.WandbLogger(project=experiment))
         # Tells PTL to log the best validation accuracy.
         wandb.define_metric("val_accuracy", summary="max")
+        # Logs the path to local artifacts made by PTL.
+        wandb.config["local_run_dir"] = trainer_logger[0].log_dir
     return trainer_logger
 
 
