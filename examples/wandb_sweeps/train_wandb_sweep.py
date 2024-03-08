@@ -42,7 +42,10 @@ def train_sweep(args: argparse.Namespace) -> None:
     best_checkpoint = train.train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 
-
+   # cleanup
+    del model
+    torch.cuda.empty_cache()
+    
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     train.add_argparse_args(parser)
