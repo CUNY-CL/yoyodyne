@@ -326,7 +326,7 @@ def main() -> None:
     # Logs number of model parameters.
     if args.log_wandb:
         n_params = sum(p.numel() for p in model.parameters())
-        wandb.config.update({"n_model_params": n_params})
+        wandb.config["n_model_params"] = n_params
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:
