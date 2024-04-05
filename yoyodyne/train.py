@@ -293,8 +293,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=defaults.SAVE_BEST,
         help=(
-            "If set, save the best checkpoint(s) using the validation metric."
-            " Default: True."
+            "Save the best checkpoint(s) according to the validation metric. "
+            "Default: True."
         ),
     )
     parser.add_argument(
