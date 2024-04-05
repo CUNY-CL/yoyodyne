@@ -35,7 +35,9 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     return trainer_logger
 
 
-def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
+def _get_callbacks(
+    save_top_k: int, patience: Optional[int] = None, save_best: bool = True
+) -> List:
     """Creates the callbacks.
 
     We will reach into the callback metrics list to picks ckp_callback to find
@@ -44,17 +46,28 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
     Args:
         save_top_k (int).
         patience (int, optional).
+        save_best (bool). If `True`, save the best checkpoint(s) using the
+            validation metric.
 
     Returns:
         List: callbacks.
     """
-    trainer_callbacks = [
-        callbacks.ModelCheckpoint(
+    if save_best:
+        checkpoint_callback = callbacks.ModelCheckpoint(
             save_top_k=save_top_k,
             monitor="val_accuracy",
             mode="max",
             filename="model-{epoch:03d}-{val_accuracy:.3f}",
-        ),
+        )
+    else:
+        checkpoint_callback = callbacks.ModelCheckpoint(
+            save_top_k=save_top_k,
+            every_n_epochs=1,
+            save_on_train_epoch_end=True,
+            filename="model-{epoch:03d}",
+        )
+    trainer_callbacks = [
+        checkpoint_callback,
         callbacks.LearningRateMonitor(logging_interval="epoch"),
         callbacks.TQDMProgressBar(),
     ]
@@ -84,7 +97,9 @@ def get_trainer_from_argparse_args(
     """
     return pl.Trainer.from_argparse_args(
         args,
-        callbacks=_get_callbacks(args.save_top_k, args.patience),
+        callbacks=_get_callbacks(
+            args.save_top_k, args.patience, args.save_best
+        ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
         logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
@@ -272,6 +287,20 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=defaults.SAVE_TOP_K,
         help="Number of checkpoints to save. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--save_best",
+        action="store_true",
+        default=defaults.SAVE_BEST,
+        help=(
+            "Save the best checkpoint(s) according to the validation metric. "
+            "Default: True."
+        ),
+    )
+    parser.add_argument(
+        "--no_save_best",
+        action="store_false",
+        dest="save_best",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
