@@ -46,7 +46,8 @@ def _get_callbacks(
     Args:
         save_top_k (int).
         patience (int, optional).
-        save_best (bool). If `True`, save the best checkpoint(s) using the validation metric.
+        save_best (bool). If `True`, save the best checkpoint(s) using the
+            validation metric.
 
     Returns:
         List: callbacks.
@@ -291,7 +292,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--save_best",
         action="store_true",
         default=defaults.SAVE_BEST,
-        help="If set, save the best checkpoint(s) using the validation metric. Default: True.",
+        help=(
+            "If set, save the best checkpoint(s) using the validation metric."
+            " Default: True."
+        ),
     )
     parser.add_argument(
         "--no_save_best",
