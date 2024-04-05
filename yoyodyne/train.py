@@ -35,7 +35,9 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     return trainer_logger
 
 
-def _get_callbacks(save_top_k: int, patience: Optional[int] = None, save_best: bool = True) -> List:
+def _get_callbacks(
+    save_top_k: int, patience: Optional[int] = None, save_best: bool = True
+) -> List:
     """Creates the callbacks.
 
     We will reach into the callback metrics list to picks ckp_callback to find
@@ -63,7 +65,6 @@ def _get_callbacks(save_top_k: int, patience: Optional[int] = None, save_best: b
             save_on_train_epoch_end=True,
             filename="model-{epoch:03d}",
         )
-
     trainer_callbacks = [
         checkpoint_callback,
         callbacks.LearningRateMonitor(logging_interval="epoch"),
@@ -95,7 +96,9 @@ def get_trainer_from_argparse_args(
     """
     return pl.Trainer.from_argparse_args(
         args,
-        callbacks=_get_callbacks(args.save_top_k, args.patience, args.save_best),
+        callbacks=_get_callbacks(
+            args.save_top_k, args.patience, args.save_best
+        ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
         logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
