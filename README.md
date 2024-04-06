@@ -149,9 +149,15 @@ checkpoint, the **full path to the checkpoint** should be specified with for the
 `--train_from` argument. This creates a new version, but starts training from
 the provided model checkpoint.
 
-During training, we save the best `--save_top_k` checkpoints (by default, 1)
-ranked according to accuracy on the `--val` set. For example, `--save_top_k 5`
-will save the top 5 most accurate models.
+The `--top_k` checkpoints are saved. By default, _k_ is 1 and the best
+checkpoint. To save a checkpoint every epoch, set `--top_k -1`.
+
+## Model comparison
+
+By default, models are compared (for `--top_k` model selection and `--patience`
+early stopping), such that the best models have the highest validation 
+accuracy. To enable comparisons where the best models have the lowest
+validation loss, set `--val_mode loss`.
 
 ## Models
 
