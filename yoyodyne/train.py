@@ -314,7 +314,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--val_mode",
         choices=["accuracy", "loss"],
         default=defaults.VAL_MODE,
-        help="Save --top_k checkpoints which maximize validation `accuracy` "
+        help="Monitor checkpoints to maximize validation `accuracy` "
         "or minimize validation `loss`. "
         "Default: %(default)s.",
     )
