@@ -309,7 +309,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         default=defaults.TOP_K,
         help="How many checkpoints to save. To save a checkpoint each epoch, "
-        "set this to -1. Default: %(default)s.",
+        "use `-1`. Default: %(default)s.",
     )
     parser.add_argument(
         "--val_mode",
