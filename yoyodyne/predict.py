@@ -35,6 +35,7 @@ def get_datamodule_from_argparse_args(
     """
     separate_features = args.features_col != 0 and args.arch in [
         "pointer_generator_lstm",
+        "pointer_generator_lstm",
         "transducer",
     ]
     index = data.Index.read(args.model_dir, args.experiment)
