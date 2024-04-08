@@ -11,10 +11,10 @@ exclude = ["examples*"]
 
 [project]
 name = "yoyodyne"
-version = "0.2.9"
+version = "0.2.10"
 description = "Small-vocabulary neural sequence-to-sequence models"
 readme = "README.md"
-requires-python = ">= 3.9"
+requires-python = ">= 3.9, < 3.11"
 license = { text = "Apache 2.0" }
 authors = [
     {name = "Adam Wiemerslage"},
@@ -29,8 +29,8 @@ keywords = [
 ]
 dependencies = [
     "maxwell >= 0.2.0",
-    "pytorch-lightning >= 1.7.0, <2.0.0",
-    "torch >= 1.11.0, <2.0.0",
+    "pytorch-lightning >= 1.7.0, < 2.0.0",
+    "torch >= 2.0.0",
     "wandb >= 0.15.3",
 ]
 classifiers = [
