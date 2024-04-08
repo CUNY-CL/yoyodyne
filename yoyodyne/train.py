@@ -37,8 +37,8 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
 
 def _get_callbacks(
     patience: Optional[int] = None,
-    top_k: int = defaults.TOP_K,
-    val_mode: str = defaults.VAL_MODE,
+    save_top_k: int = defaults.SAVE_TOP_K,
+    val_metric: str = defaults.VAL_MODE,
 ) -> List:
     """Creates the callbacks.
 
@@ -47,9 +47,8 @@ def _get_callbacks(
 
     Args:
         patience (int, optional).
-        val_mode (str, optional).
-        top_k (int, optional)
-            saved each epoch.
+        val_metric (str, optional).
+        save_top_k (int, optional)....
 
     Returns:
         List: callbacks.
@@ -62,32 +61,25 @@ def _get_callbacks(
         callbacks.TQDMProgressBar(),
     ]
     # Parses validation mode.
-    if val_mode == "accuracy":
+    if val_metric == "accuracy":
+        filename = "model-{epoch:03d}-{val_accuracy:.3f}"
         mode = "max"
         monitor = "val_accuracy"
-        trainer_callbacks.append(
-            callbacks.ModelCheckpoint(
-                every_n_epochs=1,
-                filename="model-{epoch:03d}-{val_accuracy:.3f}",
-                mode=mode,
-                monitor=monitor,
-                save_top_k=top_k,
-            )
-        )
-    elif val_mode == "loss":
+    elif val_metric == "loss":
+        filename = "model-{epoch:03d}-{val_loss:.3f}"
         mode = "min"
         monitor = "val_loss"
-        trainer_callbacks.append(
-            callbacks.ModelCheckpoint(
-                every_n_epochs=1,
-                filename="model-{epoch:03d}-{val_loss:.3f}",
-                mode=mode,
-                monitor=monitor,
-                save_top_k=top_k,
-            )
-        )
     else:
-        raise Error(f"Unknown val mode: {val_mode}")
+        raise Error(f"Unknown validation mode: {val_metric}")
+    # Checkpointing callback.
+    trainer_callbacks.append(
+        callbacks.ModelCheckpoint(
+            filename=filename,
+            mode=mode,
+            monitor=monitor,
+            save_top_k=save_top_k,
+        )
+    )
     # Patience callback if requested, reusing validation mode settings.
     if patience is not None:
         trainer_callbacks.append(
@@ -113,7 +105,9 @@ def get_trainer_from_argparse_args(
     """
     return pl.Trainer.from_argparse_args(
         args,
-        callbacks=_get_callbacks(args.patience, args.top_k, args.val_mode),
+        callbacks=_get_callbacks(
+            args.patience, args.save_top_k, args.val_metric
+        ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
         logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
@@ -305,14 +299,14 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Patience for early stopping. Default: not enabled.",
     )
     parser.add_argument(
-        "--top_k",
+        "--save_top_k",
         type=int,
-        default=defaults.TOP_K,
-        help="How many checkpoints to save. To save a checkpoint each epoch, "
+        default=defaults.SAVE_TOP_K,
+        help="How many checkpoints to save. To save one checkpoint per epoch, "
         "use `-1`. Default: %(default)s.",
     )
     parser.add_argument(
-        "--val_mode",
+        "--val_metric",
         choices=["accuracy", "loss"],
         default=defaults.VAL_MODE,
         help="Monitor checkpoints to maximize validation `accuracy` "
