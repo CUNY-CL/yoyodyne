@@ -29,12 +29,19 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
         to be reasonably exhaustive.
     -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
-    architecture-specific code to handle feature information.
--   It uses validation accuracy (not loss) for model selection and early
-    stopping.
+    architecture-specific code handling feature information.
+-   It supports the use of validation accuracy (not loss) for model selection
+    and early stopping.
 -   Releases are made regularly.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
+
+## Authors
+
+Yoyodyne was created by [Adam Wiemerslage](https://adamits.github.io/), [Kyle
+Gorman](https://wellformedness.com/), Travis Bartley, and [other
+contributors](https://github.com/CUNY-CL/yoyodyne/graphs/contributors) like
+yourself.
 
 ## Installation
 
@@ -157,8 +164,8 @@ checkpoint every epoch, set `--save_top_k -1`.
 
 By default, models are compared (for `--save_top_k` model selection and
 `--patience` early stopping), such that the best models have the highest
-validation accuracy. To enable comparisons where the best models are those
-with the lowest validation loss, set `--val_metric loss`.
+validation accuracy. To enable comparisons where the best models are those with
+the lowest validation loss, set `--val_metric loss`.
 
 ## Models
 
