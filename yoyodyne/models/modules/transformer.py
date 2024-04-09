@@ -583,7 +583,9 @@ class TransformerDecoder(TransformerModule):
         Returns:
             torch.Tensor: mask of shape length x length.
         """
-        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
+        return torch.triu(
+            torch.ones((length, length), dtype=torch.bool), diagonal=1
+        )
 
     @property
     def output_size(self) -> int:
