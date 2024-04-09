@@ -315,8 +315,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--patience_metric",
         choices=["accuracy", "loss"],
         default=defaults.PATIENCE_METRIC,
-        help="Triggers early stopping based on maximal validation "
-        "`accuracy` or minimal validation `loss`. Default: %(default)s.",
+        help="Stops early when validation `accuracy` stops increasing or "
+        "when validation `loss` stops decreasing. Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(

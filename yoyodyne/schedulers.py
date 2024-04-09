@@ -6,7 +6,7 @@ from typing import Dict
 
 from torch import optim
 
-from . import defaults
+from . import defaults, metrics
 
 ALL_SCHEDULER_ARGS = [
     "warmup_steps",
@@ -133,9 +133,9 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
 
         Args:
             optimizer (optim.Optimizer): optimizer.
-            reduceonplateau_metric (str): whether to reduce the LR when the
-                validation loss stops decreasing ("loss") or when
-                validation accuracy stops increasing ("accuracy").
+            reduceonplateau_metric (str): reduces the LR when validation
+                `accuracy` stops increasing or when validation `loss` stops
+                decreasing.
             reduceonplateau_factor (float): factor by which the
                 learning rate will be reduced: `new_lr *= factor`.
             reduceonplateau_patience (int): number of epochs with no
@@ -143,12 +143,12 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
             min_learning_rate (float): lower bound on the learning rate.
             **kwargs: ignored.
         """
+        self.metric = metrics.ValidationMetric(reduceonplateau_metric)
         super().__init__(
             optimizer,
-            mode="min" if reduceonplateau_metric == "loss" else "max",
             factor=reduceonplateau_factor,
-            patience=reduceonplateau_patience,
             min_lr=min_learning_rate,
+            mode=self.metric.mode,
         )
 
     def __repr__(self) -> str:
@@ -204,9 +204,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         choices=["loss", "accuracy"],
         default=defaults.REDUCEONPLATEAU_METRIC,
-        help="Whether to reduce the LR when the validation loss stops "
-        "decreasing (`loss`) or when validation accuracy stops increasing "
-        "(`accuracy`) (reduceonplateau scheduler only). Default: %(default)s.",
+        help="Reduces the LR when validation `accuracy` stops increasing or "
+        "when validation `loss` stops decreasing (reduceonplateau scheduler "
+        "only. Default: %(default)s.",
     )
     parser.add_argument(
         "--reduceonplateau_factor",
