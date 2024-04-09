@@ -30,7 +30,7 @@ class ValidationMetric:
         if metric == "accuracy":
             self.filename = "model-{epoch:03d}-{val_accuracy:.3f}"
             self.mode = "max"
-            self.monitor = metric
+            self.monitor = "val_accuracy"
         elif metric == "loss":
             self.filename = "model-{epoch:03d}-{val_loss:.3f}"
             self.mode = "min"
