@@ -361,8 +361,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 self.norm1(x),
                 target_mask,
                 target_key_padding_mask,
-                # FIXME: Introduced in torch 2.0.
-                # is_causal=target_is_causal
+                is_causal=target_is_causal,
             )
             x = self.norm2(x)
             symbol_attention = self._mha_block(
@@ -370,8 +369,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 memory,
                 memory_mask,
                 memory_key_padding_mask,
-                # FIXME Introduced in torch 2.0.
-                # memory_is_causal,
+                memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
@@ -380,8 +378,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 features_memory,
                 features_memory_mask,
                 features_memory_mask,
-                # FIXME Introduced in torch 2.0.
-                # memory_is_causal,
+                memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             feature_attention = self.features_linear(feature_attention)
@@ -394,8 +391,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                     x,
                     target_mask,
                     target_key_padding_mask,
-                    # FIXME: Introduced in torch 2.0.
-                    # is_causal=target_is_causal
+                    is_causal=target_is_causal,
                 )
             )
             symbol_attention = self._mha_block(
@@ -403,8 +399,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 memory,
                 memory_mask,
                 memory_key_padding_mask,
-                # FIXME Introduced in torch 2.0.
-                # memory_is_causal,
+                memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
@@ -413,8 +408,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 features_memory,
                 features_memory_mask,
                 features_memory_mask,
-                # FIXME Introduced in torch 2.0.
-                # memory_is_causal,
+                memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
             feature_attention = self.features_linear(feature_attention)
@@ -429,8 +423,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
         mem: torch.Tensor,
         attn_mask: Optional[torch.Tensor],
         key_padding_mask: Optional[torch.Tensor],
-        # FIXME: Introduced in torch 2.0.
-        # is_causal: bool = False,
+        is_causal: bool = False,
     ) -> torch.Tensor:
         """Runs the multihead attention block that attends to features.
 
@@ -452,8 +445,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             mem,
             attn_mask=attn_mask,
             key_padding_mask=key_padding_mask,
-            # FIXME: Introduced in torch 2.0.
-            # is_causal=is_causal,
+            is_causal=is_causal,
             need_weights=False,
         )[0]
         return self.dropout2(x)
@@ -591,7 +583,9 @@ class TransformerDecoder(TransformerModule):
         Returns:
             torch.Tensor: mask of shape length x length.
         """
-        return torch.triu(torch.full((length, length), -math.inf), diagonal=1)
+        return torch.triu(
+            torch.ones((length, length), dtype=torch.bool), diagonal=1
+        )
 
     @property
     def output_size(self) -> int:
