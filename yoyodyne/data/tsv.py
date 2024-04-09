@@ -37,6 +37,8 @@ class TsvParser:
         target_sep (str, optional): string used to split target string into
             symbols; an empty string indicates that each Unicode codepoint is
             its own symbol.
+        tie_embeddings (bool, optional): Whether or not soruce and target embeddings
+            are tied. If not, then source symbols are wrapped in {...}.
     """
 
     source_col: int = defaults.SOURCE_COL
@@ -45,6 +47,7 @@ class TsvParser:
     source_sep: str = defaults.SOURCE_SEP
     features_sep: str = defaults.FEATURES_SEP
     target_sep: str = defaults.TARGET_SEP
+    tie_embeddings: bool = defaults.TIE_EMBEDDINGS
 
     def __post_init__(self) -> None:
         # This is automatically called after initialization.
@@ -120,7 +123,11 @@ class TsvParser:
         return list(string) if not sep else string.split(sep)
 
     def source_symbols(self, string: str) -> List[str]:
-        return self._get_symbols(string, self.source_sep)
+        symbols = self._get_symbols(string, self.source_sep)
+        # If not tied, then we distinguish the source vocab with {...}.
+        if not self.tie_embeddings:
+            return ["{" + s + "}" for s in symbols]
+        return symbols
 
     def features_symbols(self, string: str) -> List[str]:
         # We deliberately obfuscate these to avoid overlap with source.

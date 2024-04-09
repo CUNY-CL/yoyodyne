@@ -3,6 +3,7 @@
 import argparse
 
 from .base import BaseEncoderDecoder
+from .. import defaults
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoder,
@@ -77,4 +78,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         ],
         default="attentive_lstm",
         help="Model architecture. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--tie_embeddings",
+        action="store_true",
+        default=defaults.TIE_EMBEDDINGS,
+        help="Shares embeddings for the source and target vocabularies.",
     )

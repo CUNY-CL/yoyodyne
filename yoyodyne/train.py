@@ -143,6 +143,7 @@ def get_datamodule_from_argparse_args(
         separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
+        tie_embeddings=args.tie_embeddings,
     )
     if not datamodule.has_target:
         raise Error("No target column specified")
@@ -194,11 +195,6 @@ def get_model_from_argparse_args(
     features_vocab_size = (
         datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
-    vocab_size = (
-        datamodule.index.vocab_size + features_vocab_size
-        if not separate_features
-        else datamodule.index.vocab_size
-    )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
@@ -225,7 +221,8 @@ def get_model_from_argparse_args(
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_encoder_cls=source_encoder_cls,
-        vocab_size=vocab_size,
+        vocab_size=datamodule.index.vocab_size,
+        target_vocab_size=datamodule.index.target_vocab_size,
         start_idx=datamodule.index.start_idx,
     )
 

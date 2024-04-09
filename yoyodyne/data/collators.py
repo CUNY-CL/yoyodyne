@@ -22,7 +22,6 @@ class Collator:
     has_features: bool
     has_target: bool
     separate_features: bool
-    features_offset: int
     max_source_length: int = defaults.MAX_SOURCE_LENGTH
     max_target_length: int = defaults.MAX_TARGET_LENGTH
 
@@ -68,7 +67,7 @@ class Collator:
         """Concatenates source and feature tensors."""
         return [
             (
-                torch.cat((item.source, item.features + self.features_offset))
+                torch.cat((item.source, item.features))
                 if item.has_features
                 else item.source
             )
