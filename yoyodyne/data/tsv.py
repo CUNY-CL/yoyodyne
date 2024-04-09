@@ -80,7 +80,9 @@ class TsvParser:
     def has_target(self) -> bool:
         return self.target_col != 0
 
-    def samples(self, path: str) -> Iterator[
+    def samples(
+        self, path: str
+    ) -> Iterator[
         Union[
             List[str],
             Tuple[List[str], List[str]],
