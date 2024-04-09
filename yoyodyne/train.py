@@ -27,47 +27,66 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     """
     trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
     if log_wandb:
-        trainer_logger.append(
-            loggers.WandbLogger(project=experiment, log_model="all")
-        )
-        # Tells PTL to log best validation acc
+        trainer_logger.append(loggers.WandbLogger(project=experiment))
+        # Tells PTL to log the best validation accuracy.
         wandb.define_metric("val_accuracy", summary="max")
         # Logs the path to local artifacts made by PTL.
-        wandb.config.update({"local_run_dir": trainer_logger[0].log_dir})
+        wandb.config["local_run_dir"] = trainer_logger[0].log_dir
     return trainer_logger
 
 
-def _get_callbacks(save_top_k: int, patience: Optional[int] = None) -> List:
+def _get_callbacks(
+    patience: Optional[int] = None,
+    save_top_k: int = defaults.SAVE_TOP_K,
+    val_metric: str = defaults.VAL_MODE,
+) -> List:
     """Creates the callbacks.
 
     We will reach into the callback metrics list to picks ckp_callback to find
     the best checkpoint path.
 
     Args:
-        save_top_k (int).
         patience (int, optional).
+        val_metric (str, optional).
+        save_top_k (int, optional)....
 
     Returns:
         List: callbacks.
+
+    Raises:
+        Error: Unknown save mode.
     """
     trainer_callbacks = [
-        callbacks.ModelCheckpoint(
-            save_top_k=save_top_k,
-            monitor="val_accuracy",
-            mode="max",
-            filename="model-{epoch:03d}-{val_accuracy:.3f}",
-        ),
         callbacks.LearningRateMonitor(logging_interval="epoch"),
         callbacks.TQDMProgressBar(),
     ]
+    # Parses validation mode.
+    if val_metric == "accuracy":
+        filename = "model-{epoch:03d}-{val_accuracy:.3f}"
+        mode = "max"
+        monitor = "val_accuracy"
+    elif val_metric == "loss":
+        filename = "model-{epoch:03d}-{val_loss:.3f}"
+        mode = "min"
+        monitor = "val_loss"
+    else:
+        raise Error(f"Unknown validation mode: {val_metric}")
+    # Checkpointing callback.
+    trainer_callbacks.append(
+        callbacks.ModelCheckpoint(
+            filename=filename,
+            mode=mode,
+            monitor=monitor,
+            save_top_k=save_top_k,
+        )
+    )
+    # Patience callback if requested, reusing validation mode settings.
     if patience is not None:
         trainer_callbacks.append(
             callbacks.early_stopping.EarlyStopping(
-                monitor="val_accuracy",
-                min_delta=0.0,
+                mode=mode,
+                monitor=monitor,
                 patience=patience,
-                verbose=False,
-                mode="max",
             )
         )
     return trainer_callbacks
@@ -86,7 +105,9 @@ def get_trainer_from_argparse_args(
     """
     return pl.Trainer.from_argparse_args(
         args,
-        callbacks=_get_callbacks(args.save_top_k, args.patience),
+        callbacks=_get_callbacks(
+            args.patience, args.save_top_k, args.val_metric
+        ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
         logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
@@ -106,6 +127,7 @@ def get_datamodule_from_argparse_args(
     """
     separate_features = args.features_col != 0 and args.arch in [
         "pointer_generator_lstm",
+        "pointer_generator_transformer",
         "transducer",
     ]
     datamodule = data.DataModule(
@@ -159,6 +181,7 @@ def get_model_from_argparse_args(
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
         "pointer_generator_lstm",
+        "pointer_generator_transformer",
         "transducer",
     ]
     features_encoder_cls = (
@@ -179,7 +202,8 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        attention_heads=args.attention_heads,
+        source_attention_heads=args.source_attention_heads,
+        features_attention_heads=args.features_attention_heads,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -258,17 +282,34 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--train_from",
-        help="Path to ckpt checkpoint to resume training from.",
+        help="Path to ckpt checkpoint to resume training from. "
+        "Default: not enabled.",
     )
     # Other training arguments.
     parser.add_argument(
-        "--patience", type=int, help="Patience for early stopping."
+        "--every_n_epochs",
+        type=int,
+        help="Save checkpoints every n epochs. Default: not enabled.",
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        help="Patience for early stopping. Default: not enabled.",
     )
     parser.add_argument(
         "--save_top_k",
         type=int,
         default=defaults.SAVE_TOP_K,
-        help="Number of checkpoints to save. Default: %(default)s.",
+        help="How many checkpoints to save. To save one checkpoint per epoch, "
+        "use `-1`. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--val_metric",
+        choices=["accuracy", "loss"],
+        default=defaults.VAL_MODE,
+        help="Monitor checkpoints to maximize validation `accuracy` "
+        "or minimize validation `loss`. "
+        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
@@ -320,6 +361,11 @@ def main() -> None:
     trainer = get_trainer_from_argparse_args(args)
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
+    # Logs number of model parameters.
+    if args.log_wandb:
+        wandb.config["n_model_params"] = sum(
+            p.numel() for p in model.parameters()
+        )
     # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
     # suggested value and then exits.
     if args.auto_scale_batch_size:

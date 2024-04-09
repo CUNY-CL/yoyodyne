@@ -10,16 +10,16 @@ Class stores valid edit actions for given dataset.
 import abc
 import argparse
 import dataclasses
+
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
 import numpy
 from maxwell import actions, sed
 from torch.utils import data
-
 from .. import defaults
 
 
-class Error(Exception):
+class ActionError(Exception):
     pass
 
 
@@ -94,7 +94,10 @@ class ActionVocabulary:
 
         Operates same as encode_action but does not expand lookup table.
         """
-        return self.lookup(action)
+        if action in self.w2i:
+            return self.lookup(action)
+        else:
+            raise ActionError(f"Action {action} is out of vocabulary")
 
     def __len__(self) -> int:
         return len(self.i2w)
@@ -332,7 +335,7 @@ class Expert(abc.ABC):
                     s_offset = alignment
                     t_offset = suffix_begin
                 else:
-                    raise Error(f"Unknown action: {action}")
+                    raise ActionError(f"Unknown action: {action}")
                 sequence_cost = self.aligner.action_sequence_cost(
                     source, target, s_offset, t_offset
                 )

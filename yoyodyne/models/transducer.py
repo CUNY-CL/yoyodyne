@@ -12,10 +12,6 @@ from .. import data
 from . import expert, lstm, modules
 
 
-class ActionError(Exception):
-    pass
-
-
 class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     """Transducer model with an LSTM backend.
 
@@ -57,10 +53,12 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
-            decoder_input_size=self.source_encoder.output_size
-            + self.features_encoder.output_size
-            if self.has_features_encoder
-            else self.source_encoder.output_size,
+            decoder_input_size=(
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+                if self.has_features_encoder
+                else self.source_encoder.output_size
+            ),
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
             num_embeddings=self.vocab_size,
@@ -372,7 +370,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             elif isinstance(action, actions.Edit):
                 remapped_action = action
             else:
-                raise ActionError(
+                raise expert.ActionError(
                     f"Unknown action: {action}, {score}, "
                     f"action_scores: {action_scores}"
                 )
@@ -425,9 +423,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     ) -> List[List[int]]:
         """Performs expert rollout over batch."""
         return [
-            self.expert_rollout(s, t, align, pred)
-            if nc
-            else self.actions.end_idx
+            (
+                self.expert_rollout(s, t, align, pred)
+                if nc
+                else self.actions.end_idx
+            )
             for s, t, align, pred, nc in zip(
                 source, target, alignment, prediction, not_complete
             )
@@ -472,7 +472,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             elif isinstance(a, actions.End):
                 prediction[i].append(self.end_idx)
             else:
-                raise ActionError(f"Unknown action: {action[i]}")
+                raise expert.ActionError(f"Unknown action: {action[i]}")
         return alignment + alignment_update
 
     @staticmethod
@@ -498,7 +498,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         return log_sum_exp_terms - normalization_term
 
     def _get_loss_func(
-        self, reduction: str
+        self,
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         # Prevents base construction of unused loss function.
         return None

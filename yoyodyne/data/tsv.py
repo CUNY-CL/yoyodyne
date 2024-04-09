@@ -4,7 +4,6 @@ The TsvParser yields data from TSV files using 1-based indexing and custom
 separators.
 """
 
-
 import csv
 import dataclasses
 from typing import Iterator, List, Tuple, Union
@@ -81,9 +80,7 @@ class TsvParser:
     def has_target(self) -> bool:
         return self.target_col != 0
 
-    def samples(
-        self, path: str
-    ) -> Iterator[
+    def samples(self, path: str) -> Iterator[
         Union[
             List[str],
             Tuple[List[str], List[str]],

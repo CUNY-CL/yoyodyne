@@ -7,6 +7,7 @@ import traceback
 import warnings
 
 import pytorch_lightning as pl
+import torch
 import wandb
 
 from yoyodyne import train, util
@@ -41,6 +42,12 @@ def train_sweep(args: argparse.Namespace) -> None:
     # Trains and logs the best checkpoint.
     best_checkpoint = train.train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
+    # Explicitly deallocates model and clears the CUDA cache, based on the
+    # following suggestion:
+    #
+    #     https://github.com/wandb/wandb/issues/1247#issuecomment-1457737657
+    del model
+    torch.cuda.empty_cache()
 
 
 def main() -> None:

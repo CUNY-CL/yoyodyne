@@ -1,6 +1,5 @@
 """Reusable fixtures."""
 
-
 import csv
 
 import pytest

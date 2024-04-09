@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Iterator, Optional, Set
+from typing import Optional, Set
 
 import pytorch_lightning as pl
 from torch.utils import data
@@ -63,9 +63,9 @@ class DataModule(pl.LightningDataModule):
             has_features=self.has_features,
             has_target=self.has_target,
             separate_features=separate_features,
-            features_offset=self.index.source_vocab_size
-            if self.has_features
-            else 0,
+            features_offset=(
+                self.index.source_vocab_size if self.has_features else 0
+            ),
             max_source_length=max_source_length,
             max_target_length=max_target_length,
         )
@@ -75,46 +75,34 @@ class DataModule(pl.LightningDataModule):
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
-        for path in self.paths:
-            if self.has_features:
-                if self.has_target:
-                    for source, features, target in self.parser.samples(path):
-                        source_vocabulary.update(source)
-                        features_vocabulary.update(features)
-                        target_vocabulary.update(target)
-                else:
-                    for source, features in self.parser.samples(path):
-                        source_vocabulary.update(source)
-                        features_vocabulary.update(features)
-            elif self.has_target:
-                for source, target in self.parser.samples(path):
+        if self.has_features:
+            if self.has_target:
+                for source, features, target in self.parser.samples(
+                    self.train
+                ):
                     source_vocabulary.update(source)
+                    features_vocabulary.update(features)
                     target_vocabulary.update(target)
             else:
-                for source in self.parser.samples(path):
+                for source, features in self.parser.samples(self.train):
                     source_vocabulary.update(source)
+                    features_vocabulary.update(features)
+        elif self.has_target:
+            for source, target in self.parser.samples(self.train):
+                source_vocabulary.update(source)
+                target_vocabulary.update(target)
+        else:
+            for source in self.parser.samples(self.train):
+                source_vocabulary.update(source)
         return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
-            features_vocabulary=sorted(features_vocabulary)
-            if features_vocabulary
-            else None,
-            target_vocabulary=sorted(target_vocabulary)
-            if target_vocabulary
-            else None,
+            features_vocabulary=(
+                sorted(features_vocabulary) if features_vocabulary else None
+            ),
+            target_vocabulary=(
+                sorted(target_vocabulary) if target_vocabulary else None
+            ),
         )
-
-    # Helpers.
-
-    @property
-    def paths(self) -> Iterator[str]:
-        if self.train is not None:
-            yield self.train
-        if self.val is not None:
-            yield self.val
-        if self.predict is not None:
-            yield self.predict
-        if self.test is not None:
-            yield self.test
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""

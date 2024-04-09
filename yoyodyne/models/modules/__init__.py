@@ -43,6 +43,7 @@ def get_encoder_cls(
         "attentive_lstm": LSTMEncoder,
         "lstm": LSTMEncoder,
         "pointer_generator_lstm": LSTMEncoder,
+        "pointer_generator_transformer": TransformerEncoder,
         "transducer": LSTMEncoder,
         "transformer": TransformerEncoder,
     }
