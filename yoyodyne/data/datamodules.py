@@ -94,6 +94,11 @@ class DataModule(pl.LightningDataModule):
         else:
             for source in self.parser.samples(self.train):
                 source_vocabulary.update(source)
+
+        # Temporarily set vocabs to be the same so we don't get OOV issues
+        source_vocabulary = source_vocabulary.union(target_vocabulary)
+        target_vocabulary = source_vocabulary
+
         return indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
             features_vocabulary=(
