@@ -125,7 +125,7 @@ class TsvParser:
         symbols = self._get_symbols(string, self.source_sep)
         # If not tied, then we distinguish the source vocab with {...}.
         if not self.tie_embeddings:
-            return ["{" + s + "}" for s in symbols]
+            return [f"{{{symbol}}}" for symbol in symbols]
         return symbols
 
     def features_symbols(self, string: str) -> List[str]:

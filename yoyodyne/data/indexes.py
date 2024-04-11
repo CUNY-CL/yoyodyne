@@ -38,7 +38,6 @@ class Index:
         """
         super().__init__()
         self.tie_embeddings = tie_embeddings
-
         # We store all separate vocabularies for logging purposes.
         # If embeddings are tied, so are the vocab items.
         # Then, the source and target vocabularies are the union.
@@ -49,14 +48,14 @@ class Index:
         else:
             # If not tie_embeddings, then the target vocabulary must come
             # first so that output predictions correctly index our
-            # vocabulary and embeddiings matrix
+            # vocabulary and embeddiings matrix.
             vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
             self.source_vocabulary = special.SPECIAL + source_vocabulary
             self.target_vocabulary = special.SPECIAL + target_vocabulary
         self.features_vocabulary = features_vocabulary
-        # NOTE: features_vocabulary must be at the end of the List for
-        # FeatureInvariantTransformer to work.
-        vocabulary += sorted(features_vocabulary)
+        # FeatureInvariantTransformer assumes that features_vocabulary is at
+        # the end of the list.
+        vocabulary.extend(sorted(features_vocabulary))
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
