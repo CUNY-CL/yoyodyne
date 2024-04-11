@@ -87,8 +87,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "This should always be set to true for pointer generator models.",
     )
     parser.add_argument(
-        "--no-tie_embeddings",
+        "--no_tie_embeddings",
         action="store_false",
         dest="tie_embeddings",
-        help="Separates embeddings for the source and target vocabularies.",
     )

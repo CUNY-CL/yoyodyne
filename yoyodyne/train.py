@@ -166,19 +166,15 @@ def get_model_from_argparse_args(
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(args.arch)
-    if (
-        args.arch
-        in [
-            "pointer_generator_lstm",
-            "pointer_generator_transformer",
-            "transducer",
-        ]
-        and not args.tie_embeddings
-    ):
-        msg = f"--tie_embeddings set to {args.tie_embeddings}, but "
-        msg += f"{args.arch} requires that it be set to "
-        msg += f"{True}"
-        raise Error(msg)
+    if args.arch in [
+        "pointer_generator_lstm",
+        "pointer_generator_transformer",
+        "transducer",
+    ] and not args.tie_embeddings:
+        raise Error(
+            f"--tie_embeddings set to {args.tie_embeddings}, but "
+            f"{args.arch} requires that it be set to {True}."
+        )
 
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
