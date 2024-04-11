@@ -12,7 +12,7 @@ class Error(Exception):
 
 
 class Index:
-    """Container for symbol maps.
+    """Maintains the index over the vocabularies.
 
     For consistency, one is recommended to lexicographically sort the
     vocabularies ahead of time."""
@@ -40,12 +40,16 @@ class Index:
         self.tie_embeddings = tie_embeddings
 
         # We store all separate vocabularies for logging purposes.
-
+        # If embeddings are tied, so are the vocab items.
+        # Then, the source and target vocabularies are the union.
         if self.tie_embeddings:
             vocabulary = list(sorted(set(source_vocabulary) | set(target_vocabulary)))
             self.source_vocabulary = special.SPECIAL + vocabulary
             self.target_vocabulary = special.SPECIAL + vocabulary
         else:
+            # If not tie_embeddings, then the target vocabulary must come
+            # first so that output predictions correctly index our
+            # vocabulary and embeddiings matrix
             vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
             self.source_vocabulary = special.SPECIAL + source_vocabulary
             self.target_vocabulary = special.SPECIAL + target_vocabulary
@@ -61,7 +65,7 @@ class Index:
         return len(self._index2symbol)
 
     def __call__(self, lookup: str) -> int:
-        """Looks up an index by symbol.
+        """Looks up index by symbol.
 
         Args:
             symbol (str).
@@ -83,7 +87,7 @@ class Index:
         return self._index2symbol[index]
 
     def pprint(self) -> str:
-        """Pretty-prints the vocabulary."""
+        """Pretty-prints the full vocabulary."""
         return ", ".join(f"{c!r}" for c in self._index2symbol)
 
     # Serialization support.
