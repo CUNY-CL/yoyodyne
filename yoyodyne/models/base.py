@@ -9,7 +9,7 @@ from typing import Callable, Dict, Optional
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
-
+import distutils
 from .. import data, defaults, evaluators, schedulers, util
 from . import modules
 
@@ -488,9 +488,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             default=defaults.LABEL_SMOOTHING,
             help="Coefficient for label smoothing. Default: %(default)s.",
         )
-        parser.add_argument('--teacher_forcing', action='store_true')
-        parser.add_argument('--no-teacher_forcing', dest='teacher_forcing', action='store_false')
-        parser.set_defaults(feature=True)
+        parser.add_argument('--teacher_forcing', dest='teacher_forcing', type=lambda x:bool(distutils.util.strtobool(x)))
         # TODO: add --beam_width.
         # Model arguments.
         parser.add_argument(
