@@ -488,12 +488,9 @@ class BaseEncoderDecoder(pl.LightningModule):
             default=defaults.LABEL_SMOOTHING,
             help="Coefficient for label smoothing. Default: %(default)s.",
         )
-        parser.add_argument(
-            "--teacher_forcing",
-            type=bool,
-            default=defaults.TEACHER_FORCING,
-            help="Teacher Forcing. Default: %(default)s.",
-        )
+        parser.add_argument('--teacher_forcing', action='store_true')
+        parser.add_argument('--no-teacher_forcing', dest='teacher_forcing', action='store_false')
+        parser.set_defaults(feature=True)
         # TODO: add --beam_width.
         # Model arguments.
         parser.add_argument(
