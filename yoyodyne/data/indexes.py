@@ -26,7 +26,7 @@ class Index:
         source_vocabulary: List[str],
         features_vocabulary: Optional[List[str]] = None,
         target_vocabulary: Optional[List[str]] = None,
-        tie_embeddings: bool = defaults.TIE_EMBEDDINGS
+        tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
     ):
         """Initializes the index.
 
@@ -43,7 +43,9 @@ class Index:
         # If embeddings are tied, so are the vocab items.
         # Then, the source and target vocabularies are the union.
         if self.tie_embeddings:
-            vocabulary = list(sorted(set(source_vocabulary) | set(target_vocabulary)))
+            vocabulary = list(
+                sorted(set(source_vocabulary) | set(target_vocabulary))
+            )
             self.source_vocabulary = special.SPECIAL + vocabulary
             self.target_vocabulary = special.SPECIAL + vocabulary
         else:
@@ -160,17 +162,11 @@ class Index:
 
     @property
     def target_vocab_size(self) -> int:
-        return (
-            len(self.target_vocabulary) 
-            if self.target_vocabulary else 0
-        )
+        return len(self.target_vocabulary) if self.target_vocabulary else 0
 
     @property
     def features_vocab_size(self) -> int:
-        return (
-            len(self.features_vocabulary) 
-            if self.features_vocabulary else 0
-        )
+        return len(self.features_vocabulary) if self.features_vocabulary else 0
 
     @property
     def pad_idx(self) -> int:

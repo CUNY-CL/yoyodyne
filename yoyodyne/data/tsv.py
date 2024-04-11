@@ -37,8 +37,9 @@ class TsvParser:
         target_sep (str, optional): string used to split target string into
             symbols; an empty string indicates that each Unicode codepoint is
             its own symbol.
-        tie_embeddings (bool, optional): Whether or not soruce and target embeddings
-            are tied. If not, then source symbols are wrapped in {...}.
+        tie_embeddings (bool, optional): Whether or not source and
+            target embeddings are tied. If not, then source symbols
+            are wrapped in {...}.
     """
 
     source_col: int = defaults.SOURCE_COL
@@ -83,7 +84,9 @@ class TsvParser:
     def has_target(self) -> bool:
         return self.target_col != 0
 
-    def samples(self, path: str) -> Iterator[
+    def samples(
+        self, path: str
+    ) -> Iterator[
         Union[
             List[str],
             Tuple[List[str], List[str]],

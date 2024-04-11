@@ -36,7 +36,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         super().__init__(
             *args, source_attention_heads=source_attention_heads, **kwargs
         )
-        self.classifier = nn.Linear(self.embedding_size, self.target_vocab_size)
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int, pad_idx: int

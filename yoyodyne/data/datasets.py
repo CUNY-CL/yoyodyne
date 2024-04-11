@@ -77,10 +77,7 @@ class Dataset(data.Dataset):
             torch.Tensor: the encoded tensor.
         """
         return torch.tensor(
-            [
-                self.index(symbol)
-                for symbol in symbols
-            ],
+            [self.index(symbol) for symbol in symbols],
             dtype=torch.long,
         )
 
