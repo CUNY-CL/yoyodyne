@@ -83,5 +83,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--tie_embeddings",
         action="store_true",
         default=defaults.TIE_EMBEDDINGS,
-        help="Shares embeddings for the source and target vocabularies.",
+        help="Shares embeddings for the source and target vocabularies. "
+        "This should always be set to true for pointer generator models.",
+    )
+    parser.add_argument(
+        "--no-tie_embeddings",
+        action="store_false",
+        dest="tie_embeddings",
+        help="Separates embeddings for the source and target vocabularies.",
     )
