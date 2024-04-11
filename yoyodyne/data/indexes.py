@@ -38,7 +38,6 @@ class Index:
         """
         super().__init__()
         self.tie_embeddings = tie_embeddings
-
         # We store all separate vocabularies for logging purposes.
         # If embeddings are tied, so are the vocab items.
         # Then, the source and target vocabularies are the union.
