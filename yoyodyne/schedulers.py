@@ -149,12 +149,13 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
             factor=reduceonplateau_factor,
             min_lr=min_learning_rate,
             mode=self.metric.mode,
+            patience=reduceonplateau_patience,
         )
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}({self.optimizer}, {self.mode}, "
-            f"{self.factor}, {self.min_learning_rate}, {self.patience})"
+            f"{self.__class__.__name__}({self.optimizer}, {self.metric}, "
+            f"{self.factor}, {self.patience}, {self.min_learning_rate})"
         )
 
 

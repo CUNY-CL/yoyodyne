@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import wandb
 from pytorch_lightning import callbacks, loggers
 
-from . import data, defaults, models, metrics, schedulers, util
+from . import data, defaults, metrics, models, schedulers, util
 
 
 class Error(Exception):
@@ -49,14 +49,13 @@ def _get_callbacks(
     Args:
         num_checkpoints (int, optional): number of checkpoints to save. To
             save one checkpoint per epoch, use `-1`.
-        checkpoint_metric (string, optional): the
+        checkpoint_metric (string, optional): validation metric used to
+            select checkpoints.
         patience (int, optional): number of epochs with no
             progress (according to `patience_metric`) before triggering
             early stopping.
-
-
-        val_metric (str, optional).
-        save_top_k (int, optional).
+        checkpoint_metric (string, optional): validation metric used to
+            trigger early stopping.
 
     Returns:
         List[callbacks.Callback]: callbacks.
