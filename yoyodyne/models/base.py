@@ -408,23 +408,12 @@ class BaseEncoderDecoder(pl.LightningModule):
             "interval": "step",
             "frequency": 1,
         }
-        # When using `reduceonplateau_mode loss`, we reduce when validation
-        # loss stops decreasing. When using `reduceonplateau_mode accuracy`,
-        # we reduce when validation accuracy stops increasing.
         if self.scheduler == "reduceonplateau":
             scheduler_cfg["interval"] = "epoch"
             scheduler_cfg["frequency"] = self.scheduler_kwargs[
                 "check_val_every_n_epoch"
             ]
-            mode = self.scheduler_kwargs.get("reduceonplateau_mode")
-            if not mode:
-                raise Error("No reduceonplateaumode specified")
-            elif mode == "loss":
-                scheduler_cfg["monitor"] = "val_loss"
-            elif mode == "accuracy":
-                scheduler_cfg["monitor"] = "val_accuracy"
-            else:
-                raise Error(f"reduceonplateau mode not found: {mode}")
+            scheduler_cfg["monitor"] = scheduler.metric.monitor
         return [scheduler_cfg]
 
     def _get_loss_func(
