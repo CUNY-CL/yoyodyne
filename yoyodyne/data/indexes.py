@@ -54,10 +54,11 @@ class Index:
             vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
             self.source_vocabulary = special.SPECIAL + source_vocabulary
             self.target_vocabulary = special.SPECIAL + target_vocabulary
-        self.features_vocabulary = features_vocabulary
         # FeatureInvariantTransformer assumes that features_vocabulary is at
         # the end of the list.
-        vocabulary.extend(sorted(features_vocabulary))
+        if features_vocabulary:
+            vocabulary.extend(sorted(features_vocabulary))
+        self.features_vocabulary = features_vocabulary
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
