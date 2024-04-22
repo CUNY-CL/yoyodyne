@@ -6,14 +6,14 @@ from typing import Dict
 
 from torch import optim
 
-from . import defaults
+from . import defaults, metrics
 
 ALL_SCHEDULER_ARGS = [
     "warmup_steps",
     "start_factor",
     "end_factor",
     "total_decay_steps",
-    "reduceonplateau_mode",
+    "reduceonplateau_metric",
     "reduceonplateau_factor",
     "reduceonplateau_patience",
     "min_learning_rate",
@@ -120,7 +120,7 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
     def __init__(
         self,
         optimizer,
-        reduceonplateau_mode,
+        reduceonplateau_metric,
         reduceonplateau_factor,
         reduceonplateau_patience,
         min_learning_rate,
@@ -133,9 +133,9 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
 
         Args:
             optimizer (optim.Optimizer): optimizer.
-            reduceonplateau_mode (str): whether to reduce the LR when the
-                validation loss stops decreasing ("loss") or when
-                validation accuracy stops increasing ("accuracy").
+            reduceonplateau_metric (str): reduces the LR when validation
+                `accuracy` stops increasing or when validation `loss` stops
+                decreasing.
             reduceonplateau_factor (float): factor by which the
                 learning rate will be reduced: `new_lr *= factor`.
             reduceonplateau_patience (int): number of epochs with no
@@ -143,18 +143,19 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
             min_learning_rate (float): lower bound on the learning rate.
             **kwargs: ignored.
         """
+        self.metric = metrics.ValidationMetric(reduceonplateau_metric)
         super().__init__(
             optimizer,
-            mode="min" if reduceonplateau_mode == "loss" else "max",
             factor=reduceonplateau_factor,
-            patience=reduceonplateau_patience,
             min_lr=min_learning_rate,
+            mode=self.metric.mode,
+            patience=reduceonplateau_patience,
         )
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}({self.optimizer}, {self.mode}, "
-            f"{self.factor}, {self.min_learning_rate}, {self.patience})"
+            f"{self.__class__.__name__}({self.optimizer}, {self.metric}, "
+            f"{self.factor}, {self.patience}, {self.min_learning_rate})"
         )
 
 
@@ -200,13 +201,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--end_factor (lineardecay scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
-        "--reduceonplateau_mode",
+        "--reduceonplateau_metric",
         type=str,
         choices=["loss", "accuracy"],
-        default=defaults.REDUCEONPLATEAU_MODE,
-        help="Whether to reduce the LR when the validation loss stops "
-        "decreasing (`loss`) or when validation accuracy stops increasing "
-        "(`accuracy`) (reduceonplateau scheduler only). Default: %(default)s.",
+        default=defaults.REDUCEONPLATEAU_METRIC,
+        help="Reduces the LR when validation `accuracy` stops increasing or "
+        "when validation `loss` stops decreasing (reduceonplateau scheduler "
+        "only. Default: %(default)s.",
     )
     parser.add_argument(
         "--reduceonplateau_factor",
