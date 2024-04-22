@@ -137,6 +137,11 @@ this format is specified by `--features_col 2 --features_sep , --target_col 3`.
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
 
+Tied Embeddings
+----------------
+
+By default, the source and target vocabularies are shared. This can be disabled with the flag `--no_tie_embeddings`. Note that as we store all embedding in one matrix, `--no_tie_embeddings` results in the source vocabulary items being wrapped in special symbols `{...}` to ensure no overlap with the target vocabulary.
+
 Reserved symbols
 ----------------
 
