@@ -177,9 +177,8 @@ def get_model_from_argparse_args(
     ):
         raise Error(
             f"--tie_embeddings set to {args.tie_embeddings}, but "
-            f"{args.arch} requires that it be set to {True}."
+            f"--arch {args.arch} requires it to be enabled."
         )
-
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
