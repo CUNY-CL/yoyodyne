@@ -166,6 +166,7 @@ def get_model_from_argparse_args(
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(args.arch)
+    # TODO(#156): add callback interface to check this.
     if (
         args.arch
         in [
@@ -235,9 +236,9 @@ def get_model_from_argparse_args(
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_encoder_cls=source_encoder_cls,
-        vocab_size=datamodule.index.vocab_size,
         target_vocab_size=datamodule.index.target_vocab_size,
         start_idx=datamodule.index.start_idx,
+        vocab_size=datamodule.index.vocab_size,
     )
 
 

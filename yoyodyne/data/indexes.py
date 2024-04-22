@@ -42,8 +42,8 @@ class Index:
         # If embeddings are tied, so are the vocab items.
         # Then, the source and target vocabularies are the union.
         if self.tie_embeddings:
-            vocabulary = sorted(
-                set(source_vocabulary) | set(target_vocabulary)
+            vocabulary = list(
+                sorted(set(source_vocabulary) | set(target_vocabulary))
             )
             self.source_vocabulary = special.SPECIAL + vocabulary
             self.target_vocabulary = special.SPECIAL + vocabulary
