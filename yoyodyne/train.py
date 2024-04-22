@@ -212,8 +212,6 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        source_attention_heads=args.source_attention_heads,
-        features_attention_heads=args.features_attention_heads,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -223,6 +221,7 @@ def get_model_from_argparse_args(
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
         expert=expert,
+        features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
@@ -234,9 +233,10 @@ def get_model_from_argparse_args(
         pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
+        source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
-        target_vocab_size=datamodule.index.target_vocab_size,
         start_idx=datamodule.index.start_idx,
+        target_vocab_size=datamodule.index.target_vocab_size,
         vocab_size=datamodule.index.vocab_size,
     )
 
