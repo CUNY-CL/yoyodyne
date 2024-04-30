@@ -1,10 +1,16 @@
 """Evaluators."""
 
 from __future__ import annotations
+import argparse
 import dataclasses
+from typing import List
 
+import numpy
 import torch
 from torch.nn import functional
+from torchmetrics.text import CharErrorRate
+
+from . import defaults
 
 
 class Error(Exception):
@@ -13,16 +19,15 @@ class Error(Exception):
 
 @dataclasses.dataclass
 class EvalItem:
-    num_correct: int
-    num_predicted: int
+    per_sample_metrics: List[float]
 
     @property
-    def accuracy(self) -> float:
-        """Computes the accuracy."""
-        return self.num_correct / self.num_predicted
+    def average_metric(self) -> float:
+        """Computes the micro-average of the metric."""
+        return sum(self.per_sample_metrics) / len(self.per_sample_metrics)
 
     def __add__(self, other_eval: EvalItem) -> EvalItem:
-        """Adds two EvalItems by summing along both attributes.
+        """Adds two EvalItem by concatenating the list of individual metrics.
 
         Args:
             other_eval (EvalItem): The other eval item to add to self.
@@ -31,12 +36,14 @@ class EvalItem:
             EvalItem.
         """
         return EvalItem(
-            self.num_correct + other_eval.num_correct,
-            self.num_predicted + other_eval.num_predicted,
+            self.per_sample_metrics + other_eval.per_sample_metrics
         )
 
-    def __radd__(self, start_val: int) -> EvalItem:
+    def __radd__(self, start_int: int) -> EvalItem:
         """Reverse add. Expects a zero-valued integer.
+
+        We just ignore the integer and return self to define an identity operation
+        on the left-most EvalItem in a sum() function.
 
         Args:
             start_val (int): An initial value for calling the first add in an
@@ -45,13 +52,11 @@ class EvalItem:
         Returns:
             EvalItem.
         """
-        return EvalItem(
-            self.num_correct + start_val, self.num_predicted + start_val
-        )
-
+        return self
+    
 
 class Evaluator:
-    """Evaluates predictions."""
+    """Evaluator interface."""
 
     def evaluate(
         self,
@@ -60,7 +65,10 @@ class Evaluator:
         end_idx: int,
         pad_idx: int,
     ) -> EvalItem:
-        """Computes the exact word match accuracy.
+        """Computes the evaluation metric.
+
+        This is the top-level public method that should be called by
+        evaluating code.
 
         Args:
             predictions (torch.Tensor): B x vocab_size x seq_len.
@@ -69,7 +77,7 @@ class Evaluator:
             pad_idx (int): padding index.
 
         Returns:
-            float: exact accuracy.
+            EvalItem.
         """
         if predictions.size(0) != golds.size(0):
             raise Error(
@@ -80,10 +88,72 @@ class Evaluator:
         _, predictions = torch.max(predictions, dim=2)
         # Finalizes the predictions.
         predictions = self.finalize_predictions(predictions, end_idx, pad_idx)
+        golds = self.finalize_golds(golds, end_idx, pad_idx)
         return self.get_eval_item(predictions, golds, pad_idx)
-
-    @staticmethod
+    
     def get_eval_item(
+        self,
+        predictions: torch.Tensor,
+        golds: torch.Tensor,
+        pad_idx: int,
+    ) -> EvalItem:
+        """Converts finalized predictions and golds into the metric.
+
+        Args:
+            predictions (torch.Tensor): _description_
+            golds (torch.Tensor): _description_
+            pad_idx (int): _description_
+
+        Returns:
+            EvalItem: _description_
+        """
+        raise NotImplementedError
+
+    def finalize_predictions(
+        self,
+        predictions: torch.Tensor,
+        end_idx: int,
+        pad_idx: int,
+    ) -> torch.Tensor:
+        """Finalizes predictions.
+
+        Makes any changes e.g. converting ints to strings, or converting
+        symbols after EOS to PADs to be ignored.
+
+        Args:
+            predictions (torch.Tensor): prediction tensor.
+            end_idx (int).
+            pad_idx (int).
+
+        Returns:
+            torch.Tensor: finalized predictions.
+        """
+        raise NotImplementedError
+    
+    def finalize_golds(
+        self,
+        predictions: torch.Tensor,
+        end_idx: int,
+        pad_idx: int,
+    ) -> torch.Tensor:
+        """Finalizes golds.
+
+        Args:
+            golds (torch.Tensor): prediction tensor.
+            end_idx (int).
+            pad_idx (int).
+
+        Returns:
+            torch.Tensor: finalized golds.
+        """
+        raise NotImplementedError
+
+  
+class AccuracyEvaluator(Evaluator):
+    """Evaluates accuracy."""
+
+    def get_eval_item(
+        self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
         pad_idx: int,
@@ -96,16 +166,12 @@ class Evaluator:
                 predictions, num_pads, "constant", pad_idx
             )
         # Gets the count of exactly matching tensors in the batch.
-        # -> B x max_seq_len.
-        corr_count = torch.where(
-            (predictions.to(golds.device) == golds).all(dim=1)
-        )[0].size()[0]
-        return EvalItem(
-            num_correct=corr_count, num_predicted=predictions.size(0)
-        )
+        # -> B.
+        accs = (predictions.to(golds.device) == golds).all(dim=1).tolist()
+        return EvalItem(accs)
 
-    @staticmethod
     def finalize_predictions(
+        self,
         predictions: torch.Tensor,
         end_idx: int,
         pad_idx: int,
@@ -155,3 +221,118 @@ class Evaluator:
             with torch.inference_mode():
                 predictions[i] = torch.cat((symbols, pads))
         return predictions
+    
+    def finalize_golds(
+        self,
+        golds: torch.Tensor,
+        *args,
+        **kwargs,
+    ):
+        return golds
+
+    @property
+    def metric_name(self):
+        return "accuracy"
+    
+
+class CEREvaluator(Evaluator):
+    """Evaluates character error rate."""
+
+    def get_eval_item(
+        self,
+        predictions: List[List[str]],
+        golds: List[List[str]],
+        pad_idx: int,
+    ) -> EvalItem:
+        cer_calc = CharErrorRate()
+        cers = []
+        for p, g in zip(predictions, golds):
+            p = " ".join(p)
+            g = " ".join(g)
+            cers.append(cer_calc(p, g))
+        return EvalItem(cers)
+
+    def _finalize_tensor(
+        self,
+        tensor: torch.Tensor,
+        end_idx: int,
+        pad_idx: int,
+    ) -> List[List[str]]:
+        # Not necessary if batch size is 1.
+        if tensor.size(0) == 1:
+            return [numpy.char.mod('%d', tensor.cpu().numpy())]
+        out = []
+        for i, prediction in enumerate(tensor):
+            # Gets first instance of EOS.
+            eos = (prediction == end_idx).nonzero(as_tuple=False)
+            if len(eos) > 0 and eos[0].item() < len(prediction):
+                # If an EOS was decoded and it is not the last one in the
+                # sequence.
+                eos = eos[0]
+            else:
+                # Leaves tensor[i] alone.
+                out.append(numpy.char.mod('%d', prediction))
+                continue
+            # Hack in case the first prediction is EOS. In this case
+            # torch.split will result in an error, so we change these 0's to
+            # 1's, which will make the entire sequence EOS as intended.
+            eos[eos == 0] = 1
+            symbols, *_ = torch.split(prediction, eos)
+            out.append(numpy.char.mod('%d', symbols))
+        return out
+    
+    def finalize_predictions(
+        self,
+        predictions: torch.Tensor,
+        end_idx: int,
+        pad_idx: int,
+    ) -> List[List[str]]:
+        """Finalizes predictions.
+
+        Args:
+            predictions (torch.Tensor): prediction tensor.
+            end_idx (int).
+            pad_idx (int).
+
+        Returns:
+            torch.Tensor: finalized predictions.
+        """
+        return self._finalize_tensor(predictions, end_idx, pad_idx)
+    
+    def finalize_golds(
+        self,
+        golds: torch.Tensor,
+        end_idx: int,
+        pad_idx: int,
+    ):
+        return self._finalize_tensor(golds, end_idx, pad_idx)
+    
+    @property
+    def metric_name(self):
+        return "cer"
+    
+
+_eval_factory = {
+    "accuracy": AccuracyEvaluator,
+    "cer": CEREvaluator,
+}
+
+def get_evaluator(eval_metric):
+    if eval_metric not in _eval_factory:
+        raise Error(f"No eval metric {eval_metric}.")
+    return _eval_factory[eval_metric]
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds LSTM configuration options to the argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--eval_metrics",
+        action="append",
+        choices=list(_eval_factory.keys()),
+        default=defaults.EVAL_METRICS,
+        help="Which evaluation metrics to use. Default: %(default)s.",
+    )
