@@ -4,7 +4,7 @@ This also includes init_embeddings, which has to go somewhere.
 """
 
 import argparse
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 import pytorch_lightning as pl
 import torch
@@ -51,7 +51,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     source_encoder_cls: modules.base.BaseModule
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
-    evaluator: evaluators.Evaluator
+    eval_metrics: List[evaluators.Evaluator]
     loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
@@ -63,6 +63,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         source_vocab_size,
         target_vocab_size,
         source_encoder_cls,
+        eval_metrics=defaults.EVAL_METRICS,
         features_encoder_cls=None,
         features_vocab_size=0,
         beta1=defaults.BETA1,
@@ -91,6 +92,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.source_vocab_size = source_vocab_size
         self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
+        self.eval_metrics = eval_metrics
         self.beta1 = beta1
         self.beta2 = beta2
         self.label_smoothing = label_smoothing
@@ -110,7 +112,10 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.encoder_layers = encoder_layers
         self.hidden_size = hidden_size
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
-        self.evaluator = evaluators.Evaluator()
+        self.evaluators = [
+            evaluators.get_evaluator(eval_metric)()
+            for eval_metric in self.eval_metrics
+        ]
         # Checks compatibility with feature encoder and dataloader.
         modules.check_encoder_compatibility(
             source_encoder_cls, features_encoder_cls
@@ -284,9 +289,13 @@ class BaseEncoderDecoder(pl.LightningModule):
         # -> B x seq_len x target_vocab_size.
         target_padded = batch.target.padded
         greedy_predictions = self(batch)
-        val_eval_item = self.evaluator.evaluate(
-            greedy_predictions, target_padded, self.end_idx, self.pad_idx
-        )
+        # Gets a dict of all eval metrics for this batch.
+        val_eval_items_dict = {
+            evaluator.metric_name: evaluator.evaluate(
+                greedy_predictions, target_padded, self.end_idx, self.pad_idx
+            )
+            for evaluator in self.evaluators
+        }
         # -> B x target_vocab_size x seq_len. For loss.
         greedy_predictions = greedy_predictions.transpose(1, 2)
         # Truncates predictions to the size of the target.
@@ -294,7 +303,8 @@ class BaseEncoderDecoder(pl.LightningModule):
             greedy_predictions, 2, 0, target_padded.size(1)
         )
         loss = self.loss_func(greedy_predictions, target_padded)
-        return {"val_eval_item": val_eval_item, "val_loss": loss}
+        val_eval_items_dict.update({"val_loss": loss})
+        return val_eval_items_dict
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
         """Computes average loss and average accuracy.
@@ -309,13 +319,16 @@ class BaseEncoderDecoder(pl.LightningModule):
         avg_val_loss = (
             sum([v["val_loss"] for v in validation_step_outputs]) / num_steps
         )
-        epoch_eval = sum(v["val_eval_item"] for v in validation_step_outputs)
+        # Gets requested metrics
         metrics = {
-            "val_loss": avg_val_loss,
-            "val_accuracy": epoch_eval.accuracy,
+            metric_name: sum(v[metric_name] for v in validation_step_outputs).average_metric
+            for metric_name in self.eval_metrics
         }
+        # Always logs validation loss.
+        metrics.update({"val_loss": avg_val_loss})
+        # del validation_step_outputs
         for metric, value in metrics.items():
-            self.log(metric, value, prog_bar=True)
+            self.log("val_" + metric, value, prog_bar=True)
         return metrics
 
     def predict_step(
