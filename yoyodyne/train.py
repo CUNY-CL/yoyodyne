@@ -211,7 +211,7 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
-        eval_metrics=args.eval_metrics,
+        eval_metrics=args.eval_metric,
         expert=expert,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,

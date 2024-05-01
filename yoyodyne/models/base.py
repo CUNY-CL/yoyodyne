@@ -291,7 +291,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         greedy_predictions = self(batch)
         # Gets a dict of all eval metrics for this batch.
         val_eval_items_dict = {
-            evaluator.metric_name: evaluator.evaluate(
+            evaluator.name: evaluator.evaluate(
                 greedy_predictions, target_padded, self.end_idx, self.pad_idx
             )
             for evaluator in self.evaluators

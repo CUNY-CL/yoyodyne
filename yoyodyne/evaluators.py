@@ -1,6 +1,7 @@
 """Evaluators."""
 
 from __future__ import annotations
+import abc
 import argparse
 import dataclasses
 from typing import List
@@ -55,7 +56,7 @@ class EvalItem:
         return self
 
 
-class Evaluator:
+class Evaluator(abc.ABC):
     """Evaluator interface."""
 
     def evaluate(
@@ -147,6 +148,9 @@ class Evaluator:
             torch.Tensor: finalized golds.
         """
         raise NotImplementedError
+    
+    def name(self) -> str:
+        raise NotImplementedError
 
 
 class AccuracyEvaluator(Evaluator):
@@ -231,7 +235,7 @@ class AccuracyEvaluator(Evaluator):
         return golds
 
     @property
-    def metric_name(self):
+    def name(self) -> str:
         return "accuracy"
 
 
@@ -308,7 +312,7 @@ class CEREvaluator(Evaluator):
         return self._finalize_tensor(golds, end_idx, pad_idx)
 
     @property
-    def metric_name(self):
+    def name(self) -> str:
         return "cer"
 
 
@@ -331,7 +335,7 @@ def get_evaluator(eval_metric: str) -> Evaluator:
         Evaluator.
     """
     if eval_metric not in _eval_factory:
-        raise Error(f"No eval metric {eval_metric}.")
+        raise Error(f"No eval metric {eval_metric}")
     return _eval_factory[eval_metric]
 
 
@@ -342,9 +346,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--eval_metrics",
+        "--eval_metric",
         action="append",
-        choices=list(_eval_factory.keys()),
+        choices=_eval_factory.keys(),
         default=defaults.EVAL_METRICS,
         help="Which evaluation metrics to use. Default: %(default)s.",
     )
