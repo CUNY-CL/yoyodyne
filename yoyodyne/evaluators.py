@@ -22,7 +22,7 @@ class EvalItem:
     per_sample_metrics: List[float]
 
     @property
-    def average_metric(self) -> float:
+    def metric(self) -> float:
         """Computes the micro-average of the metric."""
         return sum(self.per_sample_metrics) / len(self.per_sample_metrics)
 
@@ -36,7 +36,7 @@ class EvalItem:
             EvalItem.
         """
         return EvalItem(
-            self.per_sample_metrics + other_eval.per_sample_metrics
+            numpy.concatenate((self.per_sample_metrics, other_eval.per_sample_metrics))
         )
 
     def __radd__(self, start_int: int) -> EvalItem:
@@ -167,7 +167,7 @@ class AccuracyEvaluator(Evaluator):
             )
         # Gets the count of exactly matching tensors in the batch.
         # -> B.
-        accs = (predictions.to(golds.device) == golds).all(dim=1).tolist()
+        accs = (predictions.to(golds.device) == golds).all(dim=1).numpy()
         return EvalItem(accs)
 
     def finalize_predictions(
