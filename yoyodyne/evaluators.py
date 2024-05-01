@@ -42,8 +42,8 @@ class EvalItem:
     def __radd__(self, start_int: int) -> EvalItem:
         """Reverse add. Expects a zero-valued integer.
 
-        We just ignore the integer and return self to define an identity operation
-        on the left-most EvalItem in a sum() function.
+        We just ignore the integer and return self to define an
+        identity operation on the left-most EvalItem in a sum() function.
 
         Args:
             start_val (int): An initial value for calling the first add in an
@@ -53,7 +53,7 @@ class EvalItem:
             EvalItem.
         """
         return self
-    
+
 
 class Evaluator:
     """Evaluator interface."""
@@ -90,7 +90,7 @@ class Evaluator:
         predictions = self.finalize_predictions(predictions, end_idx, pad_idx)
         golds = self.finalize_golds(golds, end_idx, pad_idx)
         return self.get_eval_item(predictions, golds, pad_idx)
-    
+
     def get_eval_item(
         self,
         predictions: torch.Tensor,
@@ -129,7 +129,7 @@ class Evaluator:
             torch.Tensor: finalized predictions.
         """
         raise NotImplementedError
-    
+
     def finalize_golds(
         self,
         predictions: torch.Tensor,
@@ -148,7 +148,7 @@ class Evaluator:
         """
         raise NotImplementedError
 
-  
+
 class AccuracyEvaluator(Evaluator):
     """Evaluates accuracy."""
 
@@ -221,7 +221,7 @@ class AccuracyEvaluator(Evaluator):
             with torch.inference_mode():
                 predictions[i] = torch.cat((symbols, pads))
         return predictions
-    
+
     def finalize_golds(
         self,
         golds: torch.Tensor,
@@ -233,7 +233,7 @@ class AccuracyEvaluator(Evaluator):
     @property
     def metric_name(self):
         return "accuracy"
-    
+
 
 class CEREvaluator(Evaluator):
     """Evaluates character error rate."""
@@ -260,7 +260,7 @@ class CEREvaluator(Evaluator):
     ) -> List[List[str]]:
         # Not necessary if batch size is 1.
         if tensor.size(0) == 1:
-            return [numpy.char.mod('%d', tensor.cpu().numpy())]
+            return [numpy.char.mod("%d", tensor.cpu().numpy())]
         out = []
         for i, prediction in enumerate(tensor):
             # Gets first instance of EOS.
@@ -271,16 +271,16 @@ class CEREvaluator(Evaluator):
                 eos = eos[0]
             else:
                 # Leaves tensor[i] alone.
-                out.append(numpy.char.mod('%d', prediction))
+                out.append(numpy.char.mod("%d", prediction))
                 continue
             # Hack in case the first prediction is EOS. In this case
             # torch.split will result in an error, so we change these 0's to
             # 1's, which will make the entire sequence EOS as intended.
             eos[eos == 0] = 1
             symbols, *_ = torch.split(prediction, eos)
-            out.append(numpy.char.mod('%d', symbols))
+            out.append(numpy.char.mod("%d", symbols))
         return out
-    
+
     def finalize_predictions(
         self,
         predictions: torch.Tensor,
@@ -298,7 +298,7 @@ class CEREvaluator(Evaluator):
             torch.Tensor: finalized predictions.
         """
         return self._finalize_tensor(predictions, end_idx, pad_idx)
-    
+
     def finalize_golds(
         self,
         golds: torch.Tensor,
@@ -306,18 +306,30 @@ class CEREvaluator(Evaluator):
         pad_idx: int,
     ):
         return self._finalize_tensor(golds, end_idx, pad_idx)
-    
+
     @property
     def metric_name(self):
         return "cer"
-    
+
 
 _eval_factory = {
     "accuracy": AccuracyEvaluator,
     "cer": CEREvaluator,
 }
 
-def get_evaluator(eval_metric):
+
+def get_evaluator(eval_metric: str) -> Evaluator:
+    """Gets the requested Evaluator given the specified metric.
+
+    Args:
+        eval_metric (str).
+
+    Raises:
+        Error.
+
+    Returns:
+        Evaluator.
+    """
     if eval_metric not in _eval_factory:
         raise Error(f"No eval metric {eval_metric}.")
     return _eval_factory[eval_metric]
