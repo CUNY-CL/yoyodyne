@@ -37,7 +37,9 @@ class EvalItem:
             EvalItem.
         """
         return EvalItem(
-            numpy.concatenate((self.per_sample_metrics, other_eval.per_sample_metrics))
+            numpy.concatenate(
+                (self.per_sample_metrics, other_eval.per_sample_metrics)
+            )
         )
 
     def __radd__(self, start_int: int) -> EvalItem:
@@ -148,7 +150,7 @@ class Evaluator(abc.ABC):
             torch.Tensor: finalized golds.
         """
         raise NotImplementedError
-    
+
     def name(self) -> str:
         raise NotImplementedError
 
