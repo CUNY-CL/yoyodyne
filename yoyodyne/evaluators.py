@@ -245,9 +245,7 @@ class CEREvaluator(Evaluator):
         golds: List[List[str]],
         pad_idx: int,
     ) -> EvalItem:
-        cers = []
-        for i, (p, g) in enumerate(zip(predictions, golds)):
-            cers.append(self._compute_cer(p, g))
+        cers = [self._compute_cer(p, g) for p, g in zip(predictions, golds)]
         return EvalItem(cers)
 
     def _finalize_tensor(
