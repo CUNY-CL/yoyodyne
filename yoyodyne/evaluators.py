@@ -4,12 +4,15 @@ from __future__ import annotations
 import abc
 import argparse
 import dataclasses
+import statistics
 from typing import List
 
 import numpy
 import torch
 from torch.nn import functional
-from torchmetrics.text import CharErrorRate
+
+# from torchmetrics.text import CharErrorRate
+from torchmetrics.functional.text.helper import _edit_distance
 
 from . import defaults
 
@@ -25,7 +28,7 @@ class EvalItem:
     @property
     def metric(self) -> float:
         """Computes the micro-average of the metric."""
-        return sum(self.per_sample_metrics) / len(self.per_sample_metrics)
+        return statistics.mean(self.per_sample_metrics)
 
     def __add__(self, other_eval: EvalItem) -> EvalItem:
         """Adds two EvalItem by concatenating the list of individual metrics.
@@ -37,25 +40,8 @@ class EvalItem:
             EvalItem.
         """
         return EvalItem(
-            numpy.concatenate(
-                (self.per_sample_metrics, other_eval.per_sample_metrics)
-            )
+            self.per_sample_metrics + other_eval.per_sample_metrics
         )
-
-    def __radd__(self, start_int: int) -> EvalItem:
-        """Reverse add. Expects a zero-valued integer.
-
-        We just ignore the integer and return self to define an
-        identity operation on the left-most EvalItem in a sum() function.
-
-        Args:
-            start_val (int): An initial value for calling the first add in an
-                iterable. Expected to be 0.
-
-        Returns:
-            EvalItem.
-        """
-        return self
 
 
 class Evaluator(abc.ABC):
@@ -173,7 +159,7 @@ class AccuracyEvaluator(Evaluator):
             )
         # Gets the count of exactly matching tensors in the batch.
         # -> B.
-        accs = (predictions.to(golds.device) == golds).all(dim=1).numpy()
+        accs = (predictions.to(golds.device) == golds).all(dim=1).tolist()
         return EvalItem(accs)
 
     def finalize_predictions(
@@ -244,18 +230,24 @@ class AccuracyEvaluator(Evaluator):
 class CEREvaluator(Evaluator):
     """Evaluates character error rate."""
 
+    def _compute_cer(
+        self,
+        preds: List[str],
+        target: List[str],
+    ) -> float:
+        errors = _edit_distance(preds, target)
+        total = len(target)
+        return errors / total
+
     def get_eval_item(
         self,
         predictions: List[List[str]],
         golds: List[List[str]],
         pad_idx: int,
     ) -> EvalItem:
-        cer_calc = CharErrorRate()
         cers = []
-        for p, g in zip(predictions, golds):
-            p = " ".join(p)
-            g = " ".join(g)
-            cers.append(cer_calc(p, g))
+        for i, (p, g) in enumerate(zip(predictions, golds)):
+            cers.append(self._compute_cer(p, g))
         return EvalItem(cers)
 
     def _finalize_tensor(

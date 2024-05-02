@@ -322,7 +322,8 @@ class BaseEncoderDecoder(pl.LightningModule):
         # Gets requested metrics
         metrics = {
             metric_name: sum(
-                v[metric_name] for v in validation_step_outputs
+                (v[metric_name] for v in validation_step_outputs),
+                start=evaluators.EvalItem([]),
             ).metric
             for metric_name in self.eval_metrics
         }
