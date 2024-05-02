@@ -227,10 +227,12 @@ class AccuracyEvaluator(Evaluator):
         return "accuracy"
 
 
-class CEREvaluator(Evaluator):
-    """Evaluates character error rate."""
+class SEREvaluator(Evaluator):
+    """Evaluates symbol error rate.
+    
+    Here, a symbol is defined by the user specified tokenization."""
 
-    def _compute_cer(
+    def _compute_ser(
         self,
         preds: List[str],
         target: List[str],
@@ -245,8 +247,8 @@ class CEREvaluator(Evaluator):
         golds: List[List[str]],
         pad_idx: int,
     ) -> EvalItem:
-        cers = [self._compute_cer(p, g) for p, g in zip(predictions, golds)]
-        return EvalItem(cers)
+        sers = [self._compute_ser(p, g) for p, g in zip(predictions, golds)]
+        return EvalItem(sers)
 
     def _finalize_tensor(
         self,
@@ -305,12 +307,12 @@ class CEREvaluator(Evaluator):
 
     @property
     def name(self) -> str:
-        return "cer"
+        return "ser"
 
 
 _eval_factory = {
     "accuracy": AccuracyEvaluator,
-    "cer": CEREvaluator,
+    "ser": SEREvaluator,
 }
 
 
