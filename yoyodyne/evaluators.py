@@ -4,7 +4,6 @@ from __future__ import annotations
 import abc
 import argparse
 import dataclasses
-import statistics
 from typing import List
 
 import numpy
@@ -28,7 +27,7 @@ class EvalItem:
     @property
     def metric(self) -> float:
         """Computes the micro-average of the metric."""
-        return statistics.mean(self.per_sample_metrics)
+        return numpy.mean(self.per_sample_metrics)
 
     def __add__(self, other_eval: EvalItem) -> EvalItem:
         """Adds two EvalItem by concatenating the list of individual metrics.
@@ -86,16 +85,6 @@ class Evaluator(abc.ABC):
         golds: torch.Tensor,
         pad_idx: int,
     ) -> EvalItem:
-        """Converts finalized predictions and golds into the metric.
-
-        Args:
-            predictions (torch.Tensor): _description_
-            golds (torch.Tensor): _description_
-            pad_idx (int): _description_
-
-        Returns:
-            EvalItem: _description_
-        """
         raise NotImplementedError
 
     def finalize_predictions(
@@ -104,19 +93,6 @@ class Evaluator(abc.ABC):
         end_idx: int,
         pad_idx: int,
     ) -> torch.Tensor:
-        """Finalizes predictions.
-
-        Makes any changes e.g. converting ints to strings, or converting
-        symbols after EOS to PADs to be ignored.
-
-        Args:
-            predictions (torch.Tensor): prediction tensor.
-            end_idx (int).
-            pad_idx (int).
-
-        Returns:
-            torch.Tensor: finalized predictions.
-        """
         raise NotImplementedError
 
     def finalize_golds(
@@ -125,16 +101,6 @@ class Evaluator(abc.ABC):
         end_idx: int,
         pad_idx: int,
     ) -> torch.Tensor:
-        """Finalizes golds.
-
-        Args:
-            golds (torch.Tensor): prediction tensor.
-            end_idx (int).
-            pad_idx (int).
-
-        Returns:
-            torch.Tensor: finalized golds.
-        """
         raise NotImplementedError
 
     def name(self) -> str:
@@ -229,7 +195,7 @@ class AccuracyEvaluator(Evaluator):
 
 class SEREvaluator(Evaluator):
     """Evaluates symbol error rate.
-    
+
     Here, a symbol is defined by the user specified tokenization."""
 
     def _compute_ser(
@@ -258,9 +224,12 @@ class SEREvaluator(Evaluator):
     ) -> List[List[str]]:
         # Not necessary if batch size is 1.
         if tensor.size(0) == 1:
+            # Returns a list of a numpy char vector.
+            # This is allows evaluation over strings without converting
+            # integer indices back to symbols.
             return [numpy.char.mod("%d", tensor.cpu().numpy())]
         out = []
-        for i, prediction in enumerate(tensor):
+        for prediction in tensor:
             # Gets first instance of EOS.
             eos = (prediction == end_idx).nonzero(as_tuple=False)
             if len(eos) > 0 and eos[0].item() < len(prediction):
@@ -276,6 +245,7 @@ class SEREvaluator(Evaluator):
             # 1's, which will make the entire sequence EOS as intended.
             eos[eos == 0] = 1
             symbols, *_ = torch.split(prediction, eos)
+            # Accumulates a list of numpy char vectors.
             out.append(numpy.char.mod("%d", symbols))
         return out
 
@@ -328,9 +298,10 @@ def get_evaluator(eval_metric: str) -> Evaluator:
     Returns:
         Evaluator.
     """
-    if eval_metric not in _eval_factory:
-        raise Error(f"No eval metric {eval_metric}")
-    return _eval_factory[eval_metric]
+    try:
+        return _eval_factory[eval_metric]
+    except KeyError(eval_metric):
+        raise Error(f"No evaluation metric {eval_metric}")
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
