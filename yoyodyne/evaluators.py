@@ -203,7 +203,7 @@ class SEREvaluator(Evaluator):
         errors = self._edit_distance(preds, target)
         total = len(target)
         return errors / total
-    
+
     def _edit_distance(self, x: List[str], y: List[str]) -> int:
         idim = len(x) + 1
         jdim = len(y) + 1
