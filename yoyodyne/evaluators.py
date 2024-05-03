@@ -10,9 +10,6 @@ import numpy
 import torch
 from torch.nn import functional
 
-# from torchmetrics.text import CharErrorRate
-from torchmetrics.functional.text.helper import _edit_distance
-
 from . import defaults
 
 
@@ -203,9 +200,26 @@ class SEREvaluator(Evaluator):
         preds: List[str],
         target: List[str],
     ) -> float:
-        errors = _edit_distance(preds, target)
+        errors = self._edit_distance(preds, target)
         total = len(target)
         return errors / total
+    
+    def _edit_distance(self, x: List[str], y: List[str]) -> int:
+        idim = len(x) + 1
+        jdim = len(y) + 1
+        table = numpy.zeros((idim, jdim), dtype=numpy.uint16)
+        table[:, 0] = range(idim)
+        table[0, :] = range(jdim)
+        for i in range(1, idim):
+            for j in range(1, jdim):
+                if x[i - 1] == y[j - 1]:
+                    table[i][j] = table[i - 1][j - 1]
+                else:
+                    c1 = table[i - 1][j]
+                    c2 = table[i][j - 1]
+                    c3 = table[i - 1][j - 1]
+                    table[i][j] = min(c1, c2, c3) + 1
+        return table[-1][-1]
 
     def get_eval_item(
         self,
