@@ -319,7 +319,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         avg_val_loss = numpy.mean(
             [v["val_loss"] for v in validation_step_outputs]
         )
-        # Gets requested metrics
+        # Gets requested metrics.
         metrics = {
             metric_name: sum(
                 (v[metric_name] for v in validation_step_outputs),
