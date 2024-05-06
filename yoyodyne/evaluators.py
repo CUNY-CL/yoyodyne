@@ -219,7 +219,7 @@ class SEREvaluator(Evaluator):
                     c2 = table[i][j - 1]
                     c3 = table[i - 1][j - 1]
                     table[i][j] = min(c1, c2, c3) + 1
-        return table[-1][-1]
+        return int(table[-1][-1])
 
     def get_eval_item(
         self,
