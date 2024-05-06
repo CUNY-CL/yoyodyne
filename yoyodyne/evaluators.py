@@ -204,7 +204,8 @@ class SEREvaluator(Evaluator):
         total = len(target)
         return errors / total
 
-    def _edit_distance(self, x: List[str], y: List[str]) -> int:
+    @staticmethod
+    def _edit_distance(x: List[str], y: List[str]) -> int:
         idim = len(x) + 1
         jdim = len(y) + 1
         table = numpy.zeros((idim, jdim), dtype=numpy.uint16)
