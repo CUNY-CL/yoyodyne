@@ -331,7 +331,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         metrics.update({"loss": avg_val_loss})
         # del validation_step_outputs
         for metric, value in metrics.items():
-            self.log("val_" + metric, value, prog_bar=True)
+            self.log(f"val_{metric}", value, prog_bar=True)
         return metrics
 
     def predict_step(
