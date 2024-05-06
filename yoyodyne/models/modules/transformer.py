@@ -151,23 +151,6 @@ class TransformerModule(base.BaseModule):
             self.embedding_size, self.pad_idx, max_source_length
         )
 
-    def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return self._xavier_embedding_initialization(
-            num_embeddings, embedding_size, pad_idx
-        )
-
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
         """Embeds the source symbols and adds positional encodings.
 
