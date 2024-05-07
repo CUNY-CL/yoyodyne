@@ -304,7 +304,7 @@ class BaseEncoderDecoder(pl.LightningModule):
             greedy_predictions, 2, 0, target_padded.size(1)
         )
         loss = self.loss_func(greedy_predictions, target_padded)
-        val_eval_items_dict.update({"val_loss": loss})
+        val_eval_items_dict.update({"val_loss": loss.cpu()})
         return val_eval_items_dict
 
     def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
