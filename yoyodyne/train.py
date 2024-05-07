@@ -54,7 +54,7 @@ def _get_callbacks(
         patience (int, optional): number of epochs with no
             progress (according to `patience_metric`) before triggering
             early stopping.
-        checkpoint_metric (string, optional): validation metric used to
+        patience_metric (string, optional): validation metric used to
             trigger early stopping.
 
     Returns:
