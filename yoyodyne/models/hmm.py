@@ -44,12 +44,12 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
 
         Args:
             *args: passed to superclass.
-            enforce_monotonic [Optional(bool)]: Enforce monotonic state
-                transition in decoding. Default: False
-            attention_context [Optional(int)]: Size of context window for
-            conditioning state transition.
-                If 0, state transitions are independent.
-                Default: 0 **kwargs: passed to superclass.
+            enforce_monotonic [bool, optional]: Enforce monotonic state
+                transition in decoding.
+            attention_context [int, optional]: Size of context window for
+            conditioning state transition. If 0, state transitions are
+                independent.
+            **kwargs: passed to superclass.
         """
         self.enforce_monotonic = enforce_monotonic
         self.attention_context = attention_context
@@ -63,7 +63,6 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
 
         Simply feeds a BOS string to decoder to provide initial probability.
         """
-
         batch_size, _ = encoder_mask.shape
         decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
         bos = (
@@ -73,7 +72,6 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             .repeat(batch_size)
             .unsqueeze(-1)
         )
-
         return self.decode_step(
             bos, decoder_hiddens, encoder_out, encoder_mask
         )
@@ -84,29 +82,34 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
     ) -> torch.Tensor:
         """Runs the encoder-decoder model.
 
+        The emission tensor returned is of shape 
+        (tgt_len x batch_size x src_len x vocab_size), and the
+        transition tensor returned is of shape
+        (tgt_len x batch_size x src_len x src_len).
+
         Args:
-                batch (data.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
-                all_log_probs: (torch.Tensor): tensor of emission
-                    probabilities for each transition state (target symb).
-                    Shape: (tgt_len x batch_size x src_len x vocab_size)
-                all_alignements: (torch.Tensor): tensor of transition
-                    probabilities for each transition state (target symb).
-                    Shape: (tgt_len x batch_size x src_len x src_len)
+            Tuple[torch.Tensor, torch.Tensor]: tensosr of emission
+                 and transition probabilities for each transition
+                 state (i.e., target symbol).
         """
         encoder_out = self.source_encoder(batch.source).output
         if self.has_features_encoder:
             encoder_features_out = self.features_encoder(batch.features).output
+            # Averages to flatten embedding.
             encoder_features_out = encoder_features_out.sum(
                 dim=1, keepdim=True
-            )  # Average to flatten embedding.
+            )
+            # Expands length of source.
             encoder_features_out = encoder_features_out.expand(
                 -1, encoder_out.shape[1], -1
-            )  # Expand length of source.
+            )
+            # Concatenates with average.
             encoder_out = torch.cat(
                 [encoder_out, encoder_features_out], dim=-1
-            )  # Concat with average.
+            )
         if self.training:
             output = self.decode(
                 encoder_out,
