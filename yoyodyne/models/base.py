@@ -6,7 +6,6 @@ This also includes init_embeddings, which has to go somewhere.
 import argparse
 from typing import Callable, Dict, List, Optional
 
-import numpy
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
@@ -316,9 +315,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             Dict: averaged metrics over all validation steps.
         """
-        avg_val_loss = numpy.mean(
+        avg_val_loss = torch.tensor(
             [v["val_loss"] for v in validation_step_outputs]
-        )
+        ).mean()
         # Gets requested metrics.
         metrics = {
             metric_name: sum(
