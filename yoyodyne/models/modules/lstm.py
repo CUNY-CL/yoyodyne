@@ -1,7 +1,6 @@
 """LSTM model classes."""
 
-import dataclasses
-from typing import Optional, Tuple
+from typing import Tuple
 
 import torch
 from torch import nn

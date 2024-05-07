@@ -179,7 +179,7 @@ def get_model_from_argparse_args(
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
-        'hmm_lstm',
+        "hmm_lstm",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
