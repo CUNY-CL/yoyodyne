@@ -239,7 +239,7 @@ class SEREvaluator(Evaluator):
     ) -> torch.Tensor:
         # Not necessary if batch size is 1.
         if tensor.size(0) == 1:
-            return [prediction]
+            return [tensor]
         out = []
         for prediction in tensor:
             # Gets first instance of EOS.
