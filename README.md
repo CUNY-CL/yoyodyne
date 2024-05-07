@@ -94,6 +94,20 @@ The user can also specify various optional training and architectural arguments.
 See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for more
 information.
 
+
+### Validation
+
+Validation is run at intervals requested by the user using the lightning interface.
+See `--val_check_interval` and `--check_val_every_n_epoch`
+[here](https://lightning.ai/docs/pytorch/stable/common/trainer.html#trainer-class-api).
+Particular evaluation metrics can also be requested with `--eval_metric`. For example
+
+    yoyodyne-train --eval_metric accuracy --eval_metric ser ...
+
+will compute both accuracy and symbol error rate (SER) each time validation is
+requested. Additional metrics can be added in
+[`evaluators.py`](yoyodyne/evaluators.py).
+
 ### Prediction
 
 Prediction is performed by the [`yoyodyne-predict`](yoyodyne/predict.py) script.
