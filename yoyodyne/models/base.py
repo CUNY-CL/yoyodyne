@@ -6,7 +6,6 @@ This also includes init_embeddings, which has to go somewhere.
 import argparse
 from typing import Callable, Dict, List, Optional
 
-import numpy
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
