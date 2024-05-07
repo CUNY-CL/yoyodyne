@@ -236,19 +236,19 @@ class HMMLSTMDecoder(LSTMDecoder):
         )
 
     def _alignment_step(self, decoded, encoder_out, encoder_mask):
-        # Matrix multiply encoding and decoding for alignment representations.
-        # -> B x seq_len
+        # Multiplies encoding and decoding for alignment representations.
+        # -> B x seq_len.
         alignment_scores = torch.bmm(
             self.scale_encoded(encoder_out), decoded.transpose(1, 2)
         ).squeeze(-1)
-        # Get probability of alignments.
+        # Gets probability of alignments.
         alignment_probs = nn.functional.softmax(alignment_scores, dim=-1)
         # Mask padding.
         alignment_probs = alignment_probs * (~encoder_mask) + 1e-7
         alignment_probs = alignment_probs / alignment_probs.sum(
             dim=-1, keepdim=True
         )
-        # Expand over all time steps. Log probs for quicker computation.
+        # Expands over all time steps. Log probs for quicker computation.
         return (
             alignment_probs.log()
             .unsqueeze(1)
@@ -278,18 +278,15 @@ class HMMLSTMDecoder(LSTMDecoder):
             output (base.ModuleOutput): Dataclass containing step-wise
                 emission probs, alignment matrix, and hidden states of decoder.
         """
-        # Encode current symbol.
+        # Encodes current symbol.
         embedded = self.embed(symbol)
         decoded, hiddens = self.module(embedded, last_hiddens)
-
-        # Get emission probabilities over each hidden state (source symbol)
+        # Gets emission probabilities over each hidden state (source symbol).
         output = decoded.expand(-1, encoder_out.shape[1], -1)
         output = torch.cat([output, encoder_out], dim=-1)
         output = self.output_proj(output)
-
-        # Get transition probabilities (alignment) for current states.
+        # Gets transition probabilities (alignment) for current states.
         alignment = self._alignment_step(decoded, encoder_out, encoder_mask)
-
         return base.ModuleOutput(
             output=output, embeddings=alignment, hiddens=hiddens
         )
@@ -374,19 +371,15 @@ class ContextHMMLSTMDecoder(HMMLSTMDecoder):
             output (base.ModuleOutput): Dataclass containing step-wise emission
                 probs, alignment matrix, and hidden states of decoder.
         """
-        # Encode current symbol.
+        # Encodes current symbol.
         embedded = self.embed(symbol)
         decoded, hiddens = self.module(embedded, last_hiddens)
-
-        # Expand decoded to concatenate with alignments
+        # Expands decoded to concatenate with alignments.
         decoded = decoded.expand(-1, encoder_out.shape[1], -1)
-
         output = torch.cat([decoded, encoder_out], dim=-1)
         output = self.output_proj(output)
-
-        # Get current alignments.
+        # Gets current alignments.
         alignment = self._alignment_step(decoded, encoder_out, encoder_mask)
-
         return base.ModuleOutput(
             output=output, embeddings=alignment, hiddens=hiddens
         )
