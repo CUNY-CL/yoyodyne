@@ -1,6 +1,7 @@
 """LSTM model classes."""
 
-from typing import Tuple
+import dataclasses
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -167,7 +168,7 @@ class LSTMDecoder(LSTMModule):
 
     @property
     def output_size(self) -> int:
-        return self.num_embeddings
+        return self.hidden_size
 
     @property
     def name(self) -> str:
@@ -205,7 +206,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
                 shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Decoder output,,
+            Tuple[torch.Tensor, torch.Tensor]: Decoder output,
                 and the previous hidden states from the decoder LSTM.
         """
         embedded = self.embed(symbol)
@@ -223,3 +224,174 @@ class LSTMAttentiveDecoder(LSTMDecoder):
     @property
     def name(self) -> str:
         return "attentive LSTM"
+
+
+class HMMLSTMDecoder(LSTMDecoder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.output_proj = nn.Sequential(
+            nn.Linear(self.output_size, self.output_size), nn.Tanh()
+        )
+        self.scale_encoded = nn.Linear(
+            self.decoder_input_size, self.hidden_size
+        )
+
+    def _alignment_step(self, decoded, encoder_out, encoder_mask):
+        # Matrix multiply encoding and decoding for alignment representations.
+        # -> B x seq_len
+        alignment_scores = torch.bmm(
+            self.scale_encoded(encoder_out), decoded.transpose(1, 2)
+        ).squeeze(-1)
+        # Get probability of alignments.
+        alignment_probs = nn.functional.softmax(alignment_scores, dim=-1)
+        # Mask padding.
+        alignment_probs = alignment_probs * (~encoder_mask) + 1e-7
+        alignment_probs = alignment_probs / alignment_probs.sum(
+            dim=-1, keepdim=True
+        )
+        # Expand over all time steps. Log probs for quicker computation.
+        return (
+            alignment_probs.log()
+            .unsqueeze(1)
+            .expand(-1, encoder_out.shape[1], -1)
+        )
+
+    def forward(
+        self,
+        symbol: torch.Tensor,
+        last_hiddens: torch.Tensor,
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Single decode pass.
+
+        Args:
+            symbol (torch.Tensor): previously decoded symbol of shape (B x 1).
+            last_hiddens (Tuple[torch.Tensor, torch.Tensor]): last hidden
+                states from the decoder of shape
+                (1 x B x decoder_dim, 1 x B x decoder_dim).
+            encoder_out (torch.Tensor): encoded input sequence of shape
+                (B x seq_len x encoder_dim).
+            encoder_mask (torch.Tensor): mask for the encoded input batch of
+                shape (B x seq_len).
+
+        Returns:
+            output (base.ModuleOutput): Dataclass containing step-wise
+                emission probs, alignment matrix, and hidden states of decoder.
+        """
+        # Encode current symbol.
+        embedded = self.embed(symbol)
+        decoded, hiddens = self.module(embedded, last_hiddens)
+
+        # Get emission probabilities over each hidden state (source symbol)
+        output = decoded.expand(-1, encoder_out.shape[1], -1)
+        output = torch.cat([output, encoder_out], dim=-1)
+        output = self.output_proj(output)
+
+        # Get transition probabilities (alignment) for current states.
+        alignment = self._alignment_step(decoded, encoder_out, encoder_mask)
+
+        return base.ModuleOutput(
+            output=output, embeddings=alignment, hiddens=hiddens
+        )
+
+    def get_module(self) -> nn.LSTM:
+        return nn.LSTM(
+            self.embedding_size,
+            self.hidden_size,
+            num_layers=self.layers,
+            dropout=self.dropout,
+            batch_first=True,
+            bidirectional=self.bidirectional,
+        )
+
+    @property
+    def output_size(self) -> int:
+        return self.decoder_input_size + self.hidden_size
+
+    @property
+    def name(self) -> str:
+        return "HMM LSTM"
+
+
+class ContextHMMLSTMDecoder(HMMLSTMDecoder):
+    def __init__(self, *args, attention_context, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.delta = attention_context
+        self.alignment_proj = nn.Linear(
+            self.hidden_size * 2, (attention_context * 2) + 1
+        )  # Window size must include center and both sides.
+
+    def _alignment_step(self, decoded, encoder_out, encoder_mask):
+        # -> B x seq_len
+        alignment_scores = torch.cat(
+            [self.scale_encoded(encoder_out), decoded], dim=2
+        )
+        alignment_scores = self.alignment_proj(alignment_scores)
+        alignment_probs = nn.functional.softmax(alignment_scores, dim=-1)
+        # Limits context to window of self.delta (context length).
+        alignment_probs = alignment_probs.split(1, dim=1)
+        alignment_probs = torch.cat(
+            [
+                nn.functional.pad(
+                    t,
+                    (
+                        -self.delta + i,
+                        encoder_mask.shape[1] - (self.delta + 1) - i,
+                    ),
+                )
+                for i, t in enumerate(alignment_probs)
+            ],
+            dim=1,
+        )
+        # Get probability of alignments.
+        # Mask padding.
+        alignment_probs = alignment_probs * (~encoder_mask).unsqueeze(1) + 1e-7
+        alignment_probs = alignment_probs / alignment_probs.sum(
+            dim=-1, keepdim=True
+        )
+        return alignment_probs.log()  # Log probs for quicker computation
+
+    def forward(
+        self,
+        symbol: torch.Tensor,
+        last_hiddens: torch.Tensor,
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Single decode pass.
+
+        Args:
+            symbol (torch.Tensor): previously decoded symbol of shape (B x 1).
+            last_hiddens (Tuple[torch.Tensor, torch.Tensor]): last hidden
+                states from the decoder of shape
+                (1 x B x decoder_dim, 1 x B x decoder_dim).
+            encoder_out (torch.Tensor): encoded input sequence of shape
+                (B x seq_len x encoder_dim).
+            encoder_mask (torch.Tensor): mask for the encoded input batch of
+                shape (B x seq_len).
+
+        Returns:
+            output (base.ModuleOutput): Dataclass containing step-wise emission
+                probs, alignment matrix, and hidden states of decoder.
+        """
+        # Encode current symbol.
+        embedded = self.embed(symbol)
+        decoded, hiddens = self.module(embedded, last_hiddens)
+
+        # Expand decoded to concatenate with alignments
+        decoded = decoded.expand(-1, encoder_out.shape[1], -1)
+
+        output = torch.cat([decoded, encoder_out], dim=-1)
+        output = self.output_proj(output)
+
+        # Get current alignments.
+        alignment = self._alignment_step(decoded, encoder_out, encoder_mask)
+
+        return base.ModuleOutput(
+            output=output, embeddings=alignment, hiddens=hiddens
+        )
+
+    @property
+    def name(self) -> str:
+        return "Contextual HMM LSTM"

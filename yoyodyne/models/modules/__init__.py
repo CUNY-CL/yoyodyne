@@ -46,6 +46,7 @@ def get_encoder_cls(
         "pointer_generator_transformer": TransformerEncoder,
         "transducer": LSTMEncoder,
         "transformer": TransformerEncoder,
+        "hmm_lstm": LSTMEncoder,
     }
     if encoder_arch is None:
         try:

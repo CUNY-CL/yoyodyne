@@ -179,6 +179,7 @@ def get_model_from_argparse_args(
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
+        'hmm_lstm',
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
@@ -200,6 +201,7 @@ def get_model_from_argparse_args(
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
+        attention_context=args.hmm_context,
         arch=args.arch,
         source_attention_heads=args.source_attention_heads,
         features_attention_heads=args.features_attention_heads,
@@ -211,6 +213,7 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
+        enforce_monotonic=args.enforce_monotonic,
         expert=expert,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
@@ -338,6 +341,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     schedulers.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.HardAttentionHmm.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
     # models.modules.BaseEncoder.add_argparse_args(parser)
