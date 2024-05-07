@@ -198,7 +198,7 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
         )
         logits = self.classifier(output)
         log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-        # Expand matrix for all time steps
+        # Expands matrix for all time steps.
         if self.enforce_monotonic:
             alignment_matrix = self._apply_mono_mask(alignment_matrix)
         return log_probs, alignment_matrix, decoder_hiddens
@@ -232,7 +232,6 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
         predictions, likelihood = self.greedy_step(
             log_probs, alignment_matrix[:, 0].unsqueeze(1)
         )
-
         finished = (
             torch.zeros(batch_size, device=self.device).bool().unsqueeze(-1)
         )
@@ -244,27 +243,21 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
                 encoder_out,
                 encoder_mask,
             )
-
             likelihood = likelihood + alignment_matrix.transpose(1, 2)
             likelihood = likelihood.logsumexp(dim=-1, keepdim=True).transpose(
                 1, 2
             )
-
             pred, likelihood = self.greedy_step(log_probs, likelihood)
-
             finished = finished | (pred == self.end_idx)
             if finished.all().item():
                 break
-
-            # If finished decoding replace with pad.
+            # If finished decoding, pads.
             pred = torch.where(
                 ~finished, pred, torch.tensor(self.end_idx, device=self.device)
             )
             predictions = torch.cat((predictions, pred), dim=-1)
-
-            # Update likelihood emissions.
+            # Updates likelihood emissions.
             likelihood = likelihood + self._gather_at_idx(log_probs, pred)
-
         return predictions, likelihood
 
     def greedy_step(self, log_probs, likelihood):
@@ -384,7 +377,6 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
                 Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
                     configured loss function.
         """
-
         return self.loss
 
     def loss(self, target, log_probs, alignments):
