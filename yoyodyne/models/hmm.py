@@ -387,8 +387,7 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             fwd = fwd + alignments[t].transpose(1, 2)
             fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
             fwd = fwd + self._gather_at_idx(log_probs[t], target[:, t])
-        loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
-        return loss
+        return -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -402,12 +401,12 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             action="store_true",
             default=defaults.HMM_MONOTONIC,
             help="Enforce monotonic condition "
-            "(HMM architectures only. Default: %(default)s.",
+            "(HMM architectures only). Default: %(default)s.",
         )
         parser.add_argument(
             "--hmm_context",
             type=int,
             default=defaults.HMM_CONTEXT,
             help="Width of attention context "
-            "(HMM architectures only. Default: %(default)s.",
+            "(HMM architectures only). Default: %(default)s.",
         )
