@@ -1,5 +1,4 @@
-"""Hard monotonic neural-hmm models. Wu and Cotterell 2019.
-Original implementation: https://github.com/shijie-wu/neural-transducer"""
+"""Hard monotonic neural HMM classes."""
 
 import argparse
 from typing import Callable, Dict, Optional, Union
@@ -20,17 +19,23 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
     produced is conditioned by state transitions over each source character.
 
     Default model assumes independence between state and non-monotonic
-    progression over source string. Flag `enforce_monotonic` enforces monotonic
-    state transition (model progresses over each source character). Flag
-    'attention_context" allows conditioning of state transition over previous
-    n states. See Wu and Cotterell for further details:
-    https://aclanthology.org/P19-1148/
+    progression over source string. `enforce_monotonic` enforces monotonic
+    state transition (model progresses over each source character), and
+    `attention_context` allows conditioning of state transition over previous
+    _n_ states. 
+    
+    After:
+        Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
+        character-level transduction. In _Proceedings of the 57th Annual
+        Meeting of the Association for Computational Linguistics_, pages
+        1530-1537.
 
-    Implementation from: https://github.com/shijie-wu/neural-transducer
+    Original implementation:
+        https://github.com/shijie-wu/neural-transducer
     """
 
-    enforce_monotonic: Optional[bool]
-    attention_context: Optional[int]
+    enforce_monotonic: bool
+    attention_context: int
 
     def __init__(
         self, *args, enforce_monotonic=False, attention_context=0, **kwargs
