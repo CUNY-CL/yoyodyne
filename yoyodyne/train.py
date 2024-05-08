@@ -14,7 +14,7 @@ class Error(Exception):
     pass
 
 
-def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
+def _get_loggers(experiment: str, model_dir: str, log_wandb: bool) -> List:
     """Creates the logger(s).
 
     Args:
@@ -25,12 +25,12 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     Returns:
         List: logger.
     """
-    trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
+    trainer_loggers = [loggers.CSVLogger(model_dir, name=experiment)]
     if log_wandb:
-        trainer_logger.append(loggers.WandbLogger(project=experiment))
+        trainer_loggers.append(loggers.WandbLogger(project=experiment))
         # Logs the path to local artifacts made by PTL.
-        wandb.config["local_run_dir"] = trainer_logger[0].log_dir
-    return trainer_logger
+        wandb.config["local_run_dir"] = trainer_loggers[0].log_dir
+    return trainer_loggers
 
 
 def _get_callbacks(
@@ -72,7 +72,6 @@ def _get_callbacks(
                 mode=metric.mode,
                 monitor=metric.monitor,
                 patience=patience,
-                verbose=True,
             )
         )
     # Checkpointing callback. Ensure that this is the last checkpoint,
@@ -114,7 +113,7 @@ def get_trainer_from_argparse_args(
         ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
-        logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
+        logger=_get_loggers(args.experiment, args.model_dir, args.log_wandb),
     )
 
 
@@ -379,6 +378,8 @@ def main() -> None:
     add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
+    if args.log_wandb:
+        wandb.init()
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
     datamodule = get_datamodule_from_argparse_args(args)
