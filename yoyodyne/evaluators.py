@@ -326,5 +326,5 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action=util.UniqueAddAction,
         choices=_eval_factory.keys(),
         default=defaults.EVAL_METRICS,
-        help="Which evaluation metrics to use. Default: %(default)s.",
+        help="Additional metrics to compute. Default: %(default)s.",
     )

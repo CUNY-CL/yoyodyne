@@ -4,7 +4,7 @@ This also includes init_embeddings, which has to go somewhere.
 """
 
 import argparse
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, Optional, Set
 
 import pytorch_lightning as pl
 import torch
@@ -51,7 +51,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     source_encoder_cls: modules.base.BaseModule
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
-    eval_metrics: List[evaluators.Evaluator]
+    eval_metrics: Set[evaluators.Evaluator]
     loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
