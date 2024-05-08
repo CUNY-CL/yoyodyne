@@ -298,10 +298,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--checkpoint_metric",
-        choices=["accuracy", "loss"],
+        choices=["accuracy", "loss", "ser"],
         default=defaults.CHECKPOINT_METRIC,
-        help="Selects checkpoints to maximize validation `accuracy` "
-        "or minimize validation `loss`. "
+        help="Selects checkpoints to maximize validation `accuracy`, "
+        "or to minimize validation `loss` or `ser`. "
         "Default: %(default)s.",
     )
     parser.add_argument(
@@ -313,10 +313,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--patience_metric",
-        choices=["accuracy", "loss"],
+        choices=["accuracy", "loss", "ser"],
         default=defaults.PATIENCE_METRIC,
         help="Stops early when validation `accuracy` stops increasing or "
-        "when validation `loss` stops decreasing. Default: %(default)s.",
+        "when validation `loss` or `ser` stops decreasing. "
+        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(

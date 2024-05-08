@@ -10,7 +10,7 @@ import numpy
 import torch
 from torch.nn import functional
 
-from . import defaults
+from . import defaults, util
 
 
 class Error(Exception):
@@ -311,7 +311,7 @@ def get_evaluator(eval_metric: str) -> Evaluator:
     """
     try:
         return _eval_factory[eval_metric]
-    except KeyError(eval_metric):
+    except KeyError:
         raise Error(f"No evaluation metric {eval_metric}")
 
 
@@ -323,7 +323,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument(
         "--eval_metric",
-        action="append",
+        action=util.UniqueAddAction,
         choices=_eval_factory.keys(),
         default=defaults.EVAL_METRICS,
         help="Which evaluation metrics to use. Default: %(default)s.",
