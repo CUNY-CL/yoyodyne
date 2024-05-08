@@ -14,7 +14,7 @@ class Error(Exception):
     pass
 
 
-def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
+def _get_loggers(experiment: str, model_dir: str, log_wandb: bool) -> List:
     """Creates the logger(s).
 
     Args:
@@ -25,14 +25,12 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     Returns:
         List: logger.
     """
-    trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
+    trainer_loggers = [loggers.CSVLogger(model_dir, name=experiment)]
     if log_wandb:
-        trainer_logger.append(loggers.WandbLogger(project=experiment))
-        # Tells PTL to log the best validation accuracy.
-        wandb.define_metric("val_accuracy", summary="max")
+        trainer_loggers.append(loggers.WandbLogger(project=experiment))
         # Logs the path to local artifacts made by PTL.
-        wandb.config["local_run_dir"] = trainer_logger[0].log_dir
-    return trainer_logger
+        wandb.config["local_run_dir"] = trainer_loggers[0].log_dir
+    return trainer_loggers
 
 
 def _get_callbacks(
@@ -40,6 +38,7 @@ def _get_callbacks(
     checkpoint_metric: str = defaults.CHECKPOINT_METRIC,
     patience: Optional[int] = None,
     patience_metric: str = defaults.PATIENCE_METRIC,
+    log_wandb: bool = False,
 ) -> List[callbacks.Callback]:
     """Creates the callbacks.
 
@@ -56,6 +55,7 @@ def _get_callbacks(
             early stopping.
         patience_metric (string, optional): validation metric used to
             trigger early stopping.
+        log_wandb (bool).
 
     Returns:
         List[callbacks.Callback]: callbacks.
@@ -85,6 +85,9 @@ def _get_callbacks(
             save_top_k=num_checkpoints,
         )
     )
+    # Logs the best value for the checkpointing metric.
+    if log_wandb:
+        wandb.define_metric(metric.monitor, summary=metric.mode)
     return trainer_callbacks
 
 
@@ -106,10 +109,11 @@ def get_trainer_from_argparse_args(
             args.checkpoint_metric,
             args.patience,
             args.patience_metric,
+            args.log_wandb,
         ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
-        logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
+        logger=_get_loggers(args.experiment, args.model_dir, args.log_wandb),
     )
 
 
@@ -167,6 +171,7 @@ def get_model_from_argparse_args(
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
+    # Loads expert if needed.
     expert = (
         models.expert.get_expert(
             datamodule.train_dataloader().dataset,
@@ -198,6 +203,12 @@ def get_model_from_argparse_args(
         if not separate_features
         else datamodule.index.source_vocab_size
     )
+    # This makes sure we compute all metrics that'll be needed.
+    eval_metrics = args.eval_metric.copy()
+    if args.checkpoint_metric != "loss":
+        eval_metrics.add(args.checkpoint_metric)
+    if args.patience_metric != "loss":
+        eval_metrics.add(args.patience_metric)
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
@@ -211,7 +222,7 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
-        eval_metrics=args.eval_metric,
+        eval_metrics=eval_metrics,
         expert=expert,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
@@ -298,10 +309,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--checkpoint_metric",
-        choices=["accuracy", "loss"],
+        choices=["accuracy", "loss", "ser"],
         default=defaults.CHECKPOINT_METRIC,
-        help="Selects checkpoints to maximize validation `accuracy` "
-        "or minimize validation `loss`. "
+        help="Selects checkpoints to maximize validation `accuracy`, "
+        "or to minimize validation `loss` or `ser`. "
         "Default: %(default)s.",
     )
     parser.add_argument(
@@ -313,10 +324,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--patience_metric",
-        choices=["accuracy", "loss"],
+        choices=["accuracy", "loss", "ser"],
         default=defaults.PATIENCE_METRIC,
         help="Stops early when validation `accuracy` stops increasing or "
-        "when validation `loss` stops decreasing. Default: %(default)s.",
+        "when validation `loss` or `ser` stops decreasing. "
+        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
@@ -366,6 +378,8 @@ def main() -> None:
     add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
+    if args.log_wandb:
+        wandb.init()
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
     datamodule = get_datamodule_from_argparse_args(args)
