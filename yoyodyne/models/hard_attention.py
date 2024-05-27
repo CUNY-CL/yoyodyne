@@ -1,18 +1,19 @@
-"""Hard monotonic neural-hmm models. Wu and Cotterell 2019.
-Original implementation: https://github.com/shijie-wu/neural-transducer"""
+"""Hard monotonic neural-hmm models. Wu and Cotterell 2019."""
 
 import argparse
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy
 import torch
 from torch import nn
 
-from .. import data, defaults
+from .. import data, defaults, util
 from . import lstm, modules
 
+NEG_LOG_EPSILON = -numpy.log(1e-7)
 
-class HardAttentionHmm(lstm.LSTMEncoderDecoder):
+
+class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     """Hard Attention Transducer.
 
     Learns probability distribution of target string by modeling transduction
@@ -53,7 +54,15 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             self.decoder.output_size, self.target_vocab_size
         )
 
-    def init_decoding(self, encoder_out, encoder_mask):
+        if not self.teacher_forcing:
+            util.log_info(
+                """Teacher forcing flag disabled but this model requires
+                    teacher forcing for training. Ignoring flag."""
+            )
+
+    def init_decoding(
+        self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Initializes hiddens and initial decoding output.
 
         Simply feeds a BOS string to decoder to provide initial probability.
@@ -76,18 +85,20 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
     def forward(
         self,
         batch: data.PaddedBatch,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
                 batch (data.PaddedBatch).
 
         Returns:
-                all_log_probs: (torch.Tensor): tensor of emission
-                    probabilities for each transition state (target symb).
+                (Tuple[torch.Tensor,torch.Tensor])
+                    index 0: tensor of emission probabilities for
+                    each transition state (target symb).
                     Shape: (tgt_len x batch_size x src_len x vocab_size)
-                all_alignements: (torch.Tensor): tensor of transition
-                    probabilities for each transition state (target symb).
+
+                    index 1: tensor of transition probabilities for each
+                    transition state (target symb).
                     Shape: (tgt_len x batch_size x src_len x src_len)
         """
         encoder_out = self.source_encoder(batch.source).output
@@ -95,13 +106,14 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             encoder_features_out = self.features_encoder(batch.features).output
             encoder_features_out = encoder_features_out.sum(
                 dim=1, keepdim=True
-            )  # Average to flatten embedding.
+            )  # Sum to flatten embedding. We do this instead
+            # of linear projection in original paper.
             encoder_features_out = encoder_features_out.expand(
                 -1, encoder_out.shape[1], -1
             )  # Expand length of source.
             encoder_out = torch.cat(
                 [encoder_out, encoder_features_out], dim=-1
-            )  # Concat with average.
+            )  # Concat with sum.
         if self.training:
             output = self.decode(
                 encoder_out,
@@ -120,7 +132,7 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
         Decodes until all sequences in a batch have reached [EOS] up to
@@ -135,47 +147,60 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
                     `len(target)` symbols.
 
         Returns:
-                all_log_probs: (torch.Tensor): tensor of emission
-                    probabilities for each transition state (target symb).
-                    Shape: (tgt_len x batch_size x src_len x vocab_size)
-                all_alignements: (torch.Tensor): tensor of transition
-                    probabilities for each transition state (target symb).
-                    Shape: (tgt_len x batch_size x src_len x src_len)
+                (Tuple[torch.Tensor,torch.Tensor])
+
+                    index 0: tensor of emission probabilities for
+                        each state (target symb).
+                        Shape: (tgt_len x batch_size x src_len x vocab_size)
+                    index 1: tensor of transition probabilities for each
+                        state (target symb).
+                        Shape: (tgt_len x batch_size x src_len x src_len)
         """
-        log_probs, alignment_matrix, decoder_hiddens = self.init_decoding(
+        log_probs, transition_probs, decoder_hiddens = self.init_decoding(
             encoder_out, encoder_mask
         )
-        all_log_probs, all_alignments = [log_probs], [alignment_matrix]
-        for t in range(target.size(1)):
-            tgt_symbol = target[:, t]
-            log_probs, alignment_matrix, decoder_hiddens = self.decode_step(
+        all_log_probs = [log_probs]
+        all_transition_probs = [transition_probs]
+        for tgt_char_idx in range(target.size(1)):
+            tgt_symbol = target[:, tgt_char_idx]
+            log_probs, transition_probs, decoder_hiddens = self.decode_step(
                 tgt_symbol.unsqueeze(-1),
                 decoder_hiddens,
                 encoder_out,
                 encoder_mask,
             )
-            all_log_probs.append(log_probs), all_alignments.append(
-                alignment_matrix
-            )
-        return torch.stack(all_log_probs), torch.stack(all_alignments)
+            all_log_probs.append(log_probs)
+            all_transition_probs.append(transition_probs)
+        return torch.stack(all_log_probs), torch.stack(all_transition_probs)
 
     def decode_step(
-        self, tgt_symbol, decoder_hiddens, encoder_out, encoder_mask
-    ) -> Union[torch.Tensor, torch.Tensor]:
+        self,
+        tgt_symbol: torch.Tensor,
+        decoder_hiddens: Tuple[torch.Tensor, torch.Tensor],
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Performs a single decoding step for current state of decoder.
 
         Args:
                 tgt_symbol (torch.Tensor): tgt symbol for current state.
+                    decoder_hiddens (Tuple[torch.Tensor, torch.Tensor]):
+                    last hidden states from the decoder of shape
+                    (1 x B x decoder_dim, 1 x B x decoder_dim).
                 encoder_out (torch.Tensor): batch of encoded input symbols.
                     Shape: (batch_size x src_len x encoder_hidden*num_dir).
                 encoder_mask (torch.Tensor): mask for the batch of encoded
-                        input symbols of shape (batch_size x src_len).
+                    input symbols of shape (batch_size x src_len).
 
         Returns:
-                all_log_probs: (torch.Tensor): tensor of emission
+                (Tuple[torch.Tensor, torch.Tensor])
+
+                index 0: tensor of emission
                     probabilities for each transition state (target symb).
-                all_alignements: (torch.Tensor): tensor of transition
+                index 1: tensor of transition
                     probabilities for each transition state (target symb).
+                index 2: last hidden states from the decoder of shape
+                (1 x B x decoder_dim, 1 x B x decoder_dim).
         """
         decoded = self.decoder(
             tgt_symbol,
@@ -183,7 +208,7 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             encoder_out,
             encoder_mask,
         )
-        output, alignment_matrix, decoder_hiddens = (
+        output, transition_prob, decoder_hiddens = (
             decoded.output,
             decoded.embeddings,
             decoded.hiddens,
@@ -192,8 +217,8 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
         log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
         # Expand matrix for all time steps
         if self.enforce_monotonic:
-            alignment_matrix = self._apply_mono_mask(alignment_matrix)
-        return log_probs, alignment_matrix, decoder_hiddens
+            transition_prob = self._apply_mono_mask(transition_prob)
+        return log_probs, transition_prob, decoder_hiddens
 
     def greedy_decode(
         self,
@@ -218,26 +243,26 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
                     prediction step. Shape (batch_size x 1 x src_len).
         """
         batch_size, _ = encoder_mask.shape
-        log_probs, alignment_matrix, decoder_hiddens = self.init_decoding(
+        log_probs, transition_prob, decoder_hiddens = self.init_decoding(
             encoder_out, encoder_mask
         )
         predictions, likelihood = self.greedy_step(
-            log_probs, alignment_matrix[:, 0].unsqueeze(1)
+            log_probs, transition_prob[:, 0].unsqueeze(1)
         )
 
         finished = (
             torch.zeros(batch_size, device=self.device).bool().unsqueeze(-1)
         )
-        for t in range(self.max_target_length):
-            symbol = predictions[:, t]
-            log_probs, alignment_matrix, decoder_hiddens = self.decode_step(
+        for tgt_char_idx in range(self.max_target_length):
+            symbol = predictions[:, tgt_char_idx]
+            log_probs, transition_prob, decoder_hiddens = self.decode_step(
                 symbol.unsqueeze(-1),
                 decoder_hiddens,
                 encoder_out,
                 encoder_mask,
             )
 
-            likelihood = likelihood + alignment_matrix.transpose(1, 2)
+            likelihood = likelihood + transition_prob.transpose(1, 2)
             likelihood = likelihood.logsumexp(dim=-1, keepdim=True).transpose(
                 1, 2
             )
@@ -255,33 +280,46 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
             predictions = torch.cat((predictions, pred), dim=-1)
 
             # Update likelihood emissions.
-            likelihood = likelihood + self._gather_at_idx(log_probs, pred)
+            likelihood = likelihood + self._gather_at_idx(
+                log_probs, pred, self.pad_idx
+            )
 
         return predictions, likelihood
 
-    def greedy_step(self, log_probs, likelihood):
+    @staticmethod
+    def greedy_step(log_probs, likelihood):
         # Updates current likelihood with greedy probability prediction.
         tgt_prob = likelihood + log_probs.transpose(1, 2)
         tgt_prob = tgt_prob.logsumexp(dim=-1)
-        tgt = torch.max(tgt_prob, dim=-1)[1]
-        return tgt.unsqueeze(-1), likelihood
+        tgt_char = torch.max(tgt_prob, dim=-1)[1]
+        return tgt_char.unsqueeze(-1), likelihood
 
-    def _gather_at_idx(self, prob, tgt):
-        # Collects probability of tgt index across all states in prob.
-        batch_size, src_seq_len, vocab_size = prob.shape
+    @staticmethod
+    def _gather_at_idx(prob, tgt, pad_idx=None):
+        """Collects probability of tgt index across all states in prob.
+
+        To calculate the final emission probability, the pseudo hmm
+        graph needs to aggregate the final emission probabilities of
+        tgt char across all potential hidden states in prob.
+        """
+        batch_size, src_seq_len, _ = prob.shape
         idx = tgt.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
         output = torch.gather(prob, -1, idx).view(batch_size, 1, src_seq_len)
         idx = idx.view(batch_size, 1, src_seq_len)
-        pad_mask = (idx != self.pad_idx).float()
+        if pad_idx:
+            pad_mask = (idx != pad_idx).float()
         return output * pad_mask
 
-    def _apply_mono_mask(self, alignment):
-        # Applies mask to enforce monotonic alignment.
-        align_mask = torch.ones_like(alignment[0]).triu().unsqueeze(0)
-        align_mask = (align_mask - 1) * -numpy.log(1e-7)
-        alignment = alignment + align_mask
-        alignment = alignment - alignment.logsumexp(-1, keepdim=True)
-        return alignment
+    @staticmethod
+    def _apply_mono_mask(transition_prob):
+        # Applies mask to enforce monotonic attention.
+        mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
+        mask = (mask - 1) * NEG_LOG_EPSILON
+        transition_prob = transition_prob + mask
+        transition_prob = transition_prob - transition_prob.logsumexp(
+            -1, keepdim=True
+        )
+        return transition_prob
 
     def training_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         """Runs one step of training.
@@ -296,8 +334,8 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
                 torch.Tensor: loss.
         """
         # Forward pass produces loss by default.
-        log_probs, alignments = self(batch)
-        loss = self.loss_func(batch.target.padded, log_probs, alignments)
+        log_probs, transition_probs = self(batch)
+        loss = self.loss_func(batch.target.padded, log_probs, transition_probs)
         self.log(
             "train_loss",
             loss,
@@ -310,25 +348,27 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
     def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         predictions, likelihood = self(batch)
         # Processes for accuracy calculation.
-        predictions = self.evaluator.finalize_predictions(
-            predictions, self.end_idx, self.pad_idx
-        )
-        val_eval_item = self.evaluator.get_eval_item(
-            predictions, batch.target.padded, self.pad_idx
-        )
-        return {"val_eval_item": val_eval_item, "val_loss": -likelihood.mean()}
+        val_eval_items_dict = {}
+        for evaluator in self.evaluators:
+            predictions = evaluator.finalize_predictions(
+                predictions, self.end_idx, self.pad_idx
+            )
+            golds = evaluator.finalize_golds(
+                batch.target.padded, self.end_idx, self.pad_idx
+            )
+            val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
+                predictions, golds, self.pad_idx
+            )
+        val_eval_items_dict.update({"val_loss": -likelihood.mean()})
+        return val_eval_items_dict
 
     def predict_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         predictions, _ = self(batch)
-        # Processes for accuracy calculation.
-        predictions = self.evaluator.finalize_predictions(
-            predictions, self.end_idx, self.pad_idx
-        )
         return predictions
 
-    def get_decoder(self) -> modules.lstm.HMMLSTMDecoder:
+    def get_decoder(self) -> modules.lstm.HardAttentionLSTMDecoder:
         if self.attention_context > 0:
-            return modules.lstm.ContextHMMLSTMDecoder(
+            return modules.lstm.ContextHardAttentionLSTMDecoder(
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,
@@ -347,7 +387,7 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
                 hidden_size=self.hidden_size,
             )
         else:
-            return modules.lstm.HMMLSTMDecoder(
+            return modules.lstm.HardAttentionLSTMDecoder(
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,
@@ -368,8 +408,6 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
     def _get_loss_func(
         self,
     ) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
-        # TODO: Make the loss update continuous during training to avoid.
-        # Also enable better reflection of val loss.
         """Returns the actual function used to compute loss.
 
         Returns:
@@ -379,14 +417,24 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
 
         return self.loss
 
-    def loss(self, target, log_probs, alignments):
-        fwd = alignments[0, :, 0].unsqueeze(1) + self._gather_at_idx(
-            log_probs[0], target[:, 0]
+    def loss(
+        self,
+        target: torch.Tensor,
+        log_probs: torch.Tensor,
+        transition_probs: torch.Tensor,
+    ) -> torch.Tensor:
+        # TODO: Currently we're storing a concatenation of loss tensors for
+        # each time step. This is costly. Revisit this calculation and see if
+        # we can use DP to simplify.
+        fwd = transition_probs[0, :, 0].unsqueeze(1) + self._gather_at_idx(
+            log_probs[0], target[:, 0], self.pad_idx
         )
-        for t in range(1, target.shape[1]):
-            fwd = fwd + alignments[t].transpose(1, 2)
+        for tgt_char_idx in range(1, target.shape[1]):
+            fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
             fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
-            fwd = fwd + self._gather_at_idx(log_probs[t], target[:, t])
+            fwd = fwd + self._gather_at_idx(
+                log_probs[tgt_char_idx], target[:, tgt_char_idx], self.pad_idx
+            )
         loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
         return loss
 
@@ -400,14 +448,14 @@ class HardAttentionHmm(lstm.LSTMEncoderDecoder):
         parser.add_argument(
             "--enforce_monotonic",
             action="store_true",
-            default=defaults.HMM_MONOTONIC,
+            default=defaults.HARD_ATTENTION_MONOTONIC,
             help="Enforce monotonic condition "
-            "(HMM architectures only. Default: %(default)s.",
+            "(Hard Attention architectures only. Default: %(default)s.",
         )
         parser.add_argument(
-            "--hmm_context",
+            "--hard_attention_context",
             type=int,
-            default=defaults.HMM_CONTEXT,
+            default=defaults.HARD_ATTENTION_CONTEXT,
             help="Width of attention context "
-            "(HMM architectures only. Default: %(default)s.",
+            "(Hard Attention architectures only. Default: %(default)s.",
         )

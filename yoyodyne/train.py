@@ -184,7 +184,7 @@ def get_model_from_argparse_args(
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
-        "hmm_lstm",
+        "hard_attention_lstm",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
@@ -212,7 +212,7 @@ def get_model_from_argparse_args(
         eval_metrics.add(args.patience_metric)
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
-        attention_context=args.hmm_context,
+        attention_context=args.hard_attention_context,
         arch=args.arch,
         source_attention_heads=args.source_attention_heads,
         features_attention_heads=args.features_attention_heads,
@@ -356,7 +356,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     evaluators.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.HardAttentionHmm.add_argparse_args(parser)
+    models.HardAttentionLSTM.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
     # models.modules.BaseEncoder.add_argparse_args(parser)

@@ -57,7 +57,7 @@ class Evaluator(abc.ABC):
         evaluating code.
 
         Args:
-            predictions (torch.Tensor): B x vocab_size x seq_len.
+            predictions (torch.Tensor): B x seq_len x vocab_size.
             golds (torch.Tensor): B x seq_len x 1.
             end_idx (int): end of sequence index.
             pad_idx (int): padding index.

@@ -3,7 +3,7 @@
 import argparse
 
 from .base import BaseEncoderDecoder
-from .hmm import HardAttentionHmm
+from .hard_attention import HardAttentionLSTM
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoder,
@@ -33,7 +33,7 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
         "transducer": TransducerEncoderDecoder,
         "transformer": TransformerEncoderDecoder,
-        "hmm_lstm": HardAttentionHmm,
+        "hard_attention_lstm": HardAttentionLSTM,
     }
     try:
         return model_fac[arch]
@@ -71,12 +71,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--arch",
         choices=[
             "attentive_lstm",
+            "hard_attention_lstm",
             "lstm",
             "pointer_generator_lstm",
             "pointer_generator_transformer",
             "transducer",
             "transformer",
-            "hmm_lstm",
         ],
         default="attentive_lstm",
         help="Model architecture. Default: %(default)s.",

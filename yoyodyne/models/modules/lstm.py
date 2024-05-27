@@ -225,18 +225,26 @@ class LSTMAttentiveDecoder(LSTMDecoder):
         return "attentive LSTM"
 
 
-class HMMLSTMDecoder(LSTMDecoder):
+class HardAttentionLSTMDecoder(LSTMDecoder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Activattes emission probs.
         self.output_proj = nn.Sequential(
             nn.Linear(self.output_size, self.output_size), nn.Tanh()
         )
+        # Project transition probabilities to depth of module.
         self.scale_encoded = nn.Linear(
             self.decoder_input_size, self.hidden_size
         )
 
-    def _alignment_step(self, decoded, encoder_out, encoder_mask):
+    def _alignment_step(
+        self,
+        decoded: torch.Tensor,
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+    ) -> torch.Tensor:
         # Matrix multiply encoding and decoding for alignment representations.
+        # see: https://aclanthology.org/P19-1148/
         # -> B x seq_len
         alignment_scores = torch.bmm(
             self.scale_encoded(encoder_out), decoded.transpose(1, 2)
@@ -310,10 +318,10 @@ class HMMLSTMDecoder(LSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "HMM LSTM"
+        return "Hard Attention LSTM"
 
 
-class ContextHMMLSTMDecoder(HMMLSTMDecoder):
+class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
     def __init__(self, *args, attention_context, **kwargs):
         super().__init__(*args, **kwargs)
         self.delta = attention_context
@@ -321,7 +329,16 @@ class ContextHMMLSTMDecoder(HMMLSTMDecoder):
             self.hidden_size * 2, (attention_context * 2) + 1
         )  # Window size must include center and both sides.
 
-    def _alignment_step(self, decoded, encoder_out, encoder_mask):
+    def _alignment_step(
+        self,
+        decoded: torch.Tensor,
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        # Matrix multiply encoding and decoding for alignment representations.
+        # see: https://aclanthology.org/P19-1148/
+        # Expand decoded to concatenate with alignments
+        decoded = decoded.expand(-1, encoder_out.shape[1], -1)
         # -> B x seq_len
         alignment_scores = torch.cat(
             [self.scale_encoded(encoder_out), decoded], dim=2
@@ -351,46 +368,6 @@ class ContextHMMLSTMDecoder(HMMLSTMDecoder):
         )
         return alignment_probs.log()  # Log probs for quicker computation
 
-    def forward(
-        self,
-        symbol: torch.Tensor,
-        last_hiddens: torch.Tensor,
-        encoder_out: torch.Tensor,
-        encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Single decode pass.
-
-        Args:
-            symbol (torch.Tensor): previously decoded symbol of shape (B x 1).
-            last_hiddens (Tuple[torch.Tensor, torch.Tensor]): last hidden
-                states from the decoder of shape
-                (1 x B x decoder_dim, 1 x B x decoder_dim).
-            encoder_out (torch.Tensor): encoded input sequence of shape
-                (B x seq_len x encoder_dim).
-            encoder_mask (torch.Tensor): mask for the encoded input batch of
-                shape (B x seq_len).
-
-        Returns:
-            output (base.ModuleOutput): Dataclass containing step-wise emission
-                probs, alignment matrix, and hidden states of decoder.
-        """
-        # Encode current symbol.
-        embedded = self.embed(symbol)
-        decoded, hiddens = self.module(embedded, last_hiddens)
-
-        # Expand decoded to concatenate with alignments
-        decoded = decoded.expand(-1, encoder_out.shape[1], -1)
-
-        output = torch.cat([decoded, encoder_out], dim=-1)
-        output = self.output_proj(output)
-
-        # Get current alignments.
-        alignment = self._alignment_step(decoded, encoder_out, encoder_mask)
-
-        return base.ModuleOutput(
-            output=output, embeddings=alignment, hiddens=hiddens
-        )
-
     @property
     def name(self) -> str:
-        return "Contextual HMM LSTM"
+        return "Contextual Hard Attention LSTM"
