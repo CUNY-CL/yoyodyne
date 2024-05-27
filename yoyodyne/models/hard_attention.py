@@ -1,4 +1,4 @@
-"""Hard monotonic neural-hmm models. Wu and Cotterell 2019."""
+"""Hard monotonic neural HMM classes."""
 
 import argparse
 from typing import Callable, Dict, Optional, Tuple
@@ -21,17 +21,23 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     produced is conditioned by state transitions over each source character.
 
     Default model assumes independence between state and non-monotonic
-    progression over source string. Flag `enforce_monotonic` enforces monotonic
-    state transition (model progresses over each source character). Flag
-    'attention_context" allows conditioning of state transition over previous
-    n states. See Wu and Cotterell for further details:
-    https://aclanthology.org/P19-1148/
+    progression over source string. `enforce_monotonic` enforces monotonic
+    state transition (model progresses over each source character), and
+    `attention_context` allows conditioning of state transition over previous
+    _n_ states.
 
-    Implementation from: https://github.com/shijie-wu/neural-transducer
+    After:
+        Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
+        character-level transduction. In _Proceedings of the 57th Annual
+        Meeting of the Association for Computational Linguistics_, pages
+        1530-1537.
+
+    Original implementation:
+        https://github.com/shijie-wu/neural-transducer
     """
 
-    enforce_monotonic: Optional[bool]
-    attention_context: Optional[int]
+    enforce_monotonic: bool
+    attention_context: int
 
     def __init__(
         self, *args, enforce_monotonic=False, attention_context=0, **kwargs
@@ -40,12 +46,12 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
 
         Args:
             *args: passed to superclass.
-            enforce_monotonic [Optional(bool)]: Enforce monotonic state
-                transition in decoding. Default: False
-            attention_context [Optional(int)]: Size of context window for
-            conditioning state transition.
-                If 0, state transitions are independent.
-                Default: 0 **kwargs: passed to superclass.
+            enforce_monotonic [bool, optional]: Enforce monotonic state
+                transition in decoding.
+            attention_context [int, optional]: Size of context window for
+            conditioning state transition. If 0, state transitions are
+                independent.
+            **kwargs: passed to superclass.
         """
         self.enforce_monotonic = enforce_monotonic
         self.attention_context = attention_context
@@ -67,7 +73,6 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
 
         Simply feeds a BOS string to decoder to provide initial probability.
         """
-
         batch_size, _ = encoder_mask.shape
         decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
         bos = (
@@ -77,7 +82,6 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             .repeat(batch_size)
             .unsqueeze(-1)
         )
-
         return self.decode_step(
             bos, decoder_hiddens, encoder_out, encoder_mask
         )
@@ -88,8 +92,13 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs the encoder-decoder model.
 
+        The emission tensor returned is of shape
+        (tgt_len x batch_size x src_len x vocab_size), and the
+        transition tensor returned is of shape
+        (tgt_len x batch_size x src_len x src_len).
+
         Args:
-                batch (data.PaddedBatch).
+            batch (data.PaddedBatch).
 
         Returns:
                 (Tuple[torch.Tensor,torch.Tensor])
@@ -104,16 +113,19 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         encoder_out = self.source_encoder(batch.source).output
         if self.has_features_encoder:
             encoder_features_out = self.features_encoder(batch.features).output
+            # Averages to flatten embedding.
             encoder_features_out = encoder_features_out.sum(
                 dim=1, keepdim=True
-            )  # Sum to flatten embedding. We do this instead
+            )
+            # Sum to flatten embedding. We do this instead
             # of linear projection in original paper.
             encoder_features_out = encoder_features_out.expand(
                 -1, encoder_out.shape[1], -1
-            )  # Expand length of source.
+            )
+            # Concatenates with average.
             encoder_out = torch.cat(
                 [encoder_out, encoder_features_out], dim=-1
-            )  # Concat with sum.
+            )
         if self.training:
             output = self.decode(
                 encoder_out,
@@ -215,7 +227,7 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         )
         logits = self.classifier(output)
         log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-        # Expand matrix for all time steps
+        # Expands matrix for all time steps.
         if self.enforce_monotonic:
             transition_prob = self._apply_mono_mask(transition_prob)
         return log_probs, transition_prob, decoder_hiddens
@@ -249,7 +261,6 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         predictions, likelihood = self.greedy_step(
             log_probs, transition_prob[:, 0].unsqueeze(1)
         )
-
         finished = (
             torch.zeros(batch_size, device=self.device).bool().unsqueeze(-1)
         )
@@ -266,14 +277,11 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             likelihood = likelihood.logsumexp(dim=-1, keepdim=True).transpose(
                 1, 2
             )
-
             pred, likelihood = self.greedy_step(log_probs, likelihood)
-
             finished = finished | (pred == self.end_idx)
             if finished.all().item():
                 break
-
-            # If finished decoding replace with pad.
+            # If finished decoding, pads.
             pred = torch.where(
                 ~finished, pred, torch.tensor(self.end_idx, device=self.device)
             )
@@ -414,7 +422,6 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
                 Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
                     configured loss function.
         """
-
         return self.loss
 
     def loss(
