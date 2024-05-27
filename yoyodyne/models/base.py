@@ -4,9 +4,8 @@ This also includes init_embeddings, which has to go somewhere.
 """
 
 import argparse
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, Optional, Set
 
-import numpy
 import pytorch_lightning as pl
 import torch
 from torch import nn, optim
@@ -52,7 +51,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     source_encoder_cls: modules.base.BaseModule
     # Constructed inside __init__.
     dropout_layer: nn.Dropout
-    eval_metrics: List[evaluators.Evaluator]
+    eval_metrics: Set[evaluators.Evaluator]
     loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
@@ -316,9 +315,9 @@ class BaseEncoderDecoder(pl.LightningModule):
         Returns:
             Dict: averaged metrics over all validation steps.
         """
-        avg_val_loss = numpy.mean(
+        avg_val_loss = torch.tensor(
             [v["val_loss"] for v in validation_step_outputs]
-        )
+        ).mean()
         # Gets requested metrics.
         metrics = {
             metric_name: sum(

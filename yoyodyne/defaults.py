@@ -24,7 +24,7 @@ HMM_MONOTONIC = False
 HMM_CONTEXT = 0
 MAX_SOURCE_LENGTH = 128
 MAX_TARGET_LENGTH = 128
-EVAL_METRICS = ["accuracy"]
+EVAL_METRICS = set()
 
 # Training arguments.
 BATCH_SIZE = 32

@@ -11,7 +11,7 @@ import numpy
 import torch
 from torch.nn import functional
 
-from . import defaults
+from . import defaults, util
 
 
 class Error(Exception):
@@ -198,15 +198,15 @@ class SEREvaluator(Evaluator):
 
     def _compute_ser(
         self,
-        preds: List[str],
-        target: List[str],
+        preds: torch.Tensor,
+        target: torch.Tensor,
     ) -> float:
         errors = self._edit_distance(preds, target)
         total = len(target)
         return errors / total
 
     @staticmethod
-    def _edit_distance(x: List[str], y: List[str]) -> int:
+    def _edit_distance(x: torch.Tensor, y: torch.Tensor) -> int:
         idim = len(x) + 1
         jdim = len(y) + 1
         table = numpy.zeros((idim, jdim), dtype=numpy.uint16)
@@ -225,8 +225,8 @@ class SEREvaluator(Evaluator):
 
     def get_eval_item(
         self,
-        predictions: List[List[str]],
-        golds: List[List[str]],
+        predictions: torch.Tensor,
+        golds: torch.Tensor,
         pad_idx: int,
     ) -> EvalItem:
         sers = [self._compute_ser(p, g) for p, g in zip(predictions, golds)]
@@ -237,13 +237,10 @@ class SEREvaluator(Evaluator):
         tensor: torch.Tensor,
         end_idx: int,
         pad_idx: int,
-    ) -> List[List[str]]:
+    ) -> torch.Tensor:
         # Not necessary if batch size is 1.
         if tensor.size(0) == 1:
-            # Returns a list of a numpy char vector.
-            # This is allows evaluation over strings without converting
-            # integer indices back to symbols.
-            return [numpy.char.mod("%d", tensor.cpu().numpy())]
+            return [tensor]
         out = []
         for prediction in tensor:
             # Gets first instance of EOS.
@@ -254,15 +251,14 @@ class SEREvaluator(Evaluator):
                 eos = eos[0]
             else:
                 # Leaves tensor[i] alone.
-                out.append(numpy.char.mod("%d", prediction))
+                out.append(prediction)
                 continue
             # Hack in case the first prediction is EOS. In this case
             # torch.split will result in an error, so we change these 0's to
             # 1's, which will make the entire sequence EOS as intended.
             eos[eos == 0] = 1
             symbols, *_ = torch.split(prediction, eos)
-            # Accumulates a list of numpy char vectors.
-            out.append(numpy.char.mod("%d", symbols))
+            out.append(symbols)
         return out
 
     def finalize_predictions(
@@ -270,7 +266,7 @@ class SEREvaluator(Evaluator):
         predictions: torch.Tensor,
         end_idx: int,
         pad_idx: int,
-    ) -> List[List[str]]:
+    ) -> torch.Tensor:
         """Finalizes predictions.
 
         Args:
@@ -288,7 +284,7 @@ class SEREvaluator(Evaluator):
         golds: torch.Tensor,
         end_idx: int,
         pad_idx: int,
-    ):
+    ) -> torch.Tensor:
         return self._finalize_tensor(golds, end_idx, pad_idx)
 
     @property
@@ -316,7 +312,7 @@ def get_evaluator(eval_metric: str) -> Evaluator:
     """
     try:
         return _eval_factory[eval_metric]
-    except KeyError(eval_metric):
+    except KeyError:
         raise Error(f"No evaluation metric {eval_metric}")
 
 
@@ -328,8 +324,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument(
         "--eval_metric",
-        action="append",
+        action=util.UniqueAddAction,
         choices=_eval_factory.keys(),
         default=defaults.EVAL_METRICS,
-        help="Which evaluation metrics to use. Default: %(default)s.",
+        help="Additional metrics to compute. Default: %(default)s.",
     )

@@ -3,6 +3,27 @@
 import argparse
 import sys
 
+from typing import Any, Optional
+
+
+# Argument parsing.
+
+
+class UniqueAddAction(argparse.Action):
+    """Custom action that enforces uniqueness using a set."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: Optional[str] = None,
+    ) -> None:
+        getattr(namespace, self.dest).add(values)
+
+
+# Logging.
+
 
 def log_info(msg: str) -> None:
     """Logs msg to sys.stderr.

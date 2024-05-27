@@ -97,15 +97,16 @@ information.
 
 ### Validation
 
-Validation is run at intervals requested by the user using the lightning interface.
-See `--val_check_interval` and `--check_val_every_n_epoch`
+Validation is run at intervals requested by the user. See
+`--val_check_interval` and `--check_val_every_n_epoch`
 [here](https://lightning.ai/docs/pytorch/stable/common/trainer.html#trainer-class-api).
-Particular evaluation metrics can also be requested with `--eval_metric`. For example
+Additional evaluation metrics can also be requested with `--eval_metric`. For
+example
 
-    yoyodyne-train --eval_metric accuracy --eval_metric ser ...
+    yoyodyne-train --eval_metric ser ...
 
-will compute both accuracy and symbol error rate (SER) each time validation is
-requested. Additional metrics can be added in
+will additionally compute symbol error rate (SER) each time validation is
+performed. Additional metrics can be added to
 [`evaluators.py`](yoyodyne/evaluators.py).
 
 ### Prediction
