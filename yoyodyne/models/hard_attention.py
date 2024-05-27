@@ -161,12 +161,12 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         Returns:
                 (Tuple[torch.Tensor,torch.Tensor])
 
-                    index 0: tensor of emission probabilities for
-                        each state (target symb).
-                        Shape: (tgt_len x batch_size x src_len x vocab_size)
-                    index 1: tensor of transition probabilities for each
-                        state (target symb).
-                        Shape: (tgt_len x batch_size x src_len x src_len)
+                index 0: tensor of emission probabilities for
+                    each state (target symb).
+                    Shape: (tgt_len x batch_size x src_len x vocab_size)
+                index 1: tensor of transition probabilities for each
+                    state (target symb).
+                    Shape: (tgt_len x batch_size x src_len x src_len)
         """
         log_probs, transition_probs, decoder_hiddens = self.init_decoding(
             encoder_out, encoder_mask
