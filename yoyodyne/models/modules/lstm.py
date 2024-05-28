@@ -315,7 +315,7 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "Hard Attention LSTM"
+        return "hard attention LSTM"
 
 
 class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
@@ -367,4 +367,4 @@ class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "Contextual Hard Attention LSTM"
+        return "contextual hard attention LSTM"
