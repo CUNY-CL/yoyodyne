@@ -228,7 +228,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
 class HardAttentionLSTMDecoder(LSTMDecoder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Activattes emission probs.
+        # Activates emission probs.
         self.output_proj = nn.Sequential(
             nn.Linear(self.output_size, self.output_size), nn.Tanh()
         )
