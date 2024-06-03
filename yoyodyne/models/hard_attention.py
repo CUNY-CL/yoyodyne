@@ -90,7 +90,7 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         batch: data.PaddedBatch,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs the encoder-decoder model.
-        
+
         Args:
             batch (data.PaddedBatch).
 
