@@ -7,7 +7,7 @@ import numpy
 import torch
 from torch import nn
 
-from .. import data, defaults, util
+from .. import data, defaults
 from . import lstm, modules
 
 NEG_LOG_EPSILON = -numpy.log(1e-7)
@@ -59,11 +59,8 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         self.classifier = nn.Linear(
             self.decoder.output_size, self.target_vocab_size
         )
-        if not self.teacher_forcing:
-            util.log_info(
-                """Teacher forcing flag disabled but this model requires
-                    teacher forcing for training. Ignoring flag."""
-            )
+        assert self.teacher_forcing, """Teacher forcing flag disabled
+            but this model requires teacher forcing for training."""
 
     def init_decoding(
         self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
@@ -294,12 +291,24 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         return tgt_char.unsqueeze(-1), likelihood
 
     @staticmethod
-    def _gather_at_idx(prob, tgt, pad_idx=None):
+    def _gather_at_idx(
+        prob: torch.Tensor, tgt: torch.Tensor, pad_idx=None
+    ) -> torch.Tensor:
         """Collects probability of tgt index across all states in prob.
 
         To calculate the final emission probability, the pseudo hmm
         graph needs to aggregate the final emission probabilities of
         tgt char across all potential hidden states in prob.
+
+        Args:
+            prob (torch.Tensor): log probs of emission states of shape
+                (batch_size x src_len x vocab_size)
+            tgt (torch.Tensor): tgt symbol to poll probabilities for
+                shape (batch_size).
+
+        Returns:
+            (torch.Tensor) emission probabilities of tgt symbol for
+                each hidden state of size (batch_size 1, src_len).
         """
         batch_size, src_seq_len, _ = prob.shape
         idx = tgt.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
@@ -310,8 +319,22 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         return output * pad_mask
 
     @staticmethod
-    def _apply_mono_mask(transition_prob):
-        # Applies mask to enforce monotonic attention.
+    def _apply_mono_mask(transition_prob: torch.Tensor) -> torch.Tensor:
+        """Applies monotonic attention mask to transition probabilities.
+
+        Enforces a 0 log-probability values for all non-monotonic relations
+        in the transition_prob tensor (i.e. all values i < j per row j).
+
+        Args:
+            transition_prob (torch.Tensor): transition probabilities
+                between all hidden states (source sequence) of shape
+                (batch_size x src_len x src_len).
+
+        Returns:
+            (torch.Tensor) of masked transition probabilities of shape
+                (batch_size x src_len x src_len).
+
+        """
         mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
         # 0 log-probability value for masking.
         # Implemented same as in original repo.
