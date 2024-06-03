@@ -319,6 +319,7 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
 
 
 class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
+    # First order HMM variant of Hard Attention LSTM.
     def __init__(self, *args, attention_context, **kwargs):
         super().__init__(*args, **kwargs)
         self.delta = attention_context

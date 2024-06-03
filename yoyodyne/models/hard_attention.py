@@ -322,6 +322,8 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     def _apply_mono_mask(transition_prob):
         # Applies mask to enforce monotonic attention.
         mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
+        # 0 log-probability value for masking.
+        # Implemented same as in original repo.
         mask = (mask - 1) * NEG_LOG_EPSILON
         transition_prob = transition_prob + mask
         transition_prob = transition_prob - transition_prob.logsumexp(
