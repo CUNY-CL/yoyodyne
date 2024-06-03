@@ -28,12 +28,12 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
     """
     model_fac = {
         "attentive_lstm": AttentiveLSTMEncoderDecoder,
+        "hard_attention_lstm": HardAttentionLSTM,
         "lstm": LSTMEncoderDecoder,
         "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
         "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
         "transducer": TransducerEncoderDecoder,
         "transformer": TransformerEncoderDecoder,
-        "hard_attention_lstm": HardAttentionLSTM,
     }
     try:
         return model_fac[arch]

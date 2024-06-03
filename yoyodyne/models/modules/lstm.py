@@ -228,7 +228,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
 class HardAttentionLSTMDecoder(LSTMDecoder):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Activattes emission probs.
+        # Activates emission probs.
         self.output_proj = nn.Sequential(
             nn.Linear(self.output_size, self.output_size), nn.Tanh()
         )
@@ -315,7 +315,7 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "Hard Attention LSTM"
+        return "hard attention LSTM"
 
 
 class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
@@ -368,4 +368,4 @@ class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "Contextual Hard Attention LSTM"
+        return "contextual hard attention LSTM"
