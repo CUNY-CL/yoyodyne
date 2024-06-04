@@ -39,6 +39,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
+        # Gets number of non-target symbols.
+        source_vocab_size = kwargs["vocab_size"] - kwargs["target_vocab_size"]
+        # This is the size of the shared embedding matrix.
+        # It must contain every possible source AND target symbol.
+        kwargs["vocab_size"] = source_vocab_size + len(expert.actions)
         # Alternate outputs than dataset targets.
         kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)

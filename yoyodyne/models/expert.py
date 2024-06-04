@@ -441,6 +441,8 @@ def get_expert(
             source = item.source.tolist()[1:-1]
             target = item.target.tolist()[:-1]
             actions.encode_actions(target)
+            if data.index.tie_embeddings:
+                actions.encode_actions(source)
             yield source, target
 
     def _encode_action_vocabulary(
@@ -459,6 +461,9 @@ def get_expert(
             # Ignores last symbol since EOW.
             target = item.target.tolist()[:-1]
             actions.encode_actions(target)
+            if data.index.tie_embeddings:
+                source = item.source.tolist()[1:-1]
+                actions.encode_actions(source)
 
     actions = ActionVocabulary(unk_idx=train_data.index.unk_idx)
     if sed_params_path:
