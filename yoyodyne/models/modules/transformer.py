@@ -1,8 +1,8 @@
 """Transformer model classes."""
 
-import numpy
 from typing import List, Optional, Tuple
 
+import numpy
 import torch
 from torch import nn
 
