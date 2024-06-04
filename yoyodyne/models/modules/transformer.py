@@ -1,6 +1,6 @@
 """Transformer model classes."""
 
-import math
+import numpy
 from typing import List, Optional, Tuple
 
 import torch
@@ -38,7 +38,7 @@ class PositionalEncoding(nn.Module):
         position = torch.arange(
             0, max_source_length, dtype=torch.float
         ).unsqueeze(1)
-        scale_factor = -math.log(10000.0) / d_model
+        scale_factor = -numpy.log(10000.0) / d_model
         div_term = torch.exp(
             torch.arange(0, d_model, 2).float() * scale_factor
         )
@@ -145,7 +145,7 @@ class TransformerModule(base.BaseModule):
             **kwargs,
         )
         self.source_attention_heads = source_attention_heads
-        self.esq = math.sqrt(self.embedding_size)
+        self.esq = numpy.sqrt(self.embedding_size)
         self.module = self.get_module()
         self.positional_encoding = PositionalEncoding(
             self.embedding_size, self.pad_idx, max_source_length
