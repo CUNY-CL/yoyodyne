@@ -4,7 +4,7 @@ import numpy
 
 # All elements should be styled as CONSTANTS.
 
-# Scalar Constants
+# Scalar constants.
 EPSILON = 1e-7
 LOG_EPSILON = numpy.log(EPSILON)
 NEG_LOG_EPSILON = -numpy.log(EPSILON)
