@@ -3,14 +3,11 @@
 import argparse
 from typing import Callable, Dict, Optional, Tuple
 
-import numpy
 import torch
 from torch import nn
 
 from .. import data, defaults
 from . import lstm, modules
-
-NEG_LOG_EPSILON = -numpy.log(1e-7)
 
 
 class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
@@ -338,7 +335,7 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
         # 0 log-probability value for masking.
         # Implemented same as in original repo.
-        mask = (mask - 1) * NEG_LOG_EPSILON
+        mask = (mask - 1) * defaults.NEG_LOG_EPSILON
         transition_prob = transition_prob + mask
         transition_prob = transition_prob - transition_prob.logsumexp(
             -1, keepdim=True

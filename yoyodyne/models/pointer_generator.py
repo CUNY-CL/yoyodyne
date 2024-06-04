@@ -1,6 +1,6 @@
 """Pointer-generator model classes."""
 
-import math
+import numpy
 from typing import Callable, Optional, Tuple
 
 import torch
@@ -17,7 +17,7 @@ class Error(Exception):
 class GenerationProbability(nn.Module):
     """Calculates the generation probability for a pointer generator."""
 
-    stdev = 1 / math.sqrt(100)
+    stdev = 1 / numpy.sqrt(100)
 
     W_attention: nn.Linear
     W_hs: nn.Linear
