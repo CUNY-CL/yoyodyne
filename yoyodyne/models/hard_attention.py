@@ -342,7 +342,9 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         )
         return transition_prob
 
-    def training_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+    def training_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
         """Runs one step of training.
 
         This is called by the PL Trainer.
@@ -435,9 +437,9 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
                 Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
                     configured loss function.
         """
-        return self.loss
+        return self._loss
 
-    def loss(
+    def _loss(
         self,
         target: torch.Tensor,
         log_probs: torch.Tensor,
