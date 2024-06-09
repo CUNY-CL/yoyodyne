@@ -11,7 +11,7 @@ from . import lstm, modules
 
 
 class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
-    """Hard Attention Transducer.
+    """Hard attention transducer.
 
     Learns probability distribution of target string by modeling transduction
     of source string to target string as Markov process. Assumes each character
@@ -471,13 +471,13 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             "--enforce_monotonic",
             action="store_true",
             default=defaults.HARD_ATTENTION_MONOTONIC,
-            help="Enforce monotonic condition "
+            help="Enforce monotonicity "
             "(hard attention architectures only). Default: %(default)s.",
         )
         parser.add_argument(
             "--hard_attention_context",
             type=int,
             default=defaults.HARD_ATTENTION_CONTEXT,
-            help="Width of attention context "
+            help="Size of attention context "
             "(hard attention architectures only). Default: %(default)s.",
         )
