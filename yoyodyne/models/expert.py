@@ -72,7 +72,7 @@ class ActionVocabulary:
             idx (int): encoding index that references symbol in encoding table.
 
         Returns:
-            Edit: action in encoding table referenced by given index.
+            actions.Edit: action in encoding table referenced by given index.
         """
         return self.i2w[idx]
 
@@ -93,6 +93,12 @@ class ActionVocabulary:
         """Encodes action unseen in training.
 
         Operates same as encode_action but does not expand lookup table.
+
+        Args:
+            actions (actions.Edit).
+
+        Returns:
+            int.
         """
         if action in self.w2i:
             return self.lookup(action)

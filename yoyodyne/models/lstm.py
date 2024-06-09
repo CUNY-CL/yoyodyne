@@ -92,12 +92,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
             target (torch.Tensor, optional): target symbols;  we
-                decode up to `len(target)` symbols. If it is None, then we
-                decode up to `self.max_target_length` symbols.
+                decode up to `len(target)` symbols. If None, we decode up to
+                `self.max_target_length` symbols.
 
         Returns:
-            predictions (torch.Tensor): tensor of predictions of shape
-                seq_len x batch_size x target_vocab_size.
+            torch.Tensor: tensor of predictions of shape seq_len x
+                batch_size x target_vocab_size.
         """
         batch_size = encoder_mask.shape[0]
         # Initializes hidden states for decoder LSTM.
@@ -148,6 +148,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                         break
         predictions = torch.stack(predictions)
         return predictions
+
+    # TODO(adamits): out-of-date documentation.
 
     def beam_decode(
         self,
@@ -284,8 +286,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             batch (data.PaddedBatch).
 
         Returns:
-            predictions (torch.Tensor): tensor of predictions of shape
-                (seq_len, batch_size, target_vocab_size).
+            torch.Tensor: tensor of predictions of shape seq_len x
+                batch_size x target_vocab_size.
         """
         encoder_out = self.source_encoder(batch.source).output
         if self.beam_width is not None and self.beam_width > 1:

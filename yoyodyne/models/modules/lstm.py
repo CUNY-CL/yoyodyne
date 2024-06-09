@@ -57,6 +57,8 @@ class LSTMModule(base.BaseModule):
 
 
 class LSTMEncoder(LSTMModule):
+    """LSTM encoder."""
+
     def forward(
         self, source: data.PaddedTensor
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -105,6 +107,8 @@ class LSTMEncoder(LSTMModule):
 
 
 class LSTMDecoder(LSTMModule):
+    """LSTM encoder."""
+
     def __init__(self, *args, decoder_input_size, **kwargs):
         self.decoder_input_size = decoder_input_size
         super().__init__(*args, **kwargs)
@@ -129,8 +133,8 @@ class LSTMDecoder(LSTMModule):
                 shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Decoder output,
-                and the previous hidden states from the decoder LSTM.
+            Tuple[torch.Tensor, torch.Tensor]: decoder output, and the
+                previous hidden states from the decoder LSTM.
         """
         embedded = self.embed(symbol)
         # -> 1 x B x decoder_dim.
@@ -175,6 +179,8 @@ class LSTMDecoder(LSTMModule):
 
 
 class LSTMAttentiveDecoder(LSTMDecoder):
+    """Attentive LSTM decoder."""
+
     attention_input_size: int
 
     def __init__(self, *args, attention_input_size, **kwargs):
@@ -205,8 +211,8 @@ class LSTMAttentiveDecoder(LSTMDecoder):
                 shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Decoder output,
-                and the previous hidden states from the decoder LSTM.
+            Tuple[torch.Tensor, torch.Tensor]: decoder output, and the
+                previous hidden states from the decoder LSTM.
         """
         embedded = self.embed(symbol)
         # -> 1 x B x decoder_dim.
@@ -226,16 +232,20 @@ class LSTMAttentiveDecoder(LSTMDecoder):
 
 
 class HardAttentionLSTMDecoder(LSTMDecoder):
+    """Zeroth-order HMM hard attention LSTM decoder."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Activates emission probs.
         self.output_proj = nn.Sequential(
             nn.Linear(self.output_size, self.output_size), nn.Tanh()
         )
-        # Project transition probabilities to depth of module.
+        # Projects transition probabilities to depth of module.
         self.scale_encoded = nn.Linear(
             self.decoder_input_size, self.hidden_size
         )
+
+    # TODO: needs docs.
 
     def _alignment_step(
         self,
@@ -243,8 +253,8 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> torch.Tensor:
-        # Matrix multiply encoding and decoding for alignment representations.
-        # see: https://aclanthology.org/P19-1148/
+        # Matrix multiplies encoding and decoding for alignment
+        # representations. See: https://aclanthology.org/P19-1148/.
         # -> B x seq_len
         alignment_scores = torch.bmm(
             self.scale_encoded(encoder_out), decoded.transpose(1, 2)
@@ -269,7 +279,7 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
         last_hiddens: torch.Tensor,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> base.ModuleOutput:
         """Single decode pass.
 
         Args:
@@ -283,7 +293,7 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
                 shape (B x seq_len).
 
         Returns:
-            output (base.ModuleOutput): Dataclass containing step-wise
+            base.ModuleOutput: Dataclass containing step-wise
                 emission probs, alignment matrix, and hidden states of decoder.
         """
         # Encodes current symbol.
@@ -319,13 +329,15 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
 
 
 class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
-    # First order HMM variant of Hard Attention LSTM.
+    """First-order HMM hard attention LSTM."""
+
     def __init__(self, *args, attention_context, **kwargs):
         super().__init__(*args, **kwargs)
         self.delta = attention_context
+        # Window size must include center and both sides.
         self.alignment_proj = nn.Linear(
             self.hidden_size * 2, (attention_context * 2) + 1
-        )  # Window size must include center and both sides.
+        )
 
     def _alignment_step(
         self,
@@ -333,11 +345,11 @@ class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> torch.Tensor:
-        # Matrix multiply encoding and decoding for alignment representations.
-        # see: https://aclanthology.org/P19-1148/
-        # Expand decoded to concatenate with alignments
+        # Matrix multiplies encoding and decoding for alignment
+        # representations. See: https://aclanthology.org/P19-1148/.
+        # Expands decoded to concatenate with alignments
         decoded = decoded.expand(-1, encoder_out.shape[1], -1)
-        # -> B x seq_len
+        # -> B x seq_len.
         alignment_scores = torch.cat(
             [self.scale_encoded(encoder_out), decoded], dim=2
         )
@@ -358,13 +370,16 @@ class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
             ],
             dim=1,
         )
-        # Get probability of alignments.
-        # Mask padding.
-        alignment_probs = alignment_probs * (~encoder_mask).unsqueeze(1) + 1e-7
+        # Gets probability of alignments.
+        # Masks padding.
+        alignment_probs = (
+            alignment_probs * (~encoder_mask).unsqueeze(1) + defaults.EPSILON
+        )
         alignment_probs = alignment_probs / alignment_probs.sum(
             dim=-1, keepdim=True
         )
-        return alignment_probs.log()  # Log probs for quicker computation
+        # Log probs for quicker computation.
+        return alignment_probs.log()
 
     @property
     def name(self) -> str:

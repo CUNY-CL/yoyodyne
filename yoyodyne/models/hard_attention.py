@@ -37,16 +37,20 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     attention_context: int
 
     def __init__(
-        self, *args, enforce_monotonic=False, attention_context=0, **kwargs
+        self,
+        *args,
+        enforce_monotonic=defaults.ENFORCE_MONOTONIC,
+        attention_context=defaults.ATTENTION_CONTEXT,
+        **kwargs,
     ):
         """Initializes the encoder-decoder.
 
         Args:
             *args: passed to superclass.
-            enforce_monotonic [bool, optional]: Enforce monotonic state
+            enforce_monotonic (bool, optional): enforces monotonic state
                 transition in decoding.
-            attention_context [int, optional]: Size of context window for
-            conditioning state transition. If 0, state transitions are
+            attention_context (int, optional): size of context window for
+            conditioning state transition; if 0, state transitions are
                 independent.
             **kwargs: passed to superclass.
         """
@@ -56,15 +60,25 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         self.classifier = nn.Linear(
             self.decoder.output_size, self.target_vocab_size
         )
-        assert self.teacher_forcing, """Teacher forcing flag disabled
-            but this model requires teacher forcing for training."""
+        assert (
+            self.teacher_forcing
+        ), "Teacher forcing disabled but required by this model"
 
     def init_decoding(
         self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """Initializes hiddens and initial decoding output.
 
-        Simply feeds a BOS string to decoder to provide initial probability.
+        This feeds the BOS string to the decoder to provide an initial
+        probability.
+
+        Args:
+            encoder_out (torch.Tensor).
+            encoder_mask (torch.Tensor).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
+                torch.Tensor]].
         """
         batch_size, _ = encoder_mask.shape
         decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
@@ -89,14 +103,10 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             batch (data.PaddedBatch).
 
         Returns:
-                (Tuple[torch.Tensor,torch.Tensor])
-                    index 0: tensor of emission probabilities for
-                    each transition state (target symbol) of shape
-                    tgt_len x batch_size x src_len x vocab_size.
-
-                    index 1: tensor of transition probabilities for each
-                    transition state (target symbol) of shape tgt_len x
-                    batch_size x src_len x src_len.
+            Tuple[torch.Tensor,torch.Tensor]: emission probabilities for
+                each transition state of shape tgt_len x batch_size x src_len
+                x vocab_size, and transition probabilities for each transition
+                state of shape batch_size x src_len x src_len.
         """
         encoder_out = self.source_encoder(batch.source).output
         if self.has_features_encoder:
@@ -105,12 +115,12 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             encoder_features_out = encoder_features_out.sum(
                 dim=1, keepdim=True
             )
-            # Sum to flatten embedding. We do this instead
-            # of linear projection in original paper.
+            # Sums to flatten embedding; this is done as an alternative to the
+            # linear projection used in the original paper.
             encoder_features_out = encoder_features_out.expand(
                 -1, encoder_out.shape[1], -1
             )
-            # Concatenates with average.
+            # Concatenates with the average.
             encoder_out = torch.cat(
                 [encoder_out, encoder_features_out], dim=-1
             )
@@ -139,22 +149,20 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         length of `target` args.
 
         Args:
-                encoder_out (torch.Tensor): batch of encoded input symbols
-                    of shape batch_size x src_len x encoder_hidden*num_dir.
-                encoder_mask (torch.Tensor): mask for the batch of encoded
-                    input symbols of shape batch_size x src_len.
-                target (torch.Tensor): target symbols, decodes up to
-                    `len(target)` symbols.
+            encoder_out (torch.Tensor): batch of encoded input symbols
+                of shape batch_size x src_len x (encoder_hidden *
+                num_directions).
+            encoder_mask (torch.Tensor): mask for the batch of encoded
+                input symbols of shape batch_size x src_len.
+            target (torch.Tensor): target symbols, decodes up to
+                `len(target)` symbols.
 
         Returns:
-                (Tuple[torch.Tensor,torch.Tensor])
-
-                index 0: tensor of emission probabilities for
-                    each state (target symbol). Shape:
-                    (tgt_len x batch_size x src_len x vocab_size)
-                index 1: tensor of transition probabilities for each
-                    state (target symbol). Shape:
-                    (tgt_len x batch_size x src_len x src_len)
+            Tuple[torch.Tensor,torch.Tensor]: emission probabilities
+                for each state (target symbol) of shape tgt_len x
+                batch_size x src_len x vocab_size, and transition
+                probabilities for each state (target symbol) of shape
+                tgt_len x batch_size x src_len x src_len.
         """
         log_probs, transition_probs, decoder_hiddens = self.init_decoding(
             encoder_out, encoder_mask
@@ -183,24 +191,22 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         """Performs a single decoding step for current state of decoder.
 
         Args:
-                tgt_symbol (torch.Tensor): tgt symbol for current state.
-                    decoder_hiddens (Tuple[torch.Tensor, torch.Tensor]):
-                    last hidden states from the decoder of shape
-                    1 x B x decoder_dim, 1 x B x decoder_dim.
-                encoder_out (torch.Tensor): batch of encoded input symbols
-                    of shape batch_size x src_len x encoder_hidden*num_dir.
-                encoder_mask (torch.Tensor): mask for the batch of encoded
-                    input symbols of shape batch_size x src_len.
-
+            tgt_symbol (torch.Tensor): tgt symbol for current state.
+            decoder_hiddens (Tuple[torch.Tensor, torch.Tensor]): the last
+                hidden states from the decoder of shapes 1 x B x decoder_dim
+                and 1 x B x decoder_dim.
+            encoder_out (torch.Tensor): batch of encoded input symbols
+                of shape batch_size x src_len x (encoder_hidden *
+                num_directions).
+            encoder_mask (torch.Tensor): mask for the batch of encoded
+                input symbols of shape batch_size x src_len.
         Returns:
-                (Tuple[torch.Tensor, torch.Tensor])
-
-                index 0: tensor of emission probabilities for each
-                    transition state (target symbol).
-                index 1: tensor of transition probabilities for each
-                    transition state (target symbol).
-                index 2: last hidden states from the decoder of shape
-                    1 x B x decoder_dim, 1 x B x decoder_dim.
+            Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
+                torch.Tensor]: emission probabilities for each transition
+                state (target symbol), transition probabilities for each
+                transition state (target symbol), and the last hidden states
+                from the decoder, of shape (1 x B x decoder_dim, 1 x B x
+                decoder_dim).
         """
         decoded = self.decoder(
             tgt_symbol,
@@ -224,23 +230,23 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         self,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
         Decodes until all sequences in a batch have reached [EOS] up to
         a specified length depending on the `target` args.
 
         Args:
-                encoder_out (torch.Tensor): batch of encoded input symbols
-                    of shape batch_size x src_len x encoder_hidden*num_dir.
-                encoder_mask (torch.Tensor): mask for the batch of encoded
-                    input symbols of shape batch_size x src_len.
+            encoder_out (torch.Tensor): batch of encoded input symbols
+                of shape batch_size x src_len x (encoder_hidden *
+                num_directions).
+            encoder_mask (torch.Tensor): mask for the batch of encoded
+                input symbols of shape batch_size x src_len.
 
         Returns:
-                predictions (torch.Tensor): tensor of predictions of shape
-                    batch_size x pred_seq_len.
-                likelihood (torch.Tensor): tensor of final likelihoods per
-                    prediction step of shape batch_size x 1 x src_len.
+            Tuple[torch.Tensor, torch.Tensor]: predictions of shape batch_size
+                x pred_seq_len, final likelihoods per prediction step of shape
+                batch_size x 1 x src_len.
         """
         batch_size, _ = encoder_mask.shape
         log_probs, transition_prob, decoder_hiddens = self.init_decoding(
@@ -268,7 +274,7 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             finished = finished | (pred == self.end_idx)
             if finished.all().item():
                 break
-            # If finished decoding, pads.
+            # Pads if finished decoding.
             pred = torch.where(
                 ~finished, pred, torch.tensor(self.end_idx, device=self.device)
             )
@@ -279,8 +285,12 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             )
         return predictions, likelihood
 
+    # FIXME(kbg,bonham79): Needs input types and docs.
+
     @staticmethod
-    def greedy_step(log_probs, likelihood):
+    def greedy_step(
+        log_probs, likelihood
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Updates current likelihood with greedy probability prediction.
         tgt_prob = likelihood + log_probs.transpose(1, 2)
         tgt_prob = tgt_prob.logsumexp(dim=-1)
@@ -293,19 +303,19 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     ) -> torch.Tensor:
         """Collects probability of tgt index across all states in prob.
 
-        To calculate the final emission probability, the pseudo hmm
+        To calculate the final emission probability, the pseudo-HMM
         graph needs to aggregate the final emission probabilities of
         tgt char across all potential hidden states in prob.
 
         Args:
-            prob (torch.Tensor): log probs of emission states of shape
-                (batch_size x src_len x vocab_size)
+            prob (torch.Tensor): log probabilities of emission states of shape
+                batch_size x src_len x vocab_size.
             tgt (torch.Tensor): tgt symbol to poll probabilities for
-                shape (batch_size).
+                shape batch_size.
 
         Returns:
-            (torch.Tensor) emission probabilities of tgt symbol for
-                each hidden state of size (batch_size 1, src_len).
+            torch.Tensor: emission probabilities of tgt symbol for each hidden
+                state of size batch_size 1 x src_len.
         """
         batch_size, src_seq_len, _ = prob.shape
         idx = tgt.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
@@ -320,21 +330,20 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         """Applies monotonic attention mask to transition probabilities.
 
         Enforces a 0 log-probability values for all non-monotonic relations
-        in the transition_prob tensor (i.e. all values i < j per row j).
+        in the transition_prob tensor (i.e., all values i < j per row j).
 
         Args:
-            transition_prob (torch.Tensor): transition probabilities
-                between all hidden states (source sequence) of shape
-                (batch_size x src_len x src_len).
+            transition_prob (torch.Tensor): transition probabilities between
+                all hidden states (source sequence) of shape batch_size x
+                src_len x src_len.
 
         Returns:
-            (torch.Tensor) of masked transition probabilities of shape
-                (batch_size x src_len x src_len).
-
+            torch.Tensor: masked transition probabilities of shape batch_size
+                x src_len x src_len.
         """
         mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
-        # 0 log-probability value for masking.
-        # Implemented same as in original repo.
+        # Using 0 log-probability value for masking; this is borrowed from the
+        # original implementation.
         mask = (mask - 1) * defaults.NEG_LOG_EPSILON
         transition_prob = transition_prob + mask
         transition_prob = transition_prob - transition_prob.logsumexp(
@@ -350,11 +359,11 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         This is called by the PL Trainer.
 
         Args:
-                batch (data.PaddedBatch)
-                batch_idx (int).
+            batch (data.PaddedBatch)
+            batch_idx (int).
 
         Returns:
-                torch.Tensor: loss.
+            torch.Tensor: loss.
         """
         # Forward pass produces loss by default.
         log_probs, transition_probs = self(batch)
@@ -434,8 +443,8 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         """Returns the actual function used to compute loss.
 
         Returns:
-                Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-                    configured loss function.
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
         """
         return self._loss
 
@@ -470,14 +479,19 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         parser.add_argument(
             "--enforce_monotonic",
             action="store_true",
-            default=defaults.HARD_ATTENTION_MONOTONIC,
+            default=defaults.ENFORCE_MONOTONIC,
             help="Enforce monotonicity "
             "(hard attention architectures only). Default: %(default)s.",
         )
         parser.add_argument(
+            "--no_enforce_monotonic",
+            action="store_false",
+            dest="enforce_monotonic",
+        )
+        parser.add_argument(
             "--hard_attention_context",
             type=int,
-            default=defaults.HARD_ATTENTION_CONTEXT,
+            default=defaults.ATTENTION_CONTEXT,
             help="Width of attention context "
             "(hard attention architectures only). Default: %(default)s.",
         )
