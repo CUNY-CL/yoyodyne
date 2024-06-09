@@ -149,7 +149,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         predictions = torch.stack(predictions)
         return predictions
 
-    # TODO(adamits): out-of-date documentation.
+    # TODO(adamits,kbg): out-of-date documentation.
 
     def beam_decode(
         self,
