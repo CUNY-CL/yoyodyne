@@ -1,6 +1,15 @@
 """Default values for flags and modules."""
 
+import numpy
+
 # All elements should be styled as CONSTANTS.
+
+# Scalar constants.
+EPSILON = 1e-7
+LOG_EPSILON = numpy.log(EPSILON)
+NEG_LOG_EPSILON = -numpy.log(EPSILON)
+INF = numpy.inf
+NEG_INF = -numpy.inf
 
 # Data configuration arguments.
 SOURCE_COL = 1
@@ -19,6 +28,8 @@ BIDIRECTIONAL = True
 DECODER_LAYERS = 1
 EMBEDDING_SIZE = 128
 ENCODER_LAYERS = 1
+HARD_ATTENTION_CONTEXT = 0
+HARD_ATTENTION_MONOTONIC = False
 HIDDEN_SIZE = 512
 MAX_SOURCE_LENGTH = 128
 MAX_TARGET_LENGTH = 128

@@ -3,6 +3,7 @@
 import argparse
 
 from .base import BaseEncoderDecoder
+from .hard_attention import HardAttentionLSTM
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoder,
@@ -27,6 +28,7 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
     """
     model_fac = {
         "attentive_lstm": AttentiveLSTMEncoderDecoder,
+        "hard_attention_lstm": HardAttentionLSTM,
         "lstm": LSTMEncoderDecoder,
         "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
         "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
@@ -69,6 +71,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--arch",
         choices=[
             "attentive_lstm",
+            "hard_attention_lstm",
             "lstm",
             "pointer_generator_lstm",
             "pointer_generator_transformer",

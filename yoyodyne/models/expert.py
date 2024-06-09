@@ -10,12 +10,12 @@ Class stores valid edit actions for given dataset.
 import abc
 import argparse
 import dataclasses
-
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
-import numpy
 from maxwell import actions, sed
+import numpy
 from torch.utils import data
+
 from .. import defaults
 
 

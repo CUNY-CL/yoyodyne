@@ -1,7 +1,7 @@
 """Custom schedulers."""
 
 import argparse
-import math
+import numpy
 from typing import Dict
 
 from torch import optim
@@ -52,7 +52,7 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
             **kwargs: ignored.
         """
         self.warmup_steps = warmup_steps
-        self.decay_factor = math.sqrt(warmup_steps)
+        self.decay_factor = numpy.sqrt(warmup_steps)
         super().__init__(optimizer, self.lr_lambda)
 
     def __repr__(self) -> str:

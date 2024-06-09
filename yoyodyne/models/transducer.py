@@ -1,14 +1,13 @@
 """Transducer model class."""
 
-import math
 from typing import Callable, Dict, List, Optional, Tuple
 
+from maxwell import actions
 import numpy
 import torch
-from maxwell import actions
 from torch import nn
 
-from .. import data
+from .. import data, defaults
 from . import expert, lstm, modules
 
 
@@ -288,7 +287,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     ) -> torch.Tensor:
         """Masks non-valid actions in logits."""
         with torch.no_grad():
-            mask = torch.full(logits.shape, -math.inf, device=self.device)
+            mask = torch.full(
+                logits.shape, defaults.NEG_INF, device=self.device
+            )
             for row, action in zip(mask, valid_actions):
                 row[action] = 0.0
             logits = mask + logits
@@ -530,13 +531,19 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         # Evaluation requires prediction as a tensor.
         predictions = self.convert_prediction(predictions)
         # Processes for accuracy calculation.
-        predictions = self.evaluator.finalize_predictions(
-            predictions, self.end_idx, self.pad_idx
-        )
-        val_eval_item = self.evaluator.get_eval_item(
-            predictions, batch.target.padded, self.pad_idx
-        )
-        return {"val_eval_item": val_eval_item, "val_loss": loss}
+        val_eval_items_dict = {}
+        for evaluator in self.evaluators:
+            predictions = evaluator.finalize_predictions(
+                predictions, self.end_idx, self.pad_idx
+            )
+            golds = evaluator.finalize_golds(
+                batch.target.padded, self.end_idx, self.pad_idx
+            )
+            val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
+                predictions, golds, self.pad_idx
+            )
+        val_eval_items_dict.update({"val_loss": loss})
+        return val_eval_items_dict
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
         predictions, _ = self.forward(
