@@ -478,6 +478,6 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             "--hard_attention_context",
             type=int,
             default=defaults.HARD_ATTENTION_CONTEXT,
-            help="Size of attention context "
+            help="Width of attention context "
             "(hard attention architectures only). Default: %(default)s.",
         )
