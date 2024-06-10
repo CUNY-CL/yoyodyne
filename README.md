@@ -362,7 +362,8 @@ allows the user to perform training with half precision (`16`) or with the
 [`bfloat16` half precision
 format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) if
 supported by the accelerator. This may reduce the size of the model and batches
-in memory, allowing one to use larger batches.
+in memory, allowing one to use larger batches. Note that only default precision
+is expected to work with CPU training.
 
 Examples
 --------
