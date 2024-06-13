@@ -54,15 +54,15 @@ class Evaluator(abc.ABC):
         """Computes the evaluation metric.
 
         This is the top-level public method that should be called by
-        evaluating code.
+        during evaluation.
 
         Args:
             predictions (torch.Tensor): B x vocab_size x seq_len.
             golds (torch.Tensor): B x seq_len x 1.
             end_idx (int): end of sequence index.
             pad_idx (int): padding index.
-            predictions_finalized (bool): If the predictions have already been
-                arg-maxed and padded.
+            predictions_finalized (bool, optional): have the predictions
+                been arg-maxed and padded?
 
         Returns:
             EvalItem.
