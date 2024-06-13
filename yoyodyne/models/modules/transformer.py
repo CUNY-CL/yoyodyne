@@ -339,7 +339,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 target sequence.
             memory_mask (Optional[torch.Tensor], optional): the mask for the
                 memory sequence.
-            features_memory_mask (torch.Tensor, optional): the mask
+            features_memory_mask (Optional[torch.Tensor], optional): the mask
                 for the features.
             target_key_padding_mask (Optional[torch.Tensor], optional): the
                 mask for the target keys per batch.

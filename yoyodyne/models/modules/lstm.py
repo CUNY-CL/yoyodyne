@@ -107,7 +107,7 @@ class LSTMEncoder(LSTMModule):
 
 
 class LSTMDecoder(LSTMModule):
-    """LSTM encoder."""
+    """LSTM decoder."""
 
     def __init__(self, *args, decoder_input_size, **kwargs):
         self.decoder_input_size = decoder_input_size
