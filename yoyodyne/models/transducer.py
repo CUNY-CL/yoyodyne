@@ -529,14 +529,19 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         predictions, loss = self(batch)
         # Evaluation requires prediction as a tensor.
         predictions = self.convert_prediction(predictions)
-        # Processes for accuracy calculation.
-        predictions = self.evaluator.finalize_predictions(
-            predictions, self.end_idx, self.pad_idx
-        )
-        val_eval_item = self.evaluator.get_eval_item(
-            predictions, batch.target.padded, self.pad_idx
-        )
-        return {"val_eval_item": val_eval_item, "val_loss": loss}
+        # Gets a dict of all eval metrics for this batch.
+        val_eval_items_dict = {
+            evaluator.name: evaluator.evaluate(
+                predictions,
+                batch.target.padded,
+                self.end_idx,
+                self.pad_idx,
+                predictions_finalized=True,
+            )
+            for evaluator in self.evaluators
+        }
+        val_eval_items_dict.update({"val_loss": loss})
+        return val_eval_items_dict
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
         predictions, _ = self.forward(
