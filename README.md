@@ -197,6 +197,12 @@ additional flags. Supported values for `--arch` are:
 -   `attentive_lstm`: This is an LSTM decoder with LSTM encoders (by default)
     and an attention mechanism. The initial hidden state is treated as a learned
     parameter.
+-   `hard_attention_lstm`: This is an LSTM encoder/decoder modeling generation
+    as a Markov process. By default, it assumes a non-monotonic progression over
+    the source string, but with `--enforce_monotonic` the model must progress 
+    over each source character in order. A non-zero value of
+    `--attention_context` (default: `0`) widens the context window for
+    conditioning state transitions to include one or more previous states.
 -   `lstm`: This is an LSTM decoder with LSTM encoders (by default); in lieu of
     an attention mechanism, the last non-padding hidden state of the encoder is
     concatenated with the decoder hidden state.
@@ -356,7 +362,8 @@ allows the user to perform training with half precision (`16`) or with the
 [`bfloat16` half precision
 format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) if
 supported by the accelerator. This may reduce the size of the model and batches
-in memory, allowing one to use larger batches.
+in memory, allowing one to use larger batches. Note that only default precision
+is expected to work with CPU training.
 
 Examples
 --------

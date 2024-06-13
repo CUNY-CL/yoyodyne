@@ -129,6 +129,7 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
+        "hard_attention_lstm",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
@@ -184,6 +185,7 @@ def get_model_from_argparse_args(
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
+        "hard_attention_lstm",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
@@ -212,8 +214,7 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        source_attention_heads=args.source_attention_heads,
-        features_attention_heads=args.features_attention_heads,
+        attention_context=args.hard_attention_context,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -222,8 +223,10 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
+        enforce_monotonic=args.enforce_monotonic,
         eval_metrics=eval_metrics,
         expert=expert,
+        features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
@@ -236,6 +239,7 @@ def get_model_from_argparse_args(
         pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
+        source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
         source_vocab_size=source_vocab_size,
         start_idx=datamodule.index.start_idx,
@@ -353,6 +357,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     evaluators.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.HardAttentionLSTM.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
     # models.modules.BaseEncoder.add_argparse_args(parser)

@@ -1,14 +1,13 @@
 """Transducer model class."""
 
-import math
 from typing import Callable, Dict, List, Optional, Tuple
 
+from maxwell import actions
 import numpy
 import torch
-from maxwell import actions
 from torch import nn
 
-from .. import data
+from .. import data, defaults
 from . import expert, lstm, modules
 
 
@@ -288,7 +287,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     ) -> torch.Tensor:
         """Masks non-valid actions in logits."""
         with torch.no_grad():
-            mask = torch.full(logits.shape, -math.inf, device=self.device)
+            mask = torch.full(
+                logits.shape, defaults.NEG_INF, device=self.device
+            )
             for row, action in zip(mask, valid_actions):
                 row[action] = 0.0
             logits = mask + logits
