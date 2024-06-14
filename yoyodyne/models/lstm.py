@@ -2,7 +2,7 @@
 
 import argparse
 import heapq
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
