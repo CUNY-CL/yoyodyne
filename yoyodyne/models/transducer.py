@@ -530,18 +530,17 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         predictions, loss = self(batch)
         # Evaluation requires prediction as a tensor.
         predictions = self.convert_prediction(predictions)
-        # Processes for accuracy calculation.
-        val_eval_items_dict = {}
-        for evaluator in self.evaluators:
-            predictions = evaluator.finalize_predictions(
-                predictions, self.end_idx, self.pad_idx
+        # Gets a dict of all eval metrics for this batch.
+        val_eval_items_dict = {
+            evaluator.name: evaluator.evaluate(
+                predictions,
+                batch.target.padded,
+                self.end_idx,
+                self.pad_idx,
+                predictions_finalized=True,
             )
-            golds = evaluator.finalize_golds(
-                batch.target.padded, self.end_idx, self.pad_idx
-            )
-            val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
-                predictions, golds, self.pad_idx
-            )
+            for evaluator in self.evaluators
+        }
         val_eval_items_dict.update({"val_loss": loss})
         return val_eval_items_dict
 
