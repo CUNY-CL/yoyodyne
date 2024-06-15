@@ -100,9 +100,9 @@ def predict(
     loader = datamodule.predict_dataloader()
     with open(output, "w") as sink:
         for batch in trainer.predict(model, loader):
-            # batch = model.evaluator.finalize_predictions(
-            #     batch, datamodule.index.end_idx, datamodule.index.pad_idx
-            # )
+            batch = util.pad_tensor_after_eos(
+                batch, datamodule.index.end_idx, datamodule.index.pad_idx
+            )
             for prediction in loader.dataset.decode_target(batch):
                 print(prediction, file=sink)
 
