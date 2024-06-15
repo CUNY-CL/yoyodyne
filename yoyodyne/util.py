@@ -67,9 +67,7 @@ def pad_tensor_after_eos(
         # Replaces everything after with PAD, to replace erroneous decoding
         # While waiting on the entire batch to finish.
         pads = (
-            torch.ones(
-                len(prediction) - len(symbols), device=symbols.device
-            )
+            torch.ones(len(prediction) - len(symbols), device=symbols.device)
             * pad_idx
         )
         pads[0] = end_idx
