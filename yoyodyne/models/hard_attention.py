@@ -499,7 +499,7 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             dest="enforce_monotonic",
         )
         parser.add_argument(
-            "--hard_attention_context",
+            "--attention_context",
             type=int,
             default=defaults.ATTENTION_CONTEXT,
             help="Width of attention context "
