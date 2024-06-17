@@ -92,7 +92,7 @@ def predict(
     Args:
          trainer (pl.Trainer).
          model (pl.LightningModule).
-         datamdule (data.DataModule).
+         datamodule (data.DataModule).
          output (str).
     """
     util.log_info(f"Writing to {output}")
