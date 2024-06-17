@@ -29,7 +29,7 @@ keywords = [
 ]
 dependencies = [
     "maxwell >= 0.2.4",
-    "numpy >= 1.24.3",
+    "numpy >= 1.24.3, < 2.0.0",  # TODO: this is temporary; revisit.
     "pytorch-lightning >= 1.7.0, < 2.0.0",
     "torch >= 2.0.0",
     "wandb >= 0.15.3",
