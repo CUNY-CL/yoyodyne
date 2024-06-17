@@ -7,6 +7,7 @@ from yoyodyne import models
     ["arch", "expected_cls"],
     [
         ("attentive_lstm", models.AttentiveLSTMEncoderDecoder),
+        ("hard_attention_lstm", models.HardAttentionLSTM),
         ("lstm", models.LSTMEncoderDecoder),
         (
             "pointer_generator_lstm",
