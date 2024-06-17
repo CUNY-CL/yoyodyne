@@ -245,17 +245,38 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
             self.decoder_input_size, self.hidden_size
         )
 
-    # TODO: needs docs.
-
     def _alignment_step(
         self,
         decoded: torch.Tensor,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> torch.Tensor:
-        # Matrix multiplies encoding and decoding for alignment
-        # representations. See: https://aclanthology.org/P19-1148/.
-        # -> B x seq_len
+        """Creates alignment matrix for current timestep.
+
+        Given the current encoder repreesentation and the decoder
+        representation at the current time step, this calculates the alignment
+        scores between all potential source sequence pairings. These
+        alignments are used to predict the likelihood of state transitions
+        for the output.
+
+        After:
+            Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
+            character-level transduction. In _Proceedings of the 57th Annual
+            Meeting of the Association for Computational Linguistics_, pages
+            1530-1537.
+
+        Args:
+            decoded (torch.Tensor): output from decoder for current timesstep
+                of shape B x 1 x decoder_dim.
+            encoder_out (torch.Tensor): encoded input sequence of shape
+                B x seq_len x encoder_dim.
+            encoder_mask (torch.Tensor): mask for the encoded input batch of
+                shape B x seq_len.
+
+        Returns:
+            torch.Tensor: alignment scores across the source sequence of shape
+                B x seq_len.
+        """
         alignment_scores = torch.bmm(
             self.scale_encoded(encoder_out), decoded.transpose(1, 2)
         ).squeeze(-1)

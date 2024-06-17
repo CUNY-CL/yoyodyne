@@ -285,13 +285,23 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             )
         return predictions, likelihood
 
-    # FIXME(kbg,bonham79): Needs input types and docs.
-
     @staticmethod
     def greedy_step(
-        log_probs, likelihood
+        log_probs: torch.Tensor, likelihood: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # Updates current likelihood with greedy probability prediction.
+        """Greedy decoding of current timestep.
+
+        Args:
+            log_probs (torch.Tensor): vocabulary probabilities at current
+                time step.
+            likelihood (torch.Tensor): accumulative likelihood of decoded
+                character sequence.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: greedily decoded character
+                for current timestep and the current likelihood of the
+                decoded character sequence.
+        """
         tgt_prob = likelihood + log_probs.transpose(1, 2)
         tgt_prob = tgt_prob.logsumexp(dim=-1)
         tgt_char = torch.max(tgt_prob, dim=-1)[1]
