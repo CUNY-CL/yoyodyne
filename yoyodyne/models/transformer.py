@@ -183,6 +183,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             type=int,
             default=defaults.FEATURES_ATTENTION_HEADS,
             help="Number of features attention heads "
-            "(transformer-backed pointer-generator only. "
+            "(transformer-backed pointer-generator only). "
             "Default: %(default)s.",
         )
