@@ -15,8 +15,9 @@ These models are implemented using [PyTorch](https://pytorch.org/) and
 
 While we provide classic LSTM and transformer models, some of the provided
 models are particularly well-suited for problems where the source-target
-alignments are roughly monotonic (e.g., `transducer`) and/or where source and
-target vocabularies have substantial overlap (e.g., `pointer_generator_lstm`).
+alignments are roughly monotonic (e.g., `transducer` and
+`hard_attention_lstm`) and/or where source and target vocabularies have
+substantial overlap (e.g., `pointer_generator_lstm`).
 
 Philosophy
 ----------
