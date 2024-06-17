@@ -76,7 +76,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             batch (data.PaddedBatch).
 
         Returns:
-            Tuple[List[List[int]], torch.Tensor] of encoded prediction values
+            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
@@ -144,8 +144,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 B x seq_len x emb_size.
             source (torch.Tensor): encoded source input.
             source_mask (torch.Tensor): mask for source input.
-            teacher_forcing (bool): Whether or not to decode
-                with teacher forcing. Determines whether or not to rollout
+            teacher_forcing (bool): whether or not to decode
+                with teacher forcing; determines whether or not to rollout
                 optimal actions.
             target (torch.Tensor, optional): encoded target input.
             target_mask (torch.Tensor, optional): mask for target input.

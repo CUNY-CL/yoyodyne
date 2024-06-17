@@ -2,7 +2,7 @@
 
 import argparse
 import heapq
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -92,12 +92,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             teacher_forcing (bool): Whether or not to decode
                 with teacher forcing.
             target (torch.Tensor, optional): target symbols;  we
-                decode up to `len(target)` symbols. If it is None, then we
-                decode up to `self.max_target_length` symbols.
+                decode up to `len(target)` symbols. If None, we decode up to
+                `self.max_target_length` symbols.
 
         Returns:
-            predictions (torch.Tensor): tensor of predictions of shape
-                seq_len x batch_size x target_vocab_size.
+            torch.Tensor: tensor of predictions of shape seq_len x
+                batch_size x target_vocab_size.
         """
         batch_size = encoder_mask.shape[0]
         # Initializes hidden states for decoder LSTM.
@@ -156,7 +156,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         beam_width: int,
         n: int = 1,
         return_confidences: bool = False,
-    ) -> Union[Tuple[List, List], List]:
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Beam search with beam_width.
 
         Note that we assume batch size is 1.
@@ -170,9 +170,13 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 likelihood of each hypothesis.
 
         Returns:
-            Union[Tuple[List, List], List]: _description_
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+                the predictions tensor and the confidences if
+                return_confidences.
         """
-        # TODO: only implemented for batch size of 1. Implement batch mode.
+        # TODO: modify to work with batches larger than 1.
+        # TODO: modify to eliminate polymorphic return type; always
+        # return confidences.
         batch_size = encoder_mask.shape[0]
         if batch_size != 1:
             raise NotImplementedError(
@@ -270,7 +274,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
         if return_confidences:
-            return (predictions, torch.tensor([h[2] for h in histories]))
+            return predictions, torch.tensor([h[2] for h in histories])
         else:
             return predictions
 
@@ -284,8 +288,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             batch (data.PaddedBatch).
 
         Returns:
-            predictions (torch.Tensor): tensor of predictions of shape
-                (seq_len, batch_size, target_vocab_size).
+            torch.Tensor: tensor of predictions of shape seq_len x
+                batch_size x target_vocab_size.
         """
         encoder_out = self.source_encoder(batch.source).output
         if self.beam_width is not None and self.beam_width > 1:

@@ -63,7 +63,7 @@ class GenerationProbability(nn.Module):
                 B x sequence_length x embedding_size.
 
         Returns:
-            (torch.Tensor): generation probability of shape B.
+            torch.Tensor: generation probability of shape B.
         """
         # -> B x sequence_length x 1.
         p_gen = self.W_attention(attention_context) + self.W_hs(
@@ -310,18 +310,18 @@ class PointerGeneratorLSTMEncoderDecoder(
             source_enc (torch.Tensor): batch of encoded input symbols.
             source_mask (torch.Tensor): mask for the batch of encoded input
                 symbols.
-            source_indices (torch.Tensor): Indices of the input for calculating
+            source_indices (torch.Tensor): indices of the input for calculating
                 pointer weights.
-            decoder_hiddens (torch.Tensor): .
-            teacher_forcing (bool): Whether or not to decode
-                with teacher forcing.
+            decoder_hiddens (torch.Tensor).
+            teacher_forcing (bool): whether or not to decode with teacher
+                forcing.
             features_enc (torch.Tensor, optional): batch of encoded feaure
                 symbols.
             features_mask (torch.Tensor, optional): mask for the batch of
                 encoded feature symbols.
-            target (torch.Tensor, optional): target symbols;  we
-                decode up to `len(target)` symbols. If it is None, then we
-                decode up to `self.max_target_length` symbols.
+            target (torch.Tensor, optional): target symbols; we decode up to
+                `len(target)` symbols. If it is None, then we decode up to
+                `self.max_target_length` symbols.
 
         Returns:
             torch.Tensor.
@@ -530,16 +530,16 @@ class PointerGeneratorTransformerEncoderDecoder(
         parallel with a diagonal mask.
 
         Args:
-            encoder_outputs (torch.Tensor): Encoded output representations.
-            source_mask (torch.Tensor): Mask for the encoded source tokens.
-            source_indices (torch.Tensor): Source token vocabulary ids.
-            target_tensor (torch.Tensor): Target token vocabulary ids.
-            target_mask (torch.Tensor): Mask for the target tokens.
-            features_enc (Optional[torch.Tensor]): Encoded features.
-            features_mask (Optional[torch.Tensor]): Mask for encoded features.
+            encoder_outputs (torch.Tensor): encoded output representations.
+            source_mask (torch.Tensor): mask for the encoded source tokens.
+            source_indices (torch.Tensor): source token vocabulary ids.
+            target_tensor (torch.Tensor): target token vocabulary ids.
+            target_mask (torch.Tensor): mask for the target tokens.
+            features_enc (Optional[torch.Tensor]): encoded features.
+            features_mask (Optional[torch.Tensor]): mask for encoded features.
 
         Returns:
-            torch.Tensor: Output probabilities of the shape
+            torch.Tensor: output probabilities of the shape
                 B x target_seq_len x target_vocab_size, where
                 target_seq_len is inferred form the target_tensor.
         """
@@ -602,15 +602,15 @@ class PointerGeneratorTransformerEncoderDecoder(
         """Decodes the output sequence greedily.
 
         Args:
-            encoder_hidden (torch.Tensor): Hidden states from the encoder.
-            source_mask (torch.Tensor): Mask for the encoded source tokens.
-            source_indices (torch.Tensor): Indices of the source symbols.
-            targets (torch.Tensor, optional): The optional target tokens,
+            encoder_hidden (torch.Tensor): hidden states from the encoder.
+            source_mask (torch.Tensor): mask for the encoded source tokens.
+            source_indices (torch.Tensor): indices of the source symbols.
+            targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
                 if the decoder has predicted [EOS] for every sequence in
                 the batch.
-            features_enc (Optional[torch.Tensor]): Encoded features.
-            features_mask (Optional[torch.Tensor]): Mask for encoded features.
+            features_enc (Optional[torch.Tensor]): encoded features.
+            features_mask (Optional[torch.Tensor]): mask for encoded features.
 
         Returns:
             torch.Tensor: predictions from the decoder.
@@ -673,6 +673,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             torch.Tensor.
         """
         source_encoded = self.source_encoder(batch.source).output
+
         if self.training and self.teacher_forcing:
             assert (
                 batch.target.padded is not None

@@ -149,8 +149,7 @@ class BaseModule(pl.LightningModule):
                 B x seq_len.
 
         Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
+            torch.Tensor: embedded tensor of shape B x seq_len x embed_dim.
         """
         embedded = self.embeddings(symbols)
         return self.dropout_layer(embedded)

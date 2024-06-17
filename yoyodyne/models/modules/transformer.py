@@ -114,7 +114,7 @@ class AttentionOutput:
 
 
 class TransformerModule(base.BaseModule):
-    """Base module for Transformer."""
+    """Base module for transformer."""
 
     # Model arguments.
     source_attention_heads: int
@@ -336,21 +336,21 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
                 encoder.
             features_memory (torch.Tensor): the mask for the features.
             target_mask (Optional[torch.Tensor], optional): the mask for the
-                target sequence. Defaults to None.
+                target sequence.
             memory_mask (Optional[torch.Tensor], optional): the mask for the
-                memory sequence. Defaults to None.
-            features_memory_mask (torch.Tensor, optional): the mask
-                for the features. Defaults to None.
+                memory sequence.
+            features_memory_mask (Optional[torch.Tensor], optional): the mask
+                for the features.
             target_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the target keys per batch. Defaults to None.
+                mask for the target keys per batch.
             memory_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the memory keys per batch
-            target_is_causal (bool, optional): If specified, applies a causal
+                mask for the memory keys per batch.
+            target_is_causal (bool, optional): if specified, applies a causal
                 mask as target mask. Mutually exclusive with providing
-                target_mask. Defaults to False.
-            memory_is_causal (bool, optional): If specified, applies a causal
+                target_mask.
+            memory_is_causal (bool, optional): if specified, applies a causal
                 mask as target mask. Mutually exclusive with providing
-                memory_mask. Defaults to False.
+                memory_mask.
 
         Returns:
             torch.Tensor: Ouput tensor.
@@ -421,23 +421,23 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
         self,
         x: torch.Tensor,
         mem: torch.Tensor,
-        attn_mask: Optional[torch.Tensor],
-        key_padding_mask: Optional[torch.Tensor],
+        attn_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: Optional[torch.Tensor] = None,
         is_causal: bool = False,
     ) -> torch.Tensor:
         """Runs the multihead attention block that attends to features.
 
         Args:
-            x (torch.Tensor): The `query` tensor, i.e. the previous decoded
+            x (torch.Tensor): the `query` tensor, i.e. the previous decoded
                 embeddings.
-            mem (torch.Tensor): The `keys` and `values`, i.e. the encoded
+            mem (torch.Tensor): the `keys` and `values`, i.e. the encoded
                 features.
             attn_mask (torch.Tensor, optional): the mask for the features.
             key_padding_mask (torch.Tensor, optional): the mask for the
                 feature keys per batch.
 
         Returns:
-            torch.Tensor: Concatenated attention head tensors.
+            torch.Tensor: concatenated attention head tensors.
         """
         x = self.feature_multihead_attn(
             x,
@@ -452,7 +452,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
 
 
 class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
-    """A Transformer decoder with separate features.
+    """A transformer decoder with separate features.
 
     Adding separate features into the transformer stack is implemented with
     TransformerDecoderLayerseparateFeatures layers.
@@ -478,15 +478,15 @@ class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
             features_memory (torch.Tensor): the sequence from the last layer
                 of the features encoder.
             target_mask (Optional[torch.Tensor], optional): the mask for the
-                target sequence. Defaults to None.
+                target sequence.
             memory_mask (Optional[torch.Tensor], optional): the mask for the
-                memory sequence. Defaults to None.
+                memory sequence.
             features_memory_mask (Optional[torch.Tensor], optional): the mask
-                for the features. Defaults to None.
+                for the features.
             target_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the target keys per batch. Defaults to None.
+                mask for the target keys per batch.
             memory_key_padding_mask (Optional[torch.Tensor], optional): the
-                mask for the memory keys per batch. Defaults to None.
+                mask for the memory keys per batch.
 
         Returns:
             torch.Tensor: Output tensor.
@@ -643,8 +643,8 @@ class TransformerPointerDecoder(TransformerDecoder):
                 full target, or previous decoded, of shape
                 B x seq_len x hidden_size.
             target_mask (torch.Tensor): target mask.
-            features_memory (Optional[torch.Tensor]): Encoded features.
-            features_memory_mask (Optional[torch.Tensor]): Mask for encoded
+            features_memory (Optional[torch.Tensor]): encoded features.
+            features_memory_mask (Optional[torch.Tensor]): mask for encoded
                 features.
 
         Returns:
@@ -716,7 +716,7 @@ class TransformerPointerDecoder(TransformerDecoder):
         """Wraps a module's forward pass such that `need_weights` is True.
 
         Args:
-            attention_module (torch.nn.Module): The module from which we want
+            attention_module (torch.nn.Module): the module from which we want
                 to track multiheaded attention weights.
         """
         forward_orig = attention_module.forward
