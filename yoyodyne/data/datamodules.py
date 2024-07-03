@@ -35,7 +35,7 @@ class DataModule(pl.LightningDataModule):
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
         # Collator options.
-        batch_size=defaults.BATCH_SIZE,
+        batch_size: int = defaults.BATCH_SIZE,
         separate_features: bool = False,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
