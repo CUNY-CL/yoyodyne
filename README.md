@@ -95,7 +95,6 @@ The user can also specify various optional training and architectural arguments.
 See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for more
 information.
 
-
 ### Validation
 
 Validation is run at intervals requested by the user. See
@@ -298,7 +297,7 @@ not enabled by default.
 ### Schedulers
 
 By default, Yoyodyne uses a constant learning rate during training, but best
-practice is to gradually decreasing learning rate as the model approaches
+practice is to gradually decrease learning rate as the model approaches
 convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
 schedulers are supported and are selected with `--scheduler`:
 
