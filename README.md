@@ -404,7 +404,3 @@ Auli, M. 2019. [fairseq: a fast, extensible toolkit for sequence
 modeling](https://aclanthology.org/N19-4009/). In *Proceedings of the 2019
 Conference of the North American Chapter of the Association for Computational
 Linguistics (Demonstrations)*, pages 48-53.
-
-Smith, L. N. 2017. [Cyclical learning rates for training neural
-networks](https://ieeexplore.ieee.org/abstract/document/7926641). In *2017 IEEE
-Winter Conference on Applications of Computer Vision*, pages 464-472.
