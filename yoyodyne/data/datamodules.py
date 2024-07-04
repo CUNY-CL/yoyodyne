@@ -10,7 +10,10 @@ from . import collators, datasets, indexes, tsv
 
 
 class DataModule(pl.LightningDataModule):
-    """Parses, indexes, collates and loads data."""
+    """Parses, indexes, collates and loads data.
+
+    The batch size tuner is permitted to mutate the `batch_size` argument.
+    """
 
     parser: tsv.TsvParser
     index: indexes.Index
@@ -161,7 +164,7 @@ class DataModule(pl.LightningDataModule):
         return data.DataLoader(
             self._dataset(self.val),
             collate_fn=self.collator,
-            batch_size=2 * self.batch_size,  # Because no gradients.
+            batch_size=self.batch_size,
             num_workers=1,
         )
 
@@ -170,7 +173,7 @@ class DataModule(pl.LightningDataModule):
         return data.DataLoader(
             self._dataset(self.predict),
             collate_fn=self.collator,
-            batch_size=2 * self.batch_size,  # Because no gradients.
+            batch_size=self.batch_size,
             num_workers=1,
         )
 
@@ -179,6 +182,6 @@ class DataModule(pl.LightningDataModule):
         return data.DataLoader(
             self._dataset(self.test),
             collate_fn=self.collator,
-            batch_size=2 * self.batch_size,  # Because no gradients.
+            batch_size=self.batch_size,
             num_workers=1,
         )
