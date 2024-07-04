@@ -7,7 +7,16 @@ import pytorch_lightning as pl
 import wandb
 from pytorch_lightning import callbacks, loggers
 
-from . import data, defaults, evaluators, metrics, models, schedulers, util
+from . import (
+    data,
+    defaults,
+    evaluators,
+    metrics,
+    models,
+    schedulers,
+    sizing,
+    util,
+)
 
 
 class Error(Exception):
@@ -353,6 +362,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     models.modules.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
+    # Automatic batch sizing-specific arguments.
+    sizing.add_argparse_args(parser)
     # Evaluation-specific arguments.
     evaluators.add_argparse_args(parser)
     # Architecture-specific arguments.
@@ -364,7 +375,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
-    # --auto_lr_find
     # --accelerator ("gpu" for GPU)
     # --check_val_every_n_epoch
     # --devices (for multiple device support)
@@ -394,16 +404,25 @@ def main() -> None:
         wandb.config["n_model_params"] = sum(
             p.numel() for p in model.parameters()
         )
-    # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
-    # suggested value and then exits.
-    if args.auto_scale_batch_size:
-        raise Error("Batch auto-scaling is not supported")
-        return
-    if args.auto_lr_find:
-        result = trainer.tuner.lr_find(model, datamodule=datamodule)
-        util.log_info(f"Best initial LR: {result.suggestion():.8f}")
-        return
-    # Otherwise, train and log the best checkpoint.
+    # Runs tuning if requested.
+    if args.auto_batch_size_find:
+        max_batch_size = sizing.max_batch_size(
+            trainer,
+            model,
+            datamodule,
+            mode=args.auto_batch_size_mode,
+            steps_per_trial=args.auto_batch_size_steps_per_trial,
+            max_trials=args.auto_batch_size_max_trials,
+        )
+        util.log_info(f"Max batch size: {max_batch_size}")
+        steps, batch_size = sizing.optimal_batch_size(
+            args.batch_size, max_batch_size
+        )
+        util.log_info(f"Using batch size: {batch_size}")
+        datamodule.batch_size = batch_size
+        util.log_info(f"Using gradient accumulation steps: {steps}")
+        trainer.accumulate_grad_batches = steps
+    # Trains and log the best checkpoint.
     best_checkpoint = train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 
