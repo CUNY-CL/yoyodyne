@@ -405,14 +405,14 @@ def main() -> None:
             p.numel() for p in model.parameters()
         )
     # Runs tuning if requested.
-    if args.auto_batch_size_find:
+    if args.find_batch_size:
         max_batch_size = sizing.max_batch_size(
             trainer,
             model,
             datamodule,
-            mode=args.auto_batch_size_mode,
-            steps_per_trial=args.auto_batch_size_steps_per_trial,
-            max_trials=args.auto_batch_size_max_trials,
+            mode=args.find_batch_size_mode,
+            steps_per_trial=args.find_batch_size_steps_per_trial,
+            max_trials=args.find_batch_size_max_trials,
         )
         util.log_info(f"Max batch size: {max_batch_size}")
         steps, batch_size = sizing.optimal_batch_size(

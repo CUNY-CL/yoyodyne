@@ -14,11 +14,11 @@ def max_batch_size(
     model: models.BaseEncoderDecoder,
     datamodule: data.DataModule,
     *,
-    mode: str = defaults.AUTO_BATCH_SIZE_MODE,
-    steps_per_trial: int = defaults.AUTO_BATCH_SIZE_STEPS_PER_TRIAL,
-    max_trials: int = defaults.AUTO_BATCH_SIZE_MAX_TRIALS,
+    mode: str = defaults.FIND_BATCH_SIZE_MODE,
+    steps_per_trial: int = defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
+    max_trials: int = defaults.FIND_BATCH_SIZE_MAX_TRIALS,
 ) -> int:
-    """Computes the maximum batch size that will fit in memory.
+    """Computes the maximum batch size that will reliably fit in memory.
 
     Args:
         trainer (pl.Trainer).
@@ -84,35 +84,35 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--auto_batch_size_find",
+        "--find_batch_size",
         action="store_true",
-        default=defaults.AUTO_BATCH_SIZE_FIND,
+        default=defaults.FIND_BATCH_SIZE,
         help="Automatically find the maximum batch size. "
         "Default: not enabled.",
     )
     parser.add_argument(
-        "--no_auto_batch_size_find",
+        "--no_find_batch_size",
         action="store_false",
-        dest="auto_batch_size_find",
+        dest="find_batch_size",
     )
     parser.add_argument(
-        "--auto_batch_size_mode",
+        "--find_batch_size_mode",
         choices=["binsearch", "power"],
-        default=defaults.AUTO_BATCH_SIZE_MODE,
+        default=defaults.FIND_BATCH_SIZE_MODE,
         help="Search strategy to update the batch size. "
         "Default: %(default)s",
     )
     parser.add_argument(
-        "--auto_batch_size_steps_per_trial",
+        "--find_batch_size_steps_per_trial",
         type=int,
-        default=defaults.AUTO_BATCH_SIZE_STEPS_PER_TRIAL,
+        default=defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
         help="Number of steps to run with a given batch size. "
         "Default: %(default)s",
     )
     parser.add_argument(
-        "--auto_batch_size_max_trials",
+        "--find_batch_size_max_trials",
         type=int,
-        default=defaults.AUTO_BATCH_SIZE_MAX_TRIALS,
+        default=defaults.FIND_BATCH_SIZE_MAX_TRIALS,
         help="Maximum number of increases in batch size before terminating. "
         "Default: %(default)s",
     )
