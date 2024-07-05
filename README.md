@@ -318,19 +318,18 @@ update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
 
     yoyodyne-train --batch_size 1024 --accumulate_grad_batches 4 ...
 
-With the `--find_batch_size` flag enabled, Yoyodyne will [automatically compute
-the maximum batch
-size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
-The exact beahvior of this operation is controlled by the flags
-`--find_batch_size_mode`, `--find_batch_size_steps_per_trial`, and
-`--find_batch_size_max_trials`. The result is interpreted as follows:
+The `--find_batch_size` flag enables [automatically computation of
+the batch size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
+With `--find_batch_size max`, it simply uses the largest batch size.
+With `--find_batch_size opt`, it finds the maximum, and then interprets it
+as follows:
 
 -   If the maximum batch size is greater than `--batch_size`, then
-    `--batch_size` is used as the effective batch size.
--   If the maximum batch size is less than `--batch_size`, it determines the
-    optimal gradient accumulation solution, picking the largest batch size and
-    the smallest number of gradient accumulation steps whose product is
-    `--batch_size` and thus optimally saturating the accelerator.
+    `--batch_size` is used as the batch size.
+-   However, if the maximum batch size is less than `--batch_size`, it solves 
+    for the optimal gradient accumulation trick and uses the largest batch size
+    and the smallest number of gradient accumulation steps whose product is
+    `--batch_size`, thus optimally saturating the accelerator.
 
 If one wishes to solve for these quantities without actually training, pass
 `--find_batch_size` and `--max_epochs 0`. This will halt after computing and

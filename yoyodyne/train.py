@@ -399,14 +399,14 @@ def main() -> None:
     trainer = get_trainer_from_argparse_args(args)
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
-    # Logs number of model parameters.
     if args.log_wandb:
+        # Logs number of model parameters for W&B.
         wandb.config["n_model_params"] = sum(
             p.numel() for p in model.parameters()
         )
-    # Runs tuning if requested.
     if args.find_batch_size:
-        max_batch_size = sizing.max_batch_size(
+        sizing.find_batch_size(
+            args.find_batch_size,
             trainer,
             model,
             datamodule,
@@ -414,15 +414,6 @@ def main() -> None:
             steps_per_trial=args.find_batch_size_steps_per_trial,
             max_trials=args.find_batch_size_max_trials,
         )
-        util.log_info(f"Max batch size: {max_batch_size}")
-        steps, batch_size = sizing.optimal_batch_size(
-            args.batch_size, max_batch_size
-        )
-        util.log_info(f"Using batch size: {batch_size}")
-        datamodule.batch_size = batch_size
-        util.log_info(f"Using gradient accumulation steps: {steps}")
-        trainer.accumulate_grad_batches = steps
-    # Trains and log the best checkpoint.
     best_checkpoint = train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 

@@ -6,10 +6,14 @@ from typing import Tuple
 import pytorch_lightning as pl
 from pytorch_lightning.tuner import tuning
 
-from . import data, defaults, models
+from . import data, defaults, models, util
 
 
-def max_batch_size(
+class Error(Exception):
+    pass
+
+
+def _max_batch_size(
     trainer: pl.Trainer,
     model: models.BaseEncoderDecoder,
     datamodule: data.DataModule,
@@ -43,7 +47,7 @@ def max_batch_size(
     )
 
 
-def optimal_batch_size(
+def _optimal_batch_size(
     desired_batch_size: int, max_batch_size: int
 ) -> Tuple[int, int]:
     r"""Computes optimal batch size and number of gradient accumulation steps.
@@ -77,6 +81,60 @@ def optimal_batch_size(
             return accum_steps, batch_size
 
 
+def find_batch_size(
+    method: str,
+    trainer: pl.Trainer,
+    model: models.BaseEncoderDecoder,
+    datamodule: data.DataModule,
+    *,
+    mode: str = defaults.FIND_BATCH_SIZE_MODE,
+    steps_per_trial: int = defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
+    max_trials: int = defaults.FIND_BATCH_SIZE_MAX_TRIALS,
+) -> None:
+    """Computes maximum or optimal batch size.
+
+    This sets the batch size on the datamodule, and if necessary, the
+    gradient accumulation steps on the trainer.
+
+    Args:
+        method (str): one of "max" (find the maximum batch size) or "opt" (find
+            the "optimal" batch size, using the gradient accumulation trick if
+            necessary.)
+        trainer (pl.Trainer).
+        model (models.BaseEncoderDecoder).
+        datamodule (data.DataModule).
+        mode (str, optional): one of "binsearch" or "power".
+        steps_per_trial (int, optional): number of steps to run with a given
+            batch size.
+        max_trials (int, optional): maximum number of increases in batch size
+            before terminating.
+    """
+    max_batch_size = _max_batch_size(
+        trainer,
+        model,
+        datamodule,
+        mode=mode,
+        steps_per_trial=steps_per_trial,
+    )
+    util.log_info(f"Max batch size: {max_batch_size}")
+    if find_batch_size == "max":
+        datamodule.batch_size = max_batch_size
+    elif find_batch_size == "opt":
+        steps, batch_size = _optimal_batch_size(
+            datamodule.batch_size, max_batch_size
+        )
+        datamodule.batch_size = batch_size
+        trainer.accumulate_grad_batches = steps
+    else:
+        raise Error(f"Unknown find_batch_size method: {find_batch_size}")
+    util.log_info(f"Using batch size: {datamodule.batch_size}")
+    if trainer.accumulate_grad_batches:
+        util.log_info(
+            "Using gradient accumulation steps: "
+            f"{trainer.accumulate_grad_batches}"
+        )
+
+
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds batch sizing configuration options to the argument parser.
 
@@ -85,15 +143,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument(
         "--find_batch_size",
-        action="store_true",
-        default=defaults.FIND_BATCH_SIZE,
-        help="Automatically find the maximum batch size. "
-        "Default: not enabled.",
-    )
-    parser.add_argument(
-        "--no_find_batch_size",
-        action="store_false",
-        dest="find_batch_size",
+        choices=["max", "opt"],
+        help="Automatically find either the `max`(imum) or the `opt`(imal; "
+        "i.e., maximally saturated) batch size. Default: not enabled.",
     )
     parser.add_argument(
         "--find_batch_size_mode",

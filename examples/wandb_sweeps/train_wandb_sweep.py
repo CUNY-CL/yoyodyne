@@ -10,7 +10,7 @@ import pytorch_lightning as pl
 import torch
 import wandb
 
-from yoyodyne import train, util
+from yoyodyne import sizing, train, util
 
 
 warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
@@ -39,7 +39,16 @@ def train_sweep(args: argparse.Namespace) -> None:
     trainer = train.get_trainer_from_argparse_args(args)
     datamodule = train.get_datamodule_from_argparse_args(args)
     model = train.get_model_from_argparse_args(args, datamodule)
-    # Trains and logs the best checkpoint.
+    if args.find_batch_size:
+        sizing.find_batch_size(
+            args.find_batch_size,
+            trainer,
+            model,
+            datamodule,
+            mode=args.find_batch_size_mode,
+            steps_per_trial=args.find_batch_size_steps_per_trial,
+            max_trials=args.find_batch_size_max_trials,
+        )
     best_checkpoint = train.train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
     # Explicitly deallocates model and clears the CUDA cache, based on the
