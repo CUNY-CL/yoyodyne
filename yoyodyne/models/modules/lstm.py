@@ -195,6 +195,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> base.ModuleOutput:
+        """Single decode pass.
 
         Args:
             symbol (torch.Tensor): previously decoded symbol of shape B x 1.
