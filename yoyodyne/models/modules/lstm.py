@@ -59,9 +59,7 @@ class LSTMModule(base.BaseModule):
 class LSTMEncoder(LSTMModule):
     """LSTM encoder."""
 
-    def forward(
-        self, source: data.PaddedTensor
-    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    def forward(self, source: data.PaddedTensor) -> base.ModuleOutput:
         """Encodes the input.
 
         Args:
@@ -69,8 +67,7 @@ class LSTMEncoder(LSTMModule):
                 for source, of shape B x seq_len x 1.
 
         Returns:
-            Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-                encoded timesteps, and the LSTM h0 and c0 cells.
+            base.ModuleOutput: encoded timesteps, and LSTM h0 and c0 cells.
         """
         embedded = self.embed(source.padded)
         # Packs embedded source symbols into a PackedSequence.
@@ -119,7 +116,7 @@ class LSTMDecoder(LSTMModule):
         last_hiddens: torch.Tensor,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> base.ModuleOutput:
         """Single decode pass.
 
         Args:
@@ -133,8 +130,8 @@ class LSTMDecoder(LSTMModule):
                 shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: decoder output, and the
-                previous hidden states from the decoder LSTM.
+            base.ModuleOutput:  decoder output, and the previous hidden states
+                from the decoder LSTM.
         """
         embedded = self.embed(symbol)
         # -> 1 x B x decoder_dim.
@@ -197,7 +194,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
         last_hiddens: Tuple[torch.Tensor, torch.Tensor],
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> base.ModuleOutput:
         """Single decode pass.
 
         Args:
@@ -211,8 +208,8 @@ class LSTMAttentiveDecoder(LSTMDecoder):
                 shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: decoder output, and the
-                previous hidden states from the decoder LSTM.
+            base.ModuleOutput:  decoder output, and the previous hidden states
+                from the decoder LSTM.
         """
         embedded = self.embed(symbol)
         # -> 1 x B x decoder_dim.
@@ -314,8 +311,8 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
                 shape (B x seq_len).
 
         Returns:
-            base.ModuleOutput: Dataclass containing step-wise
-                emission probs, alignment matrix, and hidden states of decoder.
+            base.ModuleOutput: step-wise emission probabilities, alignment
+                matrix, and hidden states of decoder.
         """
         # Encodes current symbol.
         embedded = self.embed(symbol)
