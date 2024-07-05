@@ -325,8 +325,6 @@ The exact beahvior of this operation is controlled by the flags
 `--auto_batch_size_mode`, `--auto_batch_size_steps_per_trial`, and
 `--auto_batch_size_max_trials`. The result is interpreted as follows:
 
-- If `--batch_size` is 0, then maximum batch size is used as the effective
-  batch size.
 - If the maximum batch size is greater than `--batch_size`, then
   `--batch_size` is used as the effective batch size.
 - If the maximum batch size is less than `--batch_size`, it determines the

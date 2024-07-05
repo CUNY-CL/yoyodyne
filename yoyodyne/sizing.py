@@ -53,12 +53,8 @@ def optimal_batch_size(
     \mathcal{N}_{\le n_\textrm{max}}$ such that $n$ is the largest integer
     $\le n_\textrm{max}$ and $a n = b$.
 
-    There are two special cases:
-
-    * if desired batch size is zero, it is ignored and we just use the
-      maximum batch size without multiple steps of gradient accumulation, and
-    * if desired batch size` is smaller than max batch size, then we just use
-      desired batch size without multiple steps of gradient accumulation.
+    If desired batch size` is smaller than max batch size, then we just use
+    desired batch size without multiple steps of gradient accumulation.
 
     Args:
         desired_batch_size (int).
@@ -67,10 +63,6 @@ def optimal_batch_size(
     Returns:
         Tuple[int, int]: the tuple (a, n) as defined above.
     """
-    # This signals that you intend to ignore the desired size and just want to
-    # find the maximum size that'll fit.
-    if desired_batch_size == 0:
-        return 1, max_batch_size
     # If the max size is larger than the non-zero desired size, use the
     # desired size.
     if desired_batch_size <= max_batch_size:
