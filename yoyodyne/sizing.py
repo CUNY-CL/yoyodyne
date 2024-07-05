@@ -18,7 +18,21 @@ def max_batch_size(
     steps_per_trial: int = defaults.AUTO_BATCH_SIZE_STEPS_PER_TRIAL,
     max_trials: int = defaults.AUTO_BATCH_SIZE_MAX_TRIALS,
 ) -> int:
-    """Computes the maximum batch size that will fit in memory."""
+    """Computes the maximum batch size that will fit in memory.
+
+    Args:
+        trainer (pl.Trainer).
+        model (models.BaseEncoderDecoder).
+        datamodule (data.DataModule).
+        mode (str, optional): one of "binsearch", "power".
+        steps_per_trial (int, optional): number of steps to run with a given
+            batch size.
+        max_trials (int, optional): maximum number of increases in batch size
+            before terminating.
+
+    Returns:
+        int: estiamted maximum batch size.
+    """
     tuner = tuning.Tuner(trainer)
     return tuner.scale_batch_size(
         model,
@@ -35,8 +49,16 @@ def optimal_batch_size(
     r"""Computes optimal batch size and number of gradient accumulation steps.
 
     Given the desired batch size $b$ and a max batch size $n_{\textrm{max}}$,
-    this returns a tuple $a \in \mathcal{N}_{+}, n \in \mathcal{N}_{\le n}$
-    such that $n$ is the largest integer $\le n_\textrm{max}$ and $a n = b$.
+    this returns a tuple $a \in \mathcal{N}_{+}, n \in
+    \mathcal{N}_{\le n_\textrm{max}}$ such that $n$ is the largest integer
+    $\le n_\textrm{max}$ and $a n = b$.
+
+    There are two special cases:
+
+    * if desired batch size is zero, it is ignored and we just use the
+      maximum batch size without multiple steps of gradient accumulation, and
+    * if desired batch size` is smaller than max batch size, then we just use
+      desired batch size without multiple steps of gradient accumulation.
 
     Args:
         desired_batch_size (int).
@@ -45,10 +67,18 @@ def optimal_batch_size(
     Returns:
         Tuple[int, int]: the tuple (a, n) as defined above.
     """
+    # This signals that you intend to ignore the desired size and just want to
+    # find the maximum size that'll fit.
+    if desired_batch_size == 0:
+        return 1, max_batch_size
+    # If the max size is larger than the non-zero desired size, use the
+    # desired size.
     if desired_batch_size <= max_batch_size:
         return 1, desired_batch_size
-    # The solution given here is a "brute force" one, but pilot experiments
-    # with a more elegant solution using the divisors was not more efficient.
+    # This simulates the desired batch size with multiple steps of gradient
+    # accumulation per update. The solution given here is a brute force one,
+    # but pilot experiments with a more elegant solution using the divisors was
+    # no more efficient.
     for batch_size in range(max_batch_size + 1, 0, -1):
         if desired_batch_size % batch_size == 0:
             accum_steps = desired_batch_size // batch_size
@@ -65,7 +95,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--auto_batch_size_find",
         action="store_true",
         default=defaults.AUTO_BATCH_SIZE_FIND,
-        help="Automatically find the maximum batch size? "
+        help="Automatically find the maximum batch size. "
         "Default: not enabled.",
     )
     parser.add_argument(

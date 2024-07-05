@@ -306,30 +306,37 @@ schedulers are supported and are selected with `--scheduler`:
 
 ### Batch size tricks
 
+**Choosing a good batch size is key to fast training and optimal performance.**
 Batch size is specified by the `--batch_size` flag.
 
-At times one may wish to train with a larger batch size than will fit in "in
-core". For example, suppose one wishes to fit with a batch size of 4,096, but
-this gives an out of memory (OOM) exception. Then, with minimal overhead, one
-could simulate an effective batch size of 4,096 by using batches of size 1,024,
+One may wish to train with a larger batch size than will fit in "in core". For
+example, suppose one wishes to fit with a batch size of 4,096, but this gives
+an out of memory (OOM) exception. Then, with minimal overhead, one could
+simulate an effective batch size of 4,096 by using batches of size 1,024,
 [accumulating gradients from 4 batches per
 update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
 
     yoyodyne-train --batch_size 1024 --accumulate_grad_batches 4 ...
 
-The `--auto_batch_size_find` flag enables [automatic computation of the maximum
-batch
+With the `--auto_batch_size_find` flag enabled, Yoyodyne will [automatically
+computes the maximum batch
 size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
-This method can be controlled using the flags `--auto_batch_size_mode`,
-`--auto_batch_size_steps_per_trial`, and `--auto_batch_size_max_trials`. If
-the maximum batch size found by this method is less than `--batch_size`, the
-maximum batch size is used to compute a new batch size and number of gradient
-accumulation steps needed to simulate `--batch_size` without exceeding the
-maximum batch size.
+The exact beahvior of this operation is controlled by the flags
+`--auto_batch_size_mode`, `--auto_batch_size_steps_per_trial`, and
+`--auto_batch_size_max_trials`. The result is interpreted as follows:
 
-If one wishes to find the optimal batch size and number of gradient accumulation
-steps without actually training, simply pass `--max_epochs 0`, which will halt
-after logging this information.
+- If `--batch_size` is 0, then maximum batch size is used as the effective
+  batch size.
+- If the maximum batch size is greater than `--batch_size`, then
+  `--batch_size` is used as the effective batch size.
+- If the maximum batch size is less than `--batch_size`, it determines the
+  optimal gradient accumulation solution, picking the largest batch size and
+  the smallest number of gradient accumulation steps whose product is
+  `--batch_size`, optimally saturating the accelerator.
+
+If one wishes to solve for these quantities without actually training, pass
+`--auto_batch_size` and `--max_epochs 0`. This will halt after computing and
+logging the solution.
 
 ### Hyperparameter tuning
 
