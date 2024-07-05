@@ -117,16 +117,16 @@ def find_batch_size(
         steps_per_trial=steps_per_trial,
     )
     util.log_info(f"Max batch size: {max_batch_size}")
-    if find_batch_size == "max":
+    if method == "max":
         datamodule.batch_size = max_batch_size
-    elif find_batch_size == "opt":
+    elif method == "opt":
         steps, batch_size = _optimal_batch_size(
             datamodule.batch_size, max_batch_size
         )
         datamodule.batch_size = batch_size
         trainer.accumulate_grad_batches = steps
     else:
-        raise Error(f"Unknown find_batch_size method: {find_batch_size}")
+        raise Error(f"Unknown batch sizing method: {method}")
     util.log_info(f"Using batch size: {datamodule.batch_size}")
     if trainer.accumulate_grad_batches:
         util.log_info(

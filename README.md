@@ -320,9 +320,9 @@ update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
 
 The `--find_batch_size` flag enables [automatically computation of
 the batch size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
-With `--find_batch_size max`, it simply uses the largest batch size.
-With `--find_batch_size opt`, it finds the maximum, and then interprets it
-as follows:
+With `--find_batch_size max`, it simply uses the largest batch size, ignoring
+`--batch_size`. With `--find_batch_size opt`, it finds the maximum batch size,
+and then interprets it as follows:
 
 -   If the maximum batch size is greater than `--batch_size`, then
     `--batch_size` is used as the batch size.
