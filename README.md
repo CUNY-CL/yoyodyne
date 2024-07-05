@@ -1,5 +1,4 @@
-Yoyodyne 🪀
-==========
+# Yoyodyne 🪀
 
 [![PyPI
 version](https://badge.fury.io/py/yoyodyne.svg)](https://pypi.org/project/yoyodyne)
@@ -15,12 +14,11 @@ These models are implemented using [PyTorch](https://pytorch.org/) and
 
 While we provide classic LSTM and transformer models, some of the provided
 models are particularly well-suited for problems where the source-target
-alignments are roughly monotonic (e.g., `transducer` and
-`hard_attention_lstm`) and/or where source and target vocabularies have
-substantial overlap (e.g., `pointer_generator_lstm`).
+alignments are roughly monotonic (e.g., `transducer` and `hard_attention_lstm`)
+and/or where source and target vocabularies have substantial overlap (e.g.,
+`pointer_generator_lstm`).
 
-Philosophy
-----------
+## Philosophy
 
 Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 (Ott et al. 2019) but differs on several key points of design:
@@ -39,21 +37,19 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 
-Authors
--------
+## Authors
 
 Yoyodyne was created by [Adam Wiemerslage](https://adamits.github.io/), [Kyle
 Gorman](https://wellformedness.com/), Travis Bartley, and [other
 contributors](https://github.com/CUNY-CL/yoyodyne/graphs/contributors) like
 yourself.
 
-Installation
-------------
+## Installation
 
 ### Local installation
 
 Yoyodyne currently supports Python 3.9 and 3.10.
-[\#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker to
+[#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker to
 Python \> 3.10 support.
 
 First install dependencies:
@@ -66,7 +62,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-```python
+``` python
 import yoyodyne
 ```
 
@@ -78,8 +74,7 @@ notebook](https://colab.research.google.com/drive/1O4VWvpqLrCxxUvyYMbGH9HOyXQSoh
 provides a worked example. Colab also provides access to TPU runtimes, but this
 is not yet compatible with Yoyodyne to our knowledge.
 
-Usage
------
+## Usage
 
 ### Training
 
@@ -97,8 +92,8 @@ information.
 
 ### Validation
 
-Validation is run at intervals requested by the user. See
-`--val_check_interval` and `--check_val_every_n_epoch`
+Validation is run at intervals requested by the user. See `--val_check_interval`
+and `--check_val_every_n_epoch`
 [here](https://lightning.ai/docs/pytorch/stable/common/trainer.html#trainer-class-api).
 Additional evaluation metrics can also be requested with `--eval_metric`. For
 example
@@ -124,8 +119,7 @@ The `--predict` file can either be a TSV file or an ordinary TXT file with one
 source string per line; in the latter case, specify `--target_col 0`. Run
 [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
-Data format
------------
+## Data format
 
 The default data format is a two-column TSV file in which the first column is
 the source string and the second the target string.
@@ -152,16 +146,14 @@ this format is specified by `--features_col 2 --features_sep , --target_col 3`.
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
 
-Reserved symbols
-----------------
+## Reserved symbols
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between feature
 symbols and source and target symbols. Therefore, users should not provide any
 symbols of the form `<...>` or `[...]`.
 
-Model checkpointing
--------------------
+## Model checkpointing
 
 Checkpointing is handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
@@ -185,8 +177,7 @@ By default 1 checkpoint is saved. To save more than one checkpoint, use the
 maximize validation accuracy. To instead select checkpoints which minimize
 validation loss, set `--checkpoint_metric loss`.
 
-Models
-------
+## Models
 
 The user specifies the overall architecture for the model using the `--arch`
 flag. The value of this flag specifies the decoder's architecture and whether or
@@ -199,7 +190,7 @@ additional flags. Supported values for `--arch` are:
     parameter.
 -   `hard_attention_lstm`: This is an LSTM encoder/decoder modeling generation
     as a Markov process. By default, it assumes a non-monotonic progression over
-    the source string, but with `--enforce_monotonic` the model must progress 
+    the source string, but with `--enforce_monotonic` the model must progress
     over each source character in order. A non-zero value of
     `--attention_context` (default: `0`) widens the context window for
     conditioning state transitions to include one or more previous states.
@@ -253,8 +244,7 @@ For all models, the user may also wish to specify:
 By default, LSTM encoders are bidirectional. One can disable this with the
 `--no_bidirectional` flag.
 
-Training options
-----------------
+## Training options
 
 A non-exhaustive list includes:
 
@@ -314,22 +304,37 @@ schedulers are supported and are selected with `--scheduler`:
     `--learning_rate` for `--warmup_steps` steps, then decreases learning rate
     according to an inverse root square schedule.
 
-### Simulating large batches
+### Batch size tricks
 
-At times one may wish to train with a larger batch size than will fit in "in
-core". For example, suppose one wishes to fit with a batch size of 4,096, but
-this gives an out of memory exception. Then, with minimal overhead, one could
-simulate an effective batch size of 4,096 by using batches of size 1,024,
-[accumulating gradients from 4 batches per
+**Choosing a good batch size is key to fast training and optimal performance.**
+Batch size is specified by the `--batch_size` flag.
+
+One may wish to train with a larger batch size than will fit in "in core". For
+example, suppose one wishes to fit with a batch size of 4,096, but this gives an
+out of memory (OOM) exception. Then, with minimal overhead, one could simulate
+an effective batch size of 4,096 by using batches of size 1,024, [accumulating
+gradients from 4 batches per
 update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
 
     yoyodyne-train --batch_size 1024 --accumulate_grad_batches 4 ...
 
-### Automatic tuning
+With the `--find_batch_size` flag enabled, Yoyodyne will [automatically compute
+the maximum batch
+size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
+The exact beahvior of this operation is controlled by the flags
+`--find_batch_size_mode`, `--find_batch_size_steps_per_trial`, and
+`--find_batch_size_max_trials`. The result is interpreted as follows:
 
-`yododyne-train --auto_lr_find` uses a heuristic ([Smith
-2017](https://ieeexplore.ieee.org/abstract/document/7926641)) to propose an
-initial learning rate. Batch auto-scaling is not supported.
+-   If the maximum batch size is greater than `--batch_size`, then
+    `--batch_size` is used as the effective batch size.
+-   If the maximum batch size is less than `--batch_size`, it determines the
+    optimal gradient accumulation solution, picking the largest batch size and
+    the smallest number of gradient accumulation steps whose product is
+    `--batch_size` and thus optimally saturating the accelerator.
+
+If one wishes to solve for these quantities without actually training, pass
+`--find_batch_size` and `--max_epochs 0`. This will halt after computing and
+logging the solution.
 
 ### Hyperparameter tuning
 
@@ -344,8 +349,7 @@ decay scheduler.
 [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
 Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
-Accelerators
-------------
+## Accelerators
 
 [Hardware
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
@@ -354,8 +358,7 @@ GPU (`--accelerator gpu`), [other
 accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
 may also be supported but not all have been tested yet.
 
-Precision
----------
+## Precision
 
 By default, training uses 32-bit precision. However, the `--precision` flag
 allows the user to perform training with half precision (`16`) or with the
@@ -365,16 +368,14 @@ supported by the accelerator. This may reduce the size of the model and batches
 in memory, allowing one to use larger batches. Note that only default precision
 is expected to work with CPU training.
 
-Examples
---------
+## Examples
 
 The [`examples`](examples) directory contains interesting examples, including:
 
 -   [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
     Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
-For developers
---------------
+## For developers
 
 *Developers, developers, developers!* - Steve Ballmer
 
@@ -401,15 +402,10 @@ This section contains instructions for the Yoyodyne maintainers.
 9.  Build the new release: `python -m build`
 10. Upload the result to PyPI: `twine upload dist/*`
 
-References
-----------
+## References
 
 Ott, M., Edunov, S., Baevski, A., Fan, A., Gross, S., Ng, N., Grangier, D., and
 Auli, M. 2019. [fairseq: a fast, extensible toolkit for sequence
 modeling](https://aclanthology.org/N19-4009/). In *Proceedings of the 2019
 Conference of the North American Chapter of the Association for Computational
 Linguistics (Demonstrations)*, pages 48-53.
-
-Smith, L. N. 2017. [Cyclical learning rates for training neural
-networks](https://ieeexplore.ieee.org/abstract/document/7926641). In *2017 IEEE
-Winter Conference on Applications of Computer Vision*, pages 464-472.
