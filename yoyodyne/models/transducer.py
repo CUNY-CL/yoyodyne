@@ -128,7 +128,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             source_mask,
             teacher_forcing=self.teacher_forcing if self.training else False,
             target=batch.target.padded if batch.target else None,
-            target_mask=batch.target.mask,
+            target_mask=batch.target.mask if batch.target else None,
         )
         return prediction, loss
 
