@@ -38,6 +38,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
+        # Gets number of non-target symbols.
+        source_vocab_size = kwargs["vocab_size"] - kwargs["target_vocab_size"]
+        # This is the size of the shared embedding matrix.
+        # It must contain every possible source AND target symbol.
+        kwargs["vocab_size"] = source_vocab_size + len(expert.actions)
         # Alternate outputs than dataset targets.
         kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
@@ -58,10 +63,11 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 if self.has_features_encoder
                 else self.source_encoder.output_size
             ),
-            num_embeddings=self.target_vocab_size,
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
             dropout=self.dropout,
             bidirectional=False,
-            embedding_size=self.embedding_size,
             layers=self.decoder_layers,
             hidden_size=self.hidden_size,
         )
@@ -121,7 +127,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             source_mask,
             teacher_forcing=self.teacher_forcing if self.training else False,
             target=batch.target.padded if batch.target else None,
-            target_mask=batch.target.mask,
+            target_mask=batch.target.mask if batch.target else None,
         )
         return prediction, loss
 

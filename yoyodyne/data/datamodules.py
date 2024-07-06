@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Optional, Set
+from typing import Iterable, Optional, Set
 
 import pytorch_lightning as pl
 from torch.utils import data
@@ -37,6 +37,7 @@ class DataModule(pl.LightningDataModule):
         source_sep: str = defaults.SOURCE_SEP,
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
+        tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
         # Collator options.
         batch_size: int = defaults.BATCH_SIZE,
         separate_features: bool = False,
@@ -53,7 +54,9 @@ class DataModule(pl.LightningDataModule):
             source_sep=source_sep,
             features_sep=features_sep,
             target_sep=target_sep,
+            tie_embeddings=tie_embeddings,
         )
+        self.tie_embeddings = tie_embeddings
         self.train = train
         self.val = val
         self.predict = predict
@@ -66,9 +69,6 @@ class DataModule(pl.LightningDataModule):
             has_features=self.has_features,
             has_target=self.has_target,
             separate_features=separate_features,
-            features_offset=(
-                self.index.source_vocab_size if self.has_features else 0
-            ),
             max_source_length=max_source_length,
             max_target_length=max_target_length,
         )
@@ -105,18 +105,27 @@ class DataModule(pl.LightningDataModule):
             target_vocabulary=(
                 sorted(target_vocabulary) if target_vocabulary else None
             ),
+            tie_embeddings=self.tie_embeddings,
         )
+
+    @staticmethod
+    def pprint(vocabulary: Iterable) -> str:
+        return ", ".join(f"{symbol!r}" for symbol in vocabulary)
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
-        util.log_info(f"Source vocabulary: {self.index.source_map.pprint()}")
+        util.log_info(
+            f"Source vocabulary: {self.pprint(self.index.source_vocabulary)}"
+        )
         if self.has_features:
             util.log_info(
-                f"Features vocabulary: {self.index.features_map.pprint()}"
+                f"Features vocabulary: "
+                f"{self.pprint(self.index.features_vocabulary)}"
             )
         if self.has_target:
             util.log_info(
-                f"Target vocabulary: {self.index.target_map.pprint()}"
+                f"Target vocabulary: "
+                f"{self.pprint(self.index.target_vocabulary)}"
             )
 
     def write_index(self, model_dir: str, experiment: str) -> None:

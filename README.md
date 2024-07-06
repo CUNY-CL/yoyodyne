@@ -62,7 +62,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` python
+```python
 import yoyodyne
 ```
 
@@ -150,8 +150,9 @@ In order to ensure that targets are ignored during prediction, one can specify
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between feature
-symbols and source and target symbols. Therefore, users should not provide any
-symbols of the form `<...>` or `[...]`.
+symbols and source and target symbols, and `--no_tie_embeddings` uses `{...}` to
+avoid clashes between source and t arget symbols. Therefore, users should not
+provide any symbols of the form `<...>`, `[...]`, or `{...}`.
 
 ## Model checkpointing
 
@@ -304,6 +305,12 @@ schedulers are supported and are selected with `--scheduler`:
     `--learning_rate` for `--warmup_steps` steps, then decreases learning rate
     according to an inverse root square schedule.
 
+## Tied embeddings
+
+By default, the source and target vocabularies are shared. This can be disabled
+with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes
+between source and target symbols.
+
 ### Batch size tricks
 
 **Choosing a good batch size is key to fast training and optimal performance.**
@@ -318,22 +325,22 @@ update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
 
     yoyodyne-train --batch_size 1024 --accumulate_grad_batches 4 ...
 
-The `--find_batch_size` flag enables [automatically computation of
-the batch size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
+The `--find_batch_size` flag enables [automatically computation of the batch
+size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
 With `--find_batch_size max`, it simply uses the maximum batch size, ignoring
 `--batch_size`. With `--find_batch_size opt`, it finds the maximum batch size,
 and then interprets it as follows:
 
 -   If the maximum batch size is greater than `--batch_size`, then
     `--batch_size` is used as the batch size.
--   However, if the maximum batch size is less than `--batch_size`, it solves 
+-   However, if the maximum batch size is less than `--batch_size`, it solves
     for the optimal gradient accumulation trick and uses the largest batch size
     and the smallest number of gradient accumulation steps whose product is
     `--batch_size`.
 
 If one wishes to solve for these quantities without actually training, pass
-`--find_batch_size opt` and `--max_epochs 0`. This will halt after computing
-and logging the solution.
+`--find_batch_size opt` and `--max_epochs 0`. This will halt after computing and
+logging the solution.
 
 ### Hyperparameter tuning
 

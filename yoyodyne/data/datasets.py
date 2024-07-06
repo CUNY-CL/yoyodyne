@@ -65,22 +65,17 @@ class Dataset(data.Dataset):
     def _encode(
         self,
         symbols: List[str],
-        symbol_map: indexes.SymbolMap,
     ) -> torch.Tensor:
         """Encodes a sequence as a tensor of indices with string boundary IDs.
 
         Args:
             symbols (List[str]): symbols to be encoded.
-            symbol_map (indexes.SymbolMap): symbol map to encode with.
 
         Returns:
             torch.Tensor: the encoded tensor.
         """
         return torch.tensor(
-            [
-                symbol_map.index(symbol, self.index.unk_idx)
-                for symbol in symbols
-            ],
+            [self.index(symbol) for symbol in symbols],
             dtype=torch.long,
         )
 
@@ -96,7 +91,7 @@ class Dataset(data.Dataset):
         wrapped = [special.START]
         wrapped.extend(symbols)
         wrapped.append(special.END)
-        return self._encode(wrapped, self.index.source_map)
+        return self._encode(wrapped)
 
     def encode_features(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a features string.
@@ -107,7 +102,7 @@ class Dataset(data.Dataset):
         Returns:
             torch.Tensor.
         """
-        return self._encode(symbols, self.index.features_map)
+        return self._encode(symbols)
 
     def encode_target(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a features string, padding with end tags.
@@ -120,27 +115,25 @@ class Dataset(data.Dataset):
         """
         wrapped = symbols.copy()
         wrapped.append(special.END)
-        return self._encode(wrapped, self.index.target_map)
+        return self._encode(wrapped)
 
     # Decoding.
 
     def _decode(
         self,
         indices: torch.Tensor,
-        symbol_map: indexes.SymbolMap,
     ) -> Iterator[List[str]]:
         """Decodes the tensor of indices into lists of symbols.
 
         Args:
             indices (torch.Tensor): 2d tensor of indices.
-            symbol_map (indexes.SymbolMap).
 
         Yields:
             List[str]: Decoded symbols.
         """
         for idx in indices.cpu().numpy():
             yield [
-                symbol_map.symbol(c)
+                self.index.get_symbol(c)
                 for c in idx
                 if c not in self.index.special_idx
             ]
@@ -157,7 +150,7 @@ class Dataset(data.Dataset):
         Yields:
             str: Decoded source strings.
         """
-        for symbols in self._decode(indices, self.index.source_map):
+        for symbols in self._decode(indices):
             yield self.parser.source_string(symbols)
 
     def decode_features(
@@ -172,7 +165,7 @@ class Dataset(data.Dataset):
         Yields:
             str: Decoded features strings.
         """
-        for symbols in self._decode(indices, self.index.target_map):
+        for symbols in self._decode(indices):
             yield self.parser.feature_string(symbols)
 
     def decode_target(
@@ -187,7 +180,7 @@ class Dataset(data.Dataset):
         Yields:
             str: Decoded target strings.
         """
-        for symbols in self._decode(indices, self.index.target_map):
+        for symbols in self._decode(indices):
             yield self.parser.target_string(symbols)
 
     # Required API.

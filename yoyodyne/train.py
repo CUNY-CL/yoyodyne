@@ -156,6 +156,7 @@ def get_datamodule_from_argparse_args(
         separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
+        tie_embeddings=args.tie_embeddings,
     )
     if not datamodule.has_target:
         raise Error("No target column specified")
@@ -178,6 +179,20 @@ def get_model_from_argparse_args(
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls(args.arch)
+    # TODO(#156): add callback interface to check this.
+    if (
+        args.arch
+        in [
+            "pointer_generator_lstm",
+            "pointer_generator_transformer",
+            "transducer",
+        ]
+        and not args.tie_embeddings
+    ):
+        raise Error(
+            f"--tie_embeddings set to {args.tie_embeddings}, but "
+            f"--arch {args.arch} requires it to be enabled."
+        )
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
@@ -209,11 +224,6 @@ def get_model_from_argparse_args(
     features_vocab_size = (
         datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
-    source_vocab_size = (
-        datamodule.index.source_vocab_size + features_vocab_size
-        if not separate_features
-        else datamodule.index.source_vocab_size
-    )
     # This makes sure we compute all metrics that'll be needed.
     eval_metrics = args.eval_metric.copy()
     if args.checkpoint_metric != "loss":
@@ -244,15 +254,14 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        output_size=datamodule.index.target_vocab_size,
         pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
-        source_vocab_size=source_vocab_size,
         start_idx=datamodule.index.start_idx,
         target_vocab_size=datamodule.index.target_vocab_size,
+        vocab_size=datamodule.index.vocab_size,
     )
 
 

@@ -25,7 +25,7 @@ class BaseEncoderDecoder(pl.LightningModule):
     pad_idx: int
     start_idx: int
     # Sizes.
-    source_vocab_size: int
+    vocab_size: int
     features_vocab_size: int
     target_vocab_size: int
     # Optimizer arguments.
@@ -60,12 +60,12 @@ class BaseEncoderDecoder(pl.LightningModule):
         pad_idx,
         start_idx,
         end_idx,
-        source_vocab_size,
+        vocab_size,
+        features_vocab_size,
         target_vocab_size,
         source_encoder_cls,
         eval_metrics=defaults.EVAL_METRICS,
         features_encoder_cls=None,
-        features_vocab_size=0,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
         learning_rate=defaults.LEARNING_RATE,
@@ -89,7 +89,7 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.pad_idx = pad_idx
         self.start_idx = start_idx
         self.end_idx = end_idx
-        self.source_vocab_size = source_vocab_size
+        self.vocab_size = vocab_size
         self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
         self.eval_metrics = eval_metrics
@@ -111,6 +111,11 @@ class BaseEncoderDecoder(pl.LightningModule):
         self.embedding_size = embedding_size
         self.encoder_layers = encoder_layers
         self.hidden_size = hidden_size
+        self.embeddings = self.init_embeddings(
+            self.vocab_size,
+            self.embedding_size,
+            self.pad_idx,
+        )
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         self.evaluators = [
             evaluators.get_evaluator(eval_metric)()
@@ -125,9 +130,10 @@ class BaseEncoderDecoder(pl.LightningModule):
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
-            num_embeddings=self.source_vocab_size,
-            dropout=self.dropout,
+            embeddings=self.embeddings,
             embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
             layers=self.encoder_layers,
             hidden_size=self.hidden_size,
             features_vocab_size=features_vocab_size,
@@ -139,9 +145,10 @@ class BaseEncoderDecoder(pl.LightningModule):
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,
-                num_embeddings=features_vocab_size,
-                dropout=self.dropout,
+                embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
+                num_embeddings=self.vocab_size,
+                dropout=self.dropout,
                 layers=self.encoder_layers,
                 hidden_size=self.hidden_size,
                 max_source_length=max_source_length,

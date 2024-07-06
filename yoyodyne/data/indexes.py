@@ -4,16 +4,61 @@ import os
 import pickle
 from typing import Dict, List, Optional, Set
 
-from .. import special
+from .. import defaults, special
 
 
-class SymbolMap:
-    """Tracks mapping from index to symbol and symbol to index."""
+class Error(Exception):
+    pass
+
+
+class Index:
+    """Maintains the index over the vocabularies.
+
+    For consistency, one is recommended to lexicographically sort the
+    vocabularies ahead of time."""
 
     index2symbol: List[str]
     symbol2index: Dict[str, int]
 
-    def __init__(self, vocabulary: List[str]):
+    def __init__(
+        self,
+        *,
+        source_vocabulary: List[str],
+        features_vocabulary: Optional[List[str]] = None,
+        target_vocabulary: Optional[List[str]] = None,
+        tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
+    ):
+        """Initializes the index.
+
+        Args:
+            source_vocabulary (List[str]).
+            features_vocabulary (List[str], optional).
+            target_vocabulary (List[str], optional).
+            tie_embeddings: (bool).
+        """
+        super().__init__()
+        self.tie_embeddings = tie_embeddings
+        # We store all separate vocabularies for logging purposes.
+        # If embeddings are tied, so are the vocab items.
+        # Then, the source and target vocabularies are the union.
+        if self.tie_embeddings:
+            vocabulary = list(
+                sorted(set(source_vocabulary) | set(target_vocabulary))
+            )
+            self.source_vocabulary = special.SPECIAL + vocabulary
+            self.target_vocabulary = special.SPECIAL + vocabulary
+        else:
+            # If not tie_embeddings, then the target vocabulary must come
+            # first so that output predictions correctly index our
+            # vocabulary and embeddiings matrix.
+            vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
+            self.source_vocabulary = special.SPECIAL + source_vocabulary
+            self.target_vocabulary = special.SPECIAL + target_vocabulary
+        # FeatureInvariantTransformer assumes that features_vocabulary is at
+        # the end of the list.
+        if features_vocabulary:
+            vocabulary.extend(sorted(features_vocabulary))
+        self.features_vocabulary = features_vocabulary
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
@@ -21,19 +66,18 @@ class SymbolMap:
     def __len__(self) -> int:
         return len(self._index2symbol)
 
-    def index(self, symbol: str, unk_idx: Optional[int] = None) -> int:
+    def __call__(self, lookup: str) -> int:
         """Looks up index by symbol.
 
         Args:
             symbol (str).
-            unk_idx (int, optional): the <UNK> index, returned if the symbol
-                is not found.
+
         Returns:
             int.
         """
-        return self._symbol2index.get(symbol, unk_idx)
+        return self._symbol2index.get(lookup, self.unk_idx)
 
-    def symbol(self, index: int) -> str:
+    def get_symbol(self, index: int) -> str:
         """Looks up symbol by index.
 
         Args:
@@ -43,44 +87,6 @@ class SymbolMap:
             str.
         """
         return self._index2symbol[index]
-
-    def pprint(self) -> str:
-        """Pretty-prints the vocabulary."""
-        return ", ".join(f"{c!r}" for c in self._index2symbol)
-
-
-class Index:
-    """Container for symbol maps.
-
-    For consistency, one is recommended to lexicographically sort the
-    vocabularies ahead of time."""
-
-    source_map: SymbolMap
-    target_map: SymbolMap
-    features_map: Optional[SymbolMap]
-
-    def __init__(
-        self,
-        *,
-        source_vocabulary: List[str],
-        features_vocabulary: Optional[List[str]] = None,
-        target_vocabulary: Optional[List[str]] = None,
-    ):
-        """Initializes the index.
-
-        Args:
-            source_vocabulary (List[str]).
-            features_vocabulary (List[str], optional).
-            target_vocabulary (List[str], optional).
-        """
-        super().__init__()
-        self.source_map = SymbolMap(source_vocabulary)
-        self.features_map = (
-            SymbolMap(features_vocabulary) if features_vocabulary else None
-        )
-        self.target_map = (
-            SymbolMap(target_vocabulary) if target_vocabulary else None
-        )
 
     # Serialization support.
 
@@ -131,40 +137,48 @@ class Index:
     # Properties.
 
     @property
-    def source_vocab_size(self) -> int:
-        return len(self.source_map)
+    def symbols(self) -> List[str]:
+        return list(self._symbol2index.keys())
 
     @property
     def has_features(self) -> bool:
-        return self.features_map is not None
-
-    @property
-    def features_vocab_size(self) -> int:
-        return len(self.features_map) if self.has_features else 0
+        return self.features_vocab_size > 0
 
     @property
     def has_target(self) -> bool:
-        return self.target_map is not None
+        return self.target_vocab_size > 0
+
+    @property
+    def vocab_size(self) -> int:
+        return len(self._symbol2index)
+
+    @property
+    def source_vocab_size(self) -> int:
+        return len(self.source_vocabulary)
 
     @property
     def target_vocab_size(self) -> int:
-        return len(self.target_map)
+        return len(self.target_vocabulary) if self.target_vocabulary else 0
+
+    @property
+    def features_vocab_size(self) -> int:
+        return len(self.features_vocabulary) if self.features_vocabulary else 0
 
     @property
     def pad_idx(self) -> int:
-        return self.source_map.index(special.PAD)
+        return self._symbol2index[special.PAD]
 
     @property
     def start_idx(self) -> int:
-        return self.source_map.index(special.START)
+        return self._symbol2index[special.START]
 
     @property
     def end_idx(self) -> int:
-        return self.source_map.index(special.END)
+        return self._symbol2index[special.END]
 
     @property
     def unk_idx(self) -> int:
-        return self.source_map.index(special.UNK)
+        return self._symbol2index[special.UNK]
 
     @property
     def special_idx(self) -> Set[int]:
