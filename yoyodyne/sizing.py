@@ -145,7 +145,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--find_batch_size",
         choices=["max", "opt"],
         help="Automatically find either the `max`(imum) or the `opt`(imal; "
-        "i.e., maximally saturated) batch size. Default: not enabled.",
+        "i.e., via gradient accumulation) batch size. Default: not enabled.",
     )
     parser.add_argument(
         "--find_batch_size_mode",
