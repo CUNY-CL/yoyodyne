@@ -88,10 +88,6 @@ class Index:
         """
         return self._index2symbol[index]
 
-    def pprint(self) -> str:
-        """Pretty-prints the full vocabulary."""
-        return ", ".join(f"{c!r}" for c in self._index2symbol)
-
     # Serialization support.
 
     @classmethod

@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Optional, Set
+from typing import Iterable, Optional, Set
 
 import pytorch_lightning as pl
 from torch.utils import data
@@ -108,15 +108,25 @@ class DataModule(pl.LightningDataModule):
             tie_embeddings=self.tie_embeddings,
         )
 
+    @staticmethod
+    def pprint(vocabulary: Iterable) -> str:
+        return ", ".join(f"{symbol!r}" for symbol in vocabulary)
+
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
-        util.log_info(f"Source vocabulary: {self.index.source_vocabulary}")
+        util.log_info(
+            f"Source vocabulary: {self.pprint(self.index.source_vocabulary)}"
+        )
         if self.has_features:
             util.log_info(
-                f"Features vocabulary: {self.index.features_vocabulary}"
+                f"Features vocabulary: "
+                f"{self.pprint(self.index.features_vocabulary)}"
             )
         if self.has_target:
-            util.log_info(f"Target vocabulary: {self.index.target_vocabulary}")
+            util.log_info(
+                f"Target vocabulary: "
+                f"{self.pprint(self.index.target_vocabulary)}"
+            )
 
     def write_index(self, model_dir: str, experiment: str) -> None:
         """Writes the index."""
