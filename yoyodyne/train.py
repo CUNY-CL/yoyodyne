@@ -7,14 +7,23 @@ import pytorch_lightning as pl
 import wandb
 from pytorch_lightning import callbacks, loggers
 
-from . import data, defaults, metrics, models, schedulers, util
+from . import (
+    data,
+    defaults,
+    evaluators,
+    metrics,
+    models,
+    schedulers,
+    sizing,
+    util,
+)
 
 
 class Error(Exception):
     pass
 
 
-def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
+def _get_loggers(experiment: str, model_dir: str, log_wandb: bool) -> List:
     """Creates the logger(s).
 
     Args:
@@ -25,14 +34,12 @@ def _get_logger(experiment: str, model_dir: str, log_wandb: bool) -> List:
     Returns:
         List: logger.
     """
-    trainer_logger = [loggers.CSVLogger(model_dir, name=experiment)]
+    trainer_loggers = [loggers.CSVLogger(model_dir, name=experiment)]
     if log_wandb:
-        trainer_logger.append(loggers.WandbLogger(project=experiment))
-        # Tells PTL to log the best validation accuracy.
-        wandb.define_metric("val_accuracy", summary="max")
+        trainer_loggers.append(loggers.WandbLogger(project=experiment))
         # Logs the path to local artifacts made by PTL.
-        wandb.config["local_run_dir"] = trainer_logger[0].log_dir
-    return trainer_logger
+        wandb.config["local_run_dir"] = trainer_loggers[0].log_dir
+    return trainer_loggers
 
 
 def _get_callbacks(
@@ -40,6 +47,7 @@ def _get_callbacks(
     checkpoint_metric: str = defaults.CHECKPOINT_METRIC,
     patience: Optional[int] = None,
     patience_metric: str = defaults.PATIENCE_METRIC,
+    log_wandb: bool = False,
 ) -> List[callbacks.Callback]:
     """Creates the callbacks.
 
@@ -54,8 +62,9 @@ def _get_callbacks(
         patience (int, optional): number of epochs with no
             progress (according to `patience_metric`) before triggering
             early stopping.
-        checkpoint_metric (string, optional): validation metric used to
+        patience_metric (string, optional): validation metric used to
             trigger early stopping.
+        log_wandb (bool).
 
     Returns:
         List[callbacks.Callback]: callbacks.
@@ -85,6 +94,9 @@ def _get_callbacks(
             save_top_k=num_checkpoints,
         )
     )
+    # Logs the best value for the checkpointing metric.
+    if log_wandb:
+        wandb.define_metric(metric.monitor, summary=metric.mode)
     return trainer_callbacks
 
 
@@ -106,10 +118,11 @@ def get_trainer_from_argparse_args(
             args.checkpoint_metric,
             args.patience,
             args.patience_metric,
+            args.log_wandb,
         ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
-        logger=_get_logger(args.experiment, args.model_dir, args.log_wandb),
+        logger=_get_loggers(args.experiment, args.model_dir, args.log_wandb),
     )
 
 
@@ -125,6 +138,7 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
+        "hard_attention_lstm",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
@@ -182,6 +196,7 @@ def get_model_from_argparse_args(
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
+    # Loads expert if needed.
     expert = (
         models.expert.get_expert(
             datamodule.train_dataloader().dataset,
@@ -194,6 +209,7 @@ def get_model_from_argparse_args(
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     separate_features = datamodule.has_features and args.arch in [
+        "hard_attention_lstm",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
@@ -208,9 +224,21 @@ def get_model_from_argparse_args(
     features_vocab_size = (
         datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
+    source_vocab_size = (
+        datamodule.index.source_vocab_size + features_vocab_size
+        if not separate_features
+        else datamodule.index.source_vocab_size
+    )
+    # This makes sure we compute all metrics that'll be needed.
+    eval_metrics = args.eval_metric.copy()
+    if args.checkpoint_metric != "loss":
+        eval_metrics.add(args.checkpoint_metric)
+    if args.patience_metric != "loss":
+        eval_metrics.add(args.patience_metric)
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
+        attention_context=args.attention_context,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -219,6 +247,8 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
+        enforce_monotonic=args.enforce_monotonic,
+        eval_metrics=eval_metrics,
         expert=expert,
         features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
@@ -306,10 +336,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--checkpoint_metric",
-        choices=["accuracy", "loss"],
+        choices=["accuracy", "loss", "ser"],
         default=defaults.CHECKPOINT_METRIC,
-        help="Selects checkpoints to maximize validation `accuracy` "
-        "or minimize validation `loss`. "
+        help="Selects checkpoints to maximize validation `accuracy`, "
+        "or to minimize validation `loss` or `ser`. "
         "Default: %(default)s.",
     )
     parser.add_argument(
@@ -321,10 +351,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--patience_metric",
-        choices=["accuracy", "loss"],
+        choices=["accuracy", "loss", "ser"],
         default=defaults.PATIENCE_METRIC,
         help="Stops early when validation `accuracy` stops increasing or "
-        "when validation `loss` stops decreasing. Default: %(default)s.",
+        "when validation `loss` or `ser` stops decreasing. "
+        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
@@ -345,15 +376,19 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     models.modules.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
+    # Automatic batch sizing-specific arguments.
+    sizing.add_argparse_args(parser)
+    # Evaluation-specific arguments.
+    evaluators.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.HardAttentionLSTM.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
     # models.modules.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
-    # --auto_lr_find
     # --accelerator ("gpu" for GPU)
     # --check_val_every_n_epoch
     # --devices (for multiple device support)
@@ -372,25 +407,27 @@ def main() -> None:
     add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
+    if args.log_wandb:
+        wandb.init()
     pl.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
-    # Logs number of model parameters.
     if args.log_wandb:
+        # Logs number of model parameters for W&B.
         wandb.config["n_model_params"] = sum(
             p.numel() for p in model.parameters()
         )
-    # Tuning options. Batch autoscaling is unsupported; LR tuning logs the
-    # suggested value and then exits.
-    if args.auto_scale_batch_size:
-        raise Error("Batch auto-scaling is not supported")
-        return
-    if args.auto_lr_find:
-        result = trainer.tuner.lr_find(model, datamodule=datamodule)
-        util.log_info(f"Best initial LR: {result.suggestion():.8f}")
-        return
-    # Otherwise, train and log the best checkpoint.
+    if args.find_batch_size:
+        sizing.find_batch_size(
+            args.find_batch_size,
+            trainer,
+            model,
+            datamodule,
+            mode=args.find_batch_size_mode,
+            steps_per_trial=args.find_batch_size_steps_per_trial,
+            max_trials=args.find_batch_size_max_trials,
+        )
     best_checkpoint = train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
 

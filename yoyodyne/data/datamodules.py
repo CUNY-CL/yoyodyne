@@ -10,7 +10,10 @@ from . import collators, datasets, indexes, tsv
 
 
 class DataModule(pl.LightningDataModule):
-    """Parses, indexes, collates and loads data."""
+    """Parses, indexes, collates and loads data.
+
+    The batch size tuner is permitted to mutate the `batch_size` argument.
+    """
 
     parser: tsv.TsvParser
     index: indexes.Index
@@ -36,7 +39,7 @@ class DataModule(pl.LightningDataModule):
         target_sep: str = defaults.TARGET_SEP,
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
         # Collator options.
-        batch_size=defaults.BATCH_SIZE,
+        batch_size: int = defaults.BATCH_SIZE,
         separate_features: bool = False,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
@@ -160,7 +163,7 @@ class DataModule(pl.LightningDataModule):
         return data.DataLoader(
             self._dataset(self.val),
             collate_fn=self.collator,
-            batch_size=2 * self.batch_size,  # Because no gradients.
+            batch_size=self.batch_size,
             num_workers=1,
         )
 
@@ -169,7 +172,7 @@ class DataModule(pl.LightningDataModule):
         return data.DataLoader(
             self._dataset(self.predict),
             collate_fn=self.collator,
-            batch_size=2 * self.batch_size,  # Because no gradients.
+            batch_size=self.batch_size,
             num_workers=1,
         )
 
@@ -178,6 +181,6 @@ class DataModule(pl.LightningDataModule):
         return data.DataLoader(
             self._dataset(self.test),
             collate_fn=self.collator,
-            batch_size=2 * self.batch_size,  # Because no gradients.
+            batch_size=self.batch_size,
             num_workers=1,
         )

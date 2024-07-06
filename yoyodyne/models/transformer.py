@@ -82,9 +82,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """Decodes the output sequence greedily.
 
         Args:
-            encoder_hidden (torch.Tensor): Hidden states from the encoder.
-            source_mask (torch.Tensor): Mask for the encoded source tokens.
-            targets (torch.Tensor, optional): The optional target tokens,
+            encoder_hidden (torch.Tensor): hidden states from the encoder.
+            source_mask (torch.Tensor): mask for the encoded source tokens.
+            targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
                 if the decoder has predicted [EOS] for every sequence in
                 the batch.
@@ -201,6 +201,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             type=int,
             default=defaults.FEATURES_ATTENTION_HEADS,
             help="Number of features attention heads "
-            "(transformer-backed pointer-generator only. "
+            "(transformer-backed pointer-generator only). "
             "Default: %(default)s.",
         )

@@ -1,6 +1,15 @@
 """Default values for flags and modules."""
 
+import numpy
+
 # All elements should be styled as CONSTANTS.
+
+# Scalar constants.
+EPSILON = 1e-7
+LOG_EPSILON = numpy.log(EPSILON)
+NEG_LOG_EPSILON = -numpy.log(EPSILON)
+INF = numpy.inf
+NEG_INF = -numpy.inf
 
 # Data configuration arguments.
 SOURCE_COL = 1
@@ -13,16 +22,24 @@ TIED_VOCABULARY = True
 
 # Architecture arguments.
 ARCH = "attentive_lstm"
-SOURCE_ATTENTION_HEADS = 4
-FEATURES_ATTENTION_HEADS = 1
+ATTENTION_CONTEXT = 0
 BIDIRECTIONAL = True
 DECODER_LAYERS = 1
 EMBEDDING_SIZE = 128
 ENCODER_LAYERS = 1
+ENFORCE_MONOTONIC = False
+EVAL_METRICS = set()
+FEATURES_ATTENTION_HEADS = 1
 HIDDEN_SIZE = 512
 MAX_SOURCE_LENGTH = 128
 MAX_TARGET_LENGTH = 128
+SOURCE_ATTENTION_HEADS = 4
 TIE_EMBEDDINGS = True
+
+# Tuning arguments. These just mirror the defaults in the tuner library.
+FIND_BATCH_SIZE_MODE = "power"
+FIND_BATCH_SIZE_STEPS_PER_TRIAL = 3
+FIND_BATCH_SIZE_MAX_TRIALS = 25
 
 # Training arguments.
 BATCH_SIZE = 32

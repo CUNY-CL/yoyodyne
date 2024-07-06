@@ -5,7 +5,6 @@ superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
 import dataclasses
-
 from typing import Iterator, List, Optional
 
 import torch
@@ -13,7 +12,6 @@ from torch import nn
 from torch.utils import data
 
 from .. import special
-
 from . import indexes, tsv
 
 

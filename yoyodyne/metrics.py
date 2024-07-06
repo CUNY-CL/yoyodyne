@@ -21,8 +21,9 @@ class ValidationMetric:
         """Initializes the metrics.
 
         Args:
-            metric (str): one of "accuracy" (maximizes validation accuracy)
-                or "loss" (minimizes validation loss).
+            metric (str): one of "accuracy" (maximizes validation accuracy),
+                "loss" (minimizes validation loss), or "ser" (minimizes
+                symbol error rate).
 
         Raises:
             Error: Unknown metric.
@@ -35,5 +36,9 @@ class ValidationMetric:
             self.filename = "model-{epoch:03d}-{val_loss:.3f}"
             self.mode = "min"
             self.monitor = "val_loss"
+        elif metric == "ser":
+            self.filename = "model-{epoch:03d}-{val_ser:.3f}"
+            self.mode = "min"
+            self.monitor = "val_ser"
         else:
             raise Error(f"Unknown metric: {metric}")

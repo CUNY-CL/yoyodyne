@@ -92,7 +92,7 @@ def predict(
     Args:
          trainer (pl.Trainer).
          model (pl.LightningModule).
-         datamdule (data.DataModule).
+         datamodule (data.DataModule).
          output (str).
     """
     util.log_info(f"Writing to {output}")
@@ -100,7 +100,7 @@ def predict(
     loader = datamodule.predict_dataloader()
     with open(output, "w") as sink:
         for batch in trainer.predict(model, loader):
-            batch = model.evaluator.finalize_predictions(
+            batch = util.pad_tensor_after_eos(
                 batch, datamodule.index.end_idx, datamodule.index.pad_idx
             )
             for prediction in loader.dataset.decode_target(batch):

@@ -1,14 +1,13 @@
 """Transducer model class."""
 
-import math
 from typing import Callable, Dict, List, Optional, Tuple
 
+from maxwell import actions
 import numpy
 import torch
-from maxwell import actions
 from torch import nn
 
-from .. import data
+from .. import data, defaults
 from . import expert, lstm, modules
 
 
@@ -83,7 +82,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             batch (data.PaddedBatch).
 
         Returns:
-            Tuple[List[List[int]], torch.Tensor] of encoded prediction values
+            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
@@ -151,8 +150,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 B x seq_len x emb_size.
             source (torch.Tensor): encoded source input.
             source_mask (torch.Tensor): mask for source input.
-            teacher_forcing (bool): Whether or not to decode
-                with teacher forcing. Determines whether or not to rollout
+            teacher_forcing (bool): whether or not to decode
+                with teacher forcing; determines whether or not to rollout
                 optimal actions.
             target (torch.Tensor, optional): encoded target input.
             target_mask (torch.Tensor, optional): mask for target input.
@@ -294,7 +293,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     ) -> torch.Tensor:
         """Masks non-valid actions in logits."""
         with torch.no_grad():
-            mask = torch.full(logits.shape, -math.inf, device=self.device)
+            mask = torch.full(
+                logits.shape, defaults.NEG_INF, device=self.device
+            )
             for row, action in zip(mask, valid_actions):
                 row[action] = 0.0
             logits = mask + logits
@@ -535,14 +536,19 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         predictions, loss = self(batch)
         # Evaluation requires prediction as a tensor.
         predictions = self.convert_prediction(predictions)
-        # Processes for accuracy calculation.
-        predictions = self.evaluator.finalize_predictions(
-            predictions, self.end_idx, self.pad_idx
-        )
-        val_eval_item = self.evaluator.get_eval_item(
-            predictions, batch.target.padded, self.pad_idx
-        )
-        return {"val_eval_item": val_eval_item, "val_loss": loss}
+        # Gets a dict of all eval metrics for this batch.
+        val_eval_items_dict = {
+            evaluator.name: evaluator.evaluate(
+                predictions,
+                batch.target.padded,
+                self.end_idx,
+                self.pad_idx,
+                predictions_finalized=True,
+            )
+            for evaluator in self.evaluators
+        }
+        val_eval_items_dict.update({"val_loss": loss})
+        return val_eval_items_dict
 
     def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
         predictions, _ = self.forward(
