@@ -224,11 +224,6 @@ def get_model_from_argparse_args(
     features_vocab_size = (
         datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
-    source_vocab_size = (
-        datamodule.index.source_vocab_size + features_vocab_size
-        if not separate_features
-        else datamodule.index.source_vocab_size
-    )
     # This makes sure we compute all metrics that'll be needed.
     eval_metrics = args.eval_metric.copy()
     if args.checkpoint_metric != "loss":
