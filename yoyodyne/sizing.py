@@ -128,7 +128,7 @@ def find_batch_size(
     else:
         raise Error(f"Unknown batch sizing method: {method}")
     util.log_info(f"Using batch size: {datamodule.batch_size}")
-    if trainer.accumulate_grad_batches:
+    if trainer.accumulate_grad_batches != 1:
         util.log_info(
             "Using gradient accumulation steps: "
             f"{trainer.accumulate_grad_batches}"
