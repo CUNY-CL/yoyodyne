@@ -320,7 +320,7 @@ update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
 
 The `--find_batch_size` flag enables [automatically computation of
 the batch size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
-With `--find_batch_size max`, it simply uses the largest batch size, ignoring
+With `--find_batch_size max`, it simply uses the maximum batch size, ignoring
 `--batch_size`. With `--find_batch_size opt`, it finds the maximum batch size,
 and then interprets it as follows:
 
@@ -329,11 +329,11 @@ and then interprets it as follows:
 -   However, if the maximum batch size is less than `--batch_size`, it solves 
     for the optimal gradient accumulation trick and uses the largest batch size
     and the smallest number of gradient accumulation steps whose product is
-    `--batch_size`, thus optimally saturating the accelerator.
+    `--batch_size`.
 
 If one wishes to solve for these quantities without actually training, pass
-`--find_batch_size` and `--max_epochs 0`. This will halt after computing and
-logging the solution.
+`--find_batch_size opt` and `--max_epochs 0`. This will halt after computing
+and logging the solution.
 
 ### Hyperparameter tuning
 
