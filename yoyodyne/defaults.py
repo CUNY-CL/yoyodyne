@@ -35,8 +35,7 @@ MAX_SOURCE_LENGTH = 128
 MAX_TARGET_LENGTH = 128
 EVAL_METRICS = set()
 
-# Tuning arguments.
-FIND_BATCH_SIZE = False
+# Tuning arguments. These just mirror the defaults in the tuner library.
 FIND_BATCH_SIZE_MODE = "power"
 FIND_BATCH_SIZE_STEPS_PER_TRIAL = 3
 FIND_BATCH_SIZE_MAX_TRIALS = 25
