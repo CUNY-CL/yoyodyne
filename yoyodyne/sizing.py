@@ -28,11 +28,11 @@ def _max_batch_size(
         trainer (pl.Trainer).
         model (models.BaseEncoderDecoder).
         datamodule (data.DataModule).
+        max_trials (int, optional): maximum number of increases in batch size
+            before terminating.
         mode (str, optional): one of "binsearch", "power".
         steps_per_trial (int, optional): number of steps to run with a given
             batch size.
-        max_trials (int, optional): maximum number of increases in batch size
-            before terminating.
 
     Returns:
         int: estiamted maximum batch size.
@@ -41,9 +41,9 @@ def _max_batch_size(
     return tuner.scale_batch_size(
         model,
         datamodule=datamodule,
+        max_trials=max_trials,
         mode=mode,
         steps_per_trial=steps_per_trial,
-        max_trials=max_trials,
     )
 
 
@@ -87,9 +87,9 @@ def find_batch_size(
     model: models.BaseEncoderDecoder,
     datamodule: data.DataModule,
     *,
+    max_trials: int = defaults.FIND_BATCH_SIZE_MAX_TRIALS,
     mode: str = defaults.FIND_BATCH_SIZE_MODE,
     steps_per_trial: int = defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
-    max_trials: int = defaults.FIND_BATCH_SIZE_MAX_TRIALS,
 ) -> None:
     """Computes maximum or optimal batch size.
 
@@ -103,16 +103,18 @@ def find_batch_size(
         trainer (pl.Trainer).
         model (models.BaseEncoderDecoder).
         datamodule (data.DataModule).
+        max_trials (int, optional): maximum number of increases in batch size
+            before terminating.
         mode (str, optional): one of "binsearch" or "power".
         steps_per_trial (int, optional): number of steps to run with a given
             batch size.
-        max_trials (int, optional): maximum number of increases in batch size
-            before terminating.
     """
+    desired_batch_size = datamodule.batch_size  # Takes a copy.
     max_batch_size = _max_batch_size(
         trainer,
         model,
         datamodule,
+        max_trials=max_trials,
         mode=mode,
         steps_per_trial=steps_per_trial,
     )
@@ -121,10 +123,9 @@ def find_batch_size(
         datamodule.batch_size = max_batch_size
     elif method == "opt":
         steps, batch_size = _optimal_batch_size(
-            datamodule.batch_size, max_batch_size
+            desired_batch_size, max_batch_size
         )
         datamodule.batch_size = batch_size
-        trainer.accumulate_grad_batches = steps
     else:
         raise Error(f"Unknown batch sizing method: {method}")
     util.log_info(f"Using batch size: {datamodule.batch_size}")
