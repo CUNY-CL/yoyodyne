@@ -61,8 +61,8 @@ def find_batch_size(
     This sets the batch size on the datamodule, and if necessary, the
     gradient accumulation steps on the trainer.
 
-    With the max method, binary search is used to find the largest batch size
-    that fits in memory.
+    With the max method, batch size is doubled until a memory error, thus
+    finding the largest batch size that fits in memory.
 
     With the optimal method, batch size is doubled until a memory error or
     once we confirm that the desired batch size fits in memory (whichever
@@ -83,7 +83,6 @@ def find_batch_size(
         max_batch_size = tuner.scale_batch_size(
             model,
             datamodule=datamodule,
-            mode="binsearch",
             steps_per_trial=steps_per_trial,
         )
         # This automatically overwrites the datamodule batch size argument.
@@ -102,7 +101,6 @@ def find_batch_size(
             # by one" but the way it's defined in the batch size finder is
             # itself "off by one" in the opposite direction, so it cancels out.
             max_trials=int(numpy.log2(desired_batch_size - 1)),
-            mode="power",
             steps_per_trial=steps_per_trial,
         )
         steps, batch_size = _optimal_batch_size(
