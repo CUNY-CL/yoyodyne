@@ -3,6 +3,7 @@
 import argparse
 from typing import Tuple
 
+import numpy
 import pytorch_lightning as pl
 from pytorch_lightning.tuner import tuning
 
@@ -11,40 +12,6 @@ from . import data, defaults, models, util
 
 class Error(Exception):
     pass
-
-
-def _max_batch_size(
-    trainer: pl.Trainer,
-    model: models.BaseEncoderDecoder,
-    datamodule: data.DataModule,
-    *,
-    mode: str = defaults.FIND_BATCH_SIZE_MODE,
-    steps_per_trial: int = defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
-    max_trials: int = defaults.FIND_BATCH_SIZE_MAX_TRIALS,
-) -> int:
-    """Computes the maximum batch size that will reliably fit in memory.
-
-    Args:
-        trainer (pl.Trainer).
-        model (models.BaseEncoderDecoder).
-        datamodule (data.DataModule).
-        max_trials (int, optional): maximum number of increases in batch size
-            before terminating.
-        mode (str, optional): one of "binsearch", "power".
-        steps_per_trial (int, optional): number of steps to run with a given
-            batch size.
-
-    Returns:
-        int: estiamted maximum batch size.
-    """
-    tuner = tuning.Tuner(trainer)
-    return tuner.scale_batch_size(
-        model,
-        datamodule=datamodule,
-        max_trials=max_trials,
-        mode=mode,
-        steps_per_trial=steps_per_trial,
-    )
 
 
 def _optimal_batch_size(
@@ -87,14 +54,19 @@ def find_batch_size(
     model: models.BaseEncoderDecoder,
     datamodule: data.DataModule,
     *,
-    max_trials: int = defaults.FIND_BATCH_SIZE_MAX_TRIALS,
-    mode: str = defaults.FIND_BATCH_SIZE_MODE,
     steps_per_trial: int = defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
 ) -> None:
     """Computes maximum or optimal batch size.
 
     This sets the batch size on the datamodule, and if necessary, the
     gradient accumulation steps on the trainer.
+
+    With the max method, batch size is doubled until a memory error, thus
+    finding the largest batch size that fits in memory.
+
+    With the optimal method, batch size is doubled until a memory error or
+    once we confirm that the desired batch size fits in memory (whichever
+    comes first).
 
     Args:
         method (str): one of "max" (find the maximum batch size) or "opt" (find
@@ -103,37 +75,47 @@ def find_batch_size(
         trainer (pl.Trainer).
         model (models.BaseEncoderDecoder).
         datamodule (data.DataModule).
-        max_trials (int, optional): maximum number of increases in batch size
-            before terminating.
-        mode (str, optional): one of "binsearch" or "power".
         steps_per_trial (int, optional): number of steps to run with a given
             batch size.
     """
-    desired_batch_size = datamodule.batch_size  # Takes a copy.
-    max_batch_size = _max_batch_size(
-        trainer,
-        model,
-        datamodule,
-        max_trials=max_trials,
-        mode=mode,
-        steps_per_trial=steps_per_trial,
-    )
-    util.log_info(f"Max batch size: {max_batch_size}")
+    tuner = tuning.Tuner(trainer)
     if method == "max":
-        datamodule.batch_size = max_batch_size
+        max_batch_size = tuner.scale_batch_size(
+            model,
+            datamodule=datamodule,
+            steps_per_trial=steps_per_trial,
+        )
+        # This automatically overwrites the datamodule batch size argument.
+        # So we don't need to.
     elif method == "opt":
+        # This is a copy since it'll be automatically overwritten with the
+        # maximum value.
+        desired_batch_size = datamodule.batch_size
+        if desired_batch_size <= 2:
+            raise Error("--find_batch_size opt requires --batch_size > 2")
+        max_batch_size = tuner.scale_batch_size(
+            model,
+            datamodule=datamodule,
+            # This computes the maximum number of steps that'll be needed to
+            # exceed the desired batch size. This seems like it would be "off
+            # by one" but the way it's defined in the batch size finder is
+            # itself "off by one" in the opposite direction, so it cancels out.
+            max_trials=int(numpy.log2(desired_batch_size - 1)),
+            steps_per_trial=steps_per_trial,
+        )
         steps, batch_size = _optimal_batch_size(
             desired_batch_size, max_batch_size
         )
         datamodule.batch_size = batch_size
+        util.log_info(f"Using optimal batch size: {datamodule.batch_size}")
+        if steps != 1:
+            trainer.accumulate_grad_batches = steps
+            util.log_info(
+                "Using gradient accumulation steps: "
+                f"{trainer.accumulate_grad_batches}"
+            )
     else:
         raise Error(f"Unknown batch sizing method: {method}")
-    util.log_info(f"Using batch size: {datamodule.batch_size}")
-    if trainer.accumulate_grad_batches != 1:
-        util.log_info(
-            "Using gradient accumulation steps: "
-            f"{trainer.accumulate_grad_batches}"
-        )
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -149,23 +131,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "i.e., via gradient accumulation) batch size. Default: not enabled.",
     )
     parser.add_argument(
-        "--find_batch_size_mode",
-        choices=["binsearch", "power"],
-        default=defaults.FIND_BATCH_SIZE_MODE,
-        help="Search strategy to update the batch size. "
-        "Default: %(default)s",
-    )
-    parser.add_argument(
         "--find_batch_size_steps_per_trial",
         type=int,
         default=defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
         help="Number of steps to run with a given batch size. "
-        "Default: %(default)s",
-    )
-    parser.add_argument(
-        "--find_batch_size_max_trials",
-        type=int,
-        default=defaults.FIND_BATCH_SIZE_MAX_TRIALS,
-        help="Maximum number of increases in batch size before terminating. "
         "Default: %(default)s",
     )

@@ -419,9 +419,7 @@ def main() -> None:
             trainer,
             model,
             datamodule,
-            mode=args.find_batch_size_mode,
             steps_per_trial=args.find_batch_size_steps_per_trial,
-            max_trials=args.find_batch_size_max_trials,
         )
     best_checkpoint = train(trainer, model, datamodule, args.train_from)
     util.log_info(f"Best checkpoint: {best_checkpoint}")
