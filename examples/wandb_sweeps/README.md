@@ -3,9 +3,9 @@
 This directory contains example scripts for running a hyperparameter sweep with
 [Weights & Biases](https://wandb.ai/site).
 
--   [`config.yaml`](config.yaml) contains just one possible hyparparameter
-    grid, designed for random search over an attentive LSTM; edit that file
-    directly to build a hyperparameter grid appropriate for your problem.
+-   [`config.yaml`](config.yaml) contains just one possible hyparparameter grid,
+    designed for random search over an attentive LSTM; edit that file directly
+    to build a hyperparameter grid appropriate for your problem.
 -   Consider also running Bayesian search (`method: bayes`) instead of random
     search; see
     [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#configuration-keys)
@@ -42,3 +42,9 @@ Then, one can retrieve the results as follows:
 
 3.  Click on the downward arrow link, select "CSV Export", then click "Save as
     CSV".
+
+Alternatively, one can use [`best_hyperparameters.py`](best_hyperparamaters.py)
+to retrieve the hyperparameters of the best run, formatted as Bash-style flags:
+
+    ./best_hyperparameters.py --entity "${ENTITY}" --project "${PROJECT}" \
+         --sweep_id "${SWEEP_ID}"
