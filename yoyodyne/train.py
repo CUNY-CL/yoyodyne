@@ -317,9 +317,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to input validation data TSV.",
     )
     parser.add_argument(
-        "--train_from",
-        help="Path to ckpt checkpoint to resume training from. "
-        "Default: not enabled.",
+        "--train_from", help="Path to ckpt checkpoint to resume training from."
     )
     # Other training arguments.
     parser.add_argument(
@@ -341,23 +339,23 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--patience",
         type=int,
         help="Number of epochs with no progress (according to "
-        "`--patience_metric`) before triggering early stopping. "
-        "Default: not enabled.",
+        "`--patience_metric`) before triggering early stopping.",
     )
     parser.add_argument(
         "--patience_metric",
         choices=["accuracy", "loss", "ser"],
         default=defaults.PATIENCE_METRIC,
-        help="Stops early when validation `accuracy` stops increasing or "
-        "when validation `loss` or `ser` stops decreasing. "
-        "Default: %(default)s.",
+        help="Stops early when validation `accuracy` does not increase or "
+        "when validation `loss` or `ser` does not decrease for `--patience` "
+        "epochs. Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
         "--log_wandb",
         action="store_true",
         default=defaults.LOG_WANDB,
-        help="Use Weights & Biases logging (log-in required). Default: True.",
+        help="Use Weights & Biases logging (log-in required). "
+        "Default: not enabled.",
     )
     parser.add_argument(
         "--no_log_wandb",

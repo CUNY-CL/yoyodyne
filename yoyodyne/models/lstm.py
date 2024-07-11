@@ -342,8 +342,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             "--bidirectional",
             action="store_true",
             default=defaults.BIDIRECTIONAL,
-            help="Uses a bidirectional encoder "
-            "(LSTM-backed architectures only. Default: %(default)s.",
+            help="Uses a bidirectional encoder (LSTM-backed architectures "
+            "only. Default: enabled.",
         )
         parser.add_argument(
             "--no_bidirectional",

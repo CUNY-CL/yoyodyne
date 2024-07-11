@@ -128,12 +128,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--find_batch_size",
         choices=["max", "opt"],
         help="Automatically find either the `max`(imum) or the `opt`(imal; "
-        "i.e., via gradient accumulation) batch size. Default: not enabled.",
+        "i.e., via gradient accumulation) batch size.",
     )
     parser.add_argument(
         "--find_batch_size_steps_per_trial",
         type=int,
         default=defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
         help="Number of steps to run with a given batch size. "
-        "Default: %(default)s",
+        "Default: %(default)s.",
     )
