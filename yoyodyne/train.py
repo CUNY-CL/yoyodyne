@@ -317,7 +317,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to input validation data TSV.",
     )
     parser.add_argument(
-        "--train_from", help="Path to ckpt checkpoint to resume training from."
+        "--train_from",
+        help="Path to checkpoint used to resume training.",
     )
     # Other training arguments.
     parser.add_argument(
@@ -346,8 +347,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         choices=["accuracy", "loss", "ser"],
         default=defaults.PATIENCE_METRIC,
         help="Stops early when validation `accuracy` does not increase or "
-        "when validation `loss` or `ser` does not decrease for `--patience` "
-        "epochs. Default: %(default)s.",
+        "when validation `loss` or `ser` does not decrease. "
+        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
