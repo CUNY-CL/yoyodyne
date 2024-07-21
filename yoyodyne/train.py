@@ -81,6 +81,7 @@ def _get_callbacks(
                 mode=metric.mode,
                 monitor=metric.monitor,
                 patience=patience,
+                verbose=True,
             )
         )
     # Checkpointing callback. Ensure that this is the last checkpoint,
