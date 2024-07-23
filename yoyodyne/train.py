@@ -81,6 +81,7 @@ def _get_callbacks(
                 mode=metric.mode,
                 monitor=metric.monitor,
                 patience=patience,
+                min_delta=1e-4,
                 verbose=True,
             )
         )
