@@ -228,8 +228,8 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         # Uses Xavier initialization.
         self.type_embedding = embeddings.xavier_initialization(
             2,
-            embedding_size,
-            pad_idx,
+            self.embedding_size,
+            self.pad_idx,
         )
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
