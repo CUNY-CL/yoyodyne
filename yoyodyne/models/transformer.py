@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from .. import data, defaults
-from . import base, embedding, modules
+from . import base, embeddings, modules
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
