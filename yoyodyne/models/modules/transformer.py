@@ -301,7 +301,6 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
         self.features_linear = nn.Linear(
             d_model,  # TODO: Separate feature embedding size?
             d_model // 2,
-            kwargs["d_model"] // 2,
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
