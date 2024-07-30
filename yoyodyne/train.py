@@ -210,17 +210,26 @@ def get_model_from_argparse_args(
         else None
     )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
-    separate_features = datamodule.has_features and args.arch in [
-        "hard_attention_lstm",
-        "pointer_generator_lstm",
-        "pointer_generator_transformer",
-        "transducer",
-    ]
+    # We use a separate features encoder if the datamodule has features, and either:
+    # - a specific features encoder module is requested (in which case we use
+    #   the requested module), or
+    # - the model requires that we use a separate features encoder (in which
+    #   case we use the same module as the source encoder).
     features_encoder_cls = (
         models.modules.get_encoder_cls(
             encoder_arch=args.features_encoder_arch, model_arch=args.arch
         )
-        if separate_features and args.features_encoder_arch
+        if datamodule.has_features
+        and (
+            args.features_encoder_arch
+            or args.arch
+            in [
+                "hard_attention_lstm",
+                "pointer_generator_lstm",
+                "pointer_generator_transformer",
+                "transducer",
+            ]
+        )
         else None
     )
     features_vocab_size = (
