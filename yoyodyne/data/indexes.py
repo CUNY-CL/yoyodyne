@@ -150,15 +150,19 @@ class Index:
 
     @property
     def source_vocab_size(self) -> int:
-        return len(special.SPECIAL) + len(self.source_vocabulary)
+        if self.tie_embeddings:
+            return self.vocab_size
+        else:
+            return len(self.SPECIAL) + len(self.source_vocabulary)
 
     @property
     def target_vocab_size(self) -> int:
-        return (
-            len(special.SPECIAL) + len(self.target_vocabulary)
-            if self.target_vocabulary
-            else 0
-        )
+        if self.tie_embeddings:
+            return self.vocab_size
+        elif self.target_vocabulary:
+            return len(special.SPECIAL) + len(self.target_vocabulary)
+        else:
+            return 0
 
     @property
     def features_vocab_size(self) -> int:
