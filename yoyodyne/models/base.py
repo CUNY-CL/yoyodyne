@@ -1,7 +1,4 @@
-"""Base model class, with PL integration.
-
-This also includes init_embeddings, which has to go somewhere.
-"""
+"""Base model class, with PL integration."""
 
 import argparse
 from typing import Callable, Dict, Optional, Set
