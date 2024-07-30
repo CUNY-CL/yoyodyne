@@ -2,7 +2,7 @@
 
 import os
 import pickle
-from typing import Dict, Iterable, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
 
 from .. import defaults, special
 
@@ -43,7 +43,7 @@ class Index:
         self.tie_embeddings = tie_embeddings
         # We store vocabularies separately for logging purposes.
         self.source_vocabulary = sorted(source_vocabulary)
-        self.target_vocabulary = sorted(target_vocabalary)
+        self.target_vocabulary = sorted(target_vocabulary)
         if self.tie_embeddings:
             # Vocabulary is the union of source and target.
             vocabulary = sorted(
@@ -52,7 +52,8 @@ class Index:
         else:
             # Vocabulary consists of target symbols followed by source symbols.
             vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
-        # FeatureInvariantTransformer assumes that features_vocabulary is at the end of the vocabulary.
+        # FeatureInvariantTransformer assumes that features_vocabulary is at
+        # the end of the vocabulary.
         if features_vocabulary is not None:
             self.features_vocabulary = sorted(features_vocabulary)
             vocabulary.extend(self.features_vocabulary)
