@@ -7,6 +7,7 @@ import torch
 from torch import nn
 
 from ... import data
+from .. import embeddings
 from . import base
 
 
@@ -224,8 +225,11 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         super().__init__(*args, **kwargs)
         # Distinguishes features vs. character.
         self.features_vocab_size = features_vocab_size
-        self.type_embedding = self.init_embeddings(
-            2, self.embedding_size, self.pad_idx
+        # Uses Xavier initialization.
+        self.type_embedding = embeddings.xavier_embedding(
+            2,
+            self.embedding_size,
+            self.pad_idx,
         )
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
