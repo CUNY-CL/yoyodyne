@@ -2,7 +2,7 @@
 
 import os
 import pickle
-from typing import Dict, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
 
 from .. import defaults, special
 
@@ -14,51 +14,47 @@ class Error(Exception):
 class Index:
     """Maintains the index over the vocabularies.
 
-    For consistency, one is recommended to lexicographically sort the
-    vocabularies ahead of time."""
+    Args:
+        source_vocabulary (Iterable[str]).
+        features_vocabulary (Iterable[str], optional).
+        target_vocabulary (Iterable[str], optional).
+        tie_embeddings: (bool).
+    """
 
-    index2symbol: List[str]
-    symbol2index: Dict[str, int]
+    source_vocabulary: List[str]
+    target_vocabulary: List[str]
+    features_vocabulary = Optional[List[str]]
+    _index2symbol: List[str]
+    _symbol2index: Dict[str, int]
 
     def __init__(
         self,
         *,
-        source_vocabulary: List[str],
-        features_vocabulary: Optional[List[str]] = None,
-        target_vocabulary: Optional[List[str]] = None,
+        source_vocabulary: Iterable[str],
+        features_vocabulary: Optional[Iterable[str]] = None,
+        target_vocabulary: Optional[Iterable[str]] = None,
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
     ):
-        """Initializes the index.
-
-        Args:
-            source_vocabulary (List[str]).
-            features_vocabulary (List[str], optional).
-            target_vocabulary (List[str], optional).
-            tie_embeddings: (bool).
-        """
         super().__init__()
         self.tie_embeddings = tie_embeddings
-        # We store all separate vocabularies for logging purposes.
-        # If embeddings are tied, so are the vocab items.
-        # Then, the source and target vocabularies are the union.
+        # We store vocabularies separately for logging purposes.
+        self.source_vocabulary = sorted(source_vocabulary)
+        self.target_vocabulary = sorted(target_vocabulary)
         if self.tie_embeddings:
-            vocabulary = list(
-                sorted(set(source_vocabulary) | set(target_vocabulary))
+            # Vocabulary is the union of source and target.
+            vocabulary = sorted(
+                frozenset(source_vocabulary + target_vocabulary)
             )
-            self.source_vocabulary = special.SPECIAL + vocabulary
-            self.target_vocabulary = special.SPECIAL + vocabulary
         else:
-            # If not tie_embeddings, then the target vocabulary must come
-            # first so that output predictions correctly index our
-            # vocabulary and embeddiings matrix.
+            # Vocabulary consists of target symbols followed by source symbols.
             vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
-            self.source_vocabulary = special.SPECIAL + source_vocabulary
-            self.target_vocabulary = special.SPECIAL + target_vocabulary
         # FeatureInvariantTransformer assumes that features_vocabulary is at
-        # the end of the list.
-        if features_vocabulary:
-            vocabulary.extend(sorted(features_vocabulary))
-        self.features_vocabulary = features_vocabulary
+        # the end of the vocabulary.
+        if features_vocabulary is not None:
+            self.features_vocabulary = sorted(features_vocabulary)
+            vocabulary.extend(self.features_vocabulary)
+        else:
+            self.features_vocabulary = None
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
@@ -154,11 +150,19 @@ class Index:
 
     @property
     def source_vocab_size(self) -> int:
-        return len(self.source_vocabulary)
+        if self.tie_embeddings:
+            return self.vocab_size
+        else:
+            return len(self.SPECIAL) + len(self.source_vocabulary)
 
     @property
     def target_vocab_size(self) -> int:
-        return len(self.target_vocabulary) if self.target_vocabulary else 0
+        if self.tie_embeddings:
+            return self.vocab_size
+        elif self.target_vocabulary:
+            return len(special.SPECIAL) + len(self.target_vocabulary)
+        else:
+            return 0
 
     @property
     def features_vocab_size(self) -> int:
