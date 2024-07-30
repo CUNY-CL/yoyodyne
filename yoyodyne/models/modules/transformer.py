@@ -226,7 +226,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         # Distinguishes features vs. character.
         self.features_vocab_size = features_vocab_size
         # Uses Xavier initialization.
-        self.type_embedding = embeddings.xavier_initialization(
+        self.type_embedding = embeddings.xavier_embedding(
             2,
             self.embedding_size,
             self.pad_idx,
