@@ -11,10 +11,6 @@ from .. import embeddings
 from . import base
 
 
-class Error(Exception):
-    pass
-
-
 class PositionalEncoding(nn.Module):
     """Positional encoding.
 
@@ -293,11 +289,9 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             batch_first=kwargs["batch_first"],
             **factory_kwargs,
         )
-        if d_model % 2 != 0:
-            raise Error(
-                "transformer with separate features r equires an even d_model "
-                f"(d_model: {d_model})"
-            )
+        # If d_model is not even, an error will result. However, this is very
+        # unlikely since it must also be disivible by the number of attention
+        # heads.
         self.symbols_linear = nn.Linear(
             d_model,
             d_model // 2,
