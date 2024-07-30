@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from .. import data, defaults
-from . import base, modules
+from . import base, embeddings, modules
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
@@ -53,7 +53,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             nn.Embedding: embedding layer.
         """
-        return self._xavier_embedding_initialization(
+        return embeddings.xavier_embedding(
             num_embeddings, embedding_size, pad_idx
         )
 

@@ -8,7 +8,7 @@ import torch
 from torch import nn
 
 from .. import data, defaults
-from . import base, modules
+from . import base, embeddings, modules
 
 
 class LSTMEncoderDecoder(base.BaseEncoderDecoder):
@@ -52,7 +52,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             nn.Embedding: embedding layer.
         """
-        return self._normal_embedding_initialization(
+        return embeddings.normal_embedding(
             num_embeddings, embedding_size, pad_idx
         )
 
