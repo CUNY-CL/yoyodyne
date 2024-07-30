@@ -14,8 +14,12 @@ class Error(Exception):
 class Index:
     """Maintains the index over the vocabularies.
 
-    For consistency, one is recommended to lexicographically sort the
-    vocabularies ahead of time."""
+    Args:
+        source_vocabulary (Iterable[str]).
+        features_vocabulary (Iterable[str], optional).
+        target_vocabulary (Iterable[str], optional).
+        tie_embeddings: (bool).
+    """
 
     source_vocabulary: List[str]
     target_vocabulary: List[str]
@@ -31,14 +35,6 @@ class Index:
         target_vocabulary: Optional[Iterable[str]] = None,
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
     ):
-        """Initializes the index.
-
-        Args:
-            source_vocabulary (List[str]).
-            features_vocabulary (List[str], optional).
-            target_vocabulary (List[str], optional).
-            tie_embeddings: (bool).
-        """
         super().__init__()
         self.tie_embeddings = tie_embeddings
         # We store vocabularies separately for logging purposes.
@@ -47,7 +43,7 @@ class Index:
         if self.tie_embeddings:
             # Vocabulary is the union of source and target.
             vocabulary = sorted(
-                frozenset(source_vocabulary) | frozenset(target_vocabulary)
+                frozenset(source_vocabulary + target_vocabulary)
             )
         else:
             # Vocabulary consists of target symbols followed by source symbols.
@@ -154,11 +150,15 @@ class Index:
 
     @property
     def source_vocab_size(self) -> int:
-        return len(self.source_vocabulary)
+        return len(special.SPECIAL) + len(self.source_vocabulary)
 
     @property
     def target_vocab_size(self) -> int:
-        return len(self.target_vocabulary) if self.target_vocabulary else 0
+        return (
+            len(special.SPECIAL) + len(self.target_vocabulary)
+            if self.target_vocabulary
+            else 0
+        )
 
     @property
     def features_vocab_size(self) -> int:
