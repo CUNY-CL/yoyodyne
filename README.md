@@ -48,9 +48,7 @@ yourself.
 
 ### Local installation
 
-Yoyodyne currently supports Python 3.9 and 3.10.
-[#60](https://github.com/CUNY-CL/yoyodyne/issues/60) is a known blocker to
-Python \> 3.10 support.
+Yoyodyne currently supports Python 3.9 through 3.12.
 
 First install dependencies:
 
