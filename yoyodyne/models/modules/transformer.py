@@ -196,6 +196,7 @@ class TransformerEncoder(TransformerModule):
             encoder_layer=encoder_layer,
             num_layers=self.layers,
             norm=nn.LayerNorm(self.embedding_size),
+            enable_nested_tensor=False,
         )
 
     @property
