@@ -189,7 +189,7 @@ class TransformerEncoder(TransformerModule):
             nhead=self.source_attention_heads,
             dropout=self.dropout,
             activation="relu",
-            norm_first=True,
+            norm_first=False,
             batch_first=True,
         )
         return nn.TransformerEncoder(
