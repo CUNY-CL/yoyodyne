@@ -11,6 +11,10 @@ from .. import embeddings
 from . import base
 
 
+class Error(Exception):
+    pass
+
+
 class PositionalEncoding(nn.Module):
     """Positional encoding.
 
@@ -289,9 +293,14 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             batch_first=kwargs["batch_first"],
             **factory_kwargs,
         )
-        # If d_model is not even, an error will result. However, this is very
-        # unlikely since it must also be divisible by the number of attention
+        # If d_model is not even, an error will result. This is unlikely to
+        # trigger since it must also be divisible by the number of attention
         # heads.
+        if d_model % 2 != 0:
+            raise Error(
+                "feature-invariant transformer d_model ({d_model}) must be "
+                "divisible by 2"
+            )
         self.symbols_linear = nn.Linear(
             d_model,
             d_model // 2,
