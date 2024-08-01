@@ -61,7 +61,7 @@ class TsvParser:
 
     @staticmethod
     def _tsv_reader(path: str) -> Iterator[str]:
-        with open(path, "r") as tsv:
+        with open(path, "r", encoding=defaults.ENCODING) as tsv:
             yield from csv.reader(tsv, delimiter="\t")
 
     @staticmethod
