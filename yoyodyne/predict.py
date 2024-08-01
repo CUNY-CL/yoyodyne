@@ -5,7 +5,7 @@ import os
 
 import pytorch_lightning as pl
 
-from . import data, models, util
+from . import data, defaults, models, util
 
 
 def get_trainer_from_argparse_args(
@@ -98,7 +98,7 @@ def predict(
     util.log_info(f"Writing to {output}")
     _mkdir(output)
     loader = datamodule.predict_dataloader()
-    with open(output, "w") as sink:
+    with open(output, "w", encoding=defaults.ENCODING) as sink:
         for batch in trainer.predict(model, loader):
             batch = util.pad_tensor_after_eos(
                 batch, datamodule.index.end_idx, datamodule.index.pad_idx

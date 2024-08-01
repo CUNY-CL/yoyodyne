@@ -11,6 +11,9 @@ NEG_LOG_EPSILON = -numpy.log(EPSILON)
 INF = numpy.inf
 NEG_INF = -numpy.inf
 
+# Default text encoding.
+ENCODING = "utf-8"
+
 # Data configuration arguments.
 SOURCE_COL = 1
 TARGET_COL = 2
