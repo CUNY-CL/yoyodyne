@@ -11,6 +11,10 @@ from .. import embeddings
 from . import base
 
 
+class Error(Exception):
+    pass
+
+
 class PositionalEncoding(nn.Module):
     """Positional encoding.
 
@@ -169,6 +173,8 @@ class TransformerModule(base.BaseModule):
 
 
 class TransformerEncoder(TransformerModule):
+    """Ordinary transformer encoder."""
+
     def forward(self, source: data.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
@@ -208,7 +214,7 @@ class TransformerEncoder(TransformerModule):
 
 
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
-    """Encoder for transformer with feature invariance.
+    """Transformer encoder with feature invariance.
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
@@ -254,10 +260,9 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         positional_embedding = self.positional_encoding(
             symbols, mask=char_mask
         )
-        out = self.dropout_layer(
+        return self.dropout_layer(
             word_embedding + positional_embedding + type_embedding
         )
-        return out
 
     @property
     def name(self) -> str:
@@ -280,24 +285,31 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             "device": kwargs.get("device"),
             "dtype": kwargs.get("dtype"),
         }
+        d_model = kwargs["d_model"]
         self.feature_multihead_attn = nn.MultiheadAttention(
-            kwargs["d_model"],  # TODO: Separate feature embedding size?
+            d_model,  # TODO: Separate feature embedding size?
             nfeature_heads,
             dropout=kwargs["dropout"],
             batch_first=kwargs["batch_first"],
             **factory_kwargs,
         )
+        # If d_model is not even, an error will result. This is unlikely to
+        # trigger since it must also be divisible by the number of attention
+        # heads.
+        if d_model % 2 != 0:
+            raise Error(
+                "feature-invariant transformer d_model ({d_model}) must be "
+                "divisible by 2"
+            )
         self.symbols_linear = nn.Linear(
-            kwargs["d_model"],
-            # FIXME: This will break when used if odd d_model
-            int(kwargs["d_model"] / 2),
+            d_model,
+            d_model // 2,
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
         self.features_linear = nn.Linear(
-            kwargs["d_model"],  # TODO: Separate feature embedding size?
-            # FIXME: This will break when used if odd d_model
-            int(kwargs["d_model"] / 2),
+            d_model,  # TODO: Separate feature embedding size?
+            d_model // 2,
             bias=kwargs.get("bias"),
             **factory_kwargs,
         )
@@ -496,7 +508,7 @@ class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
 
 
 class TransformerDecoder(TransformerModule):
-    """Decoder for Transformer."""
+    """A transformer decoder."""
 
     # Output arg.
     decoder_input_size: int
@@ -584,7 +596,7 @@ class TransformerDecoder(TransformerModule):
 
 
 class TransformerPointerDecoder(TransformerDecoder):
-    """TransformerDecoder with separate features and `attention_output`.
+    """A transformer decoder with separate features and `attention_output`.
 
     `attention_output` tracks the output of multiheaded attention from each
     decoder step wrt the encoded input. This is achieved with a hook into the
