@@ -7,7 +7,7 @@ import numpy
 import torch
 from torch import nn
 
-from .. import data, defaults
+from .. import data, defaults, util
 from . import expert, lstm, modules
 
 
@@ -559,12 +559,14 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
 
     def convert_prediction(self, prediction: List[List[int]]) -> torch.Tensor:
         """Converts prediction values to tensor for evaluator compatibility."""
-        max_len = len(max(prediction, key=len))
-        for i, pred in enumerate(prediction):
-            pad = [self.actions.end_idx] * (max_len - len(pred))
-            pred.extend(pad)
-            prediction[i] = torch.tensor(pred, dtype=torch.int)
-        return torch.stack(prediction)
+        # Uses the same util that all other models use.
+        # This turns all symbols after the first EOS into PADs
+        # so prediction tensors match gold tensors.
+        return util.pad_tensor_after_eos(
+            torch.tensor(prediction),
+            self.end_idx,
+            self.pad_idx,
+        )
 
     def on_train_epoch_start(self) -> None:
         """Scheduler for oracle."""
