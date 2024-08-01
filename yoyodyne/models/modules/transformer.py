@@ -290,7 +290,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
             **factory_kwargs,
         )
         # If d_model is not even, an error will result. However, this is very
-        # unlikely since it must also be disivible by the number of attention
+        # unlikely since it must also be divisible by the number of attention
         # heads.
         self.symbols_linear = nn.Linear(
             d_model,
