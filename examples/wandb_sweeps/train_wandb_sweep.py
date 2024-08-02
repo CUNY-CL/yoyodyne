@@ -32,10 +32,10 @@ def train_sweep(args: argparse.Namespace) -> None:
         setattr(args, key, value)
     try:
         train.train(args)  # Ignoring return value.
-    except RuntimeError:
+    except RuntimeError as error:
         # TODO: consider specializing this further if a solution to
         # https://github.com/pytorch/pytorch/issues/48365 is accepted.
-        pass
+        util.log_info(f"Runtime error: {error!s}")
     finally:
         # Clears the CUDA cache.
         torch.cuda.empty_cache()
