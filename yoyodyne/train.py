@@ -362,7 +362,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--patience",
         type=int,
         help="Number of epochs with no progress (according to "
-        "`--patience_metric`) before triggering early stopping. ",
+        "`--patience_metric`) before triggering early stopping.",
     )
     parser.add_argument(
         "--patience_metric",
