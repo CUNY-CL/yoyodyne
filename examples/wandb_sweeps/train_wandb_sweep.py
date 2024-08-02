@@ -34,7 +34,8 @@ def train_sweep(args: argparse.Namespace) -> None:
     try:
         train.train(args)  # Ignoring return value.
     except RunTimeError:
-        # This is usually an OOM.
+        # TODO: consider specializing this further if a solution to
+        # https://github.com/pytorch/pytorch/issues/48365 is accepted.
         pass
     finally:
         # Clears the CUDA cache.
