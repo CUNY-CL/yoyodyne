@@ -6,7 +6,6 @@ import functools
 import traceback
 import warnings
 
-import pytorch_lightning as pl
 import torch
 import wandb
 
@@ -33,7 +32,7 @@ def train_sweep(args: argparse.Namespace) -> None:
         setattr(args, key, value)
     try:
         train.train(args)  # Ignoring return value.
-    except RunTimeError:
+    except RuntimeError:
         # TODO: consider specializing this further if a solution to
         # https://github.com/pytorch/pytorch/issues/48365 is accepted.
         pass
