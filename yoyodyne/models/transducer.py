@@ -38,12 +38,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
-        # Gets number of non-target symbols.
-        source_vocab_size = kwargs["vocab_size"] - kwargs["target_vocab_size"]
-        # This is the size of the shared embedding matrix.
-        # It must contain every possible source AND target symbol.
-        kwargs["vocab_size"] = source_vocab_size + len(expert.actions)
-        # Alternate outputs than dataset targets.
+        # Makes us predict a distribution over actions.
         kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
         # Model specific variables.
@@ -559,11 +554,19 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
 
     def convert_prediction(self, prediction: List[List[int]]) -> torch.Tensor:
         """Converts prediction values to tensor for evaluator compatibility."""
+        # FIXME: the two steps below may be partially redundant.
+        # TODO: Clean this up and make it more efficient.
+        max_len = len(max(prediction, key=len))
+        for i, pred in enumerate(prediction):
+            pad = [self.actions.end_idx] * (max_len - len(pred))
+            pred.extend(pad)
+            prediction[i] = torch.tensor(pred, dtype=torch.int)
+        prediction = torch.stack(prediction)
         # Uses the same util that all other models use.
         # This turns all symbols after the first EOS into PADs
         # so prediction tensors match gold tensors.
         return util.pad_tensor_after_eos(
-            torch.tensor(prediction),
+           prediction,
             self.end_idx,
             self.pad_idx,
         )
