@@ -566,7 +566,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         # This turns all symbols after the first EOS into PADs
         # so prediction tensors match gold tensors.
         return util.pad_tensor_after_eos(
-           prediction,
+            prediction,
             self.end_idx,
             self.pad_idx,
         )
