@@ -38,6 +38,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             *args: passed to superclass.
             **kwargs: passed to superclass.
         """
+        self.initial_vocab_size = kwargs["vocab_size"]
+        kwargs["vocab_size"] += len(expert.actions)
+        self.initial_vocab_size
         # Makes us predict a distribution over actions.
         kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
@@ -192,8 +195,10 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 not_complete.to(self.device), action_count + 1, action_count
             )
             # Decoding.
+            # We offset the action idx by the initial vocab size so that we
+            # can index into the shared embeddings matrix.
             decoder_output = self.decoder(
-                last_action.unsqueeze(dim=1),
+                last_action.unsqueeze(dim=1) + self.initial_vocab_size,
                 last_hiddens,
                 encoder_out,
                 # To accomodate LSTMDecoder. See encoder_mask behavior.
