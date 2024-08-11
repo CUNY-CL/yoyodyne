@@ -1,1 +1,1 @@
-This directory contains some worked examples of the library.
+This directory contains some worked examples using the library.
