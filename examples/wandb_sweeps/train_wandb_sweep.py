@@ -6,18 +6,13 @@ import functools
 import traceback
 import warnings
 
-import pytorch_lightning as pl
 import torch
 import wandb
 
-from yoyodyne import sizing, train, util
+from yoyodyne import train, util
 
 
 warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
-
-
-class Error(Exception):
-    pass
 
 
 def train_sweep(args: argparse.Namespace) -> None:
@@ -35,26 +30,15 @@ def train_sweep(args: argparse.Namespace) -> None:
         if key in args:
             util.log_info(f"Overriding CLI argument: {key}")
         setattr(args, key, value)
-    pl.seed_everything(args.seed)
-    trainer = train.get_trainer_from_argparse_args(args)
-    datamodule = train.get_datamodule_from_argparse_args(args)
-    model = train.get_model_from_argparse_args(args, datamodule)
-    if args.find_batch_size:
-        sizing.find_batch_size(
-            args.find_batch_size,
-            trainer,
-            model,
-            datamodule,
-            steps_per_trial=args.find_batch_size_steps_per_trial,
-        )
-    best_checkpoint = train.train(trainer, model, datamodule, args.train_from)
-    util.log_info(f"Best checkpoint: {best_checkpoint}")
-    # Explicitly deallocates model and clears the CUDA cache, based on the
-    # following suggestion:
-    #
-    #     https://github.com/wandb/wandb/issues/1247#issuecomment-1457737657
-    del model
-    torch.cuda.empty_cache()
+    try:
+        train.train(args)  # Ignoring return value.
+    except RuntimeError as error:
+        # TODO: consider specializing this further if a solution to
+        # https://github.com/pytorch/pytorch/issues/48365 is accepted.
+        util.log_info(f"Runtime error: {error!s}")
+    finally:
+        # Clears the CUDA cache.
+        torch.cuda.empty_cache()
 
 
 def main() -> None:

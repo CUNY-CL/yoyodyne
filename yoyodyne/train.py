@@ -192,8 +192,8 @@ def get_model_from_argparse_args(
         and not args.tie_embeddings
     ):
         raise Error(
-            f"--tie_embeddings set to {args.tie_embeddings}, but "
-            f"--arch {args.arch} requires it to be enabled."
+            f"--tie_embeddings disabled, but --arch {args.arch} requires "
+            "it to be enabled"
         )
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
@@ -278,30 +278,40 @@ def get_model_from_argparse_args(
     )
 
 
-def train(
-    trainer: pl.Trainer,
-    model: models.BaseEncoderDecoder,
-    datamodule: data.DataModule,
-    train_from: Optional[str] = None,
-) -> str:
+def train(args: argparse.Namespace) -> str:
     """Trains the model.
 
     Args:
-         trainer (pl.Trainer).
-         model (models.BaseEncoderDecoder).
-         datamodule (data.DataModule).
-         train_from (str, optional): if specified, starts training from this
-            checkpoint.
+        args (argparse.Namespace).
 
     Returns:
         str: path to best checkpoint.
     """
-    trainer.fit(model, datamodule, ckpt_path=train_from)
+    if args.log_wandb:
+        wandb.init()
+    pl.seed_everything(args.seed)
+    trainer = get_trainer_from_argparse_args(args)
+    datamodule = get_datamodule_from_argparse_args(args)
+    model = get_model_from_argparse_args(args, datamodule)
+    if args.log_wandb:
+        # Logs number of model parameters for W&B.
+        wandb.config["n_model_params"] = sum(
+            p.numel() for p in model.parameters()
+        )
+    if args.find_batch_size:
+        sizing.find_batch_size(
+            args.find_batch_size,
+            trainer,
+            datamodule,
+            steps_per_trial=args.find_batch_size_steps_per_trial,
+        )
+    trainer.fit(model, datamodule, ckpt_path=args.train_from)
     # The API assumes that the last callback is the checkpointing one, and
     # _get_callbacks must enforce this.
-    ckp_callback = trainer.callbacks[-1]
-    assert type(ckp_callback) is callbacks.ModelCheckpoint
-    return ckp_callback.best_model_path
+    checkpoint_callback = trainer.callbacks[-1]
+    assert checkpoint_callback.best_model_path
+    util.log_info(f"Best checkpoint: {checkpoint_callback.best_model_path}")
+    return checkpoint_callback.best_model_path
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -330,8 +340,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to input validation data TSV.",
     )
     parser.add_argument(
-        "--train_from",
-        help="Path to checkpoint used to resume training.",
+        "--train_from", help="Path to checkpoint used to resume training."
     )
     # Other training arguments.
     parser.add_argument(
@@ -414,27 +423,7 @@ def main() -> None:
     add_argparse_args(parser)
     args = parser.parse_args()
     util.log_arguments(args)
-    if args.log_wandb:
-        wandb.init()
-    pl.seed_everything(args.seed)
-    trainer = get_trainer_from_argparse_args(args)
-    datamodule = get_datamodule_from_argparse_args(args)
-    model = get_model_from_argparse_args(args, datamodule)
-    if args.log_wandb:
-        # Logs number of model parameters for W&B.
-        wandb.config["n_model_params"] = sum(
-            p.numel() for p in model.parameters()
-        )
-    if args.find_batch_size:
-        sizing.find_batch_size(
-            args.find_batch_size,
-            trainer,
-            model,
-            datamodule,
-            steps_per_trial=args.find_batch_size_steps_per_trial,
-        )
-    best_checkpoint = train(trainer, model, datamodule, args.train_from)
-    util.log_info(f"Best checkpoint: {best_checkpoint}")
+    train(args)
 
 
 if __name__ == "__main__":
