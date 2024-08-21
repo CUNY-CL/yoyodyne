@@ -133,11 +133,11 @@ class DataModule(pl.LightningDataModule):
         self.index.write(model_dir, experiment)
 
     @property
-    def has_features(self) -> int:
+    def has_features(self) -> bool:
         return self.parser.has_features
 
     @property
-    def has_target(self) -> int:
+    def has_target(self) -> bool:
         return self.parser.has_target
 
     @property

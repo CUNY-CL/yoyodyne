@@ -50,7 +50,7 @@ class Item(nn.Module):
 class Dataset(data.Dataset):
     """Datatset class."""
 
-    samples: List[List[str]]
+    samples: List[tsv.SampleType]
     index: indexes.Index  # Usually copied from the DataModule.
     parser: tsv.TsvParser  # Ditto.
 
