@@ -195,6 +195,8 @@ class TransformerEncoder(TransformerModule):
             nhead=self.source_attention_heads,
             dropout=self.dropout,
             activation="relu",
+            # TODO(#224): Consider disabling this and enabling
+            # `enable_nested_tensor` below.
             norm_first=True,
             batch_first=True,
         )
@@ -202,6 +204,9 @@ class TransformerEncoder(TransformerModule):
             encoder_layer=encoder_layer,
             num_layers=self.layers,
             norm=nn.LayerNorm(self.embedding_size),
+            # TODO(#224): Consider disabling `norm_first` and enabling this
+            # feature.
+            enable_nested_tensor=False,
         )
 
     @property
