@@ -302,6 +302,7 @@ def train(args: argparse.Namespace) -> str:
         sizing.find_batch_size(
             args.find_batch_size,
             trainer,
+            model,
             datamodule,
             steps_per_trial=args.find_batch_size_steps_per_trial,
         )
