@@ -20,6 +20,11 @@ class PositionalEncoding(nn.Module):
 
     After:
         https://pytorch.org/tutorials/beginner/transformer_tutorial.html.
+
+    Args:
+        d_model (int).
+        pad_idx (int).
+        max_source_length (int).
     """
 
     # Model arguments.
@@ -31,12 +36,6 @@ class PositionalEncoding(nn.Module):
         pad_idx,
         max_source_length: int,
     ):
-        """
-        Args:
-            d_model (int).
-            pad_idx (int).
-            max_source_length (int).
-        """
         super().__init__()
         self.pad_idx = pad_idx
         positional_encoding = torch.zeros(max_source_length, d_model)
@@ -84,13 +83,13 @@ class AttentionOutput:
 
     This object can be passed into a hook to the Transformer forward pass
     in order to modify its behavior such that certain attention weights are
-    returned, and then stored in self.outputs."""
+    returned, and then stored in self.outputs.
+    """
 
     # Model arguments.
     outputs: List
 
     def __init__(self):
-        """Initializes an AttentionOutput."""
         self.outputs = []
 
     def __call__(
@@ -119,7 +118,14 @@ class AttentionOutput:
 
 
 class TransformerModule(base.BaseModule):
-    """Base module for transformer."""
+    """Base module for transformer.
+
+    Args:
+        *args: passed to superclass.
+        source_attention_heads (int).
+        max_source_length (int).
+        **kwargs: passed to superclass.
+    """
 
     # Model arguments.
     source_attention_heads: int
@@ -135,14 +141,6 @@ class TransformerModule(base.BaseModule):
         max_source_length: int,
         **kwargs,
     ):
-        """Initializes the module with attention.
-
-        Args:
-            *args: passed to superclass.
-            source_attention_heads (int).
-            max_source_length (int).
-            **kwargs: passed to superclass.
-        """
         super().__init__(
             *args,
             source_attention_heads=source_attention_heads,
@@ -173,7 +171,17 @@ class TransformerModule(base.BaseModule):
 
 
 class TransformerEncoder(TransformerModule):
-    """Ordinary transformer encoder."""
+    """Ordinary transformer encoder.
+
+    Our implementation uses "pre-norm", i.e., it applies layer normalization
+    before attention. Because of this, we are not currently able to make use
+    of PyTorch's nested tensor feature.
+
+    After:
+        Xiong, R., Yang, Y., He, D., Zheng, K., Zheng, S., Xing, C., ..., and
+        Liu, T.-Y. 2020. In Proceedings of the 37th International Conference
+        on Machine Learning, pages 10524-10533.
+    """
 
     def forward(self, source: data.PaddedTensor) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
@@ -195,8 +203,6 @@ class TransformerEncoder(TransformerModule):
             nhead=self.source_attention_heads,
             dropout=self.dropout,
             activation="relu",
-            # TODO(#224): Consider disabling this and enabling
-            # `enable_nested_tensor` below.
             norm_first=True,
             batch_first=True,
         )
@@ -204,8 +210,10 @@ class TransformerEncoder(TransformerModule):
             encoder_layer=encoder_layer,
             num_layers=self.layers,
             norm=nn.LayerNorm(self.embedding_size),
-            # TODO(#224): Consider disabling `norm_first` and enabling this
-            # feature.
+            # This silences a warning about the use of nested tensors,
+            # currently an experimental feature.
+            # TODO(#225): Re-enable if nested tensors are generalized to work
+            # with `norm_first`.
             enable_nested_tensor=False,
         )
 
@@ -282,7 +290,8 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
     representation w.r.t. the encoded symbols are then compressed in a
     linear layer and finally concatenated.
 
-    The implementation is otherwise identical to nn.TransformerDecoderLayer."""
+    The implementation is otherwise identical to nn.TransformerDecoderLayer.
+    """
 
     def __init__(self, *args, nfeature_heads, **kwargs):
         super().__init__(*args, **kwargs)
@@ -473,7 +482,7 @@ class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
         target_key_padding_mask: Optional[torch.Tensor] = None,
         memory_key_padding_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Pass the inputs (and mask) through the decoder layer in turn.
+        """Passes the inputs (and mask) through the decoder layer.
 
         Args:
             target (torch.Tensor): the sequence to the decoder.
@@ -616,7 +625,6 @@ class TransformerPointerDecoder(TransformerDecoder):
     def __init__(
         self, *args, separate_features, features_attention_heads, **kwargs
     ):
-        """Initializes the TransformerPointerDecoder object."""
         self.separate_features = separate_features
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
