@@ -130,8 +130,6 @@ class Index:
         with open(path, "wb") as sink:
             pickle.dump(vars(self), sink)
 
-    # Properties.
-
     @property
     def symbols(self) -> List[str]:
         return list(self._symbol2index.keys())
