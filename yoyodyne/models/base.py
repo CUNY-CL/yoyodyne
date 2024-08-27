@@ -16,8 +16,7 @@ class Error(Exception):
 
 
 class BaseEncoderDecoder(pl.LightningModule):
-    """Base class for encoder-decoder models, handling most of the Lightning
-    integration."""
+    """Base class, handling Lightning integration."""
 
     #  TODO: clean up type checking here.
     # Indices.
