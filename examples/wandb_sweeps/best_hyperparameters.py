@@ -18,6 +18,7 @@ def main(args: argparse.Namespace) -> None:
     best_run = sweep.best_run()
     logging.info("Best run URL: %s", best_run.url)
     # Sorting for stability.
+    args = []
     for key, value in sorted(best_run.config.items()):
         # Exclusions:
         #
@@ -43,8 +44,8 @@ def main(args: argparse.Namespace) -> None:
             continue
         if value is None:
             continue
-        # Print like a list of flags...
-        print(f"    --{key} {value} \\")
+        args.append((key, value))
+    print(" ".join(f"--{key} {value}" for key, value in args))
 
 
 if __name__ == "__main__":
