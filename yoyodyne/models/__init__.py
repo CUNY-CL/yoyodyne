@@ -2,8 +2,8 @@
 
 import argparse
 
-from .base import BaseEncoderDecoder
 from .. import defaults
+from .base import BaseEncoderDecoder
 from .hard_attention import HardAttentionLSTM
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
 from .pointer_generator import (
@@ -12,7 +12,6 @@ from .pointer_generator import (
 )
 from .transducer import TransducerEncoderDecoder
 from .transformer import TransformerEncoderDecoder
-
 
 _model_fac = {
     "attentive_lstm": AttentiveLSTMEncoderDecoder,

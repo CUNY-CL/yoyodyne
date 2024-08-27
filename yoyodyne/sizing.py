@@ -3,9 +3,9 @@
 import argparse
 from typing import Tuple
 
+import lightning
 import numpy
-import pytorch_lightning as pl
-from pytorch_lightning.tuner import tuning
+from lightning.pytorch.tuner import tuning
 
 from . import data, defaults, models, util
 
@@ -50,7 +50,7 @@ def _optimal_batch_size(
 
 def find_batch_size(
     method: str,
-    trainer: pl.Trainer,
+    trainer: lightning.Trainer,
     model: models.BaseEncoderDecoder,
     datamodule: data.DataModule,
     *,
@@ -72,7 +72,7 @@ def find_batch_size(
         method (str): one of "max" (find the maximum batch size) or "opt" (find
             the "optimal" batch size, using the gradient accumulation trick if
             necessary.)
-        trainer (pl.Trainer).
+        trainer (lightning.Trainer).
         model (models.BaseEncoderDecoder).
         datamodule (data.DataModule).
         steps_per_trial (int, optional): number of steps to run with a given

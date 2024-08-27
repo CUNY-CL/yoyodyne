@@ -1,8 +1,8 @@
 """Pointer-generator model classes."""
 
-import numpy
 from typing import Callable, Optional, Tuple
 
+import numpy
 import torch
 from torch import nn
 

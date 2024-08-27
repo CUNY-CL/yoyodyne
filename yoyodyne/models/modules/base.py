@@ -4,7 +4,7 @@
 import dataclasses
 from typing import Optional, Tuple
 
-import pytorch_lightning as pl
+import lightning
 import torch
 from torch import nn
 
@@ -28,7 +28,7 @@ class ModuleOutput:
         return self.embeddings is not None
 
 
-class BaseModule(pl.LightningModule):
+class BaseModule(lightning.LightningModule):
     # Indices.
     pad_idx: int
     start_idx: int

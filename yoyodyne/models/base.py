@@ -3,13 +3,12 @@
 import argparse
 from typing import Callable, Dict, Optional, Set
 
-import pytorch_lightning as pl
+import lightning
 import torch
 from torch import nn, optim
 
 from .. import data, defaults, evaluators, schedulers, util
 from . import modules
-
 
 _optim_fac = {
     "adadelta": optim.Adadelta,
@@ -23,7 +22,7 @@ _scheduler_fac = {
 }
 
 
-class BaseEncoderDecoder(pl.LightningModule):
+class BaseEncoderDecoder(lightning.LightningModule):
     """Base class, handling Lightning integration."""
 
     #  TODO: clean up type checking here.

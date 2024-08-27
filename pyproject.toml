@@ -29,9 +29,9 @@ keywords = [
 ]
 dependencies = [
     "maxwell >= 0.2.4",
-    # TODO: allow >= 2.0.0 once we we migrate to pytorch-lightning >= 2.0.0".
+    # TODO: allow >= 2.0.0 once we we migrate to lightning >= 2.0.0".
     "numpy >= 1.26.0, < 2.0.0", 
-    "pytorch-lightning >= 1.7.0, < 2.0.0",
+    "lightning >= 1.7.0, < 2.0.0",
     "torch >= 2.4.0",
     "wandb >= 0.17.5",
 ]

@@ -1,9 +1,9 @@
 """Custom schedulers."""
 
 import argparse
-import numpy
 from typing import Dict
 
+import numpy
 from torch import optim
 
 from . import defaults, metrics
