@@ -10,7 +10,6 @@ from torch import nn, optim
 from .. import data, defaults, evaluators, schedulers, util
 from . import modules
 
-
 _optim_fac = {
     "adadelta": optim.Adadelta,
     "adam": optim.Adam,

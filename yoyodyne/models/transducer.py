@@ -2,9 +2,9 @@
 
 from typing import Callable, Dict, List, Optional, Tuple
 
-from maxwell import actions
 import numpy
 import torch
+from maxwell import actions
 from torch import nn
 
 from .. import data, defaults, util

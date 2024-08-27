@@ -4,8 +4,8 @@ import argparse
 from typing import List, Optional
 
 import lightning
-from lightning.pytorch import callbacks, loggers
 import wandb
+from lightning.pytorch import callbacks, loggers
 
 from . import (
     data,

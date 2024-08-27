@@ -4,8 +4,8 @@ import argparse
 from typing import Tuple
 
 import lightning
-from lightning.pytorch.tuner import tuning
 import numpy
+from lightning.pytorch.tuner import tuning
 
 from . import data, defaults, models, util
 
