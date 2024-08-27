@@ -16,6 +16,10 @@ class Attention(nn.Module):
         approaches to attention-based neural machine translation. In
         Proceedings of the 2015 Conference on Empirical Methods in
         Natural Language Processing, pages 1412-1421.
+
+    Args:
+        encoder_outputs_size (int).
+        hidden_size (int).
     """
 
     hidden_size: int
@@ -23,12 +27,6 @@ class Attention(nn.Module):
     V: nn.Linear
 
     def __init__(self, encoder_outputs_size, hidden_size):
-        """Initializes the attention module.
-
-        Args:
-            encoder_outputs_size (int).
-            hidden_size (int).
-        """
         super().__init__()
         # MLP to run over encoder_outputs.
         self.M = nn.Linear(encoder_outputs_size + hidden_size, hidden_size)
@@ -40,8 +38,10 @@ class Attention(nn.Module):
         encoder_outputs: torch.Tensor,
         mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Computes the attention distribution for the encoder outputs
-            w.r.t. the previous decoder hidden state.
+        """Computes the attention distribution.
+
+        This computes attention for the encoder outputs w.r.t. the previous
+        decoder hidden state.
 
         Args:
             hidden (torch.Tensor): hidden states from decode of shape

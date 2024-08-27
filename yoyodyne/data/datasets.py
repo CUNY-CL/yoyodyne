@@ -18,20 +18,19 @@ from . import indexes, tsv
 class Item(nn.Module):
     """Source tensor, with optional features and target tensors.
 
-    This represents a single item or observation."""
+    This represents a single item or observation.
+
+    Args:
+        source (torch.Tensor).
+        features (torch.Tensor, optional).
+        target (torch.Tensor, optional).
+    """
 
     source: torch.Tensor
     features: Optional[torch.Tensor]
     target: Optional[torch.Tensor]
 
     def __init__(self, source, features=None, target=None):
-        """Initializes the item.
-
-        Args:
-            source (torch.Tensor).
-            features (torch.Tensor, optional).
-            target (torch.Tensor, optional).
-        """
         super().__init__()
         self.register_buffer("source", source)
         self.register_buffer("features", features)

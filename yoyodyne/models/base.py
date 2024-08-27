@@ -16,6 +16,8 @@ class Error(Exception):
 
 
 class BaseEncoderDecoder(pl.LightningModule):
+    """Base class, handling Lightning integration."""
+
     #  TODO: clean up type checking here.
     # Indices.
     end_idx: int
