@@ -16,7 +16,12 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
     # TODO: Evaluate if this blurb is still correct.
     We achieve this by concatenating the last (non-padding) hidden state of
-    the encoder to the decoder hidden state."""
+    the encoder to the decoder hidden state.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
 
     # Constructed inside __init__.
     h0: nn.Parameter
@@ -27,12 +32,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         *args,
         **kwargs,
     ):
-        """Initializes the encoder-decoder without attention.
-
-        Args:
-            *args: passed to superclass.
-            **kwargs: passed to superclass.
-        """
         super().__init__(*args, **kwargs)
         # Initial hidden state whose parameters are shared across all examples.
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))

@@ -15,7 +15,14 @@ class Error(Exception):
 
 
 class GenerationProbability(nn.Module):
-    """Calculates the generation probability for a pointer generator."""
+    """Calculates the generation probability for a pointer generator.
+
+
+    Args:
+        embedding_size (int): embedding dimensions.
+        hidden_size (int): decoder hidden state dimensions.
+        attention_size (int): dimensions of combined encoder attentions.
+    """
 
     stdev = 1 / numpy.sqrt(100)
 
@@ -27,13 +34,6 @@ class GenerationProbability(nn.Module):
     def __init__(
         self, embedding_size: int, hidden_size: int, attention_size: int
     ):
-        """Initializes the generation probability operator.
-
-        Args:
-            embedding_size (int): embedding dimensions.
-            hidden_size (int): decoder hidden state dimensions.
-            attention_size (int): dimensions of combined encoder attentions.
-        """
         super().__init__()
         self.W_emb = nn.Linear(embedding_size, 1, bias=False)
         self.W_hs = nn.Linear(hidden_size, 1, bias=False)
@@ -159,7 +159,6 @@ class PointerGeneratorLSTMEncoderDecoder(
     """
 
     def __init__(self, *args, **kwargs):
-        """Initializes the pointer-generator model with an LSTM backend."""
         super().__init__(*args, **kwargs)
         self._check_layer_sizes()
         # We use the inherited defaults for the source embeddings/encoder.
@@ -477,7 +476,6 @@ class PointerGeneratorTransformerEncoderDecoder(
     features_attention_heads: int
 
     def __init__(self, *args, features_attention_heads, **kwargs):
-        """Initializes a pointer-generator model with transformer backend."""
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
         if not self.has_features_encoder:

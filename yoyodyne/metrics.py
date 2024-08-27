@@ -11,23 +11,21 @@ class ValidationMetric:
     This is used in the implementation of checkpointing, patience-based early
     stopping, and the reduce-on-plateau scheduler. One is not required to use
     the same metric for all three of these.
+
+    Args:
+        metric (str): one of "accuracy" (maximizes validation accuracy),
+            "loss" (minimizes validation loss), or "ser" (minimizes
+            symbol error rate).
+
+    Raises:
+        Error: Unknown metric.
     """
 
     filename: str
     mode: str
     monitor: str
 
-    def __init__(self, metric):
-        """Initializes the metrics.
-
-        Args:
-            metric (str): one of "accuracy" (maximizes validation accuracy),
-                "loss" (minimizes validation loss), or "ser" (minimizes
-                symbol error rate).
-
-        Raises:
-            Error: Unknown metric.
-        """
+    def __init__(self, metric: str):
         if metric == "accuracy":
             self.filename = "model-{epoch:03d}-{val_accuracy:.3f}"
             self.mode = "max"
