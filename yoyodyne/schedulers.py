@@ -158,16 +158,12 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds shared configuration options to the argument parser.
 
-    These are only needed at training time.
+    These are only needed at training time. Note that the actual scheduler
+    arg is specified in models/base.py.
 
     Args:
         parser (argparse.ArgumentParser).
     """
-    parser.add_argument(
-        "--scheduler",
-        choices=["warmupinvsqrt", "lineardecay", "reduceonplateau"],
-        help="Learning rate scheduler.",
-    )
     parser.add_argument(
         "--warmup_steps",
         type=int,

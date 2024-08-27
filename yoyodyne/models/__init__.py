@@ -1,4 +1,4 @@
-"""Model classes and lookup function."""
+"""Yoyodyne models."""
 
 import argparse
 
@@ -14,6 +14,17 @@ from .transducer import TransducerEncoderDecoder
 from .transformer import TransformerEncoderDecoder
 
 
+_model_fac = {
+    "attentive_lstm": AttentiveLSTMEncoderDecoder,
+    "hard_attention_lstm": HardAttentionLSTM,
+    "lstm": LSTMEncoderDecoder,
+    "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
+    "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
+    "transducer": TransducerEncoderDecoder,
+    "transformer": TransformerEncoderDecoder,
+}
+
+
 def get_model_cls(arch: str) -> BaseEncoderDecoder:
     """Model factory.
 
@@ -22,22 +33,13 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         has_features (bool).
 
     Raises:
-        NotImplementedError.
+        NotImplementedError: Architecture not found.
 
     Returns:
         BaseEncoderDecoder.
     """
-    model_fac = {
-        "attentive_lstm": AttentiveLSTMEncoderDecoder,
-        "hard_attention_lstm": HardAttentionLSTM,
-        "lstm": LSTMEncoderDecoder,
-        "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
-        "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
-        "transducer": TransducerEncoderDecoder,
-        "transformer": TransformerEncoderDecoder,
-    }
     try:
-        return model_fac[arch]
+        return _model_fac[arch]
     except KeyError:
         raise NotImplementedError(f"Architecture {arch} not found")
 
@@ -49,9 +51,6 @@ def get_model_cls_from_argparse_args(
 
     Args:
         args (argparse.Namespace).
-
-    Raises:
-        NotImplementedError.
 
     Returns:
         BaseEncoderDecoder.
@@ -70,15 +69,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument(
         "--arch",
-        choices=[
-            "attentive_lstm",
-            "hard_attention_lstm",
-            "lstm",
-            "pointer_generator_lstm",
-            "pointer_generator_transformer",
-            "transducer",
-            "transformer",
-        ],
+        choices=_model_fac.keys(),
         default="attentive_lstm",
         help="Model architecture. Default: %(default)s.",
     )

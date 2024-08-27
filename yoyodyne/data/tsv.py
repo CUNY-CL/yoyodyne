@@ -12,8 +12,6 @@ from .. import defaults
 
 
 class Error(Exception):
-    """Module-specific exception."""
-
     pass
 
 
