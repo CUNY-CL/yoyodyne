@@ -2,14 +2,14 @@
 
 from typing import Iterable, Optional, Set
 
-import pytorch_lightning as pl
+import lightning
 from torch.utils import data
 
 from .. import defaults, util
 from . import collators, datasets, indexes, tsv
 
 
-class DataModule(pl.LightningDataModule):
+class DataModule(lightning.LightningDataModule):
     """Parses, indexes, collates and loads data.
 
     The batch size tuner is permitted to mutate the `batch_size` argument.

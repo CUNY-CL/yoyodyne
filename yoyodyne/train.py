@@ -3,9 +3,9 @@
 import argparse
 from typing import List, Optional
 
-import pytorch_lightning as pl
+import lightning
+from lightning.pytorch import callbacks, loggers
 import wandb
-from pytorch_lightning import callbacks, loggers
 
 from . import (
     data,
@@ -104,16 +104,16 @@ def _get_callbacks(
 
 def get_trainer_from_argparse_args(
     args: argparse.Namespace,
-) -> pl.Trainer:
+) -> lightning.Trainer:
     """Creates the trainer from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        pl.Trainer.
+        lightning.Trainer.
     """
-    return pl.Trainer.from_argparse_args(
+    return lightning.Trainer.from_argparse_args(
         args,
         callbacks=_get_callbacks(
             args.num_checkpoints,
@@ -289,7 +289,7 @@ def train(args: argparse.Namespace) -> str:
     """
     if args.log_wandb:
         wandb.init()
-    pl.seed_everything(args.seed)
+    lightning.seed_everything(args.seed)
     trainer = get_trainer_from_argparse_args(args)
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
@@ -415,7 +415,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     # --max_steps
     # --min_steps
     # --max_time
-    pl.Trainer.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
 
 
 def main() -> None:

@@ -3,7 +3,7 @@
 import argparse
 from typing import Callable, Dict, Optional, Set
 
-import pytorch_lightning as pl
+import lightning
 import torch
 from torch import nn, optim
 
@@ -23,7 +23,7 @@ _scheduler_fac = {
 }
 
 
-class BaseEncoderDecoder(pl.LightningModule):
+class BaseEncoderDecoder(lightning.LightningModule):
     """Base class, handling Lightning integration."""
 
     #  TODO: clean up type checking here.
