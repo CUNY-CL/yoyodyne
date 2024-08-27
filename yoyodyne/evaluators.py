@@ -296,7 +296,7 @@ class SEREvaluator(Evaluator):
         return "ser"
 
 
-_eval_factory = {
+_eval_fac = {
     "accuracy": AccuracyEvaluator,
     "ser": SEREvaluator,
 }
@@ -308,16 +308,18 @@ def get_evaluator(eval_metric: str) -> Evaluator:
     Args:
         eval_metric (str).
 
-    Raises:
-        Error.
-
     Returns:
         Evaluator.
+
+    Raises:
+        NotImplementedError: Evaluation metric not found.
     """
     try:
-        return _eval_factory[eval_metric]
+        return _eval_fac[eval_metric]
     except KeyError:
-        raise Error(f"No evaluation metric {eval_metric}")
+        raise NotImplementedError(
+            f"Evaluation metric not found: {eval_metric}"
+        )
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -329,7 +331,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--eval_metric",
         action=util.UniqueAddAction,
-        choices=_eval_factory.keys(),
+        choices=_eval_fac.keys(),
         default=defaults.EVAL_METRICS,
         help="Additional metrics to compute.",
     )

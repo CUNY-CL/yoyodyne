@@ -3,19 +3,28 @@
 import argparse
 from typing import Callable, Dict, Optional, Set
 
-import pytorch_lightning as pl
+import lightning
 import torch
 from torch import nn, optim
 
 from .. import data, defaults, evaluators, schedulers, util
 from . import modules
 
+_optim_fac = {
+    "adadelta": optim.Adadelta,
+    "adam": optim.Adam,
+    "sgd": optim.SGD,
+}
+_scheduler_fac = {
+    "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
+    "lineardecay": schedulers.LinearDecay,
+    "reduceonplateau": schedulers.ReduceOnPlateau,
+}
 
-class Error(Exception):
-    pass
 
+class BaseEncoderDecoder(lightning.LightningModule):
+    """Base class, handling Lightning integration."""
 
-class BaseEncoderDecoder(pl.LightningModule):
     #  TODO: clean up type checking here.
     # Indices.
     end_idx: int
@@ -340,13 +349,14 @@ class BaseEncoderDecoder(pl.LightningModule):
 
         Returns:
             optim.Optimizer: optimizer for training.
+
+        Raises:
+            NotImplementedError: Optimizer not found.
         """
-        optim_fac = {
-            "adadelta": optim.Adadelta,
-            "adam": optim.Adam,
-            "sgd": optim.SGD,
-        }
-        optimizer = optim_fac[self.optimizer]
+        try:
+            optimizer = _optim_fac[self.optimizer]
+        except KeyError:
+            raise NotImplementedError(f"Optimizer not found: {self.optimizer}")
         kwargs = {"lr": self.learning_rate}
         if self.optimizer == "adam":
             kwargs["betas"] = self.beta1, self.beta2
@@ -362,15 +372,18 @@ class BaseEncoderDecoder(pl.LightningModule):
 
         Returns:
             optim.lr_scheduler: LR scheduler for training.
+
+        Raises:
+            NotImplementedError: LR scheduler not found.
         """
         if self.scheduler is None:
             return []
-        scheduler_fac = {
-            "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
-            "lineardecay": schedulers.LinearDecay,
-            "reduceonplateau": schedulers.ReduceOnPlateau,
-        }
-        scheduler_cls = scheduler_fac[self.scheduler]
+        try:
+            scheduler_cls = _scheduler_fac[self.scheduler]
+        except KeyError:
+            raise NotImplementedError(
+                f"LR scheduler not found: {self.scheduler}"
+            )
         scheduler = scheduler_cls(
             **dict(self.scheduler_kwargs, optimizer=optimizer)
         )
@@ -431,9 +444,14 @@ class BaseEncoderDecoder(pl.LightningModule):
         )
         parser.add_argument(
             "--optimizer",
-            choices=["adadelta", "adam", "sgd"],
+            choices=_optim_fac.keys(),
             default=defaults.OPTIMIZER,
             help="Optimizer. Default: %(default)s.",
+        )
+        parser.add_argument(
+            "--scheduler",
+            choices=_scheduler_fac.keys(),
+            help="Learning rate scheduler.",
         )
         # Regularization arguments.
         parser.add_argument(

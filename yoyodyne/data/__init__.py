@@ -10,6 +10,7 @@ from .indexes import Index  # noqa: F401
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds data options to the argument parser.
+
     Args:
         parser (argparse.ArgumentParser).
     """

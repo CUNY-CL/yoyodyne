@@ -20,8 +20,8 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
     Default model assumes independence between state and non-monotonic
     progression over source string. `enforce_monotonic` enforces monotonic
     state transition (model progresses over each source character), and
-    `attention_context` allows conditioning of state transition over previous
-    _n_ states.
+    `attention_context` allows conditioning of state transition over the
+    previous n states.
 
     After:
         Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
@@ -31,6 +31,15 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
 
     Original implementation:
         https://github.com/shijie-wu/neural-transducer
+
+     Args:
+        *args: passed to superclass.
+        enforce_monotonic (bool, optional): enforces monotonic state
+            transition in decoding.
+        attention_context (int, optional): size of context window for
+        conditioning state transition; if 0, state transitions are
+            independent.
+        **kwargs: passed to superclass.
     """
 
     enforce_monotonic: bool
@@ -43,17 +52,6 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         attention_context=defaults.ATTENTION_CONTEXT,
         **kwargs,
     ):
-        """Initializes the encoder-decoder.
-
-        Args:
-            *args: passed to superclass.
-            enforce_monotonic (bool, optional): enforces monotonic state
-                transition in decoding.
-            attention_context (int, optional): size of context window for
-            conditioning state transition; if 0, state transitions are
-                independent.
-            **kwargs: passed to superclass.
-        """
         self.enforce_monotonic = enforce_monotonic
         self.attention_context = attention_context
         super().__init__(*args, **kwargs)

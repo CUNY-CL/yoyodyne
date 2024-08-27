@@ -12,8 +12,8 @@ import argparse
 import dataclasses
 from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
-from maxwell import actions, sed
 import numpy
+from maxwell import actions, sed
 from torch.utils import data
 
 from .. import defaults
@@ -225,21 +225,22 @@ def edit_distance(
 
 
 class Expert(abc.ABC):
+    """Oracle scores possible edit actions between prediction and target.
+
+    Args:
+        actions (ActionVocabulary): vocabulary of possible edit actions.
+        aligner (StochasticEditDistance): an alignment object to score edits
+            between source and target strings.
+        oracle_factor (int): a scaling factor for scheduling predictions used
+            in transducer training.
+    """
+
     actions: ActionVocabulary
     aligner: sed.StochasticEditDistance
     oracle_factor: int
     roll_in: int
 
     def __init__(self, actions, aligner, oracle_factor=defaults.ORACLE_FACTOR):
-        """Oracle scores possible edit actions between prediction and target.
-
-        Args:
-            actions (ActionVocabulary): vocabulary of possible edit actions.
-            aligner (StochasticEditDistance): an alignment object to score
-                edits between source and target strings.
-            oracle_factor (int): a scaling factor for scheduling predictions
-                used in transducer training.
-        """
         self.actions = actions
         self.oracle_factor = oracle_factor
         self.roll_in = 1

@@ -11,7 +11,14 @@ from . import base, embeddings, modules
 
 
 class TransformerEncoderDecoder(base.BaseEncoderDecoder):
-    """Transformer encoder-decoder."""
+    """Transformer encoder-decoder.
+
+    Args:
+        source_attention_heads (int).
+        max_source_length (int).
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
 
     # Model arguments.
     source_attention_heads: int
@@ -24,14 +31,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         source_attention_heads=defaults.SOURCE_ATTENTION_HEADS,
         **kwargs,
     ):
-        """Initializes the encoder-decoder with attention.
-
-        Args:
-            source_attention_heads (int).
-            max_source_length (int).
-            *args: passed to superclass.
-            **kwargs: passed to superclass.
-        """
         self.source_attention_heads = source_attention_heads
         super().__init__(
             *args, source_attention_heads=source_attention_heads, **kwargs

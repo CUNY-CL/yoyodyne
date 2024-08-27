@@ -1,3 +1,5 @@
+"""Yoyodyne: small-vocabulary sequence-to-sequence generation."""
+
 import warnings
 
 # Silences irrelevant warnings; these are more like "Did you know?"s.

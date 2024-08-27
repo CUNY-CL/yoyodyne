@@ -14,7 +14,20 @@ class PaddedTensor(nn.Module):
     """A tensor and its mask.
 
     This is ordinarily used for padding a tensor list, so it represents
-    one of (source, target, features) for a batch."""
+    one of (source, target, features) for a batch.
+
+    The optional pad_len argument can be used, e.g., to keep all batches
+    the exact same length, which improves performance on certain accelerators.
+    If not specified, it will be computed using the length of the longest
+    input tensor.
+
+    Args:
+        tensorlist (List[torch.Tensor]): a list of tensors.
+        pad_idx (int): padding index.
+        length_msg_callback (Callable[[int], None]): callback for handling a
+            violation of expected tensor length.
+        pad_len (int, optional): desired length for padding.
+    """
 
     padded: torch.Tensor
     mask: torch.Tensor
@@ -26,21 +39,6 @@ class PaddedTensor(nn.Module):
         length_msg_callback: Optional[Callable[[int], None]] = None,
         pad_len: Optional[int] = None,
     ):
-        """Constructs the padded tensor from a list of tensors.
-
-        The optional pad_len argument can be used, e.g., to keep all batches
-        the exact same length, which improves performance on certain
-        accelerators. If not specified, it will be computed using the length
-        of the longest input tensor.
-
-        Args:
-            tensorlist (List[torch.Tensor]): a list of tensors.
-            pad_idx (int): padding index.
-            length_msg_callback (Callable[[int], None]): callback for catching
-                a violating tensor length.
-            pad_len (int, optional): desired length for padding.
-
-        """
         super().__init__()
         if pad_len is None:
             pad_len = max(len(tensor) for tensor in tensorlist)

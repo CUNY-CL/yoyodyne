@@ -2,14 +2,14 @@
 
 from typing import Iterable, Optional, Set
 
-import pytorch_lightning as pl
+import lightning
 from torch.utils import data
 
 from .. import defaults, util
 from . import collators, datasets, indexes, tsv
 
 
-class DataModule(pl.LightningDataModule):
+class DataModule(lightning.LightningDataModule):
     """Parses, indexes, collates and loads data.
 
     The batch size tuner is permitted to mutate the `batch_size` argument.
@@ -110,6 +110,7 @@ class DataModule(pl.LightningDataModule):
 
     @staticmethod
     def pprint(vocabulary: Iterable) -> str:
+        """Prints the vocabulary for debugging adn logging purposes."""
         return ", ".join(f"{symbol!r}" for symbol in vocabulary)
 
     def log_vocabularies(self) -> None:
@@ -133,11 +134,11 @@ class DataModule(pl.LightningDataModule):
         self.index.write(model_dir, experiment)
 
     @property
-    def has_features(self) -> int:
+    def has_features(self) -> bool:
         return self.parser.has_features
 
     @property
-    def has_target(self) -> int:
+    def has_target(self) -> bool:
         return self.parser.has_target
 
     @property

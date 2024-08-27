@@ -10,7 +10,7 @@ from .. import defaults, util
 from . import batches, datasets
 
 
-class LengthError(Exception):
+class Error(Exception):
     pass
 
 
@@ -33,10 +33,10 @@ class Collator:
             padded_length (int): The length of the the padded tensor.
 
         Raises:
-            LengthError.
+            Error.
         """
         if padded_length > self.max_source_length:
-            raise LengthError(
+            raise Error(
                 f"The length of a source sample ({padded_length}) is greater "
                 f"than the `--max_source_length` specified "
                 f"({self.max_source_length})"

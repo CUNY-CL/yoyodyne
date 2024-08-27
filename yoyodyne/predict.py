@@ -3,23 +3,23 @@
 import argparse
 import os
 
-import pytorch_lightning as pl
+import lightning
 
 from . import data, defaults, models, util
 
 
 def get_trainer_from_argparse_args(
     args: argparse.Namespace,
-) -> pl.Trainer:
+) -> lightning.Trainer:
     """Creates the trainer from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Return:
-        pl.Trainer.
+        lightning.Trainer.
     """
-    return pl.Trainer.from_argparse_args(args, max_epochs=0)
+    return lightning.Trainer.from_argparse_args(args, max_epochs=0)
 
 
 def get_datamodule_from_argparse_args(
@@ -82,7 +82,7 @@ def _mkdir(output: str) -> None:
 
 
 def predict(
-    trainer: pl.Trainer,
+    trainer: lightning.Trainer,
     model: models.BaseEncoderDecoder,
     datamodule: data.DataModule,
     output: str,
@@ -90,8 +90,8 @@ def predict(
     """Predicts from the model.
 
     Args:
-         trainer (pl.Trainer).
-         model (pl.LightningModule).
+         trainer (lightning.Trainer).
+         model (lightning.LightningModule).
          datamodule (data.DataModule).
          output (str).
     """
@@ -144,7 +144,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
     # --devices (for multiple device support)
-    pl.Trainer.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
 
 
 def main() -> None:

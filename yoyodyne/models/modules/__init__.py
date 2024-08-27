@@ -1,3 +1,5 @@
+"""Yoyodyne modules."""
+
 import argparse
 
 from .base import BaseModule
@@ -7,8 +9,29 @@ from .transformer import TransformerDecoder  # noqa F401
 from .transformer import FeatureInvariantTransformerEncoder, TransformerEncoder
 
 
-class EncoderMismatchError(Exception):
+class Error(Exception):
     pass
+
+
+class EncoderMismatchError(Error):
+    pass
+
+
+_encoder_fac = {
+    "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
+    "linear": LinearEncoder,
+    "lstm": LSTMEncoder,
+    "transformer": TransformerEncoder,
+}
+_model_to_encoder_fac = {
+    "attentive_lstm": LSTMEncoder,
+    "lstm": LSTMEncoder,
+    "pointer_generator_lstm": LSTMEncoder,
+    "pointer_generator_transformer": TransformerEncoder,
+    "transducer": LSTMEncoder,
+    "transformer": TransformerEncoder,
+    "hard_attention_lstm": LSTMEncoder,
+}
 
 
 def get_encoder_cls(
@@ -30,34 +53,17 @@ def get_encoder_cls(
         BaseEncoder.
     """
     if not (encoder_arch or model_arch):
-        raise ValueError(
-            "Please pass either a valid encoder or model arch string"
-        )
-    encoder_fac = {
-        "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
-        "linear": LinearEncoder,
-        "lstm": LSTMEncoder,
-        "transformer": TransformerEncoder,
-    }
-    model_to_encoder_fac = {
-        "attentive_lstm": LSTMEncoder,
-        "lstm": LSTMEncoder,
-        "pointer_generator_lstm": LSTMEncoder,
-        "pointer_generator_transformer": TransformerEncoder,
-        "transducer": LSTMEncoder,
-        "transformer": TransformerEncoder,
-        "hard_attention_lstm": LSTMEncoder,
-    }
+        raise Error("Pass either a valid encoder or model arch string")
     if encoder_arch is None:
         try:
-            return model_to_encoder_fac[model_arch]
+            return _model_to_encoder_fac[model_arch]
         except KeyError:
             raise NotImplementedError(
                 f"Encoder compatible with {model_arch} not found"
             )
     else:
         try:
-            return encoder_fac[encoder_arch]
+            return _encoder_fac[encoder_arch]
         except KeyError:
             raise NotImplementedError(
                 f"Encoder architecture {encoder_arch} not found"
@@ -75,23 +81,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     parser.add_argument(
         "--source_encoder_arch",
-        choices=[
-            "feature_invariant_transformer",
-            "linear",
-            "lstm",
-            "transformer",
-        ],
-        default=None,
+        choices=_encoder_fac.keys(),
         help="Model architecture to use for the source encoder.",
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=[
-            "linear",
-            "lstm",
-            "transformer",
-        ],
-        default=None,
+        choices=["linear", "lstm", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
 

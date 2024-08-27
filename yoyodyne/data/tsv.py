@@ -12,9 +12,14 @@ from .. import defaults
 
 
 class Error(Exception):
-    """Module-specific exception."""
-
     pass
+
+
+SampleType = Union[
+    List[str],
+    Tuple[List[str], List[str]],
+    Tuple[List[str], List[str], List[str]],
+]
 
 
 @dataclasses.dataclass
@@ -84,13 +89,7 @@ class TsvParser:
     def has_target(self) -> bool:
         return self.target_col != 0
 
-    def samples(self, path: str) -> Iterator[
-        Union[
-            List[str],
-            Tuple[List[str], List[str]],
-            Tuple[List[str], List[str], List[str]],
-        ]
-    ]:
+    def samples(self, path: str) -> Iterator[SampleType]:
         """Yields source, and features and/or target if available."""
         for row in self._tsv_reader(path):
             source = self.source_symbols(

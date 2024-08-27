@@ -2,9 +2,9 @@
 
 from typing import Callable, Dict, List, Optional, Tuple
 
-from maxwell import actions
 import numpy
 import torch
+from maxwell import actions
 from torch import nn
 
 from .. import data, defaults, util
@@ -14,13 +14,18 @@ from . import expert, lstm, modules
 class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
     """Transducer model with an LSTM backend.
 
+    This uses a trained oracle for imitation learning edits.
+
     After:
         Makarov, P., and Clematide, S. 2018. Imitation learning for neural
         morphological string transduction. In Proceedings of the 2018
         Conference on Empirical Methods in Natural Language Processing, pages
         2877–2882.
 
-    This uses a trained oracle for imitation learning edits.
+     Args:
+        expert (expert.Expert): oracle that guides training for transducer.
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     expert: expert.Expert
@@ -31,13 +36,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         *args,
         **kwargs,
     ):
-        """Initializes transducer model.
-
-        Args:
-            expert (expert.Expert): oracle that guides training for transducer.
-            *args: passed to superclass.
-            **kwargs: passed to superclass.
-        """
         # Gets number of non-target symbols.
         source_vocab_size = kwargs["vocab_size"] - kwargs["target_vocab_size"]
         # This is the size of the shared embedding matrix.

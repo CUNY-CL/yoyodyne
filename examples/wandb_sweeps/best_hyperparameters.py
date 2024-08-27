@@ -4,9 +4,9 @@
 import argparse
 import logging
 
-from yoyodyne import defaults
 import wandb
 
+from yoyodyne import defaults
 
 # Expand as needed.
 FLAGS_TO_IGNORE = frozenset(["eval_metrics", "local_run_dir"])

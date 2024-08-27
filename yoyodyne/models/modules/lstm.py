@@ -10,7 +10,13 @@ from . import attention, base
 
 
 class LSTMModule(base.BaseModule):
-    """Base encoder for LSTM."""
+    """Base encoder for LSTM.
+
+    Args:
+        *args: passed to superclass.
+        bidirectional (bool).
+        **kwargs: passed to superclass.
+    """
 
     # Model arguments.
     bidirectional: bool
@@ -23,13 +29,6 @@ class LSTMModule(base.BaseModule):
         bidirectional=defaults.BIDIRECTIONAL,
         **kwargs,
     ):
-        """Initializes the encoder-decoder without attention.
-
-        Args:
-            *args: passed to superclass.
-            bidirectional (bool).
-            **kwargs: passed to superclass.
-        """
         super().__init__(*args, **kwargs)
         self.bidirectional = bidirectional
         self.module = self.get_module()
@@ -164,7 +163,6 @@ class LSTMAttentiveDecoder(LSTMDecoder):
     attention_input_size: int
 
     def __init__(self, *args, attention_input_size, **kwargs):
-        """Initializes the encoder-decoder with attention."""
         super().__init__(*args, **kwargs)
         self.attention_input_size = attention_input_size
         self.attention = attention.Attention(

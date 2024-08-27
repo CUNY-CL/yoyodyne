@@ -1,9 +1,9 @@
 """Custom schedulers."""
 
 import argparse
-import numpy
 from typing import Dict
 
+import numpy
 from torch import optim
 
 from . import defaults, metrics
@@ -33,6 +33,11 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         character-level transductions. In Proceedings of the 16th Conference of
         the European Chapter of the Association for Computational Linguistics:
         Main Volume, pages 1901-1907.
+
+    Args:
+        optimizer (optim.Optimizer): optimizer.
+        warmup_steps (int): number of warmup steps.
+        **kwargs: ignored.
     """
 
     warmup_steps: int
@@ -44,13 +49,6 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         warmup_steps,
         **kwargs,
     ):
-        """Initializes the LR scheduler.
-
-        Args:
-            optimizer (optim.Optimizer): optimizer.
-            warmup_steps (int): number of warmup steps.
-            **kwargs: ignored.
-        """
         self.warmup_steps = warmup_steps
         self.decay_factor = numpy.sqrt(warmup_steps)
         super().__init__(optimizer, self.lr_lambda)
@@ -78,7 +76,17 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
 
 
 class LinearDecay(optim.lr_scheduler.LinearLR):
-    """Linear decay scheduler."""
+    """Linear decay scheduler.
+
+    Args:
+        optimizer (optim.Optimizer): optimizer.
+        start_factor (float): the start_factor to multiply by the LR.
+        end_factor (float): the end_factor to multiply by the LR after the
+            total decay steps have finished.
+        total_decay_steps (int): number of steps to linearly update the
+            multiplied factor until end_factor.
+        **kwargs: ignored.
+    """
 
     def __init__(
         self,
@@ -88,17 +96,6 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
         total_decay_steps,
         **kwargs,
     ):
-        """Initializes the LR scheduler.
-
-        Args:
-            optimizer (optim.Optimizer): optimizer.
-            start_factor (float): the start_factor to multiply by the LR.
-            end_factor (float): the end_factor to multiply by the LR
-                after the total decay steps have finished.
-            total_decay_steps (int): number of steps to linearly update
-                the multiplied factor until end_factor.
-            **kwargs: ignored.
-        """
         super().__init__(
             optimizer,
             total_iters=total_decay_steps,
@@ -115,7 +112,23 @@ class LinearDecay(optim.lr_scheduler.LinearLR):
 
 
 class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
-    """Reduce on plateau scheduler."""
+    """Reduce on plateau scheduler.
+
+    The following hyperparameters are inherited from the PyTorch defaults:
+    threshold, threshold_mode, cooldown, eps.
+
+    Args:
+        optimizer (optim.Optimizer): optimizer.
+        reduceonplateau_metric (str): reduces the LR when validation
+            `accuracy` stops increasing or when validation `loss` stops
+            decreasing.
+        reduceonplateau_factor (float): factor by which the learning rate will
+            be reduced: `new_lr *= factor`.
+        reduceonplateau_patience (int): number of epochs with no
+            improvement before reducing LR.
+        min_learning_rate (float): lower bound on the learning rate.
+        **kwargs: ignored.
+    """
 
     def __init__(
         self,
@@ -126,23 +139,6 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
         min_learning_rate,
         **kwargs,
     ):
-        """Initializes the LR scheduler.
-
-        The following hyperparameters are inherited from the PyTorch defaults:
-        threshold, threshold_mode, cooldown, eps.
-
-        Args:
-            optimizer (optim.Optimizer): optimizer.
-            reduceonplateau_metric (str): reduces the LR when validation
-                `accuracy` stops increasing or when validation `loss` stops
-                decreasing.
-            reduceonplateau_factor (float): factor by which the
-                learning rate will be reduced: `new_lr *= factor`.
-            reduceonplateau_patience (int): number of epochs with no
-                improvement before reducing LR.
-            min_learning_rate (float): lower bound on the learning rate.
-            **kwargs: ignored.
-        """
         self.metric = metrics.ValidationMetric(reduceonplateau_metric)
         super().__init__(
             optimizer,
@@ -162,16 +158,12 @@ class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds shared configuration options to the argument parser.
 
-    These are only needed at training time.
+    These are only needed at training time. Note that the actual scheduler
+    arg is specified in models/base.py.
 
     Args:
         parser (argparse.ArgumentParser).
     """
-    parser.add_argument(
-        "--scheduler",
-        choices=["warmupinvsqrt", "lineardecay", "reduceonplateau"],
-        help="Learning rate scheduler.",
-    )
     parser.add_argument(
         "--warmup_steps",
         type=int,

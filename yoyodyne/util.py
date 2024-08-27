@@ -2,11 +2,9 @@
 
 import argparse
 import sys
-
-import torch
-
 from typing import Any, Optional
 
+import torch
 
 # Argument parsing.
 
