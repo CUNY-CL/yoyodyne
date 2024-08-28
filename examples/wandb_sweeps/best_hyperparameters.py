@@ -9,7 +9,9 @@ import wandb
 from yoyodyne import defaults
 
 # Expand as needed.
-FLAGS_TO_IGNORE = frozenset(["eval_metrics", "local_run_dir", "n_model_params"])
+FLAGS_TO_IGNORE = frozenset(
+    ["eval_metrics", "local_run_dir", "n_model_params"]
+)
 
 
 def main(args: argparse.Namespace) -> None:
