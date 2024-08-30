@@ -17,7 +17,6 @@ _optim_fac = {
 }
 _scheduler_fac = {
     "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
-    "lineardecay": schedulers.LinearDecay,
     "reduceonplateau": schedulers.ReduceOnPlateau,
 }
 
