@@ -9,10 +9,7 @@ from torch import optim
 from . import defaults, metrics
 
 ALL_SCHEDULER_ARGS = [
-    "warmup_steps",
-    "start_factor",
-    "end_factor",
-    "total_decay_steps",
+    "warmup_epochs",
     "reduceonplateau_metric",
     "reduceonplateau_factor",
     "reduceonplateau_patience",
@@ -25,7 +22,7 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
     """Linear warmup and then inverse square root decay.
 
     Linearly increases learning rate from 0 to the learning rate over the
-    warmup steps, then decreases learning rate according to an inverse root
+    warmup epochs, then decreases learning rate according to an inverse root
     square schedule.
 
     After:
@@ -36,79 +33,41 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
 
     Args:
         optimizer (optim.Optimizer): optimizer.
-        warmup_steps (int): number of warmup steps.
+        warmup_epochs (int): number of warmup epochs.
         **kwargs: ignored.
     """
 
-    warmup_steps: int
+    warmup_epochs: int
     decay_factor: float
 
     def __init__(
         self,
         optimizer: optim.Optimizer,
-        warmup_steps,
+        warmup_epochs,
         **kwargs,
     ):
-        self.warmup_steps = warmup_steps
-        self.decay_factor = numpy.sqrt(warmup_steps)
+        self.warmup_epochs = warmup_epochs
+        self.decay_factor = numpy.sqrt(warmup_epochs)
         super().__init__(optimizer, self.lr_lambda)
 
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
-            f"{self.optimizer}, {self.warmup_steps})"
+            f"{self.optimizer}, {self.warmup_epochs})"
         )
 
-    def lr_lambda(self, step: int) -> float:
-        """Computes the learning rate lambda at a given step.
+    def lr_lambda(self, epoch: int) -> float:
+        """Computes the learning rate lambda at a given epoch.
 
         Args:
-            step (int): current step.
+            epoch (int): current epoch.
 
         Returns:
             float: lr_lambda.
         """
-        if self.warmup_steps < 1:
-            return self.decay_factor
-        if step < self.warmup_steps:
-            return float(step) / float(max(1, self.warmup_steps))
-        return self.decay_factor * step**-0.5
-
-
-class LinearDecay(optim.lr_scheduler.LinearLR):
-    """Linear decay scheduler.
-
-    Args:
-        optimizer (optim.Optimizer): optimizer.
-        start_factor (float): the start_factor to multiply by the LR.
-        end_factor (float): the end_factor to multiply by the LR after the
-            total decay steps have finished.
-        total_decay_steps (int): number of steps to linearly update the
-            multiplied factor until end_factor.
-        **kwargs: ignored.
-    """
-
-    def __init__(
-        self,
-        optimizer,
-        start_factor,
-        end_factor,
-        total_decay_steps,
-        **kwargs,
-    ):
-        super().__init__(
-            optimizer,
-            total_iters=total_decay_steps,
-            start_factor=start_factor,
-            end_factor=end_factor,
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}({self.optimizer}, "
-            f"{self.start_factor}, {self.end_factor}, "
-            f"{self.total_decay_steps})"
-        )
+        if epoch < self.warmup_epochs:
+            return float(1 + epoch) / float(max(1, self.warmup_epochs))
+        return self.decay_factor * epoch**-0.5
 
 
 class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
@@ -165,25 +124,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--warmup_steps",
+        "--warmup_epoch",
         type=int,
-        default=defaults.WARMUP_STEPS,
-        help="Number of warmup steps (warmupinvsqrt scheduler only). "
+        default=defaults.WARMUP_EPOCHS,
+        help="Number of warmup epochs (warmupinvsqrt scheduler only). "
         "Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--start_factor",
-        type=float,
-        default=defaults.START_FACTOR,
-        help="Starting multiplier for the LR (lineardecay scheduler "
-        "only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--end_factor",
-        type=float,
-        default=defaults.END_FACTOR,
-        help="Multiplier for the LR after --total_decay_steps (lineardecay "
-        "scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--total_decay_steps",

@@ -389,14 +389,9 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         scheduler_cfg = {
             "scheduler": scheduler,
-            "interval": "step",
-            "frequency": 1,
+            "frequency": self.scheduler_kwargs["check_val_every_n_epoch"],
         }
         if self.scheduler == "reduceonplateau":
-            scheduler_cfg["interval"] = "epoch"
-            scheduler_cfg["frequency"] = self.scheduler_kwargs[
-                "check_val_every_n_epoch"
-            ]
             scheduler_cfg["monitor"] = scheduler.metric.monitor
         return [scheduler_cfg]
 
