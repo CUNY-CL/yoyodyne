@@ -65,8 +65,9 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         Returns:
             float: lr_lambda.
         """
-        if epochs < self.warmup_epochs:
-            return float(1 + epoch) / float(self.warmup_epochs)
+        if epoch < self.warmup_epochs:
+            # Adding 1 avoids the case where the initial LR is 0.
+            return (1 + epoch) / self.warmup_epochs
         return self.decay_factor * epoch**-0.5
 
 
