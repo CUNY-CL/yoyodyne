@@ -308,6 +308,12 @@ class Expert(abc.ABC):
 
     def roll_in_schedule(self, epoch: int) -> float:
         """Gets probability of sampling from oracle given current epoch."""
+        if self.aligner is None:
+            raise AlignerError(
+                """Expert called `roll_in_schedule` but there
+                               is no aligner present to allow oracle
+                               predictions!"""
+            )
         self.roll_in = 1 - self.oracle_factor / (
             self.oracle_factor + numpy.exp(epoch / self.oracle_factor)
         )
