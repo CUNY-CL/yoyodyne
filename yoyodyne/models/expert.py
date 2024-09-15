@@ -17,9 +17,14 @@ from maxwell import actions, sed
 from torch.utils import data
 
 from .. import defaults
+from ..data import indexes
 
 
 class ActionError(Exception):
+    pass
+
+
+class AlignerError(Exception):
     pass
 
 
@@ -32,7 +37,8 @@ class ActionVocabulary:
     start_vocab_idx: int
     target_characters: Set[Any]
 
-    def __init__(self, unk_idx: int, i2w=None):
+    def __init__(self, index: indexes.Index):
+        self.target_characters = set()
         self.i2w = [
             actions.Start(),
             actions.End(),
@@ -40,11 +46,15 @@ class ActionVocabulary:
             actions.ConditionalCopy(),
         ]
         self.start_vocab_idx = len(self.i2w)
-        if i2w:
-            self.i2w.extend(i2w)
         self.w2i = {w: i for i, w in enumerate(self.i2w)}
-        self.target_characters = set()
-        self.encode_actions([unk_idx])  # Sets unknown character decoding.
+        # Use index from dataset to create action vocabulary.
+        self.encode_actions([index(t) for t in index.target_vocabulary])
+        self.encode_actions(
+            [index.unk_idx]
+        )  # Sets unknown character decoding.
+        # Add source characters if index has tied embeddings.
+        if index.tie_embeddings:
+            self.encode_actions([index(s) for s in index.source_vocabulary])
 
     def encode(self, symb: actions.Edit) -> int:
         """Returns index referencing symbol in encoding table.
@@ -240,7 +250,9 @@ class Expert(abc.ABC):
     oracle_factor: int
     roll_in: int
 
-    def __init__(self, actions, aligner, oracle_factor=defaults.ORACLE_FACTOR):
+    def __init__(
+        self, actions, aligner=None, oracle_factor=defaults.ORACLE_FACTOR
+    ):
         self.actions = actions
         self.oracle_factor = oracle_factor
         self.roll_in = 1
@@ -325,6 +337,11 @@ class Expert(abc.ABC):
         Returns:
             Dict[Edit, float]: edit actions and their respective scores.
         """
+        if self.aligner is None:
+            raise AlignerError(
+                """Expert called 'roll_out' but no aligner was instantiated.
+                    Check the parameters passed to the expert module."""
+            )
         costs_to_go = {}
         for action_prefix in action_prefixes:
             suffix_begin = action_prefix.prefix.alignment
@@ -406,84 +423,70 @@ class Expert(abc.ABC):
 
 def get_expert(
     train_data: data.Dataset,
+    fit_from_data: bool = True,
+    sed_params_path: str = "",
     epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
-    sed_params_path: str = None,
 ) -> Expert:
     """Generates expert object for training transducer.
 
     Args:
         data (data.Dataset): dataset for generating expert vocabulary.
+        fit_from_data (bool): bool determining whether sed values
+            should be learned via expectation-maximalization.
+            If false, no em training will be done.
+        sed_params_path (str): path to read/write location of sed parameters.
+            If fit_from_data is true, this is a write path.
+            If fit_from_data is false, this is a read path.
+            If empty string then creates 'dummy' expert.
         epochs (int): number of EM epochs.
-        sched_factor (float): scaling factor to determine rate of
+        oracle_factor (float): scaling factor to determine rate of
             expert rollout sampling.
 
     Returns:
         expert.Expert.
     """
 
-    # TODO: Figure out a way to avoid these functions.
-
-    def _generate_data_and_encode_vocabulary(
-        data: data.Dataset, actions: ActionVocabulary
+    def _generate_data(
+        data: data.Dataset,
     ) -> Iterator[Tuple[List[int], List[int]]]:
-        """Function to manage data encoding while aligning SED."
+        """Helper function to manage data encoding for SED."
 
-        SED training over the default data sampling is expensive.
-        Training is quicker if tensors are converted to lists.
-        For efficiency, we encode action vocabulary simultaneously.
+        We want just the encodings without BOS or EOS tokens. This
+        encodes just raw source-target text for the Maxwell library.
 
         Args:
             data (data.Dataset): Dataset to iterate over.
-            actions (ActionVocabulary): Vocabulary object
-                to encode actions for expert.
+
         Returns:
             Iterator[Tuple[List[int], List[int]]]: Iterator that
                 yields list version of source and target entries
                 in dataset.
         """
-        for item in data:
-            # Dataset encodes BOW and EOW symbols for source. EOW
-            # for target. Removes these for SED training.
-            source = item.source.tolist()[1:-1]
-            target = item.target.tolist()[:-1]
-            actions.encode_actions(target)
-            if data.index.tie_embeddings:
-                actions.encode_actions(source)
-            yield source, target
+        assert data.has_target, """Passed dataset with no target to expert
+            module, cannot perform SED!"""
+        for sampl in data.samples:
+            source, target = sampl[0], sampl[-1]
+            yield [data.index(s) for s in source], [
+                data.index(t) for t in target
+            ]
 
-    def _encode_action_vocabulary(
-        data: data.Dataset, actions: ActionVocabulary
-    ) -> None:
-        """Encodes action vocabulary for expert oracle.
-
-        For instantiating SED objects from file.
-
-        Args:
-            data (data.Dataset): Dataset to iterate over.
-            actions (ActionVocabulary): Vocabulary object
-                to encode actions for expert.
-        """
-        for item in data:
-            # Ignores last symbol since EOW.
-            target = item.target.tolist()[:-1]
-            actions.encode_actions(target)
-            if data.index.tie_embeddings:
-                source = item.source.tolist()[1:-1]
-                actions.encode_actions(source)
-
-    actions = ActionVocabulary(unk_idx=train_data.index.unk_idx)
+    actions = ActionVocabulary(train_data.index)
     if sed_params_path:
-        sed_params = sed.ParamDict.read_params(sed_params_path)
-        sed_aligner = sed.StochasticEditDistance(sed_params)
-        # Loads vocabulary into action vocabulary.
-        _encode_action_vocabulary(train_data, actions)
-    else:
-        sed_aligner = sed.StochasticEditDistance.fit_from_data(
-            _generate_data_and_encode_vocabulary(train_data, actions),
-            epochs=epochs,
+        if fit_from_data:
+            sed_aligner = sed.StochasticEditDistance.fit_from_data(
+                _generate_data(train_data),
+                epochs=epochs,
+            )
+            sed_aligner.params.write_params(sed_params_path)
+        else:
+            sed_params = sed.ParamDict.read_params(sed_params_path)
+            sed_aligner = sed.StochasticEditDistance(sed_params)
+        return Expert(
+            actions, aligner=sed_aligner, oracle_factor=oracle_factor
         )
-    return Expert(actions, sed_aligner, oracle_factor=oracle_factor)
+    else:
+        return Expert(actions)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

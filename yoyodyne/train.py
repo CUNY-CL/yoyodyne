@@ -202,9 +202,14 @@ def get_model_from_argparse_args(
     expert = (
         models.expert.get_expert(
             datamodule.train_dataloader().dataset,
+            fit_from_data=args.train_from is None,
+            sed_params_path=(
+                args.sed_params
+                if args.sed_params
+                else f"{args.model_dir}/{args.experiment}/sed.pkl"
+            ),
             epochs=args.oracle_em_epochs,
             oracle_factor=args.oracle_factor,
-            sed_params_path=args.sed_params,
         )
         if args.arch in ["transducer"]
         else None
@@ -273,8 +278,16 @@ def get_model_from_argparse_args(
         source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
         start_idx=datamodule.index.start_idx,
-        target_vocab_size=datamodule.index.target_vocab_size,
-        vocab_size=datamodule.index.vocab_size,
+        target_vocab_size=(
+            len(expert.actions)
+            if expert is not None
+            else datamodule.index.target_vocab_size
+        ),
+        vocab_size=(
+            datamodule.index.vocab_size + len(expert.actions)
+            if expert is not None
+            else datamodule.index.vocab_size
+        ),
     )
 
 
