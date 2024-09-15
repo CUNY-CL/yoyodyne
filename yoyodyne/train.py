@@ -202,14 +202,13 @@ def get_model_from_argparse_args(
     expert = (
         models.expert.get_expert(
             datamodule.train_dataloader().dataset,
-            fit_from_data=args.train_from is None,
+            epochs=args.oracle_em_epochs,
+            oracle_factor=args.oracle_factor,
             sed_params_path=(
                 args.sed_params
                 if args.sed_params
                 else f"{args.model_dir}/{args.experiment}/sed.pkl"
             ),
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
         )
         if args.arch in ["transducer"]
         else None

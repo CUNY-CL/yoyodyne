@@ -429,25 +429,21 @@ class Expert(abc.ABC):
 
 def get_expert(
     train_data: data.Dataset,
-    fit_from_data: bool = True,
-    sed_params_path: str = "",
     epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
+    sed_params_path: str = "",
 ) -> Expert:
     """Generates expert object for training transducer.
 
     Args:
         data (data.Dataset): dataset for generating expert vocabulary.
-        fit_from_data (bool): bool determining whether sed values
-            should be learned via expectation-maximalization.
-            If false, no em training will be done.
-        sed_params_path (str): path to read/write location of sed parameters.
-            If fit_from_data is true, this is a write path.
-            If fit_from_data is false, this is a read path.
-            If empty string then creates 'dummy' expert.
         epochs (int): number of EM epochs.
         oracle_factor (float): scaling factor to determine rate of
             expert rollout sampling.
+        sed_params_path (str): path to read/write location of sed parameters.
+            If epochs > 0, this is a write path.
+            If epochs == 0, this is a read path.
+            If empty string then creates 'dummy' expert.
 
     Returns:
         expert.Expert.
@@ -479,7 +475,7 @@ def get_expert(
 
     actions = ActionVocabulary(train_data.index)
     if sed_params_path:
-        if fit_from_data:
+        if epochs:
             sed_aligner = sed.StochasticEditDistance.fit_from_data(
                 _generate_data(train_data),
                 epochs=epochs,
