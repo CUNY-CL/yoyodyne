@@ -1,7 +1,7 @@
 """Base model class, with PL integration."""
 
 import argparse
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 import lightning
 import torch
@@ -331,17 +331,22 @@ class BaseEncoderDecoder(lightning.LightningModule):
         _, indices = torch.max(predictions, dim=2)
         return indices
 
-    def configure_optimizers(self) -> optim.Optimizer:
-        """Gets the configured torch optimizer.
+    def configure_optimizers(
+        self,
+    ) -> Union[optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict]]]:
+        """Gets the configured torch optimizer and scheduler.
 
         This is called by the PL Trainer.
 
         Returns:
-            optim.Optimizer: optimizer for training.
+            Union[optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict]]].
         """
         optimizer = self._get_optimizer()
-        scheduler = self._get_lr_scheduler(optimizer[0])
-        return optimizer, scheduler
+        scheduler_cfg = self._get_lr_scheduler(optimizer)
+        if scheduler_cfg:
+            return [optimizer], [scheduler_cfg]
+        else:
+            return optimizer
 
     def _get_optimizer(self) -> optim.Optimizer:
         """Factory for selecting the optimizer.
@@ -359,24 +364,23 @@ class BaseEncoderDecoder(lightning.LightningModule):
         kwargs = {"lr": self.learning_rate}
         if self.optimizer == "adam":
             kwargs["betas"] = self.beta1, self.beta2
-        return [optimizer(self.parameters(), **kwargs)]
+        return optimizer(self.parameters(), **kwargs)
 
-    def _get_lr_scheduler(
-        self, optimizer: optim.Optimizer
-    ) -> optim.lr_scheduler:
+    def _get_lr_scheduler(self, optimizer: optim.Optimizer) -> Dict:
         """Factory for selecting the scheduler.
 
         Args:
             optimizer (optim.Optimizer): optimizer.
 
         Returns:
-            optim.lr_scheduler: LR scheduler for training.
+            Dict: LR scheduler configuration dictionary; if empty, no
+                scheduler is requested.
 
         Raises:
             NotImplementedError: LR scheduler not found.
         """
-        if self.scheduler is None:
-            return []
+        if not self.scheduler:
+            return {}
         try:
             scheduler_cls = _scheduler_fac[self.scheduler]
         except KeyError:
@@ -386,13 +390,13 @@ class BaseEncoderDecoder(lightning.LightningModule):
         scheduler = scheduler_cls(
             **dict(self.scheduler_kwargs, optimizer=optimizer)
         )
-        scheduler_cfg = {
-            "scheduler": scheduler,
-            "frequency": self.scheduler_kwargs["check_val_every_n_epoch"],
-        }
+        scheduler_cfg = {"scheduler": scheduler}
         if self.scheduler == "reduceonplateau":
             scheduler_cfg["monitor"] = scheduler.metric.monitor
-        return [scheduler_cfg]
+            scheduler_cfg["frequency"] = self.scheduler_kwargs[
+                "check_val_every_n_epoch"
+            ]
+        return scheduler_cfg
 
     def _get_loss_func(
         self,

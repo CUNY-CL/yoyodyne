@@ -288,11 +288,8 @@ not enabled by default.
 By default, Yoyodyne uses a constant learning rate during training, but best
 practice is to gradually decrease learning rate as the model approaches
 convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
-schedulers are supported and are selected with `--scheduler`:
+epoch-based schedulers are supported and are selected with `--scheduler`:
 
--   `lineardecay`: linearly decreases the learning rate (multiplying it by
-    `--start_factor`) for `--total_decay_steps` steps, then decreases the
-    learning rate by `--end_factor`.
 -   `reduceonplateau`: reduces the learning rate (multiplying it by
     `--reduceonplateau_factor`) after `--reduceonplateau_patience` epochs with
     no improvement (when validation loss stops decreasing if
@@ -300,7 +297,7 @@ schedulers are supported and are selected with `--scheduler`:
     `--reduceonplateau_metric accuracy`) until the learning rate is less than or
     equal to `--min_learning_rate`.
 -   `warmupinvsqrt`: linearly increases the learning rate from 0 to
-    `--learning_rate` for `--warmup_steps` steps, then decreases learning rate
+    `--learning_rate` for `--warmup_epochs` epochs, then decreases learning rate
     according to an inverse root square schedule.
 
 ## Tied embeddings

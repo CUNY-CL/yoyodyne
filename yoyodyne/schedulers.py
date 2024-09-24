@@ -1,4 +1,13 @@
-"""Custom schedulers."""
+"""Custom learning-rate schedulers.
+
+All schedulers are assumed to use epochs rather than steps and we redefine the
+classic linear-warmup inverse square-root scheduler in these terms.
+
+The restriction to epoch-based schedulers is implemented in the base model's
+`_get_lr_scheduler` method. To implement a step-based optimizer, this method
+needs a special case to add the key-value pair `"interval": "step"` to the
+scheduler_cfg` dictionary just in case a step-based optimizer is used.
+"""
 
 import argparse
 from typing import Dict
@@ -125,18 +134,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--warmup_epoch",
+        "--warmup_epochs",
         type=int,
         default=defaults.WARMUP_EPOCHS,
         help="Number of warmup epochs (warmupinvsqrt scheduler only). "
         "Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--total_decay_steps",
-        type=int,
-        default=defaults.TOTAL_DECAY_STEPS,
-        help="Number of iterations until the LR multiplier reaches "
-        "--end_factor (lineardecay scheduler only). Default: %(default)s.",
     )
     parser.add_argument(
         "--reduceonplateau_metric",
