@@ -44,16 +44,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     train.add_argparse_args(parser)
     parser.add_argument(
-        "--sweep_id", required=True, help="ID for the sweep.",
+        "--sweep_id",
+        required=True,
+        help="ID for the sweep.",
     )
+    parser.add_argument("--entity", required=True, help="Entity name.")
+    parser.add_argument("--project", required=True, help="Project name.")
     parser.add_argument(
-        "--entity", required=True, help="Entity name."
-    )
-    parser.add_argument(
-        "--project", required=True, help="Project name."
-    )
-    parser.add_argument(
-        "--count", type=int, help="Number of runs to perform.",
+        "--count",
+        type=int,
+        help="Number of runs to perform.",
     )
     args = parser.parse_args()
     # Forces log_wandb to True, so that the PTL trainer logs runtime metrics
