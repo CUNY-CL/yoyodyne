@@ -44,7 +44,7 @@ Then, one can retrieve the results as follows:
     CSV".
 
 Alternatively, one can use [`best_hyperparameters.py`](best_hyperparamaters.py)
-to retrieve the hyperparameters of the best run, formatted as Bash-style flags:
+to retrieve the hyperparameters of the best run, formatted as CLI flags:
 
     ./best_hyperparameters.py --entity "${ENTITY}" --project "${PROJECT}" \
          --sweep_id "${SWEEP_ID}"
