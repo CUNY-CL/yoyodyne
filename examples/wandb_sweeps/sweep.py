@@ -25,7 +25,7 @@ def train_sweep(args: argparse.Namespace) -> None:
     wandb.init()
     # Model arguments come from the wandb sweep config and override any
     # conflicting arguments passed via the CLI.
-    for key, value in dict(wandb.config).items():
+    for key, value in wandb.config.items():
         if key in args:
             util.log_info(f"Overriding CLI argument: {key}")
         setattr(args, key, value)
