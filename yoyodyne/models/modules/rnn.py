@@ -1,4 +1,4 @@
-"""LSTM model classes."""
+"""RNN model classes."""
 
 from typing import Tuple
 
@@ -9,8 +9,8 @@ from ... import data, defaults
 from . import attention, base
 
 
-class LSTMModule(base.BaseModule):
-    """Base encoder for LSTM.
+class RNNModule(base.BaseModule):
+    """Base encoder for RNN.
 
     Args:
         *args: passed to superclass.
@@ -38,8 +38,8 @@ class LSTMModule(base.BaseModule):
         return 2 if self.bidirectional else 1
 
 
-class LSTMEncoder(LSTMModule):
-    """LSTM encoder."""
+class RNNEncoder(RNNModule):
+    """RNN encoder."""
 
     def forward(self, source: data.PaddedTensor) -> base.ModuleOutput:
         """Encodes the input.
@@ -49,7 +49,7 @@ class LSTMEncoder(LSTMModule):
                 for source, of shape B x seq_len x 1.
 
         Returns:
-            base.ModuleOutput: encoded timesteps, and LSTM h0 and c0 cells.
+            base.ModuleOutput: encoded timesteps, and RNN h0 and c0 cells.
         """
         embedded = self.embed(source.padded)
         # Packs embedded source symbols into a PackedSequence.
@@ -66,7 +66,7 @@ class LSTMEncoder(LSTMModule):
         )
         return base.ModuleOutput(encoded, hiddens=(H, C))
 
-    def get_module(self) -> nn.LSTM:
+    def get_module(self) -> nn.RNN:
         return nn.LSTM(
             self.embedding_size,
             self.hidden_size,
@@ -82,11 +82,11 @@ class LSTMEncoder(LSTMModule):
 
     @property
     def name(self) -> str:
-        return "LSTM"
+        return "RNN"
 
 
-class LSTMDecoder(LSTMModule):
-    """LSTM decoder."""
+class RNNDecoder(RNNModule):
+    """RNN decoder."""
 
     def __init__(self, *args, decoder_input_size, **kwargs):
         self.decoder_input_size = decoder_input_size
@@ -113,7 +113,7 @@ class LSTMDecoder(LSTMModule):
 
         Returns:
             base.ModuleOutput:  decoder output, and the previous hidden states
-                from the decoder LSTM.
+                from the decoder RNN.
         """
         embedded = self.embed(symbol)
         # -> 1 x B x decoder_dim.
@@ -130,7 +130,7 @@ class LSTMDecoder(LSTMModule):
         )
         # -> B x 1 x encoder_dim.
         last_encoder_out = torch.gather(encoder_out, 1, last_encoder_out_idxs)
-        # The input to decoder LSTM is the embedding concatenated to the
+        # The input to decoder RNN is the embedding concatenated to the
         # weighted, encoded, inputs.
         output, hiddens = self.module(
             torch.cat((embedded, last_encoder_out), 2), last_hiddens
@@ -154,11 +154,11 @@ class LSTMDecoder(LSTMModule):
 
     @property
     def name(self) -> str:
-        return "LSTM"
+        return "RNN"
 
 
-class LSTMAttentiveDecoder(LSTMDecoder):
-    """Attentive LSTM decoder."""
+class RNNAttentiveDecoder(RNNDecoder):
+    """Attentive RNN decoder."""
 
     attention_input_size: int
 
@@ -190,7 +190,7 @@ class LSTMAttentiveDecoder(LSTMDecoder):
 
         Returns:
             base.ModuleOutput:  decoder output, and the previous hidden states
-                from the decoder LSTM.
+                from the decoder RNN.
         """
         embedded = self.embed(symbol)
         # -> 1 x B x decoder_dim.
@@ -206,11 +206,11 @@ class LSTMAttentiveDecoder(LSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "attentive LSTM"
+        return "attentive RNN"
 
 
-class HardAttentionLSTMDecoder(LSTMDecoder):
-    """Zeroth-order HMM hard attention LSTM decoder."""
+class HardAttentionRNNDecoder(RNNDecoder):
+    """Zeroth-order HMM hard attention RNN decoder."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -324,11 +324,11 @@ class HardAttentionLSTMDecoder(LSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "hard attention LSTM"
+        return "hard attention RNN"
 
 
-class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
-    """First-order HMM hard attention LSTM."""
+class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
+    """First-order HMM hard attention RNN."""
 
     def __init__(self, *args, attention_context, **kwargs):
         super().__init__(*args, **kwargs)
@@ -382,4 +382,4 @@ class ContextHardAttentionLSTMDecoder(HardAttentionLSTMDecoder):
 
     @property
     def name(self) -> str:
-        return "contextual hard attention LSTM"
+        return "contextual hard attention RNN"

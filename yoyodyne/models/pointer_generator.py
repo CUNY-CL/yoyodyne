@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from .. import data
-from . import lstm, modules, transformer
+from . import modules, rnn, transformer
 
 
 class Error(Exception):
@@ -146,10 +146,10 @@ class PointerGenerator(nn.Module):
         return loss
 
 
-class PointerGeneratorLSTMEncoderDecoder(
-    lstm.LSTMEncoderDecoder, PointerGenerator
+class PointerGeneratorRNNEncoderDecoder(
+    rnn.RNNEncoderDecoder, PointerGenerator
 ):
-    """Pointer-generator model with an LSTM backend.
+    """Pointer-generator model with an RNN backend.
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
@@ -192,8 +192,8 @@ class PointerGeneratorLSTMEncoderDecoder(
                 + self.features_encoder.output_size,
             )
 
-    def get_decoder(self) -> modules.lstm.LSTMAttentiveDecoder:
-        return modules.lstm.LSTMAttentiveDecoder(
+    def get_decoder(self) -> modules.rnn.RNNAttentiveDecoder:
+        return modules.rnn.RNNAttentiveDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -456,7 +456,7 @@ class PointerGeneratorLSTMEncoderDecoder(
 
     @property
     def name(self) -> str:
-        return "pointer-generator LSTM"
+        return "pointer-generator RNN"
 
 
 class PointerGeneratorTransformerEncoderDecoder(

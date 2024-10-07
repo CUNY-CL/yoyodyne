@@ -1,4 +1,4 @@
-"""LSTM model classes."""
+"""RNN model classes."""
 
 import argparse
 import heapq
@@ -11,8 +11,8 @@ from .. import data, defaults
 from . import base, embeddings, modules
 
 
-class LSTMEncoderDecoder(base.BaseEncoderDecoder):
-    """LSTM encoder-decoder without attention.
+class RNNEncoderDecoder(base.BaseEncoderDecoder):
+    """RNN encoder-decoder without attention.
 
     # TODO: Evaluate if this blurb is still correct.
     We achieve this by concatenating the last (non-padding) hidden state of
@@ -55,8 +55,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             num_embeddings, embedding_size, pad_idx
         )
 
-    def get_decoder(self) -> modules.lstm.LSTMDecoder:
-        return modules.lstm.LSTMDecoder(
+    def get_decoder(self) -> modules.rnn.RNNDecoder:
+        return modules.rnn.RNNDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -73,7 +73,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     def init_hiddens(
         self, batch_size: int, num_layers: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Initializes the hidden state to pass to the LSTM.
+        """Initializes the hidden state to pass to the RNN.
 
         Note that we learn the initial state h0 as a parameter of the model.
 
@@ -82,7 +82,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             num_layers (int).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: hidden cells for LSTM
+            Tuple[torch.Tensor, torch.Tensor]: hidden cells for RNN
                 initialization.
         """
         return (
@@ -117,7 +117,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 batch_size x target_vocab_size.
         """
         batch_size = encoder_mask.shape[0]
-        # Initializes hidden states for decoder LSTM.
+        # Initializes hidden states for decoder RNN.
         decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
         # Feed in the first decoder input, as a start tag.
         # -> B x 1.
@@ -199,7 +199,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
             )
-        # Initializes hidden states for decoder LSTM.
+        # Initializes hidden states for decoder RNN.
         decoder_hiddens = self.init_hiddens(
             encoder_out.size(0), self.decoder_layers
         )
@@ -328,11 +328,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
     @property
     def name(self) -> str:
-        return "LSTM"
+        return "RNN"
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds LSTM configuration options to the argument parser.
+        """Adds RNN configuration options to the argument parser.
 
         Args:
             parser (argparse.ArgumentParser).
@@ -341,7 +341,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             "--bidirectional",
             action="store_true",
             default=defaults.BIDIRECTIONAL,
-            help="Uses a bidirectional encoder (LSTM-backed architectures "
+            help="Uses a bidirectional encoder (RNN-backed architectures "
             "only. Default: enabled.",
         )
         parser.add_argument(
@@ -351,11 +351,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
 
 
-class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
-    """LSTM encoder-decoder with attention."""
+class AttentiveRNNEncoderDecoder(RNNEncoderDecoder):
+    """RNN encoder-decoder with attention."""
 
     def get_decoder(self):
-        return modules.lstm.LSTMAttentiveDecoder(
+        return modules.rnn.RNNAttentiveDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -372,4 +372,4 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
 
     @property
     def name(self) -> str:
-        return "attentive LSTM"
+        return "attentive RNN"

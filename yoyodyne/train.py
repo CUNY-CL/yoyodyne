@@ -140,8 +140,8 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
-        "hard_attention_lstm",
-        "pointer_generator_lstm",
+        "hard_attention_rnn",
+        "pointer_generator_rnn",
         "pointer_generator_transformer",
         "transducer",
     ]
@@ -185,7 +185,7 @@ def get_model_from_argparse_args(
     if (
         args.arch
         in [
-            "pointer_generator_lstm",
+            "pointer_generator_rnn",
             "pointer_generator_transformer",
             "transducer",
         ]
@@ -226,8 +226,8 @@ def get_model_from_argparse_args(
             args.features_encoder_arch
             or args.arch
             in [
-                "hard_attention_lstm",
-                "pointer_generator_lstm",
+                "hard_attention_rnn",
+                "pointer_generator_rnn",
                 "pointer_generator_transformer",
                 "transducer",
             ]
@@ -399,8 +399,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     evaluators.add_argparse_args(parser)
     # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.HardAttentionLSTM.add_argparse_args(parser)
-    models.LSTMEncoderDecoder.add_argparse_args(parser)
+    models.HardAttentionRNN.add_argparse_args(parser)
+    models.RNNEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
     # models.modules.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)

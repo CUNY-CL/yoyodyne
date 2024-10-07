@@ -7,10 +7,10 @@ import torch
 from torch import nn
 
 from .. import data, defaults
-from . import lstm, modules
+from . import modules, rnn
 
 
-class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
+class HardAttentionRNN(rnn.RNNEncoderDecoder):
     """Hard attention transducer.
 
     Learns probability distribution of target string by modeling transduction
@@ -406,9 +406,9 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         predictions, _ = self(batch)
         return predictions
 
-    def get_decoder(self) -> modules.lstm.HardAttentionLSTMDecoder:
+    def get_decoder(self) -> modules.rnn.HardAttentionRNNDecoder:
         if self.attention_context > 0:
-            return modules.lstm.ContextHardAttentionLSTMDecoder(
+            return modules.rnn.ContextHardAttentionRNNDecoder(
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,
@@ -427,7 +427,7 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
                 hidden_size=self.hidden_size,
             )
         else:
-            return modules.lstm.HardAttentionLSTMDecoder(
+            return modules.rnn.HardAttentionRNNDecoder(
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
                 end_idx=self.end_idx,

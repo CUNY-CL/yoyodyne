@@ -4,21 +4,21 @@ import argparse
 
 from .. import defaults
 from .base import BaseEncoderDecoder
-from .hard_attention import HardAttentionLSTM
-from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
+from .hard_attention import HardAttentionRNN
 from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoder,
+    PointerGeneratorRNNEncoderDecoder,
     PointerGeneratorTransformerEncoderDecoder,
 )
+from .rnn import AttentiveRNNEncoderDecoder, RNNEncoderDecoder
 from .transducer import TransducerEncoderDecoder
 from .transformer import TransformerEncoderDecoder
 
 _model_fac = {
-    "attentive_lstm": AttentiveLSTMEncoderDecoder,
-    "hard_attention_lstm": HardAttentionLSTM,
-    "lstm": LSTMEncoderDecoder,
-    "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
+    "attentive_rnn": AttentiveRNNEncoderDecoder,
+    "hard_attention_rnn": HardAttentionRNN,
+    "pointer_generator_rnn": PointerGeneratorRNNEncoderDecoder,
     "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
+    "rnn": RNNEncoderDecoder,
     "transducer": TransducerEncoderDecoder,
     "transformer": TransformerEncoderDecoder,
 }
@@ -69,7 +69,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--arch",
         choices=_model_fac.keys(),
-        default="attentive_lstm",
+        default="attentive_rnn",
         help="Model architecture. Default: %(default)s.",
     )
     parser.add_argument(

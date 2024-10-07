@@ -8,11 +8,11 @@ from maxwell import actions
 from torch import nn
 
 from .. import data, defaults, util
-from . import expert, lstm, modules
+from . import expert, modules, rnn
 
 
-class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
-    """Transducer model with an LSTM backend.
+class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
+    """Transducer model with an RNN backend.
 
     This uses a trained oracle for imitation learning edits.
 
@@ -50,8 +50,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
 
-    def get_decoder(self) -> modules.lstm.LSTMDecoder:
-        return modules.lstm.LSTMDecoder(
+    def get_decoder(self) -> modules.rnn.RNNDecoder:
+        return modules.rnn.RNNDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -199,7 +199,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 last_action.unsqueeze(dim=1),
                 last_hiddens,
                 encoder_out,
-                # To accomodate LSTMDecoder. See encoder_mask behavior.
+                # Accomodates RNNDecoder; see encoder_mask behavior.
                 ~(alignment.unsqueeze(1) + 1),
             )
             decoded, last_hiddens = (

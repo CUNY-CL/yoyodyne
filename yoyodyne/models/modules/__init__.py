@@ -4,7 +4,7 @@ import argparse
 
 from .base import BaseModule
 from .linear import LinearEncoder
-from .lstm import LSTMAttentiveDecoder, LSTMDecoder, LSTMEncoder  # noqa: F401
+from .rnn import RNNAttentiveDecoder, RNNDecoder, RNNEncoder  # noqa: F401
 from .transformer import TransformerDecoder  # noqa F401
 from .transformer import FeatureInvariantTransformerEncoder, TransformerEncoder
 
@@ -20,17 +20,17 @@ class EncoderMismatchError(Error):
 _encoder_fac = {
     "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
     "linear": LinearEncoder,
-    "lstm": LSTMEncoder,
+    "rnn": RNNEncoder,
     "transformer": TransformerEncoder,
 }
 _model_to_encoder_fac = {
-    "attentive_lstm": LSTMEncoder,
-    "lstm": LSTMEncoder,
-    "pointer_generator_lstm": LSTMEncoder,
+    "attentive_rnn": RNNEncoder,
+    "rnn": RNNEncoder,
+    "pointer_generator_rnn": RNNEncoder,
     "pointer_generator_transformer": TransformerEncoder,
-    "transducer": LSTMEncoder,
+    "transducer": RNNEncoder,
     "transformer": TransformerEncoder,
-    "hard_attention_lstm": LSTMEncoder,
+    "hard_attention_rnn": RNNEncoder,
 }
 
 
@@ -86,7 +86,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=["linear", "lstm", "transformer"],
+        choices=["linear", "rnn", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
 

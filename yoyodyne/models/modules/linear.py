@@ -26,7 +26,7 @@ class LinearEncoder(LinearModule):
 
         Returns:
             Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-                encoded timesteps, and the LSTM h0 and c0 cells.
+                encoded timesteps, and the RNN h0 and c0 cells.
         """
         return base.ModuleOutput(self.embed(source.padded))
 
