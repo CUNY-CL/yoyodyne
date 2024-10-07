@@ -200,6 +200,10 @@ class BaseEncoderDecoder(lightning.LightningModule):
         raise NotImplementedError
 
     @property
+    def num_parameters(self) -> int:
+        return sum(part.numel() for part in self.parameters())
+
+    @property
     def has_features_encoder(self):
         return self.features_encoder is not None
 
