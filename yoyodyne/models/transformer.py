@@ -31,12 +31,12 @@ class TransformerModel(base.BaseModel):
         source_attention_heads=defaults.SOURCE_ATTENTION_HEADS,
         **kwargs,
     ):
+        self.source_attention_heads = source_attention_heads
         super().__init__(
             *args,
             source_attention_heads=source_attention_heads,
             **kwargs,
         )
-        self.source_attention_heads = source_attention_heads
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
