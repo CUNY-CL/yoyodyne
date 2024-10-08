@@ -24,7 +24,7 @@ FEATURES_SEP = ";"
 TIED_VOCABULARY = True
 
 # Architecture arguments.
-ARCH = "attentive_rnn"
+ARCH = "attentive_lstm"
 ATTENTION_CONTEXT = 0
 BIDIRECTIONAL = True
 DECODER_LAYERS = 1
