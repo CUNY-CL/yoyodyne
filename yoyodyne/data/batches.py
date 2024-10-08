@@ -47,10 +47,7 @@ class PaddedTensor(nn.Module):
         self.register_buffer(
             "padded",
             torch.stack(
-                [
-                    self.pad_tensor(tensor, special.PAD_IDX, pad_len)
-                    for tensor in tensorlist
-                ],
+                [self.pad_tensor(tensor, pad_len) for tensor in tensorlist],
             ),
         )
         self.register_buffer("mask", self.padded == special.PAD_IDX)
