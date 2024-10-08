@@ -473,8 +473,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 prediction[i].append(a.new)
             elif isinstance(a, actions.End):
                 prediction[i].append(special.END_IDX)
-        else:
-            raise expert.ActionError(f"Unknown action: {action[i]}")
+            else:
+                raise expert.ActionError(f"Unknown action: {action[i]}")
         return alignment + alignment_update
 
     @staticmethod
