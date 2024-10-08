@@ -46,7 +46,6 @@ class PaddedTensor(nn.Module):
             pad_len = max(len(tensor) for tensor in tensorlist)
         if length_msg_callback is not None:
             length_msg_callback(pad_len)
-        self.pad_idx = pad_idx
         self.register_buffer(
             "padded",
             torch.stack(
