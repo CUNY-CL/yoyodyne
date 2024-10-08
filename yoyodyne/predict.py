@@ -101,7 +101,9 @@ def predict(
     with open(output, "w", encoding=defaults.ENCODING) as sink:
         for batch in trainer.predict(model, loader):
             batch = util.pad_tensor_after_eos(
-                batch, datamodule.index.end_idx, datamodule.index.pad_idx
+                batch,
+                datamodule.index.end_idx,
+                datamodule.index.pad_idx,
             )
             for prediction in loader.dataset.decode_target(batch):
                 print(prediction, file=sink)
@@ -115,7 +117,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     # Path arguments.
     parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
+        "--checkpoint",
+        required=True,
+        help="Path to checkpoint (.ckpt).",
     )
     parser.add_argument(
         "--model_dir",

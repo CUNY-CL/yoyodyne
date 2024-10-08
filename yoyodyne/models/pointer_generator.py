@@ -32,7 +32,10 @@ class GenerationProbability(nn.Module):
     bias: nn.Parameter
 
     def __init__(
-        self, embedding_size: int, hidden_size: int, attention_size: int
+        self,
+        embedding_size: int,
+        hidden_size: int,
+        attention_size: int,
     ):
         super().__init__()
         self.W_emb = nn.Linear(embedding_size, 1, bias=False)
@@ -192,8 +195,8 @@ class PointerGeneratorRNNEncoderDecoder(
                 + self.features_encoder.output_size,
             )
 
-    def get_decoder(self) -> modules.rnn.RNNAttentiveDecoder:
-        return modules.rnn.RNNAttentiveDecoder(
+    def get_decoder(self) -> modules.rnn.AttentiveRNNDecoder:
+        return modules.rnn.AttentiveRNNDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -417,7 +420,7 @@ class PointerGeneratorRNNEncoderDecoder(
                     batch.source.padded,
                     last_hiddens,
                     self.teacher_forcing if self.training else False,
-                    target=batch.target.padded if batch.target else None,
+                    target=(batch.target.padded if batch.target else None),
                 )
         else:
             features_encoder_output = self.features_encoder(batch.features)
@@ -448,7 +451,10 @@ class PointerGeneratorRNNEncoderDecoder(
 
     @staticmethod
     def _reshape_hiddens(
-        h: torch.Tensor, c: torch.Tensor, layers: int, num_directions: int
+        h: torch.Tensor,
+        c: torch.Tensor,
+        layers: int,
+        num_directions: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         h = h.view(layers, num_directions, h.size(1), h.size(2)).sum(axis=1)
         c = c.view(layers, num_directions, c.size(1), c.size(2)).sum(axis=1)
@@ -681,7 +687,9 @@ class PointerGeneratorTransformerEncoderDecoder(
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
-                    [self.start_idx], device=self.device, dtype=torch.long
+                    [self.start_idx],
+                    device=self.device,
+                    dtype=torch.long,
                 )
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)

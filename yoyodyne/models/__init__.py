@@ -4,22 +4,30 @@ import argparse
 
 from .. import defaults
 from .base import BaseEncoderDecoder
-from .hard_attention import HardAttentionRNN
-from .pointer_generator import (
-    PointerGeneratorRNNEncoderDecoder,
-    PointerGeneratorTransformerEncoderDecoder,
-)
-from .rnn import AttentiveRNNEncoderDecoder, RNNEncoderDecoder
-from .transducer import TransducerEncoderDecoder
+
+# from .hard_attention import HardAttentionGRU
+# from .pointer_generator import (
+#    PointerGeneratorGRUEncoderDecoder,
+#    PointerGeneratorTransformerEncoderDecoder,
+# )
+from .rnn import AttentiveGRUEncoderDecoder  # noqa: F401
+from .rnn import AttentiveLSTMEncoderDecoder  # noqa: F401
+from .rnn import GRUEncoderDecoder  # noqa: F401
+from .rnn import LSTMEncoderDecoder  # noqa: F401
+from .rnn import RNNEncoderDecoder  # noqa: F401
+
+# from .transducer import TransducerEncoderDecoder
 from .transformer import TransformerEncoderDecoder
 
 _model_fac = {
-    "attentive_rnn": AttentiveRNNEncoderDecoder,
-    "hard_attention_rnn": HardAttentionRNN,
-    "pointer_generator_rnn": PointerGeneratorRNNEncoderDecoder,
-    "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
-    "rnn": RNNEncoderDecoder,
-    "transducer": TransducerEncoderDecoder,
+    "attentive_gru": AttentiveGRUEncoderDecoder,
+    "attentive_lstm": AttentiveLSTMEncoderDecoder,
+    # "hard_attention_gru": HardAttentionGRU,
+    # "pointer_generator_gru": PointerGeneratorGRUEncoderDecoder,
+    # "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: E501
+    "gru": GRUEncoderDecoder,
+    "lstm": LSTMEncoderDecoder,
+    # "transducer": TransducerEncoderDecoder,
     "transformer": TransformerEncoderDecoder,
 }
 

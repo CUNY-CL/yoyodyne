@@ -123,7 +123,7 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
             last_hiddens,
             source_padded,
             source_mask,
-            teacher_forcing=self.teacher_forcing if self.training else False,
+            teacher_forcing=(self.teacher_forcing if self.training else False),
             target=batch.target.padded if batch.target else None,
             target_mask=batch.target.mask if batch.target else None,
         )
@@ -192,7 +192,9 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
                 break
             # Proceeds to make new edit; new action for all current decoding.
             action_count = torch.where(
-                not_complete.to(self.device), action_count + 1, action_count
+                not_complete.to(self.device),
+                action_count + 1,
+                action_count,
             )
             # Decoding.
             decoder_output = self.decoder(
@@ -210,7 +212,11 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
             # If given targets, asks expert for optimal actions.
             optim_actions = (
                 self.batch_expert_rollout(
-                    source, target, alignment, prediction, not_complete
+                    source,
+                    target,
+                    alignment,
+                    prediction,
+                    not_complete,
                 )
                 if target is not None
                 else None
@@ -220,7 +226,7 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
                 alignment,
                 input_length,
                 not_complete,
-                optim_actions=optim_actions if teacher_forcing else None,
+                optim_actions=(optim_actions if teacher_forcing else None),
             )
             alignment = self.update_prediction(
                 last_action, source, alignment, prediction
@@ -262,7 +268,7 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
         # Finds valid actions given remaining input length.
         end_of_input = (input_length - alignment) <= 1  # 1 -> Last char.
         valid_actions = [
-            self.compute_valid_actions(eoi) if nc else [self.actions.end_idx]
+            (self.compute_valid_actions(eoi) if nc else [self.actions.end_idx])
             for eoi, nc in zip(end_of_input, not_complete)
         ]
         # Masks invalid actions.
@@ -324,7 +330,7 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
         if optim_actions is None:
             # Argmax decoding.
             next_action = [
-                torch.argmax(probs, dim=0) if nc else self.actions.end_idx
+                (torch.argmax(probs, dim=0) if nc else self.actions.end_idx)
                 for probs, nc in zip(log_probs, not_complete)
             ]
         else:
@@ -333,7 +339,7 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
                 if self.expert.explore():
                     # Action is picked by random exploration.
                     next_action = [
-                        self.sample(probs) if nc else self.actions.end_idx
+                        (self.sample(probs) if nc else self.actions.end_idx)
                         for probs, nc in zip(log_probs, not_complete)
                     ]
                 else:

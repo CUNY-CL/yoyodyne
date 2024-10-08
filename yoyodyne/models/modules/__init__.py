@@ -4,9 +4,17 @@ import argparse
 
 from .base import BaseModule
 from .linear import LinearEncoder
-from .rnn import RNNAttentiveDecoder, RNNDecoder, RNNEncoder  # noqa: F401
-from .transformer import TransformerDecoder  # noqa F401
-from .transformer import FeatureInvariantTransformerEncoder, TransformerEncoder
+from .rnn import AttentiveGRUDecoder  # noqa: F401
+from .rnn import AttentiveLSTMDecoder  # noqa: F401
+from .rnn import GRUDecoder  # noqa: F401
+from .rnn import GRUEncoder  # noqa: F401
+from .rnn import LSTMDecoder  # noqa: F401
+from .rnn import LSTMEncoder  # noqa: F401
+from .transformer import TransformerDecoder  # noqa: F401
+from .transformer import (
+    FeatureInvariantTransformerEncoder,
+    TransformerEncoder,
+)
 
 
 class Error(Exception):
@@ -20,17 +28,20 @@ class EncoderMismatchError(Error):
 _encoder_fac = {
     "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
     "linear": LinearEncoder,
-    "rnn": RNNEncoder,
+    "gru": GRUEncoder,
+    "lstm": LSTMEncoder,
     "transformer": TransformerEncoder,
 }
 _model_to_encoder_fac = {
-    "attentive_rnn": RNNEncoder,
-    "rnn": RNNEncoder,
-    "pointer_generator_rnn": RNNEncoder,
-    "pointer_generator_transformer": TransformerEncoder,
-    "transducer": RNNEncoder,
+    "attentive_gru": GRUEncoder,
+    "attentive_lstm": LSTMEncoder,
+    "gru": GRUEncoder,
+    "lstm": LSTMEncoder,
+    # "pointer_generator_gru": GRUEncoder,
+    # "pointer_generator_transformer": TransformerEncoder,
+    # "transducer": GRUEncoder,
     "transformer": TransformerEncoder,
-    "hard_attention_rnn": RNNEncoder,
+    # "hard_attention_gru": GRUEncoder,
 }
 
 
@@ -86,7 +97,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=["linear", "rnn", "transformer"],
+        choices=["linear", "gru", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
 

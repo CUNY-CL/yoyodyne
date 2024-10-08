@@ -226,7 +226,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def get_scheduler_kwargs_from_argparse_args(args: argparse.Namespace) -> Dict:
+def get_scheduler_kwargs_from_argparse_args(
+    args: argparse.Namespace,
+) -> Dict:
     """Gets the Dict of kwargs that will be used to instantiate the scheduler.
 
     Args:

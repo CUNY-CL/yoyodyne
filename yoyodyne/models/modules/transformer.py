@@ -1,4 +1,4 @@
-"""Transformer model classes."""
+"""Transformer module classes."""
 
 from typing import List, Optional, Tuple
 
@@ -52,7 +52,9 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("positional_encoding", positional_encoding)
 
     def forward(
-        self, symbols: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self,
+        symbols: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Computes the positional encoding.
 
@@ -623,7 +625,11 @@ class TransformerPointerDecoder(TransformerDecoder):
     """
 
     def __init__(
-        self, *args, separate_features, features_attention_heads, **kwargs
+        self,
+        *args,
+        separate_features,
+        features_attention_heads,
+        **kwargs,
     ):
         self.separate_features = separate_features
         self.features_attention_heads = features_attention_heads

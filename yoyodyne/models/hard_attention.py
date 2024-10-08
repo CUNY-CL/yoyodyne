@@ -274,7 +274,9 @@ class HardAttentionRNN(rnn.RNNEncoderDecoder):
                 break
             # Pads if finished decoding.
             pred = torch.where(
-                ~finished, pred, torch.tensor(self.end_idx, device=self.device)
+                ~finished,
+                pred,
+                torch.tensor(self.end_idx, device=self.device),
             )
             predictions = torch.cat((predictions, pred), dim=-1)
             # Updates likelihood emissions.
@@ -334,7 +336,9 @@ class HardAttentionRNN(rnn.RNNEncoderDecoder):
         return output * pad_mask
 
     @staticmethod
-    def _apply_mono_mask(transition_prob: torch.Tensor) -> torch.Tensor:
+    def _apply_mono_mask(
+        transition_prob: torch.Tensor,
+    ) -> torch.Tensor:
         """Applies monotonic attention mask to transition probabilities.
 
         Enforces a 0 log-probability values for all non-monotonic relations
@@ -472,7 +476,9 @@ class HardAttentionRNN(rnn.RNNEncoderDecoder):
             fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
             fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
             fwd = fwd + self._gather_at_idx(
-                log_probs[tgt_char_idx], target[:, tgt_char_idx], self.pad_idx
+                log_probs[tgt_char_idx],
+                target[:, tgt_char_idx],
+                self.pad_idx,
             )
         loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
         return loss

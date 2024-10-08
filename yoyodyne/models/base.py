@@ -63,32 +63,32 @@ class BaseEncoderDecoder(lightning.LightningModule):
     def __init__(
         self,
         *,
-        pad_idx,
-        start_idx,
         end_idx,
-        vocab_size,
         features_vocab_size,
-        target_vocab_size,
+        pad_idx,
         source_encoder_cls,
-        eval_metrics=defaults.EVAL_METRICS,
-        features_encoder_cls=None,
+        start_idx,
+        target_vocab_size,
+        vocab_size,
+        beam_width=defaults.BEAM_WIDTH,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
+        decoder_layers=defaults.DECODER_LAYERS,
+        dropout=defaults.DROPOUT,
+        embedding_size=defaults.EMBEDDING_SIZE,
+        encoder_layers=defaults.ENCODER_LAYERS,
+        eval_metrics=defaults.EVAL_METRICS,
+        features_encoder_cls=None,
+        hidden_size=defaults.HIDDEN_SIZE,
+        label_smoothing=defaults.LABEL_SMOOTHING,
         learning_rate=defaults.LEARNING_RATE,
+        max_source_length=defaults.MAX_SOURCE_LENGTH,
+        max_target_length=defaults.MAX_TARGET_LENGTH,
         optimizer=defaults.OPTIMIZER,
         scheduler=None,
         scheduler_kwargs=None,
-        dropout=defaults.DROPOUT,
-        label_smoothing=defaults.LABEL_SMOOTHING,
         teacher_forcing=defaults.TEACHER_FORCING,
-        beam_width=defaults.BEAM_WIDTH,
-        max_source_length=defaults.MAX_SOURCE_LENGTH,
-        max_target_length=defaults.MAX_TARGET_LENGTH,
-        encoder_layers=defaults.ENCODER_LAYERS,
-        decoder_layers=defaults.DECODER_LAYERS,
-        embedding_size=defaults.EMBEDDING_SIZE,
-        hidden_size=defaults.HIDDEN_SIZE,
-        **kwargs,  # Ignored.
+        **kwargs,
     ):
         super().__init__()
         # Symbol processing.
@@ -133,31 +133,31 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         # Instantiates encoders class.
         self.source_encoder = source_encoder_cls(
+            dropout=self.dropout,
+            embedding_size=self.embedding_size,
+            embeddings=self.embeddings,
+            end_idx=self.end_idx,
+            features_vocab_size=features_vocab_size,
+            hidden_size=self.hidden_size,
+            layers=self.encoder_layers,
+            max_source_length=max_source_length,
+            num_embeddings=self.vocab_size,
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
-            end_idx=self.end_idx,
-            embeddings=self.embeddings,
-            embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            layers=self.encoder_layers,
-            hidden_size=self.hidden_size,
-            features_vocab_size=features_vocab_size,
-            max_source_length=max_source_length,
             **kwargs,
         )
         self.features_encoder = (
             features_encoder_cls(
+                dropout=self.dropout,
+                embedding_size=self.embedding_size,
+                embeddings=self.embeddings,
+                hidden_size=self.hidden_size,
+                layers=self.encoder_layers,
+                end_idx=self.end_idx,
+                max_source_length=max_source_length,
+                num_embeddings=self.vocab_size,
                 pad_idx=self.pad_idx,
                 start_idx=self.start_idx,
-                end_idx=self.end_idx,
-                embeddings=self.embeddings,
-                embedding_size=self.embedding_size,
-                num_embeddings=self.vocab_size,
-                dropout=self.dropout,
-                layers=self.encoder_layers,
-                hidden_size=self.hidden_size,
-                max_source_length=max_source_length,
                 **kwargs,
             )
             if features_encoder_cls is not None
@@ -166,7 +166,12 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self.decoder = self.get_decoder()
         # Saves hyperparameters for PL checkpointing.
         self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "expert", "features_encoder"]
+            ignore=[
+                "source_encoder",
+                "decoder",
+                "expert",
+                "features_encoder",
+            ]
         )
         # Logs the module names.
         util.log_info(f"Model: {self.name}")
@@ -257,7 +262,10 @@ class BaseEncoderDecoder(lightning.LightningModule):
         # Gets a dict of all eval metrics for this batch.
         val_eval_items_dict = {
             evaluator.name: evaluator.evaluate(
-                greedy_predictions, target_padded, self.end_idx, self.pad_idx
+                greedy_predictions,
+                target_padded,
+                self.end_idx,
+                self.pad_idx,
             )
             for evaluator in self.evaluators
         }

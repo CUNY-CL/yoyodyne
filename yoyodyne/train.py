@@ -199,16 +199,16 @@ def get_model_from_argparse_args(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
     # Loads expert if needed.
-    expert = (
-        models.expert.get_expert(
-            datamodule.train_dataloader().dataset,
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
-            sed_params_path=args.sed_params,
-        )
-        if args.arch in ["transducer"]
-        else None
-    )
+    # expert = (
+    #    models.expert.get_expert(
+    #        datamodule.train_dataloader().dataset,
+    #        epochs=args.oracle_em_epochs,
+    #        oracle_factor=args.oracle_factor,
+    #        sed_params_path=args.sed_params,
+    #    )
+    #    if args.arch in ["transducer"]
+    #    else None
+    # )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
     # either:
@@ -216,10 +216,11 @@ def get_model_from_argparse_args(
     #   the requested module), or
     # - no specific features encoder module is requested, but the model
     #   requires that we use a separate features encoder (in which case we use
-    #   the same module as the source encoder).
+    #   the same type of module as the source encoder).
     features_encoder_cls = (
         models.modules.get_encoder_cls(
-            encoder_arch=args.features_encoder_arch, model_arch=args.arch
+            encoder_arch=args.features_encoder_arch,
+            model_arch=args.arch,
         )
         if datamodule.has_features
         and (
@@ -246,7 +247,7 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        attention_context=args.attention_context,
+        # attention_context=args.attention_context,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -255,9 +256,9 @@ def get_model_from_argparse_args(
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         end_idx=datamodule.index.end_idx,
-        enforce_monotonic=args.enforce_monotonic,
+        # enforce_monotonic=args.enforce_monotonic,
         eval_metrics=eval_metrics,
-        expert=expert,
+        # expert=expert,
         features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
@@ -341,7 +342,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to input validation data TSV.",
     )
     parser.add_argument(
-        "--train_from", help="Path to checkpoint used to resume training."
+        "--train_from",
+        help="Path to checkpoint used to resume training.",
     )
     # Other training arguments.
     parser.add_argument(
@@ -390,20 +392,18 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     data.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
+    # models.expert.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
+    models.BaseEncoderDecoder.add_argparse_args(parser)
+    # models.HardAttentionRNN.add_argparse_args(parser)
+    models.RNNEncoderDecoder.add_argparse_args(parser)
+    models.TransformerEncoderDecoder.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Automatic batch sizing-specific arguments.
     sizing.add_argparse_args(parser)
     # Evaluation-specific arguments.
     evaluators.add_argparse_args(parser)
-    # Architecture-specific arguments.
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.HardAttentionRNN.add_argparse_args(parser)
-    models.RNNEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
-    # models.modules.BaseEncoder.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
