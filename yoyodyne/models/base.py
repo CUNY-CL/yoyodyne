@@ -16,7 +16,7 @@ _optim_fac = {
     "sgd": optim.SGD,
 }
 _scheduler_fac = {
-    "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
+    "warmupinvsqrt": schedulers.WarmupInverseSquareRoot,
     "reduceonplateau": schedulers.ReduceOnPlateau,
 }
 
@@ -373,30 +373,13 @@ class BaseEncoderDecoder(lightning.LightningModule):
             optimizer (optim.Optimizer): optimizer.
 
         Returns:
-            Dict: LR scheduler configuration dictionary; if empty, no
-                scheduler is requested.
-
-        Raises:
-            NotImplementedError: LR scheduler not found.
+            Dict: LR scheduler configuration dictionary.
         """
         if not self.scheduler:
             return {}
-        try:
-            scheduler_cls = _scheduler_fac[self.scheduler]
-        except KeyError:
-            raise NotImplementedError(
-                f"LR scheduler not found: {self.scheduler}"
-            )
-        scheduler = scheduler_cls(
-            **dict(self.scheduler_kwargs, optimizer=optimizer)
+        return schedulers.get_scheduler_cfg(
+            self.scheduler, optimizer, **dict(self.scheduler_kwargs)
         )
-        scheduler_cfg = {"scheduler": scheduler}
-        if self.scheduler == "reduceonplateau":
-            scheduler_cfg["monitor"] = scheduler.metric.monitor
-            scheduler_cfg["frequency"] = self.scheduler_kwargs[
-                "check_val_every_n_epoch"
-            ]
-        return scheduler_cfg
 
     def _get_loss_func(
         self,
