@@ -81,7 +81,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--arch",
         choices=_model_fac.keys(),
-        default="attentive_rnn",
+        default=defaults.ARCH,
         help="Model architecture. Default: %(default)s.",
     )
     parser.add_argument(
