@@ -287,8 +287,8 @@ not enabled by default.
 
 By default, Yoyodyne uses a constant learning rate during training, but best
 practice is to gradually decrease learning rate as the model approaches
-convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
-epoch-based schedulers are supported and are selected with `--scheduler`:
+convergence using a [scheduler](yoyodyne/schedulers.py). The following -based
+schedulers are supported and are selected with `--scheduler`:
 
 -   `reduceonplateau`: reduces the learning rate (multiplying it by
     `--reduceonplateau_factor`) after `--reduceonplateau_patience` epochs with
@@ -297,14 +297,14 @@ epoch-based schedulers are supported and are selected with `--scheduler`:
     `--reduceonplateau_metric accuracy`) until the learning rate is less than or
     equal to `--min_learning_rate`.
 -   `warmupinvsqrt`: linearly increases the learning rate from 0 to
-    `--learning_rate` for `--warmup_epochs` epochs, then decreases learning rate
+    `--learning_rate` for `--warmup_steps` steps, then decreases learning rate
     according to an inverse root square schedule.
 
 ## Tied embeddings
 
 By default, the source and target vocabularies are shared. This can be disabled
-with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes
-between source and target symbols.
+with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes between
+source and target symbols.
 
 ### Batch size tricks
 

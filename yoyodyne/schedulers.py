@@ -168,6 +168,7 @@ _scheduler_fac = {
     "reduceonplateau": ReduceOnPlateau,
     "warmupinvsqrt": WarmupInverseSquareRoot,
 }
+SCHEDULERS = _scheduler_fac.keys()
 
 
 def get_scheduler_cfg(
@@ -176,7 +177,7 @@ def get_scheduler_cfg(
     try:
         scheduler_cls = _scheduler_fac[scheduler]
     except KeyError:
-        return {}
+        raise NotImplementedError(f"Scheduler not found: {scheduler}")
     scheduler = scheduler_cls(optimizer, *args, **kwargs)
     config = scheduler.config_dict()
     # We also add the scheduler itself to the dictionary.

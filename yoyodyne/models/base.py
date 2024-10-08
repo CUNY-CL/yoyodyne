@@ -1,24 +1,14 @@
 """Base model class, with PL integration."""
 
 import argparse
-from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import lightning
 import torch
 from torch import nn, optim
 
-from .. import data, defaults, evaluators, schedulers, util
+from .. import data, defaults, evaluators, optimizers, schedulers, util
 from . import modules
-
-_optim_fac = {
-    "adadelta": optim.Adadelta,
-    "adam": optim.Adam,
-    "sgd": optim.SGD,
-}
-_scheduler_fac = {
-    "warmupinvsqrt": schedulers.WarmupInverseSquareRoot,
-    "reduceonplateau": schedulers.ReduceOnPlateau,
-}
 
 
 class BaseEncoderDecoder(lightning.LightningModule):
@@ -333,13 +323,16 @@ class BaseEncoderDecoder(lightning.LightningModule):
 
     def configure_optimizers(
         self,
-    ) -> Union[optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict]]]:
+    ) -> Union[
+        optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict[str, Any]]]
+    ]:
         """Gets the configured torch optimizer and scheduler.
 
         This is called by the PL Trainer.
 
         Returns:
-            Union[optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict]]].
+            Union[optim.Optimizer,
+                  Tuple[List[optim.Optimizer], List[Dict[str, Any]]].
         """
         optimizer = self._get_optimizer()
         scheduler_cfg = self._get_lr_scheduler(optimizer)
@@ -357,16 +350,11 @@ class BaseEncoderDecoder(lightning.LightningModule):
         Raises:
             NotImplementedError: Optimizer not found.
         """
-        try:
-            optimizer = _optim_fac[self.optimizer]
-        except KeyError:
-            raise NotImplementedError(f"Optimizer not found: {self.optimizer}")
-        kwargs = {"lr": self.learning_rate}
-        if self.optimizer == "adam":
-            kwargs["betas"] = self.beta1, self.beta2
-        return optimizer(self.parameters(), **kwargs)
+        return optimizers.get_optimizer_cfg(
+            self.optimizer, self.learning_rate, self.beta1, self.beta2
+        )
 
-    def _get_lr_scheduler(self, optimizer: optim.Optimizer) -> Dict:
+    def _get_lr_scheduler(self, optimizer: optim.Optimizer) -> Dict[str, Any]:
         """Factory for selecting the scheduler.
 
         Args:
@@ -425,13 +413,13 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         parser.add_argument(
             "--optimizer",
-            choices=_optim_fac.keys(),
+            choices=optimizers.OPTIMIZERS,
             default=defaults.OPTIMIZER,
             help="Optimizer. Default: %(default)s.",
         )
         parser.add_argument(
             "--scheduler",
-            choices=_scheduler_fac.keys(),
+            choices=schedulers.SCHEDULERS,
             help="Learning rate scheduler.",
         )
         # Regularization arguments.
