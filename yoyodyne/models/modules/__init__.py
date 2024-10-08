@@ -27,8 +27,8 @@ class EncoderMismatchError(Error):
 
 _encoder_fac = {
     "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
-    "linear": LinearEncoder,
     "gru": GRUEncoder,
+    "linear": LinearEncoder,
     "lstm": LSTMEncoder,
     "transformer": TransformerEncoder,
 }
@@ -37,8 +37,9 @@ _model_to_encoder_fac = {
     "attentive_lstm": LSTMEncoder,
     "gru": GRUEncoder,
     "lstm": LSTMEncoder,
-    # "pointer_generator_gru": GRUEncoder,
-    # "pointer_generator_transformer": TransformerEncoder,
+    "pointer_generator_gru": GRUEncoder,
+    "pointer_generator_lstm": LSTMEncoder,
+    "pointer_generator_transformer": TransformerEncoder,
     # "transducer": GRUEncoder,
     "transformer": TransformerEncoder,
     # "hard_attention_gru": GRUEncoder,
@@ -97,7 +98,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=["linear", "gru", "transformer"],
+        choices=["gru", "linear", "lstm", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
 

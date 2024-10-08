@@ -6,10 +6,13 @@ from .. import defaults
 from .base import BaseEncoderDecoder
 
 # from .hard_attention import HardAttentionGRU
-# from .pointer_generator import (
-#    PointerGeneratorGRUEncoderDecoder,
-#    PointerGeneratorTransformerEncoderDecoder,
-# )
+from .pointer_generator import PointerGeneratorGRUEncoderDecoder  # noqa: F401
+from .pointer_generator import (
+    PointerGeneratorLSTMEncoderDecoder,
+)  # noqa: E501, F401
+from .pointer_generator import (
+    PointerGeneratorTransformerEncoderDecoder,
+)  # noqa: E501, F401
 from .rnn import AttentiveGRUEncoderDecoder  # noqa: F401
 from .rnn import AttentiveLSTMEncoderDecoder  # noqa: F401
 from .rnn import GRUEncoderDecoder  # noqa: F401
@@ -23,8 +26,9 @@ _model_fac = {
     "attentive_gru": AttentiveGRUEncoderDecoder,
     "attentive_lstm": AttentiveLSTMEncoderDecoder,
     # "hard_attention_gru": HardAttentionGRU,
-    # "pointer_generator_gru": PointerGeneratorGRUEncoderDecoder,
-    # "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: E501
+    "pointer_generator_gru": PointerGeneratorGRUEncoderDecoder,
+    "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
+    "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: E501
     "gru": GRUEncoderDecoder,
     "lstm": LSTMEncoderDecoder,
     # "transducer": TransducerEncoderDecoder,

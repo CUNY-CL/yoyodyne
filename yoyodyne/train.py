@@ -140,8 +140,9 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
-        "hard_attention_rnn",
-        "pointer_generator_rnn",
+        # "hard_attention_rnn",
+        "pointer_generator_gru",
+        "pointer_generator_lstm",
         "pointer_generator_transformer",
         "transducer",
     ]
@@ -227,8 +228,9 @@ def get_model_from_argparse_args(
             args.features_encoder_arch
             or args.arch
             in [
-                "hard_attention_rnn",
-                "pointer_generator_rnn",
+                # "hard_attention_rnn",
+                "pointer_generator_gru",
+                "pointer_generator_lstm",
                 "pointer_generator_transformer",
                 "transducer",
             ]

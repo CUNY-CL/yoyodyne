@@ -152,7 +152,7 @@ class PointerGenerator(nn.Module):
 class PointerGeneratorRNNEncoderDecoder(
     rnn.RNNEncoderDecoder, PointerGenerator
 ):
-    """Pointer-generator model with an RNN backend.
+    """Base class for pointer-generator models with an RNN backend.
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
@@ -163,7 +163,12 @@ class PointerGeneratorRNNEncoderDecoder(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._check_layer_sizes()
+        if self.encoder_layers != self.decoder_layers:
+            raise Error(
+                "The number of encoder and decoder layers must match "
+                f"({self.encoder_layers} != {self.decoder_layers})"
+            )
+
         # We use the inherited defaults for the source embeddings/encoder.
         # Overrides classifier to take larger input.
         if not self.has_features_encoder:
@@ -171,14 +176,13 @@ class PointerGeneratorRNNEncoderDecoder(
                 self.hidden_size + self.source_encoder.output_size,
                 self.target_vocab_size,
             )
-            self.generation_probability = GenerationProbability(  # noqa: E501
+            self.generation_probability = GenerationProbability(
                 self.embedding_size,
                 self.hidden_size,
                 self.source_encoder.output_size,
             )
         else:
             self.merge_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
-            self.merge_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
             self.features_attention = modules.attention.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
@@ -194,104 +198,6 @@ class PointerGeneratorRNNEncoderDecoder(
                 self.source_encoder.output_size
                 + self.features_encoder.output_size,
             )
-
-    def get_decoder(self) -> modules.rnn.AttentiveRNNDecoder:
-        return modules.rnn.AttentiveRNNDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
-            decoder_input_size=(
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-                if self.has_features_encoder
-                else self.source_encoder.output_size
-            ),
-            embeddings=self.embeddings,
-            embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            bidirectional=False,
-            layers=self.decoder_layers,
-            hidden_size=self.hidden_size,
-            attention_input_size=self.source_encoder.output_size,
-        )
-
-    def _check_layer_sizes(self) -> None:
-        """Checks that encoder and decoder layers are the same number.
-
-        Raises:
-            Error.
-        """
-        if self.encoder_layers != self.decoder_layers:
-            raise Error(
-                "The number of encoder and decoder layers must match "
-                f"({self.encoder_layers} != {self.decoder_layers})"
-            )
-
-    def decode_step(
-        self,
-        symbol: torch.Tensor,
-        last_hiddens: Tuple[torch.Tensor, torch.Tensor],
-        source_indices: torch.Tensor,
-        source_enc: torch.Tensor,
-        source_mask: torch.Tensor,
-        features_enc: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Runs a single step of the decoder.
-
-        This predicts a distribution for one symbol.
-
-        Args:
-            symbol (torch.Tensor).
-            last_hiddens (Tuple[torch.Tensor, torch.Tensor]).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            features_enc (Optional[torch.Tensor]).
-            features_mask (Optional[torch.Tensor]).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor].
-        """
-        embedded = self.decoder.embed(symbol)
-        last_h0, last_c0 = last_hiddens
-        source_context, attention_weights = self.decoder.attention(
-            last_h0.transpose(0, 1), source_enc, source_mask
-        )
-        if self.has_features_encoder:
-            features_context, _ = self.features_attention(
-                last_h0.transpose(0, 1), features_enc, features_mask
-            )
-            # -> B x 1 x 4*hidden_size.
-            context = torch.cat([source_context, features_context], dim=2)
-        else:
-            context = source_context
-        _, (h, c) = self.decoder.module(
-            torch.cat((embedded, context), 2), (last_h0, last_c0)
-        )
-        # -> B x 1 x hidden_size
-        hidden = h[-1, :, :].unsqueeze(1)
-        output_dist = self.classifier(torch.cat([hidden, context], dim=2))
-        output_dist = nn.functional.softmax(output_dist, dim=2)
-        # -> B x 1 x target_vocab_size.
-        ptr_dist = torch.zeros(
-            symbol.size(0),
-            self.target_vocab_size,
-            device=self.device,
-            dtype=attention_weights.dtype,
-        ).unsqueeze(1)
-        # Gets the attentions to the source in terms of the output generations.
-        # These are the "pointer" distribution.
-        # -> B x 1 x target_vocab_size.
-        ptr_dist.scatter_add_(
-            2, source_indices.unsqueeze(1), attention_weights
-        )
-        # Probability of generating (from output_dist).
-        gen_probs = self.generation_probability(context, hidden, embedded)
-        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
-        scaled_output_dist = output_dist * gen_probs
-        return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
 
     def decode(
         self,
@@ -381,6 +287,263 @@ class PointerGeneratorRNNEncoderDecoder(
         predictions = torch.stack(predictions).transpose(0, 1)
         return predictions
 
+
+class PointerGeneratorGRUEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
+    """Pointer-generator model with an GRU backend."""
+
+    def get_decoder(self) -> modules.rnn.AttentiveGRUDecoder:
+        return modules.rnn.AttentiveGRUDecoder(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            decoder_input_size=(
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+                if self.has_features_encoder
+                else self.source_encoder.output_size
+            ),
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
+            bidirectional=False,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
+            attention_input_size=self.source_encoder.output_size,
+        )
+
+    def decode_step(
+        self,
+        symbol: torch.Tensor,
+        last_hiddens: torch.Tensor,
+        source_indices: torch.Tensor,
+        source_enc: torch.Tensor,
+        source_mask: torch.Tensor,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Runs a single step of the decoder.
+
+        This predicts a distribution for one symbol.
+
+        Args:
+            symbol (torch.Tensor).
+            last_hiddens (torch.Tensor).
+            source_indices (torch.Tensor).
+            source_enc (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_enc (Optional[torch.Tensor]).
+            features_mask (Optional[torch.Tensor]).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor].
+        """
+        embedded = self.decoder.embed(symbol)
+        source_context, attention_weights = self.decoder.attention(
+            last_hiddens.transpose(0, 1), source_enc, source_mask
+        )
+        if self.has_features_encoder:
+            features_context, _ = self.features_attention(
+                last_hiddens.transpose(0, 1), features_enc, features_mask
+            )
+            # -> B x 1 x 4*hidden_size.
+            context = torch.cat([source_context, features_context], dim=2)
+        else:
+            context = source_context
+        _, h = self.decoder.module(
+            torch.cat((embedded, context), 2), last_hiddens
+        )
+        # -> B x 1 x hidden_size
+        hidden = h[-1, :, :].unsqueeze(1)
+        output_dist = self.classifier(torch.cat([hidden, context], dim=2))
+        output_dist = nn.functional.softmax(output_dist, dim=2)
+        # -> B x 1 x target_vocab_size.
+        ptr_dist = torch.zeros(
+            symbol.size(0),
+            self.target_vocab_size,
+            device=self.device,
+            dtype=attention_weights.dtype,
+        ).unsqueeze(1)
+        # Gets the attentions to the source in terms of the output generations.
+        # These are the "pointer" distribution.
+        # -> B x 1 x target_vocab_size.
+        ptr_dist.scatter_add_(
+            2, source_indices.unsqueeze(1), attention_weights
+        )
+        # Probability of generating (from output_dist).
+        gen_probs = self.generation_probability(context, hidden, embedded)
+        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
+        scaled_output_dist = output_dist * gen_probs
+        return torch.log(scaled_output_dist + scaled_ptr_dist), h
+
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> torch.Tensor:
+        """Runs the encoder-decoder.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            torch.Tensor.
+        """
+        encoder_output = self.source_encoder(batch.source)
+        source_encoded = encoder_output.output
+        if encoder_output.has_hiddens:
+            last_hiddens = self._reshape_hiddens(
+                encoder_output.hiddens,
+                self.source_encoder.layers,
+                self.source_encoder.num_directions,
+            )
+        else:
+            last_hiddens = self.init_hiddens(
+                len(batch), self.source_encoder.layers
+            )
+        if not self.has_features_encoder:
+            if self.beam_width is not None and self.beam_width > 1:
+                raise NotImplementedError
+            else:
+                predictions = self.decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    target=(batch.target.padded if batch.target else None),
+                )
+        else:
+            features_encoder_output = self.features_encoder(batch.features)
+            features_encoded = features_encoder_output.output
+            if features_encoder_output.has_hiddens:
+                last_hiddens = self._reshape_hiddens(
+                    features_encoder_output.hiddens,
+                    self.features_encoder.layers,
+                    self.features_encoder.num_directions,
+                )
+            else:
+                last_hiddens = self.init_hiddens(
+                    len(batch), self.source_encoder.layers
+                )
+            predictions = self.decode(
+                source_encoded,
+                batch.source.mask,
+                batch.source.padded,
+                last_hiddens,
+                self.teacher_forcing if self.training else False,
+                features_enc=features_encoded,
+                features_mask=batch.features.mask,
+                target=batch.target.padded if batch.target else None,
+            )
+        return predictions
+
+    @staticmethod
+    def _reshape_hiddens(
+        h: torch.Tensor,
+        layers: int,
+        num_directions: int,
+    ) -> torch.Tensor:
+        return h.view(layers, num_directions, h.size(1), h.size(2)).sum(axis=1)
+
+    @property
+    def name(self) -> str:
+        return "pointer-generator GRU"
+
+
+class PointerGeneratorLSTMEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
+    """Pointer-generator model with an LSTM backend."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.has_features_encoder:
+            self.merge_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
+
+    def get_decoder(self) -> modules.rnn.AttentiveLSTMDecoder:
+        return modules.rnn.AttentiveLSTMDecoder(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            decoder_input_size=(
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+                if self.has_features_encoder
+                else self.source_encoder.output_size
+            ),
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
+            bidirectional=False,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
+            attention_input_size=self.source_encoder.output_size,
+        )
+
+    def decode_step(
+        self,
+        symbol: torch.Tensor,
+        last_hiddens: Tuple[torch.Tensor, torch.Tensor],
+        source_indices: torch.Tensor,
+        source_enc: torch.Tensor,
+        source_mask: torch.Tensor,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """Runs a single step of the decoder.
+
+        This predicts a distribution for one symbol.
+
+        Args:
+            symbol (torch.Tensor).
+            last_hiddens (Tuple[torch.Tensor, torch.Tensor]).
+            source_indices (torch.Tensor).
+            source_enc (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_enc (Optional[torch.Tensor]).
+            features_mask (Optional[torch.Tensor]).
+
+        Returns:
+            Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]].
+        """
+        embedded = self.decoder.embed(symbol)
+        last_h0, last_c0 = last_hiddens
+        source_context, attention_weights = self.decoder.attention(
+            last_h0.transpose(0, 1), source_enc, source_mask
+        )
+        if self.has_features_encoder:
+            features_context, _ = self.features_attention(
+                last_h0.transpose(0, 1), features_enc, features_mask
+            )
+            # -> B x 1 x 4*hidden_size.
+            context = torch.cat([source_context, features_context], dim=2)
+        else:
+            context = source_context
+        _, (h, c) = self.decoder.module(
+            torch.cat((embedded, context), 2), (last_h0, last_c0)
+        )
+        # -> B x 1 x hidden_size
+        hidden = h[-1, :, :].unsqueeze(1)
+        output_dist = self.classifier(torch.cat([hidden, context], dim=2))
+        output_dist = nn.functional.softmax(output_dist, dim=2)
+        # -> B x 1 x target_vocab_size.
+        ptr_dist = torch.zeros(
+            symbol.size(0),
+            self.target_vocab_size,
+            device=self.device,
+            dtype=attention_weights.dtype,
+        ).unsqueeze(1)
+        # Gets the attentions to the source in terms of the output generations.
+        # These are the "pointer" distribution.
+        # -> B x 1 x target_vocab_size.
+        ptr_dist.scatter_add_(
+            2, source_indices.unsqueeze(1), attention_weights
+        )
+        # Probability of generating (from output_dist).
+        gen_probs = self.generation_probability(context, hidden, embedded)
+        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
+        scaled_output_dist = output_dist * gen_probs
+        return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
+
     def forward(
         self,
         batch: data.PaddedBatch,
@@ -409,9 +572,6 @@ class PointerGeneratorRNNEncoderDecoder(
             )
         if not self.has_features_encoder:
             if self.beam_width is not None and self.beam_width > 1:
-                # predictions = self.beam_decode(
-                # batch_size, x_mask, encoder_out, beam_width=self.beam_width
-                # )
                 raise NotImplementedError
             else:
                 predictions = self.decode(
@@ -462,7 +622,7 @@ class PointerGeneratorRNNEncoderDecoder(
 
     @property
     def name(self) -> str:
-        return "pointer-generator RNN"
+        return "pointer-generator LSTM"
 
 
 class PointerGeneratorTransformerEncoderDecoder(
@@ -679,7 +839,6 @@ class PointerGeneratorTransformerEncoderDecoder(
             torch.Tensor.
         """
         source_encoded = self.source_encoder(batch.source).output
-
         if self.training and self.teacher_forcing:
             assert (
                 batch.target.padded is not None
@@ -703,9 +862,6 @@ class PointerGeneratorTransformerEncoderDecoder(
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
             if self.beam_width is not None and self.beam_width > 1:
-                # predictions = self.beam_decode(
-                # batch_size, x_mask, encoder_out, beam_width=self.beam_width
-                # )
                 raise NotImplementedError
             else:
                 output = self.decode_step(
