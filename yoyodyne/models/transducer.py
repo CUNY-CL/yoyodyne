@@ -89,7 +89,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
-
         if self.has_features_encoder:
             features_encoder_out = self.features_encoder(batch.features)
             features_encoded = features_encoder_out.output
@@ -103,9 +102,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 )
                 last_hiddens = h_features, c_features
             else:
-                last_hiddens = self.init_hiddens(
-                    source_mask.shape[0], self.decoder_layers
-                )
+                last_hiddens = self.init_hiddens(source_mask.shape[0])
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
@@ -115,9 +112,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 dim=2,
             )
         else:
-            last_hiddens = self.init_hiddens(
-                source_mask.shape[0], self.decoder_layers
-            )
+            last_hiddens = self.init_hiddens(source_mask.shape[0])
         prediction, loss = self.decode(
             encoded,
             last_hiddens,

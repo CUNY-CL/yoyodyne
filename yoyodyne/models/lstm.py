@@ -71,7 +71,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         )
 
     def init_hiddens(
-        self, batch_size: int, num_layers: int
+        self, batch_size: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Initializes the hidden state to pass to the LSTM.
 
@@ -79,15 +79,14 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Args:
             batch_size (int).
-            num_layers (int).
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: hidden cells for LSTM
                 initialization.
         """
         return (
-            self.h0.repeat(num_layers, batch_size, 1),
-            self.c0.repeat(num_layers, batch_size, 1),
+            self.h0.repeat(self.decoder_layers, batch_size, 1),
+            self.c0.repeat(self.decoder_layers, batch_size, 1),
         )
 
     def decode(
@@ -118,7 +117,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         """
         batch_size = encoder_mask.shape[0]
         # Initializes hidden states for decoder LSTM.
-        decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
+        decoder_hiddens = self.init_hiddens(batch_size)
         # Feed in the first decoder input, as a start tag.
         # -> B x 1.
         decoder_input = (
@@ -200,9 +199,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 "Beam search is not implemented for batch_size > 1"
             )
         # Initializes hidden states for decoder LSTM.
-        decoder_hiddens = self.init_hiddens(
-            encoder_out.size(0), self.decoder_layers
-        )
+        decoder_hiddens = self.init_hiddens(batch_size)
         # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
