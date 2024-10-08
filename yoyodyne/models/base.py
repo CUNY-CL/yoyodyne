@@ -351,7 +351,11 @@ class BaseEncoderDecoder(lightning.LightningModule):
             NotImplementedError: Optimizer not found.
         """
         return optimizers.get_optimizer_cfg(
-            self.optimizer, self.learning_rate, self.beta1, self.beta2
+            self.optimizer,
+            self.parameters(),
+            self.learning_rate,
+            self.beta1,
+            self.beta2,
         )
 
     def _get_lr_scheduler(self, optimizer: optim.Optimizer) -> Dict[str, Any]:
