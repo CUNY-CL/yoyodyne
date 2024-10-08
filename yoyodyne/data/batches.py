@@ -21,6 +21,8 @@ class PaddedTensor(nn.Module):
     If not specified, it will be computed using the length of the longest
     input tensor.
 
+    Mask and string length tensors can be generated as needed.
+
     Args:
         tensorlist (List[torch.Tensor]): a list of tensors.
         pad_idx (int): padding index.
@@ -48,10 +50,7 @@ class PaddedTensor(nn.Module):
         self.register_buffer(
             "padded",
             torch.stack(
-                [
-                    self.pad_tensor(tensor, pad_len)
-                    for tensor in tensorlist
-                ],
+                [self.pad_tensor(tensor, pad_len) for tensor in tensorlist],
             ),
         )
 
@@ -80,10 +79,12 @@ class PaddedTensor(nn.Module):
     def lengths(self) -> torch.Tensor:
         """Computes the lengths of all the strings in the tensor.
 
+        This needs to be on CPU for packing.
+
         Returns:
             torch.Tensor.
         """
-        return (self.mask == 0).sum(dim=1)
+        return (self.mask == 0).sum(dim=1).cpu()
 
 
 class PaddedBatch(nn.Module):
