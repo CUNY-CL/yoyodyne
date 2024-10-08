@@ -90,6 +90,6 @@ class Attention(nn.Module):
         # -> B x seq_len x hidden_size
         m = self.M(concat)
         # -> B x seq_len x 1.
-        scores = self.V(torch.tanh((m)))
+        scores = self.V(torch.tanh(m))
         # -> B x seq_len.
         return scores.squeeze(2)

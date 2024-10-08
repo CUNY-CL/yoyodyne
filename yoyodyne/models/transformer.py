@@ -10,8 +10,8 @@ from .. import data, defaults
 from . import base, embeddings, modules
 
 
-class TransformerEncoderDecoder(base.BaseEncoderDecoder):
-    """Transformer encoder-decoder.
+class TransformerModel(base.BaseModel):
+    """Base class for transformer models.
 
     Args:
         source_attention_heads (int).
@@ -33,7 +33,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     ):
         self.source_attention_heads = source_attention_heads
         super().__init__(
-            *args, source_attention_heads=source_attention_heads, **kwargs
+            *args,
+            source_attention_heads=source_attention_heads,
+            **kwargs,
         )
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
@@ -56,7 +58,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             num_embeddings, embedding_size, pad_idx
         )
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.transformer.TransformerDecoder:
         return modules.transformer.TransformerDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
@@ -109,7 +111,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = torch.ones_like(target_tensor, dtype=torch.float)
             target_mask = target_mask == 0
             decoder_output = self.decoder(
-                encoder_hidden, source_mask, target_tensor, target_mask
+                encoder_hidden,
+                source_mask,
+                target_tensor,
+                target_mask,
             ).output
             logits = self.classifier(decoder_output)
             last_output = logits[:, -1, :]  # Ignores EOS.
@@ -150,7 +155,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
-                    [self.start_idx], device=self.device, dtype=torch.long
+                    [self.start_idx],
+                    device=self.device,
+                    dtype=torch.long,
                 )
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
@@ -161,7 +168,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             )
             encoder_output = self.source_encoder(batch.source).output
             decoder_output = self.decoder(
-                encoder_output, batch.source.mask, target_padded, target_mask
+                encoder_output,
+                batch.source.mask,
+                target_padded,
+                target_mask,
             ).output
             logits = self.classifier(decoder_output)
             output = logits[:, :-1, :]  # Ignore EOS.

@@ -184,4 +184,9 @@ class Index:
 
     @property
     def special_idx(self) -> Set[int]:
-        return {self.unk_idx, self.pad_idx, self.start_idx, self.end_idx}
+        return {
+            self.unk_idx,
+            self.pad_idx,
+            self.start_idx,
+            self.end_idx,
+        }

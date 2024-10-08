@@ -1,8 +1,7 @@
-"""Base module class, with PL integration.
-"""
+"""Base module class with PL integration."""
 
 import dataclasses
-from typing import Optional, Tuple
+from typing import Optional, Union, Tuple
 
 import lightning
 import torch
@@ -13,10 +12,12 @@ from ... import defaults
 
 @dataclasses.dataclass
 class ModuleOutput:
-    """For tracking outputs of forward passes over varying architectures."""
+    """Output for forward passes."""
 
     output: torch.Tensor
-    hiddens: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+    hiddens: Optional[
+        Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+    ] = None
     embeddings: Optional[torch.Tensor] = None
 
     @property

@@ -1,4 +1,4 @@
-"""LSTM model classes."""
+"""RNN model classes."""
 
 import argparse
 import heapq
@@ -11,32 +11,21 @@ from .. import data, defaults
 from . import base, embeddings, modules
 
 
-class LSTMEncoderDecoder(base.BaseEncoderDecoder):
-    """LSTM encoder-decoder without attention.
+class RNNModel(base.BaseModel):
+    """Base class for RNN models.
 
-    # TODO: Evaluate if this blurb is still correct.
-    We achieve this by concatenating the last (non-padding) hidden state of
+    In lieu of attention, we concatenate the last (non-padding) hidden state of
     the encoder to the decoder hidden state.
-
-    Args:
-        *args: passed to superclass.
-        **kwargs: passed to superclass.
     """
 
     # Constructed inside __init__.
+    classifier: nn.Linear
     h0: nn.Parameter
-    c0: nn.Parameter
 
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Initial hidden state whose parameters are shared across all examples.
-        self.h0 = nn.Parameter(torch.rand(self.hidden_size))
-        self.c0 = nn.Parameter(torch.rand(self.hidden_size))
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
+        self.h0 = nn.Parameter(torch.rand(self.hidden_size))
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int, pad_idx: int
@@ -53,41 +42,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         """
         return embeddings.normal_embedding(
             num_embeddings, embedding_size, pad_idx
-        )
-
-    def get_decoder(self) -> modules.lstm.LSTMDecoder:
-        return modules.lstm.LSTMDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
-            decoder_input_size=self.source_encoder.output_size,
-            embeddings=self.embeddings,
-            embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            bidirectional=False,
-            layers=self.decoder_layers,
-            hidden_size=self.hidden_size,
-        )
-
-    def init_hiddens(
-        self, batch_size: int, num_layers: int
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Initializes the hidden state to pass to the LSTM.
-
-        Note that we learn the initial state h0 as a parameter of the model.
-
-        Args:
-            batch_size (int).
-            num_layers (int).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: hidden cells for LSTM
-                initialization.
-        """
-        return (
-            self.h0.repeat(num_layers, batch_size, 1),
-            self.c0.repeat(num_layers, batch_size, 1),
         )
 
     def decode(
@@ -118,7 +72,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         """
         batch_size = encoder_mask.shape[0]
         # Initializes hidden states for decoder LSTM.
-        decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
+        decoder_hiddens = self.init_hiddens(batch_size)
         # Feed in the first decoder input, as a start tag.
         # -> B x 1.
         decoder_input = (
@@ -326,10 +280,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         predictions = predictions.transpose(0, 1)
         return predictions
 
-    @property
-    def name(self) -> str:
-        return "LSTM"
-
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         """Adds LSTM configuration options to the argument parser.
@@ -341,7 +291,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             "--bidirectional",
             action="store_true",
             default=defaults.BIDIRECTIONAL,
-            help="Uses a bidirectional encoder (LSTM-backed architectures "
+            help="Uses a bidirectional encoder (RNN-backed architectures "
             "only. Default: enabled.",
         )
         parser.add_argument(
@@ -350,12 +300,130 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             dest="bidirectional",
         )
 
+    def get_decoder(self): ...
 
-class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
+    def init_hiddens(self, batch_size: int): ...
+
+    @property
+    def name(self) -> str: ...
+
+
+class GRUModel(RNNModel):
+    """GRU encoder-decoder without attention."""
+
+    def get_decoder(self) -> modules.GRUDecoder:
+        return modules.GRUDecoder(
+            bidirectional=False,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
+            embedding_size=self.embedding_size,
+            embeddings=self.embeddings,
+            hidden_size=self.hidden_size,
+            end_idx=self.end_idx,
+            layers=self.decoder_layers,
+            num_embeddings=self.vocab_size,
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+        )
+
+    def init_hiddens(self, batch_size: int) -> torch.Tensor:
+        """Initializes the hidden state to pass to the RNN.
+
+        We treat the initial value as a model parameter.
+
+        Args:
+            batch_size (int).
+
+        Returns:
+            torch.Tensor: hidden state for initialization.
+        """
+        return self.h0.repeat(self.decoder_layers, batch_size, 1)
+
+    @property
+    def name(self) -> str:
+        return "GRU"
+
+
+class LSTMModel(RNNModel):
+    """LSTM encoder-decoder without attention.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    # This also needs an initial cell state parameter.
+    c0: nn.Parameter
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.c0 = nn.Parameter(torch.rand(self.hidden_size))
+
+    def get_decoder(self) -> modules.LSTMDecoder:
+        return modules.LSTMDecoder(
+            bidirectional=False,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
+            embedding_size=self.embedding_size,
+            embeddings=self.embeddings,
+            hidden_size=self.hidden_size,
+            end_idx=self.end_idx,
+            layers=self.decoder_layers,
+            num_embeddings=self.vocab_size,
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+        )
+
+    def init_hiddens(self, batch_size: int) -> torch.Tensor:
+        """Initializes the hidden state to pass to the RNN.
+
+        We treat the initial value as a model parameter.
+
+        Args:
+            batch_size (int).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor].
+        """
+        return (
+            self.h0.repeat(self.decoder_layers, batch_size, 1),
+            self.c0.repeat(self.decoder_layers, batch_size, 1),
+        )
+
+    @property
+    def name(self) -> str:
+        return "LSTM"
+
+
+class AttentiveGRUModel(GRUModel):
+    """GRU encoder-decoder with attention."""
+
+    def get_decoder(self) -> modules.AttentiveGRUDecoder:
+        return modules.AttentiveGRUDecoder(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            decoder_input_size=self.source_encoder.output_size,
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
+            bidirectional=False,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
+            attention_input_size=self.source_encoder.output_size,
+        )
+
+    @property
+    def name(self) -> str:
+        return "attentive GRU"
+
+
+class AttentiveLSTMModel(LSTMModel):
     """LSTM encoder-decoder with attention."""
 
-    def get_decoder(self):
-        return modules.lstm.LSTMAttentiveDecoder(
+    def get_decoder(self) -> modules.AttentiveLSTMDecoder:
+        return modules.AttentiveLSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,

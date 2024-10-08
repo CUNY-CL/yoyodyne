@@ -34,7 +34,7 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
-        "pointer_generator_lstm",
+        "pointer_generator_rnn",
         "pointer_generator_transformer",
         "transducer",
     ]
@@ -57,14 +57,14 @@ def get_datamodule_from_argparse_args(
 
 def get_model_from_argparse_args(
     args: argparse.Namespace,
-) -> models.BaseEncoderDecoder:
+) -> models.BaseModel:
     """Creates the model from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        models.BaseEncoderDecoder.
+        models.BaseModel.
     """
     model_cls = models.get_model_cls_from_argparse_args(args)
     return model_cls.load_from_checkpoint(args.checkpoint)
@@ -83,7 +83,7 @@ def _mkdir(output: str) -> None:
 
 def predict(
     trainer: lightning.Trainer,
-    model: models.BaseEncoderDecoder,
+    model: models.BaseModel,
     datamodule: data.DataModule,
     output: str,
 ) -> None:
@@ -101,7 +101,9 @@ def predict(
     with open(output, "w", encoding=defaults.ENCODING) as sink:
         for batch in trainer.predict(model, loader):
             batch = util.pad_tensor_after_eos(
-                batch, datamodule.index.end_idx, datamodule.index.pad_idx
+                batch,
+                datamodule.index.end_idx,
+                datamodule.index.pad_idx,
             )
             for prediction in loader.dataset.decode_target(batch):
                 print(prediction, file=sink)
@@ -115,7 +117,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     # Path arguments.
     parser.add_argument(
-        "--checkpoint", required=True, help="Path to checkpoint (.ckpt)."
+        "--checkpoint",
+        required=True,
+        help="Path to checkpoint (.ckpt).",
     )
     parser.add_argument(
         "--model_dir",

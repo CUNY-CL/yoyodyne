@@ -3,28 +3,40 @@
 import argparse
 
 from .. import defaults
-from .base import BaseEncoderDecoder
-from .hard_attention import HardAttentionLSTM
-from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
-from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoder,
-    PointerGeneratorTransformerEncoderDecoder,
-)
-from .transducer import TransducerEncoderDecoder
-from .transformer import TransformerEncoderDecoder
+from .base import BaseModel
+
+from .hard_attention import HardAttentionGRUModel
+from .hard_attention import HardAttentionLSTMModel
+from .hard_attention import HardAttentionRNNModel  # noqa: F401
+from .pointer_generator import PointerGeneratorGRUModel
+from .pointer_generator import PointerGeneratorLSTMModel
+from .pointer_generator import PointerGeneratorTransformerModel
+from .rnn import AttentiveGRUModel
+from .rnn import AttentiveLSTMModel
+from .rnn import GRUModel
+from .rnn import LSTMModel
+from .rnn import RNNModel  # noqa: F401
+
+from .transducer import TransducerGRUModel, TransducerLSTMModel  # noqa: F401
+from .transformer import TransformerModel
 
 _model_fac = {
-    "attentive_lstm": AttentiveLSTMEncoderDecoder,
-    "hard_attention_lstm": HardAttentionLSTM,
-    "lstm": LSTMEncoderDecoder,
-    "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
-    "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: 501
-    "transducer": TransducerEncoderDecoder,
-    "transformer": TransformerEncoderDecoder,
+    "attentive_gru": AttentiveGRUModel,
+    "attentive_lstm": AttentiveLSTMModel,
+    "hard_attention_gru": HardAttentionGRUModel,
+    "hard_attention_lstm": HardAttentionLSTMModel,
+    "pointer_generator_gru": PointerGeneratorGRUModel,
+    "pointer_generator_lstm": PointerGeneratorLSTMModel,
+    "pointer_generator_transformer": PointerGeneratorTransformerModel,  # noqa: E501
+    "gru": GRUModel,
+    "lstm": LSTMModel,
+    "transducer_gru": TransducerGRUModel,
+    "transducer_lstm": TransducerLSTMModel,
+    "transformer": TransformerModel,
 }
 
 
-def get_model_cls(arch: str) -> BaseEncoderDecoder:
+def get_model_cls(arch: str) -> BaseModel:
     """Model factory.
 
     Args:
@@ -35,7 +47,7 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         NotImplementedError: Architecture not found.
 
     Returns:
-        BaseEncoderDecoder.
+        BaseModel.
     """
     try:
         return _model_fac[arch]
@@ -45,14 +57,14 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
 
 def get_model_cls_from_argparse_args(
     args: argparse.Namespace,
-) -> BaseEncoderDecoder:
+) -> BaseModel:
     """Creates a model from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        BaseEncoderDecoder.
+        BaseModel.
     """
     return get_model_cls(args.arch)
 
@@ -69,7 +81,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--arch",
         choices=_model_fac.keys(),
-        default="attentive_lstm",
+        default=defaults.ARCH,
         help="Model architecture. Default: %(default)s.",
     )
     parser.add_argument(
