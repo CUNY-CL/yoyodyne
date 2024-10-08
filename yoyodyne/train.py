@@ -291,10 +291,7 @@ def train(args: argparse.Namespace) -> str:
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
     if args.log_wandb:
-        # Logs number of model parameters for W&B.
-        wandb.config["n_model_params"] = sum(
-            p.numel() for p in model.parameters()
-        )
+        wandb.config["num_parameters"] = model.num_parameters
     if args.find_batch_size:
         sizing.find_batch_size(
             args.find_batch_size,
