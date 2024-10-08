@@ -216,14 +216,16 @@ additional flags. Supported values for `--arch` are:
     transformer decoder and encoder (by default). When using features, the user
     may wish to specify the number of features attention heads (with
     `--features_attention_heads`).
--   `transducer`: This is an LSTM decoder with LSTM encoders (by default) and a
-    neural transducer mechanism. On model creation, expectation maximization is
-    used to learn a sequence of edit operations, and imitation learning is used
-    to train the model to implement the oracle policy, with roll-in controlled
-    by the `--oracle_factor` flag (default: `1`). Since this model assumes
-    monotonic alignment, it may be superior to attentive models when the
+-   `transducer_gru`: This is an GRU decoder with GRU encoders (by default) and
+    a neural transducer mechanism. On model creation, expectation maximization
+    is used to learn a sequence of edit operations, and imitation learning is
+    used to train the model to implement the oracle policy, with roll-in
+    controlled by the `--oracle_factor` flag (default: `1`). Since this model
+    assumes monotonic alignment, it may be superior to attentive models when the
     alignment between input and output is roughly monotonic and when input and
     output vocabularies overlap significantly.
+-   `transducer_lstm`: This is similar to the `transducer_gru` but instead uses
+    an LSTM decoder and encoder (by default).
 -   `transformer`: This is a transformer decoder with transformer encoders (by
     default). Sinusodial positional encodings and layer normalization are used.
     The user may wish to specify the number of attention heads (with
