@@ -5,7 +5,9 @@ import argparse
 from .. import defaults
 from .base import BaseEncoderDecoder
 
-# from .hard_attention import HardAttentionGRU
+from .hard_attention import HardAttentionGRU
+from .hard_attention import HardAttentionLSTM
+from .hard_attention import HardAttentionRNN  # noqa: F401
 from .pointer_generator import PointerGeneratorGRUEncoderDecoder  # noqa: F401
 from .pointer_generator import (
     PointerGeneratorLSTMEncoderDecoder,
@@ -25,7 +27,8 @@ from .transformer import TransformerEncoderDecoder
 _model_fac = {
     "attentive_gru": AttentiveGRUEncoderDecoder,
     "attentive_lstm": AttentiveLSTMEncoderDecoder,
-    # "hard_attention_gru": HardAttentionGRU,
+    "hard_attention_gru": HardAttentionGRU,
+    "hard_attention_lstm": HardAttentionLSTM,
     "pointer_generator_gru": PointerGeneratorGRUEncoderDecoder,
     "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
     "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: E501

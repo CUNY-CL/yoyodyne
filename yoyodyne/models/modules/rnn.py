@@ -34,10 +34,10 @@ class RNNModule(base.BaseModule):
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
-    # def get_module(self): ...
+    def get_module(self): ...
 
-    # @property
-    # def name(self) -> str: ...
+    @property
+    def name(self) -> str: ...
 
 
 class RNNEncoder(RNNModule):
@@ -309,7 +309,6 @@ class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
         return "attentive LSTM"
 
 
-'''
 class HardAttentionRNNDecoder(RNNDecoder):
     """Base module for zeroth-order HMM hard attention RNN decoders."""
 
@@ -407,8 +406,16 @@ class HardAttentionRNNDecoder(RNNDecoder):
         alignment = self._alignment_step(decoded, encoder_out, encoder_mask)
         return base.ModuleOutput(output, hiddens, embeddings=alignment)
 
-    def get_module(self):
-        return rnn_cls(
+    @property
+    def output_size(self) -> int:
+        return self.decoder_input_size + self.hidden_size
+
+
+class HardAttentionGRUDecoder(HardAttentionRNNDecoder):
+    """Zeroth-order HMM hard attention GRU decoder."""
+
+    def get_module(self) -> nn.GRU:
+        return nn.GRU(
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
@@ -418,16 +425,30 @@ class HardAttentionRNNDecoder(RNNDecoder):
         )
 
     @property
-    def output_size(self) -> int:
-        return self.decoder_input_size + self.hidden_size
+    def name(self) -> str:
+        return "hard attention GRU"
+
+
+class HardAttentionLSTMDecoder(HardAttentionRNNDecoder):
+    """Zeroth-order HMM hard attention LSTM decoder."""
+
+    def get_module(self) -> nn.LSTM:
+        return nn.LSTM(
+            self.embedding_size,
+            self.hidden_size,
+            batch_first=True,
+            bidirectional=self.bidirectional,
+            dropout=self.dropout,
+            num_layers=self.layers,
+        )
 
     @property
     def name(self) -> str:
-        return f"hard attention RNN ({self.rnn_type})"
+        return "hard attention LSTM"
 
 
-class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
-    """First-order HMM hard attention RNN."""
+class ContextualHardAttentionRNNDecoder(HardAttentionRNNDecoder):
+    """Base module for first-order HMM hard attention RNN decoder."""
 
     def __init__(self, attention_context, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -468,8 +489,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
             ],
             dim=1,
         )
-        # Gets probability of alignments.
-        # Masks padding.
+        # Gets probability of alignments, masking padding.
         alignment_probs = (
             alignment_probs * (~encoder_mask).unsqueeze(1) + defaults.EPSILON
         )
@@ -479,7 +499,22 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         # Log probs for quicker computation.
         return alignment_probs.log()
 
+
+class ContextualHardAttentionGRUDecoder(
+    ContextualHardAttentionRNNDecoder, HardAttentionGRUDecoder
+):
+    """First-order HMM hard attention GRU decoder."""
+
     @property
     def name(self) -> str:
-        return f"contextual ({super().name})"
-'''
+        return "contextual hard attention GRU"
+
+
+class ContextualHardAttentionLSTMDecoder(
+    ContextualHardAttentionRNNDecoder, HardAttentionLSTMDecoder
+):
+    """First-order HMM hard attention LSTM decoder."""
+
+    @property
+    def name(self) -> str:
+        return "contextual hard attention LSTM"
