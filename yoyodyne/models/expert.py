@@ -44,9 +44,8 @@ class ActionVocabulary:
             self.i2w.extend(i2w)
         self.w2i = {w: i for i, w in enumerate(self.i2w)}
         self.target_characters = set()
-        self.encode_actions(
-            [special.UNK_IDX]
-        )  # Sets unknown character decoding.
+        # Sets unknown character decoding.
+        self.encode_actions([special.UNK_IDX])
 
     def encode(self, symb: actions.Edit) -> int:
         """Returns index referencing symbol in encoding table.
