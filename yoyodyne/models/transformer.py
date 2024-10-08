@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from .. import data, defaults
+from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
@@ -40,27 +40,21 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         )
 
     def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
+        self, num_embeddings: int, embedding_size: int
     ) -> nn.Embedding:
         """Initializes the embedding layer.
 
         Args:
             num_embeddings (int): number of embeddings.
             embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
 
         Returns:
             nn.Embedding: embedding layer.
         """
-        return embeddings.xavier_embedding(
-            num_embeddings, embedding_size, pad_idx
-        )
+        return embeddings.xavier_embedding(num_embeddings, embedding_size)
 
     def get_decoder(self):
         return modules.transformer.TransformerDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
@@ -97,7 +91,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         # The predicted symbols at each iteration.
         predictions = [
             torch.tensor(
-                [self.start_idx for _ in range(encoder_hidden.size(0))],
+                [special.START_IDX for _ in range(encoder_hidden.size(0))],
                 device=self.device,
             )
         ]
@@ -119,7 +113,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             predictions.append(pred)
             # Updates to track which sequences have decoded an EOS.
             finished = torch.logical_or(
-                finished, (predictions[-1] == self.end_idx)
+                finished, (predictions[-1] == special.END_IDX)
             )
             # Breaks when all sequences have predicted an EOS symbol. If we
             # have a target (and are thus computing loss), we only break when
@@ -150,14 +144,14 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
-                    [self.start_idx], device=self.device, dtype=torch.long
+                    [special.START_IDX], device=self.device, dtype=torch.long
                 )
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
             )
             target_padded = torch.cat((starts, batch.target.padded), dim=1)
             target_mask = torch.cat(
-                (starts == self.pad_idx, batch.target.mask), dim=1
+                (starts == special.PAD_IDX, batch.target.mask), dim=1
             )
             encoder_output = self.source_encoder(batch.source).output
             decoder_output = self.decoder(
