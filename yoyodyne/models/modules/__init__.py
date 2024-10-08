@@ -46,7 +46,8 @@ _model_to_encoder_fac = {
     "pointer_generator_gru": GRUEncoder,
     "pointer_generator_lstm": LSTMEncoder,
     "pointer_generator_transformer": TransformerEncoder,
-    # "transducer": GRUEncoder,
+    "transducer_gru": GRUEncoder,
+    "transducer_lstm": LSTMEncoder,
     "transformer": TransformerEncoder,
 }
 

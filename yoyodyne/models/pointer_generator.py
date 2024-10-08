@@ -91,7 +91,7 @@ class PointerGenerator(nn.Module):
         """Returns the actual function used to compute loss.
 
         This overrides the loss function behavior in
-        models.base.BaseEncoderDecoder because we need to use NLLLoss in
+        models.base.BaseModel because we need to use NLLLoss in
         order to factor the addition of two separate probability
         distributions. An NLLLoss-compatible implementation of label smoothing
         is also provided when label smoothing is requested.
@@ -149,9 +149,7 @@ class PointerGenerator(nn.Module):
         return loss
 
 
-class PointerGeneratorRNNEncoderDecoder(
-    rnn.RNNEncoderDecoder, PointerGenerator
-):
+class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
     """Base class for pointer-generator models with an RNN backend.
 
     After:
@@ -288,11 +286,11 @@ class PointerGeneratorRNNEncoderDecoder(
         return predictions
 
 
-class PointerGeneratorGRUEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
+class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
     """Pointer-generator model with an GRU backend."""
 
-    def get_decoder(self) -> modules.rnn.AttentiveGRUDecoder:
-        return modules.rnn.AttentiveGRUDecoder(
+    def get_decoder(self) -> modules.AttentiveGRUDecoder:
+        return modules.AttentiveGRUDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -450,7 +448,7 @@ class PointerGeneratorGRUEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
         return "pointer-generator GRU"
 
 
-class PointerGeneratorLSTMEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
+class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
     """Pointer-generator model with an LSTM backend."""
 
     def __init__(self, *args, **kwargs):
@@ -458,8 +456,8 @@ class PointerGeneratorLSTMEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
         if self.has_features_encoder:
             self.merge_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
 
-    def get_decoder(self) -> modules.rnn.AttentiveLSTMDecoder:
-        return modules.rnn.AttentiveLSTMDecoder(
+    def get_decoder(self) -> modules.AttentiveLSTMDecoder:
+        return modules.AttentiveLSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -625,9 +623,9 @@ class PointerGeneratorLSTMEncoderDecoder(PointerGeneratorRNNEncoderDecoder):
         return "pointer-generator LSTM"
 
 
-class PointerGeneratorTransformerEncoderDecoder(
+class PointerGeneratorTransformerModel(
     PointerGenerator,
-    transformer.TransformerEncoderDecoder,
+    transformer.TransformerModel,
 ):
     """Pointer-generator model with a transformer backend.
 
@@ -659,7 +657,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                 self.embedding_size,
             )
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.transformer.TransformerPointerDecoder:
         return modules.transformer.TransformerPointerDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,

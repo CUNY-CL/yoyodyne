@@ -22,7 +22,7 @@ _scheduler_fac = {
 }
 
 
-class BaseEncoderDecoder(lightning.LightningModule):
+class BaseModel(lightning.LightningModule):
     """Base class, handling Lightning integration."""
 
     #  TODO: clean up type checking here.

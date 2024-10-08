@@ -10,8 +10,8 @@ from .. import data, defaults
 from . import modules, rnn
 
 
-class HardAttentionRNN(rnn.RNNEncoderDecoder):
-    """Base class for hard attention transducer models.
+class HardAttentionRNNModel(rnn.RNNModel):
+    """Base class for hard attention models.
 
     Learns probability distribution of target string by modeling transduction
     of source string to target string as Markov process. Assumes each character
@@ -428,12 +428,12 @@ class HardAttentionRNN(rnn.RNNEncoderDecoder):
         )
 
 
-class HardAttentionGRU(HardAttentionRNN):
+class HardAttentionGRUModel(HardAttentionRNNModel):
     """Hard attention with GRU backend."""
 
     def get_decoder(self):
         if self.attention_context > 0:
-            return modules.rnn.ContextHardAttentionGRUDecoder(
+            return modules.ContextHardAttentionGRUDecoder(
                 attention_context=self.attention_context,
                 bidirectional=False,
                 decoder_input_size=(
@@ -453,7 +453,7 @@ class HardAttentionGRU(HardAttentionRNN):
                 start_idx=self.start_idx,
             )
         else:
-            return modules.rnn.HardAttentionGRUDecoder(
+            return modules.HardAttentionGRUDecoder(
                 bidirectional=False,
                 decoder_input_size=(
                     self.source_encoder.output_size
@@ -520,12 +520,12 @@ class HardAttentionGRU(HardAttentionRNN):
         return "hard attention GRU"
 
 
-class HardAttentionLSTM(HardAttentionRNN):
+class HardAttentionLSTMModel(HardAttentionRNNModel):
     """Hard attention with LSTM backend."""
 
     def get_decoder(self):
         if self.attention_context > 0:
-            return modules.rnn.ContextHardAttentionLSTMDecoder(
+            return modules.ContextHardAttentionLSTMDecoder(
                 attention_context=self.attention_context,
                 bidirectional=False,
                 decoder_input_size=(
@@ -545,7 +545,7 @@ class HardAttentionLSTM(HardAttentionRNN):
                 start_idx=self.start_idx,
             )
         else:
-            return modules.rnn.HardAttentionLSTMDecoder(
+            return modules.HardAttentionLSTMDecoder(
                 bidirectional=False,
                 decoder_input_size=(
                     self.source_encoder.output_size

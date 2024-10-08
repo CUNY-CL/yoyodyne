@@ -11,8 +11,8 @@ from .. import data, defaults, util
 from . import expert, modules, rnn
 
 
-class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
-    """Transducer model with an RNN backend.
+class TransducerRNNModel(rnn.RNNModel):
+    """Base class for transducer models.
 
     This uses a trained oracle for imitation learning edits.
 
@@ -45,89 +45,10 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
         kwargs["target_vocab_size"] = len(expert.actions)
         super().__init__(*args, **kwargs)
         # Model specific variables.
-        self.expert = expert  # Oracle to train model.
+        self.expert = expert
         self.actions = self.expert.actions
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
-
-    def get_decoder(self) -> modules.rnn.RNNDecoder:
-        return modules.rnn.RNNDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
-            decoder_input_size=(
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-                if self.has_features_encoder
-                else self.source_encoder.output_size
-            ),
-            embeddings=self.embeddings,
-            embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            bidirectional=False,
-            layers=self.decoder_layers,
-            hidden_size=self.hidden_size,
-        )
-
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> Tuple[List[List[int]], torch.Tensor]:
-        """Runs the encoder-decoder model.
-
-        Args:
-            batch (data.PaddedBatch).
-
-        Returns:
-            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
-                and loss tensor; due to transducer setup, prediction is
-                performed during training, so these are returned.
-        """
-        encoder_out = self.source_encoder(batch.source)
-        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
-        source_padded = batch.source.padded[:, 1:]
-        source_mask = batch.source.mask[:, 1:]
-        # Start of decoding.
-
-        if self.has_features_encoder:
-            features_encoder_out = self.features_encoder(batch.features)
-            features_encoded = features_encoder_out.output
-            if features_encoder_out.has_hiddens:
-                h_features, c_features = features_encoder_out.hiddens
-                h_features = h_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                c_features = c_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                last_hiddens = h_features, c_features
-            else:
-                last_hiddens = self.init_hiddens(
-                    source_mask.shape[0], self.decoder_layers
-                )
-            features_encoded = features_encoded.mean(dim=1, keepdim=True)
-            encoded = torch.cat(
-                (
-                    encoded,
-                    features_encoded.expand(-1, encoded.shape[1], -1),
-                ),
-                dim=2,
-            )
-        else:
-            last_hiddens = self.init_hiddens(
-                source_mask.shape[0], self.decoder_layers
-            )
-        prediction, loss = self.decode(
-            encoded,
-            last_hiddens,
-            source_padded,
-            source_mask,
-            teacher_forcing=(self.teacher_forcing if self.training else False),
-            target=batch.target.padded if batch.target else None,
-            target_mask=batch.target.mask if batch.target else None,
-        )
-        return prediction, loss
 
     def decode(
         self,
@@ -539,7 +460,7 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
     def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         predictions, loss = self(batch)
         # Evaluation requires prediction as a tensor.
-        predictions = self.convert_prediction(predictions)
+        predictions = self.convert_predictions(predictions)
         # Gets a dict of all eval metrics for this batch.
         val_eval_items_dict = {
             evaluator.name: evaluator.evaluate(
@@ -559,15 +480,17 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
             batch,
         )
         # Evaluation requires prediction tensor.
-        return self.convert_prediction(predictions)
+        return self.convert_predictions(predictions)
 
-    def convert_prediction(self, prediction: List[List[int]]) -> torch.Tensor:
+    def convert_predictions(
+        self, predictions: List[List[int]]
+    ) -> torch.Tensor:
         """Converts prediction values to tensor for evaluator compatibility."""
         # Uses the same util that all other models use.
         # This turns all symbols after the first EOS into PADs
         # so prediction tensors match gold tensors.
         return util.pad_tensor_after_eos(
-            torch.tensor(prediction),
+            torch.tensor(predictions),
             self.end_idx,
             self.pad_idx,
         )
@@ -587,9 +510,220 @@ class TransducerEncoderDecoder(rnn.RNNEncoderDecoder):
                 break
         return action
 
+    def get_decoder(self): ...
+
     @property
-    def name(self) -> str:
-        return "transducer"
+    def name(self) -> str: ...
 
 
 # TODO: Implement beam decoding.
+
+
+class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
+    """Transducer with GRU backend."""
+
+    # h0: nn.Parameter
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # self.h0 = nn.Parameter(torch.rand(self.hidden_size))
+
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> Tuple[List[List[int]], torch.Tensor]:
+        """Runs the encoder-decoder model.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
+                and loss tensor; due to transducer setup, prediction is
+                performed during training, so these are returned.
+        """
+        encoder_out = self.source_encoder(batch.source)
+        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
+        source_padded = batch.source.padded[:, 1:]
+        source_mask = batch.source.mask[:, 1:]
+        # Start of decoding.
+        if self.has_features_encoder:
+            features_encoder_out = self.features_encoder(batch.features)
+            features_encoded = features_encoder_out.output
+            if features_encoder_out.has_hiddens:
+                h_features = features_encoder_out.hiddens
+                last_hiddens = h_features.mean(dim=0, keepdim=True).expand(
+                    self.decoder_layers, -1, -1
+                )
+                last_hiddens = h_features
+            else:
+                last_hiddens = self.init_hiddens(source_mask.shape[0])
+            features_encoded = features_encoded.mean(dim=1, keepdim=True)
+            encoded = torch.cat(
+                (
+                    encoded,
+                    features_encoded.expand(-1, encoded.shape[1], -1),
+                ),
+                dim=2,
+            )
+        else:
+            last_hiddens = self.init_hiddens(source_mask.shape[0])
+        prediction, loss = self.decode(
+            encoded,
+            last_hiddens,
+            source_padded,
+            source_mask,
+            teacher_forcing=(self.teacher_forcing if self.training else False),
+            target=batch.target.padded if batch.target else None,
+            target_mask=batch.target.mask if batch.target else None,
+        )
+        return prediction, loss
+
+    '''
+    def init_hiddens(self, batch_size: int) -> torch.Tensor:
+        """Initializes the hidden state to pass to the RNN.
+
+        We treat the initial value as a model parameter.
+
+        Args:
+            batch_size (int).
+
+        Returns:
+            torch.Tensor: hidden state for initialization.
+        """
+        return self.h0.repeat(self.decoder_layers, batch_size, 1)
+    '''
+
+    def get_decoder(self) -> modules.GRUDecoder:
+        return modules.GRUDecoder(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            decoder_input_size=(
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+                if self.has_features_encoder
+                else self.source_encoder.output_size
+            ),
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
+            bidirectional=False,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
+        )
+
+    @property
+    def name(self) -> str:
+        return "transducer GRU"
+
+
+class TransducerLSTMModel(TransducerRNNModel):
+    """Transducer with LSTM backend."""
+
+    h0: nn.Parameter
+    c0: nn.Parameter
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.h0 = nn.Parameter(torch.rand(self.hidden_size))
+        self.c0 = nn.Parameter(torch.rand(self.hidden_size))
+
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> Tuple[List[List[int]], torch.Tensor]:
+        """Runs the encoder-decoder model.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
+                and loss tensor; due to transducer setup, prediction is
+                performed during training, so these are returned.
+        """
+        encoder_out = self.source_encoder(batch.source)
+        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
+        source_padded = batch.source.padded[:, 1:]
+        source_mask = batch.source.mask[:, 1:]
+        # Start of decoding.
+        if self.has_features_encoder:
+            features_encoder_out = self.features_encoder(batch.features)
+            features_encoded = features_encoder_out.output
+            if features_encoder_out.has_hiddens:
+                h_features, c_features = features_encoder_out.hiddens
+                h_features = h_features.mean(dim=0, keepdim=True).expand(
+                    self.decoder_layers, -1, -1
+                )
+                c_features = c_features.mean(dim=0, keepdim=True).expand(
+                    self.decoder_layers, -1, -1
+                )
+                last_hiddens = h_features, c_features
+            else:
+                last_hiddens = self.init_hiddens(
+                    source_mask.shape[0], self.decoder_layers
+                )
+            features_encoded = features_encoded.mean(dim=1, keepdim=True)
+            encoded = torch.cat(
+                (
+                    encoded,
+                    features_encoded.expand(-1, encoded.shape[1], -1),
+                ),
+                dim=2,
+            )
+        else:
+            last_hiddens = self.init_hiddens(source_mask.shape[0])
+        prediction, loss = self.decode(
+            encoded,
+            last_hiddens,
+            source_padded,
+            source_mask,
+            teacher_forcing=(self.teacher_forcing if self.training else False),
+            target=batch.target.padded if batch.target else None,
+            target_mask=batch.target.mask if batch.target else None,
+        )
+        return prediction, loss
+
+    def init_hiddens(
+        self, batch_size: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Initializes the hidden state to pass to the RNN.
+
+        We treat the initial value as a model parameter.
+
+        Args:
+            batch_size (int).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor].
+        """
+        return (
+            self.h0.repeat(self.decoder_layers, batch_size, 1),
+            self.c0.repeat(self.decoder_layers, batch_size, 1),
+        )
+
+    def get_decoder(self) -> modules.LSTMDecoder:
+        return modules.LSTMDecoder(
+            pad_idx=self.pad_idx,
+            start_idx=self.start_idx,
+            end_idx=self.end_idx,
+            decoder_input_size=(
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+                if self.has_features_encoder
+                else self.source_encoder.output_size
+            ),
+            embeddings=self.embeddings,
+            embedding_size=self.embedding_size,
+            num_embeddings=self.vocab_size,
+            dropout=self.dropout,
+            bidirectional=False,
+            layers=self.decoder_layers,
+            hidden_size=self.hidden_size,
+        )
+
+    @property
+    def name(self) -> str:
+        return "transducer LSTM"

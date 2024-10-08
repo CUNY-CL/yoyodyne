@@ -57,14 +57,14 @@ def get_datamodule_from_argparse_args(
 
 def get_model_from_argparse_args(
     args: argparse.Namespace,
-) -> models.BaseEncoderDecoder:
+) -> models.BaseModel:
     """Creates the model from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        models.BaseEncoderDecoder.
+        models.BaseModel.
     """
     model_cls = models.get_model_cls_from_argparse_args(args)
     return model_cls.load_from_checkpoint(args.checkpoint)
@@ -83,7 +83,7 @@ def _mkdir(output: str) -> None:
 
 def predict(
     trainer: lightning.Trainer,
-    model: models.BaseEncoderDecoder,
+    model: models.BaseModel,
     datamodule: data.DataModule,
     output: str,
 ) -> None:

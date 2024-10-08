@@ -3,43 +3,40 @@
 import argparse
 
 from .. import defaults
-from .base import BaseEncoderDecoder
+from .base import BaseModel
 
-from .hard_attention import HardAttentionGRU
-from .hard_attention import HardAttentionLSTM
-from .hard_attention import HardAttentionRNN  # noqa: F401
-from .pointer_generator import PointerGeneratorGRUEncoderDecoder  # noqa: F401
-from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoder,
-)  # noqa: E501, F401
-from .pointer_generator import (
-    PointerGeneratorTransformerEncoderDecoder,
-)  # noqa: E501, F401
-from .rnn import AttentiveGRUEncoderDecoder  # noqa: F401
-from .rnn import AttentiveLSTMEncoderDecoder  # noqa: F401
-from .rnn import GRUEncoderDecoder  # noqa: F401
-from .rnn import LSTMEncoderDecoder  # noqa: F401
-from .rnn import RNNEncoderDecoder  # noqa: F401
+from .hard_attention import HardAttentionGRUModel
+from .hard_attention import HardAttentionLSTMModel
+from .hard_attention import HardAttentionRNNModel  # noqa: F401
+from .pointer_generator import PointerGeneratorGRUModel
+from .pointer_generator import PointerGeneratorLSTMModel
+from .pointer_generator import PointerGeneratorTransformerModel
+from .rnn import AttentiveGRUModel
+from .rnn import AttentiveLSTMModel
+from .rnn import GRUModel
+from .rnn import LSTMModel
+from .rnn import RNNModel  # noqa: F401
 
-# from .transducer import TransducerEncoderDecoder
-from .transformer import TransformerEncoderDecoder
+from .transducer import TransducerGRUModel, TransducerLSTMModel  # noqa: F401
+from .transformer import TransformerModel
 
 _model_fac = {
-    "attentive_gru": AttentiveGRUEncoderDecoder,
-    "attentive_lstm": AttentiveLSTMEncoderDecoder,
-    "hard_attention_gru": HardAttentionGRU,
-    "hard_attention_lstm": HardAttentionLSTM,
-    "pointer_generator_gru": PointerGeneratorGRUEncoderDecoder,
-    "pointer_generator_lstm": PointerGeneratorLSTMEncoderDecoder,
-    "pointer_generator_transformer": PointerGeneratorTransformerEncoderDecoder,  # noqa: E501
-    "gru": GRUEncoderDecoder,
-    "lstm": LSTMEncoderDecoder,
-    # "transducer": TransducerEncoderDecoder,
-    "transformer": TransformerEncoderDecoder,
+    "attentive_gru": AttentiveGRUModel,
+    "attentive_lstm": AttentiveLSTMModel,
+    "hard_attention_gru": HardAttentionGRUModel,
+    "hard_attention_lstm": HardAttentionLSTMModel,
+    "pointer_generator_gru": PointerGeneratorGRUModel,
+    "pointer_generator_lstm": PointerGeneratorLSTMModel,
+    "pointer_generator_transformer": PointerGeneratorTransformerModel,  # noqa: E501
+    "gru": GRUModel,
+    "lstm": LSTMModel,
+    "transducer_gru": TransducerGRUModel,
+    "transducer_lstm": TransducerLSTMModel,
+    "transformer": TransformerModel,
 }
 
 
-def get_model_cls(arch: str) -> BaseEncoderDecoder:
+def get_model_cls(arch: str) -> BaseModel:
     """Model factory.
 
     Args:
@@ -50,7 +47,7 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
         NotImplementedError: Architecture not found.
 
     Returns:
-        BaseEncoderDecoder.
+        BaseModel.
     """
     try:
         return _model_fac[arch]
@@ -60,14 +57,14 @@ def get_model_cls(arch: str) -> BaseEncoderDecoder:
 
 def get_model_cls_from_argparse_args(
     args: argparse.Namespace,
-) -> BaseEncoderDecoder:
+) -> BaseModel:
     """Creates a model from CLI arguments.
 
     Args:
         args (argparse.Namespace).
 
     Returns:
-        BaseEncoderDecoder.
+        BaseModel.
     """
     return get_model_cls(args.arch)
 

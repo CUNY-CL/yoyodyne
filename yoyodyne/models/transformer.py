@@ -10,8 +10,8 @@ from .. import data, defaults
 from . import base, embeddings, modules
 
 
-class TransformerEncoderDecoder(base.BaseEncoderDecoder):
-    """Transformer encoder-decoder.
+class TransformerModel(base.BaseModel):
+    """Base class for transformer models.
 
     Args:
         source_attention_heads (int).
@@ -58,7 +58,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             num_embeddings, embedding_size, pad_idx
         )
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.transformer.TransformerDecoder:
         return modules.transformer.TransformerDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,

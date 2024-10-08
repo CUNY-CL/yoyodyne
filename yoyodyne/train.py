@@ -145,7 +145,8 @@ def get_datamodule_from_argparse_args(
         "pointer_generator_gru",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
-        "transducer",
+        "transducer_grm",
+        "transducer_lstm",
     ]
     datamodule = data.DataModule(
         train=args.train,
@@ -172,7 +173,7 @@ def get_datamodule_from_argparse_args(
 def get_model_from_argparse_args(
     args: argparse.Namespace,
     datamodule: data.DataModule,
-) -> models.BaseEncoderDecoder:
+) -> models.BaseModel:
     """Creates the model.
 
     Args:
@@ -180,7 +181,7 @@ def get_model_from_argparse_args(
         datamodule (data.DataModule).
 
     Returns:
-        models.BaseEncoderDecoder.
+        models.BaseModel.
     """
     model_cls = models.get_model_cls(args.arch)
     # TODO(#156): add callback interface to check this.
@@ -189,7 +190,8 @@ def get_model_from_argparse_args(
         in [
             "pointer_generator_rnn",
             "pointer_generator_transformer",
-            "transducer",
+            "transducer_gru",
+            "transducer_lstm",
         ]
         and not args.tie_embeddings
     ):
@@ -201,16 +203,16 @@ def get_model_from_argparse_args(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
     # Loads expert if needed.
-    # expert = (
-    #    models.expert.get_expert(
-    #        datamodule.train_dataloader().dataset,
-    #        epochs=args.oracle_em_epochs,
-    #        oracle_factor=args.oracle_factor,
-    #        sed_params_path=args.sed_params,
-    #    )
-    #    if args.arch in ["transducer"]
-    #    else None
-    # )
+    expert = (
+        models.expert.get_expert(
+            datamodule.train_dataloader().dataset,
+            epochs=args.oracle_em_epochs,
+            oracle_factor=args.oracle_factor,
+            sed_params_path=args.sed_params,
+        )
+        if args.arch in ["transducer_gru", "transducer_lstm"]
+        else None
+    )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
     # either:
@@ -234,7 +236,8 @@ def get_model_from_argparse_args(
                 "pointer_generator_gru",
                 "pointer_generator_lstm",
                 "pointer_generator_transformer",
-                "transducer",
+                "transducer_gru",
+                "transducer_lstm",
             ]
         )
         else None
@@ -262,7 +265,7 @@ def get_model_from_argparse_args(
         end_idx=datamodule.index.end_idx,
         # enforce_monotonic=args.enforce_monotonic,
         eval_metrics=eval_metrics,
-        # expert=expert,
+        expert=expert,
         features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
         features_vocab_size=features_vocab_size,
@@ -396,12 +399,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     data.add_argparse_args(parser)
     # Architecture arguments.
     models.add_argparse_args(parser)
-    # models.expert.add_argparse_args(parser)
+    models.expert.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.HardAttentionRNN.add_argparse_args(parser)
-    models.RNNEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.BaseModel.add_argparse_args(parser)
+    models.HardAttentionRNNModel.add_argparse_args(parser)
+    models.RNNModel.add_argparse_args(parser)
+    models.TransformerModel.add_argparse_args(parser)
     # Scheduler-specific arguments.
     schedulers.add_argparse_args(parser)
     # Automatic batch sizing-specific arguments.

@@ -11,8 +11,8 @@ from .. import data, defaults
 from . import base, embeddings, modules
 
 
-class RNNEncoderDecoder(base.BaseEncoderDecoder):
-    """Base class for RNN encoder-decoders models.
+class RNNModel(base.BaseModel):
+    """Base class for RNN models.
 
     In lieu of attention, we concatenate the last (non-padding) hidden state of
     the encoder to the decoder hidden state.
@@ -308,11 +308,11 @@ class RNNEncoderDecoder(base.BaseEncoderDecoder):
     def name(self) -> str: ...
 
 
-class GRUEncoderDecoder(RNNEncoderDecoder):
+class GRUModel(RNNModel):
     """GRU encoder-decoder without attention."""
 
-    def get_decoder(self) -> modules.rnn.GRUDecoder:
-        return modules.rnn.GRUDecoder(
+    def get_decoder(self) -> modules.GRUDecoder:
+        return modules.GRUDecoder(
             bidirectional=False,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
@@ -344,7 +344,7 @@ class GRUEncoderDecoder(RNNEncoderDecoder):
         return "GRU"
 
 
-class LSTMEncoderDecoder(RNNEncoderDecoder):
+class LSTMModel(RNNModel):
     """LSTM encoder-decoder without attention.
 
     Args:
@@ -359,8 +359,8 @@ class LSTMEncoderDecoder(RNNEncoderDecoder):
         super().__init__(*args, **kwargs)
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
 
-    def get_decoder(self) -> modules.rnn.GRUDecoder:
-        return modules.rnn.LSTMDecoder(
+    def get_decoder(self) -> modules.LSTMDecoder:
+        return modules.LSTMDecoder(
             bidirectional=False,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
@@ -395,11 +395,11 @@ class LSTMEncoderDecoder(RNNEncoderDecoder):
         return "LSTM"
 
 
-class AttentiveGRUEncoderDecoder(GRUEncoderDecoder):
+class AttentiveGRUModel(GRUModel):
     """GRU encoder-decoder with attention."""
 
-    def get_decoder(self):
-        return modules.rnn.AttentiveGRUDecoder(
+    def get_decoder(self) -> modules.AttentiveGRUDecoder:
+        return modules.AttentiveGRUDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,
@@ -419,11 +419,11 @@ class AttentiveGRUEncoderDecoder(GRUEncoderDecoder):
         return "attentive GRU"
 
 
-class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
+class AttentiveLSTMModel(LSTMModel):
     """LSTM encoder-decoder with attention."""
 
-    def get_decoder(self):
-        return modules.rnn.AttentiveLSTMDecoder(
+    def get_decoder(self) -> modules.AttentiveLSTMDecoder:
+        return modules.AttentiveLSTMDecoder(
             pad_idx=self.pad_idx,
             start_idx=self.start_idx,
             end_idx=self.end_idx,

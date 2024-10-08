@@ -51,7 +51,7 @@ def _optimal_batch_size(
 def find_batch_size(
     method: str,
     trainer: lightning.Trainer,
-    model: models.BaseEncoderDecoder,
+    model: models.BaseModel,
     datamodule: data.DataModule,
     *,
     steps_per_trial: int = defaults.FIND_BATCH_SIZE_STEPS_PER_TRIAL,
@@ -73,7 +73,7 @@ def find_batch_size(
             the "optimal" batch size, using the gradient accumulation trick if
             necessary.)
         trainer (lightning.Trainer).
-        model (models.BaseEncoderDecoder).
+        model (models.BaseModel).
         datamodule (data.DataModule).
         steps_per_trial (int, optional): number of steps to run with a given
             batch size.
