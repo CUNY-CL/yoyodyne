@@ -7,7 +7,15 @@ import lightning
 import torch
 from torch import nn, optim
 
-from .. import data, defaults, evaluators, optimizers, schedulers, util
+from .. import (
+    data,
+    defaults,
+    evaluators,
+    optimizers,
+    schedulers,
+    special,
+    util,
+)
 from . import modules
 
 
