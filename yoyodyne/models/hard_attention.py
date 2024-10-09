@@ -78,8 +78,8 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
             Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
                 torch.Tensor]].
         """
-        batch_size, _ = encoder_mask.shape
-        decoder_hiddens = self.init_hiddens(batch_size, self.decoder_layers)
+        batch_size = encoder_mask.shape[0]
+        decoder_hiddens = self.init_hiddens(batch_size)
         bos = (
             torch.tensor(
                 [special.START_IDX], device=self.device, dtype=torch.long

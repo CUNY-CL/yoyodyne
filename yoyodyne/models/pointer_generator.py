@@ -398,9 +398,7 @@ class PointerGeneratorLSTMEncoderDecoder(
                 self.source_encoder.num_directions,
             )
         else:
-            last_hiddens = self.init_hiddens(
-                len(batch), self.source_encoder.layers
-            )
+            last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width is not None and self.beam_width > 1:
                 # predictions = self.beam_decode(
@@ -428,9 +426,7 @@ class PointerGeneratorLSTMEncoderDecoder(
                     self.features_encoder.num_directions,
                 )
             else:
-                h_features, c_features = self.init_hiddens(
-                    len(batch), self.source_encoder.layers
-                )
+                h_features, c_features = self.init_hiddens(len(batch))
             predictions = self.decode(
                 source_encoded,
                 batch.source.mask,
