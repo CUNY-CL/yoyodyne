@@ -11,7 +11,7 @@ import numpy
 import torch
 from torch.nn import functional
 
-from . import defaults, util
+from . import defaults, special, util
 
 
 class Error(Exception):
@@ -48,8 +48,6 @@ class Evaluator(abc.ABC):
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
-        end_idx: int,
-        pad_idx: int,
         predictions_finalized: bool = False,
     ) -> EvalItem:
         """Computes the evaluation metric.
@@ -60,8 +58,6 @@ class Evaluator(abc.ABC):
         Args:
             predictions (torch.Tensor): B x seq_len x vocab_size.
             golds (torch.Tensor): B x seq_len x 1.
-            end_idx (int): end of sequence index.
-            pad_idx (int): padding index.
             predictions_finalized (bool, optional): have the predictions
                 been arg-maxed and padded?
 
@@ -77,33 +73,26 @@ class Evaluator(abc.ABC):
             # Gets the max value at each dim2 in predictions.
             _, predictions = torch.max(predictions, dim=2)
             # Finalizes the predictions.
-            predictions = self.finalize_predictions(
-                predictions, end_idx, pad_idx
-            )
-        golds = self.finalize_golds(golds, end_idx, pad_idx)
-        return self.get_eval_item(predictions, golds, pad_idx)
+            predictions = self.finalize_predictions(predictions)
+        golds = self.finalize_golds(golds)
+        return self.get_eval_item(predictions, golds)
 
     def get_eval_item(
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
-        pad_idx: int,
     ) -> EvalItem:
         raise NotImplementedError
 
     def finalize_predictions(
         self,
         predictions: torch.Tensor,
-        end_idx: int,
-        pad_idx: int,
     ) -> torch.Tensor:
         raise NotImplementedError
 
     def finalize_golds(
         self,
         predictions: torch.Tensor,
-        end_idx: int,
-        pad_idx: int,
     ) -> torch.Tensor:
         raise NotImplementedError
 
@@ -118,14 +107,13 @@ class AccuracyEvaluator(Evaluator):
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
-        pad_idx: int,
     ) -> EvalItem:
         if predictions.size(1) > golds.size(1):
             predictions = predictions[:, : golds.size(1)]
         elif predictions.size(1) < golds.size(1):
             num_pads = (0, golds.size(1) - predictions.size(1))
             predictions = functional.pad(
-                predictions, num_pads, "constant", pad_idx
+                predictions, num_pads, "constant", special.PAD_IDX
             )
         # Gets the count of exactly matching tensors in the batch.
         # -> B.
@@ -135,28 +123,20 @@ class AccuracyEvaluator(Evaluator):
     def finalize_predictions(
         self,
         predictions: torch.Tensor,
-        end_idx: int,
-        pad_idx: int,
     ) -> torch.Tensor:
         """Finalizes predictions.
 
         Cuts off tensors at the first end_idx, and replaces the rest of the
-        predictions with pad_idx, as these are erroneously decoded while the
+        predictions with PAD_IDX, as these are erroneously decoded while the
         rest of the batch is finishing decoding.
 
         Args:
             predictions (torch.Tensor): prediction tensor.
-            end_idx (int).
-            pad_idx (int).
 
         Returns:
             torch.Tensor: finalized predictions.
         """
-        return util.pad_tensor_after_eos(
-            predictions,
-            end_idx,
-            pad_idx,
-        )
+        return util.pad_tensor_after_eos(predictions)
 
     def finalize_golds(
         self,
@@ -207,7 +187,6 @@ class SEREvaluator(Evaluator):
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
-        pad_idx: int,
     ) -> EvalItem:
         sers = [self._compute_ser(p, g) for p, g in zip(predictions, golds)]
         return EvalItem(sers)
@@ -215,7 +194,6 @@ class SEREvaluator(Evaluator):
     def _finalize_tensor(
         self,
         tensor: torch.Tensor,
-        end_idx: int,
     ) -> List[torch.Tensor]:
         """Finalizes each tensor.
 
@@ -224,11 +202,10 @@ class SEREvaluator(Evaluator):
         not actually pad since we do not need to return a well-formed tensor.
 
         Args:
-            tensor (torch.Tensor): _description_
-            end_idx (int): _description_
+            tensor (torch.Tensor).
 
         Returns:
-            List[torch.Tensor]: _description_
+            List[torch.Tensor].
         """
         # Not necessary if batch size is 1.
         if tensor.size(0) == 1:
@@ -236,7 +213,7 @@ class SEREvaluator(Evaluator):
         out = []
         for prediction in tensor:
             # Gets first instance of EOS.
-            eos = (prediction == end_idx).nonzero(as_tuple=False)
+            eos = (prediction == special.END_IDX).nonzero(as_tuple=False)
             if len(eos) > 0 and eos[0].item() < len(prediction):
                 # If an EOS was decoded and it is not the last one in the
                 # sequence.
@@ -256,40 +233,30 @@ class SEREvaluator(Evaluator):
     def finalize_predictions(
         self,
         predictions: torch.Tensor,
-        end_idx: int,
-        *args,
-        **kwargs,
     ) -> List[torch.Tensor]:
         """Finalizes predictions.
 
         Args:
             predictions (torch.Tensor): prediction tensor.
-            end_idx (int).
-            pad_idx (int).
 
         Returns:
             List[torch.Tensor]: finalized predictions.
         """
-        return self._finalize_tensor(predictions, end_idx)
+        return self._finalize_tensor(predictions)
 
     def finalize_golds(
         self,
         golds: torch.Tensor,
-        end_idx: int,
-        *args,
-        **kwargs,
     ) -> List[torch.Tensor]:
         """Finalizes predictions.
 
         Args:
             predictions (torch.Tensor): prediction tensor.
-            end_idx (int).
-            pad_idx (int).
 
         Returns:
             List[torch.Tensor]: finalized predictions.
         """
-        return self._finalize_tensor(golds, end_idx)
+        return self._finalize_tensor(golds)
 
     @property
     def name(self) -> str:

@@ -6,7 +6,7 @@ import numpy
 import torch
 from torch import nn
 
-from .. import data
+from .. import data, special
 from . import lstm, modules, transformer
 
 
@@ -98,7 +98,7 @@ class PointerGenerator(nn.Module):
                 loss function.
         """
         if not self.label_smoothing:
-            return nn.NLLLoss(ignore_index=self.pad_idx)
+            return nn.NLLLoss(ignore_index=special.PAD_IDX)
         else:
             return self._smooth_nllloss
 
@@ -130,7 +130,7 @@ class PointerGenerator(nn.Module):
         )
         # -> (B * seq_len) x 1.
         target = target.view(-1, 1)
-        non_pad_mask = target.ne(self.pad_idx)
+        non_pad_mask = target.ne(special.PAD_IDX)
         # Gets the ordinary loss.
         nll_loss = -predictions.gather(dim=-1, index=target)[
             non_pad_mask
@@ -194,9 +194,6 @@ class PointerGeneratorLSTMEncoderDecoder(
 
     def get_decoder(self) -> modules.lstm.LSTMAttentiveDecoder:
         return modules.lstm.LSTMAttentiveDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             decoder_input_size=(
                 self.source_encoder.output_size
                 + self.features_encoder.output_size
@@ -331,7 +328,7 @@ class PointerGeneratorLSTMEncoderDecoder(
         # -> B x 1
         decoder_input = (
             torch.tensor(
-                [self.start_idx], device=self.device, dtype=torch.long
+                [special.START_IDX], device=self.device, dtype=torch.long
             )
             .repeat(batch_size)
             .unsqueeze(1)
@@ -364,7 +361,7 @@ class PointerGeneratorLSTMEncoderDecoder(
                 decoder_input = self._get_predicted(output)
                 # Tracks which sequences have decoded an EOS.
                 finished = torch.logical_or(
-                    finished, (decoder_input == self.end_idx)
+                    finished, (decoder_input == special.END_IDX)
                 )
                 # Breaks when all sequences have predicted an EOS symbol. If we
                 # have a target (and are thus computing loss), we only break
@@ -491,9 +488,6 @@ class PointerGeneratorTransformerEncoderDecoder(
 
     def get_decoder(self):
         return modules.transformer.TransformerPointerDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
             num_embeddings=self.vocab_size,
@@ -617,7 +611,7 @@ class PointerGeneratorTransformerEncoderDecoder(
         # The predicted symbols at each iteration.
         predictions = [
             torch.tensor(
-                [self.start_idx for _ in range(encoder_hidden.size(0))],
+                [special.START_IDX for _ in range(encoder_hidden.size(0))],
                 device=self.device,
             )
         ]
@@ -644,7 +638,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             predictions.append(pred)
             # Updates to track which sequences have decoded an EOS.
             finished = torch.logical_or(
-                finished, (predictions[-1] == self.end_idx)
+                finished, (predictions[-1] == special.END_IDX)
             )
             # Breaks when all sequences have predicted an EOS symbol. If we
             # have a target (and are thus computing loss), we only break when
@@ -677,14 +671,14 @@ class PointerGeneratorTransformerEncoderDecoder(
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
-                    [self.start_idx], device=self.device, dtype=torch.long
+                    [special.START_IDX], device=self.device, dtype=torch.long
                 )
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
             )
             target_padded = torch.cat((starts, batch.target.padded), dim=1)
             target_mask = torch.cat(
-                (starts == self.pad_idx, batch.target.mask), dim=1
+                (starts == special.PAD_IDX, batch.target.mask), dim=1
             )
             features_encoded = None
             if self.has_features_encoder:
