@@ -1,25 +1,22 @@
 """Base model class, with PL integration."""
 
 import argparse
-from typing import Callable, Dict, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import lightning
 import torch
 from torch import nn, optim
 
-from .. import data, defaults, evaluators, schedulers, special, util
+from .. import (
+    data,
+    defaults,
+    evaluators,
+    optimizers,
+    schedulers,
+    special,
+    util,
+)
 from . import modules
-
-_optim_fac = {
-    "adadelta": optim.Adadelta,
-    "adam": optim.Adam,
-    "sgd": optim.SGD,
-}
-_scheduler_fac = {
-    "warmupinvsqrt": schedulers.WarmupInverseSquareRootSchedule,
-    "lineardecay": schedulers.LinearDecay,
-    "reduceonplateau": schedulers.ReduceOnPlateau,
-}
 
 
 class BaseEncoderDecoder(lightning.LightningModule):
@@ -315,17 +312,25 @@ class BaseEncoderDecoder(lightning.LightningModule):
         _, indices = torch.max(predictions, dim=2)
         return indices
 
-    def configure_optimizers(self) -> optim.Optimizer:
-        """Gets the configured torch optimizer.
+    def configure_optimizers(
+        self,
+    ) -> Union[
+        optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict[str, Any]]]
+    ]:
+        """Gets the configured torch optimizer and scheduler.
 
         This is called by the PL Trainer.
 
         Returns:
-            optim.Optimizer: optimizer for training.
+            Union[optim.Optimizer,
+                  Tuple[List[optim.Optimizer], List[Dict[str, Any]]].
         """
         optimizer = self._get_optimizer()
-        scheduler = self._get_lr_scheduler(optimizer[0])
-        return optimizer, scheduler
+        scheduler_cfg = self._get_lr_scheduler(optimizer)
+        if scheduler_cfg:
+            return [optimizer], [scheduler_cfg]
+        else:
+            return optimizer
 
     def _get_optimizer(self) -> optim.Optimizer:
         """Factory for selecting the optimizer.
@@ -336,52 +341,28 @@ class BaseEncoderDecoder(lightning.LightningModule):
         Raises:
             NotImplementedError: Optimizer not found.
         """
-        try:
-            optimizer = _optim_fac[self.optimizer]
-        except KeyError:
-            raise NotImplementedError(f"Optimizer not found: {self.optimizer}")
-        kwargs = {"lr": self.learning_rate}
-        if self.optimizer == "adam":
-            kwargs["betas"] = self.beta1, self.beta2
-        return [optimizer(self.parameters(), **kwargs)]
+        return optimizers.get_optimizer_cfg(
+            self.optimizer,
+            self.parameters(),
+            self.learning_rate,
+            self.beta1,
+            self.beta2,
+        )
 
-    def _get_lr_scheduler(
-        self, optimizer: optim.Optimizer
-    ) -> optim.lr_scheduler:
+    def _get_lr_scheduler(self, optimizer: optim.Optimizer) -> Dict[str, Any]:
         """Factory for selecting the scheduler.
 
         Args:
             optimizer (optim.Optimizer): optimizer.
 
         Returns:
-            optim.lr_scheduler: LR scheduler for training.
-
-        Raises:
-            NotImplementedError: LR scheduler not found.
+            Dict: LR scheduler configuration dictionary.
         """
-        if self.scheduler is None:
-            return []
-        try:
-            scheduler_cls = _scheduler_fac[self.scheduler]
-        except KeyError:
-            raise NotImplementedError(
-                f"LR scheduler not found: {self.scheduler}"
-            )
-        scheduler = scheduler_cls(
-            **dict(self.scheduler_kwargs, optimizer=optimizer)
+        if not self.scheduler:
+            return {}
+        return schedulers.get_scheduler_cfg(
+            self.scheduler, optimizer, **dict(self.scheduler_kwargs)
         )
-        scheduler_cfg = {
-            "scheduler": scheduler,
-            "interval": "step",
-            "frequency": 1,
-        }
-        if self.scheduler == "reduceonplateau":
-            scheduler_cfg["interval"] = "epoch"
-            scheduler_cfg["frequency"] = self.scheduler_kwargs[
-                "check_val_every_n_epoch"
-            ]
-            scheduler_cfg["monitor"] = scheduler.metric.monitor
-        return [scheduler_cfg]
 
     def _get_loss_func(
         self,
@@ -427,13 +408,13 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         parser.add_argument(
             "--optimizer",
-            choices=_optim_fac.keys(),
+            choices=optimizers.OPTIMIZERS,
             default=defaults.OPTIMIZER,
             help="Optimizer. Default: %(default)s.",
         )
         parser.add_argument(
             "--scheduler",
-            choices=_scheduler_fac.keys(),
+            choices=schedulers.SCHEDULERS,
             help="Learning rate scheduler.",
         )
         # Regularization arguments.
