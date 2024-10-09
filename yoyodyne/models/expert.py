@@ -16,7 +16,7 @@ import numpy
 from maxwell import actions, sed
 from torch.utils import data
 
-from .. import defaults
+from .. import defaults, special
 
 
 class ActionError(Exception):
@@ -32,7 +32,7 @@ class ActionVocabulary:
     start_vocab_idx: int
     target_characters: Set[Any]
 
-    def __init__(self, unk_idx: int, i2w=None):
+    def __init__(self, i2w=None):
         self.i2w = [
             actions.Start(),
             actions.End(),
@@ -44,7 +44,8 @@ class ActionVocabulary:
             self.i2w.extend(i2w)
         self.w2i = {w: i for i, w in enumerate(self.i2w)}
         self.target_characters = set()
-        self.encode_actions([unk_idx])  # Sets unknown character decoding.
+        # Sets unknown character decoding.
+        self.encode_actions([special.UNK_IDX])
 
     def encode(self, symb: actions.Edit) -> int:
         """Returns index referencing symbol in encoding table.
@@ -472,7 +473,7 @@ def get_expert(
                 source = item.source.tolist()[1:-1]
                 actions.encode_actions(source)
 
-    actions = ActionVocabulary(unk_idx=train_data.index.unk_idx)
+    actions = ActionVocabulary()
     if sed_params_path:
         sed_params = sed.ParamDict.read_params(sed_params_path)
         sed_aligner = sed.StochasticEditDistance(sed_params)

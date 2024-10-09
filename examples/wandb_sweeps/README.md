@@ -10,13 +10,13 @@ This directory contains example scripts for running a hyperparameter sweep with
     search; see
     [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#configuration-keys)
     for more information.
--   When running [`train_wandb_sweep.py`](train_wandb_sweep.py) you must provide
-    the `--entity`, `--project` and `--sweep_id`. It can otherwise be called
-    with the same arguments as `yoyodyne-train` where any hyperparameters in the
-    sweep config will override command-line hyperparameter arguments.
+-   When running [`sweep.py`](sweep.py) you must provide the `--entity`,
+    `--project` and `--sweep_id`. It can otherwise be called with the same
+    arguments as `yoyodyne-train` where any hyperparameters in the sweep config
+    will override command-line hyperparameter arguments.
 -   By default `random` and `bayes` search run indefinitely, until they are
     killed. To specify a fixed number of samples, provide the `--count` argument
-    to [`train_wandb_sweep.py`](train_wandb_sweep.py).
+    to [`sweep.py`](sweep.py).
 
 For more information about W&B sweeps, [read
 here](https://docs.wandb.ai/guides/sweeps).
@@ -29,7 +29,7 @@ Execute the following to create and run the sweep; here `${ENTITY}` and
     # Creates a sweep; save the sweep ID as ${SWEEP_ID} for later.
     wandb sweep --entity "${ENTITY}" --project "${PROJECT}" config.yaml
     # Runs the sweep itself.
-    ./train_wandb_sweep.py --entity "${ENTITY}" --project "${PROJECT}" \
+    ./sweep.py --entity "${ENTITY}" --project "${PROJECT}" \
          --sweep_id "${SWEEP_ID}" --count "${COUNT}" ...
 
 Then, one can retrieve the results as follows:
@@ -44,7 +44,7 @@ Then, one can retrieve the results as follows:
     CSV".
 
 Alternatively, one can use [`best_hyperparameters.py`](best_hyperparamaters.py)
-to retrieve the hyperparameters of the best run, formatted as Bash-style flags:
+to retrieve the hyperparameters of the best run, formatted as CLI flags:
 
     ./best_hyperparameters.py --entity "${ENTITY}" --project "${PROJECT}" \
          --sweep_id "${SWEEP_ID}"

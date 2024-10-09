@@ -130,11 +130,11 @@ class Dataset(data.Dataset):
         Yields:
             List[str]: Decoded symbols.
         """
-        for idx in indices.cpu().numpy():
+        for idx in indices.cpu():
             yield [
                 self.index.get_symbol(c)
                 for c in idx
-                if c not in self.index.special_idx
+                if not special.isspecial(c)
             ]
 
     def decode_source(
