@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import data, defaults
+from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
@@ -39,27 +39,23 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
 
     def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
+        self,
+        num_embeddings: int,
+        embedding_size: int,
     ) -> nn.Embedding:
         """Initializes the embedding layer.
 
         Args:
             num_embeddings (int): number of embeddings.
             embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
 
         Returns:
             nn.Embedding: embedding layer.
         """
-        return embeddings.normal_embedding(
-            num_embeddings, embedding_size, pad_idx
-        )
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
 
     def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
@@ -123,7 +119,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # -> B x 1.
         decoder_input = (
             torch.tensor(
-                [self.start_idx], device=self.device, dtype=torch.long
+                [special.START_IDX], device=self.device, dtype=torch.long
             )
             .repeat(batch_size)
             .unsqueeze(1)
@@ -152,7 +148,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 decoder_input = self._get_predicted(logits)
                 # Updates to track which sequences have decoded an EOS.
                 finished = torch.logical_or(
-                    finished, (decoder_input == self.end_idx)
+                    finished, (decoder_input == special.END_IDX)
                 )
                 # Breaks when all sequences have predicted an EOS symbol. If we
                 # have a target (and are thus computing loss), we only break
@@ -203,8 +199,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         decoder_hiddens = self.init_hiddens(
             encoder_out.size(0), self.decoder_layers
         )
-        # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
-        histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
+        # Log likelihood, last decoded idx, all likelihoods, hiddens tensor.
+        histories = [[0.0, [special.START_IDX], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x target_vocab_size possibilities
@@ -218,7 +214,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 decoder_hiddens,
             ) in histories:
                 # Does not keep decoding a path that has hit EOS.
-                if len(beam_idxs) > 1 and beam_idxs[-1] == self.end_idx:
+                if len(beam_idxs) > 1 and beam_idxs[-1] == special.END_IDX:
                     fields = [
                         beam_likelihood,
                         beam_idxs,
@@ -283,7 +279,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             # Takes the top beam hypotheses from the heap.
             histories = heapq.nlargest(beam_width, hypotheses)
             # If the top n hypotheses are full sequences, break.
-            if all([h[1][-1] == self.end_idx for h in histories]):
+            if all([h[1][-1] == special.END_IDX for h in histories]):
                 break
         # Returns the top-n hypotheses.
         histories = heapq.nlargest(n, hypotheses)
@@ -356,9 +352,6 @@ class AttentiveLSTMEncoderDecoder(LSTMEncoderDecoder):
 
     def get_decoder(self):
         return modules.lstm.LSTMAttentiveDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             decoder_input_size=self.source_encoder.output_size,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,

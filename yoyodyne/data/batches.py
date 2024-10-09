@@ -9,6 +9,8 @@ from typing import Callable, List, Optional
 import torch
 from torch import nn
 
+from .. import special
+
 
 class PaddedTensor(nn.Module):
     """A tensor.
@@ -25,7 +27,6 @@ class PaddedTensor(nn.Module):
 
     Args:
         tensorlist (List[torch.Tensor]): a list of tensors.
-        pad_idx (int): padding index.
         length_msg_callback (Callable[[int], None]): callback for handling a
             violation of expected tensor length.
         pad_len (int, optional): desired length for padding.
@@ -37,7 +38,6 @@ class PaddedTensor(nn.Module):
     def __init__(
         self,
         tensorlist: List[torch.Tensor],
-        pad_idx: int,
         length_msg_callback: Optional[Callable[[int], None]] = None,
         pad_len: Optional[int] = None,
     ):
@@ -46,7 +46,6 @@ class PaddedTensor(nn.Module):
             pad_len = max(len(tensor) for tensor in tensorlist)
         if length_msg_callback is not None:
             length_msg_callback(pad_len)
-        self.pad_idx = pad_idx
         self.register_buffer(
             "padded",
             torch.stack(
@@ -58,7 +57,8 @@ class PaddedTensor(nn.Module):
     def mask(self) -> torch.Tensor:
         return self.padded == self.pad_idx
 
-    def pad_tensor(self, tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
+    @staticmethod
+    def pad_tensor(tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
         """Pads a tensor.
 
         Args:
@@ -70,7 +70,7 @@ class PaddedTensor(nn.Module):
         """
         padding = pad_max - len(tensor)
         return nn.functional.pad(
-            tensor, (0, padding), "constant", self.pad_idx
+            tensor, (0, padding), "constant", special.PAD_IDX
         )
 
     def __len__(self) -> int:
