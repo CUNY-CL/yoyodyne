@@ -11,5 +11,5 @@ setuptools>=72.1.0
 torch>=2.4.0
 tqdm>=4.66.4
 twine>=5.1.1
-wandb>=0.17.5
+wandb>=0.18.0
 wheel>=0.40.0

@@ -6,7 +6,7 @@ import numpy
 import torch
 from torch import nn
 
-from ... import data
+from ... import data, special
 from .. import embeddings
 from . import base
 
@@ -23,21 +23,15 @@ class PositionalEncoding(nn.Module):
 
     Args:
         d_model (int).
-        pad_idx (int).
         max_source_length (int).
     """
-
-    # Model arguments.
-    pad_idx: int
 
     def __init__(
         self,
         d_model: int,
-        pad_idx,
         max_source_length: int,
     ):
         super().__init__()
-        self.pad_idx = pad_idx
         positional_encoding = torch.zeros(max_source_length, d_model)
         position = torch.arange(
             0, max_source_length, dtype=torch.float
@@ -72,7 +66,7 @@ class PositionalEncoding(nn.Module):
         # Selects the tensors from `out` at the specified indices.
         out = out[torch.arange(out.shape[0]).unsqueeze(-1), indices]
         # Zeros out pads.
-        pad_mask = symbols.ne(self.pad_idx).unsqueeze(2)
+        pad_mask = symbols.ne(special.PAD_IDX).unsqueeze(2)
         # TODO: consider in-place mul_.
         out = out * pad_mask
         return out
@@ -151,7 +145,7 @@ class TransformerModule(base.BaseModule):
         self.esq = numpy.sqrt(self.embedding_size)
         self.module = self.get_module()
         self.positional_encoding = PositionalEncoding(
-            self.embedding_size, self.pad_idx, max_source_length
+            self.embedding_size, max_source_length
         )
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
@@ -248,7 +242,6 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         self.type_embedding = embeddings.xavier_embedding(
             2,
             self.embedding_size,
-            self.pad_idx,
         )
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
