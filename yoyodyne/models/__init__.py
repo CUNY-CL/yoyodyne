@@ -6,10 +6,8 @@ from .. import defaults
 from .base import BaseEncoderDecoder
 from .hard_attention import HardAttentionLSTM
 from .lstm import AttentiveLSTMEncoderDecoder, LSTMEncoderDecoder
-from .pointer_generator import (
-    PointerGeneratorLSTMEncoderDecoder,
-    PointerGeneratorTransformerEncoderDecoder,
-)
+from .pointer_generator import (PointerGeneratorLSTMEncoderDecoder,
+                                PointerGeneratorTransformerEncoderDecoder)
 from .transducer import TransducerEncoderDecoder
 from .transformer import TransformerEncoderDecoder
 
