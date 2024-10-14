@@ -55,7 +55,7 @@ class PaddedTensor(nn.Module):
 
     @property
     def mask(self) -> torch.Tensor:
-        return self.padded == self.pad_idx
+        return self.padded == special.PAD_IDX
 
     @staticmethod
     def pad_tensor(tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
