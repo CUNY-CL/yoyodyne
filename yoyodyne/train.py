@@ -1,22 +1,15 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
+import os
 from typing import List, Optional
 
 import lightning
 import wandb
 from lightning.pytorch import callbacks, loggers
 
-from . import (
-    data,
-    defaults,
-    evaluators,
-    metrics,
-    models,
-    schedulers,
-    sizing,
-    util,
-)
+from . import (data, defaults, evaluators, metrics, models, schedulers, sizing,
+               util)
 
 
 class Error(Exception):
@@ -198,21 +191,25 @@ def get_model_from_argparse_args(
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
-    # Loads expert if needed.
-    expert = (
-        models.expert.get_expert(
-            datamodule.train_dataloader().dataset,
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
-            sed_params_path=(
-                args.sed_params
-                if args.sed_params
-                else f"{args.model_dir}/{args.experiment}/sed.pkl"
-            ),
+    # Instantiates expert, if needed.
+    expert = None
+    if args.arch in ["transducer"]:
+        sed_params_paths = (
+            args.sed_params
+            if args.sed_params
+            else f"{args.model_dir}/{args.experiment}/sed.pkl"
         )
-        if args.arch in ["transducer"]
-        else None
-    )
+        expert = (
+            models.expert.get_expert(
+                datamodule.train_dataloader().dataset,
+                epochs=args.oracle_em_epochs,
+                oracle_factor=args.oracle_factor,
+                sed_params_path=sed_params_paths,
+                read_from_file=os.path.isfile(sed_params_paths),
+            )
+            if args.arch in ["transducer"]
+            else None
+        )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
     # either:
