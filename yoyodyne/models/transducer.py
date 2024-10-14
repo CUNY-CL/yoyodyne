@@ -7,7 +7,7 @@ import torch
 from maxwell import actions
 from torch import nn
 
-from .. import data, defaults, util
+from .. import data, defaults, special, util
 from . import expert, lstm, modules
 
 
@@ -53,9 +53,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
 
     def get_decoder(self) -> modules.lstm.LSTMDecoder:
         return modules.lstm.LSTMDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             decoder_input_size=(
                 self.source_encoder.output_size
                 + self.features_encoder.output_size
@@ -90,7 +87,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
-
         if self.has_features_encoder:
             features_encoder_out = self.features_encoder(batch.features)
             features_encoded = features_encoder_out.output
@@ -104,9 +100,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 )
                 last_hiddens = h_features, c_features
             else:
-                last_hiddens = self.init_hiddens(
-                    source_mask.shape[0], self.decoder_layers
-                )
+                last_hiddens = self.init_hiddens(source_mask.shape[0])
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
@@ -116,9 +110,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 dim=2,
             )
         else:
-            last_hiddens = self.init_hiddens(
-                source_mask.shape[0], self.decoder_layers
-            )
+            last_hiddens = self.init_hiddens(source_mask.shape[0])
         prediction, loss = self.decode(
             encoded,
             last_hiddens,
@@ -447,15 +439,16 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         alignment: torch.Tensor,
         prediction: List[List[str]],
     ) -> torch.Tensor:
-        """Batch updates prediction and alignment information given actions.
+        """Batch updates prediction and alignment information from actions.
 
         Args:
-           action (List[actions.Edit]): valid actions, one per item in batch.
+           action (List[actions.Edit]): valid actions, one per item in
+                batch.
            source (List[int]): source strings, one per item in batch.
-           alignment (torch.Tensor): index of current symbol for each item in
-               batch.
-           prediction (List[List[str]]): current predictions for each item in
-               batch, one list of symbols per item.
+           alignment (torch.Tensor): index of current symbol for each item
+                in batch.
+           prediction (List[List[str]]): current predictions for each item
+                in batch, one list of symbols per item.
 
         Return:
             torch.Tensor: new alignments for transduction.
@@ -477,7 +470,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 alignment_update[i] += 1
                 prediction[i].append(a.new)
             elif isinstance(a, actions.End):
-                prediction[i].append(self.end_idx)
+                prediction[i].append(special.END_IDX)
             else:
                 raise expert.ActionError(f"Unknown action: {action[i]}")
         return alignment + alignment_update
@@ -542,8 +535,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             evaluator.name: evaluator.evaluate(
                 predictions,
                 batch.target.padded,
-                self.end_idx,
-                self.pad_idx,
                 predictions_finalized=True,
             )
             for evaluator in self.evaluators
@@ -572,9 +563,7 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
         # This turns all symbols after the first EOS into PADs
         # so prediction tensors match gold tensors.
         return util.pad_tensor_after_eos(
-            prediction,
-            self.end_idx,
-            self.pad_idx,
+            torch.tensor(prediction),
         )
 
     def on_train_epoch_start(self) -> None:

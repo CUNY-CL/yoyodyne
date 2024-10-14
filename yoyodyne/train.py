@@ -258,7 +258,6 @@ def get_model_from_argparse_args(
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
-        end_idx=datamodule.index.end_idx,
         enforce_monotonic=args.enforce_monotonic,
         eval_metrics=eval_metrics,
         expert=expert,
@@ -271,7 +270,6 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_attention_heads=args.source_attention_heads,
@@ -306,10 +304,7 @@ def train(args: argparse.Namespace) -> str:
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
     if args.log_wandb:
-        # Logs number of model parameters for W&B.
-        wandb.config["n_model_params"] = sum(
-            p.numel() for p in model.parameters()
-        )
+        wandb.config["num_parameters"] = model.num_parameters
     if args.find_batch_size:
         sizing.find_batch_size(
             args.find_batch_size,

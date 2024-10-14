@@ -7,7 +7,7 @@ import lightning
 import torch
 from torch import nn, optim
 
-from .. import data, defaults, evaluators, schedulers, util
+from .. import data, defaults, evaluators, schedulers, special, util
 from . import modules
 
 _optim_fac = {
@@ -26,10 +26,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
     """Base class, handling Lightning integration."""
 
     #  TODO: clean up type checking here.
-    # Indices.
-    end_idx: int
-    pad_idx: int
-    start_idx: int
     # Sizes.
     vocab_size: int
     features_vocab_size: int
@@ -63,9 +59,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
     def __init__(
         self,
         *,
-        pad_idx,
-        start_idx,
-        end_idx,
         vocab_size,
         features_vocab_size,
         target_vocab_size,
@@ -92,9 +85,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
     ):
         super().__init__()
         # Symbol processing.
-        self.pad_idx = pad_idx
-        self.start_idx = start_idx
-        self.end_idx = end_idx
         self.vocab_size = vocab_size
         self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
@@ -118,9 +108,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self.encoder_layers = encoder_layers
         self.hidden_size = hidden_size
         self.embeddings = self.init_embeddings(
-            self.vocab_size,
-            self.embedding_size,
-            self.pad_idx,
+            self.vocab_size, self.embedding_size
         )
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         self.evaluators = [
@@ -133,9 +121,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         # Instantiates encoders class.
         self.source_encoder = source_encoder_cls(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
             num_embeddings=self.vocab_size,
@@ -148,9 +133,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         self.features_encoder = (
             features_encoder_cls(
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
-                end_idx=self.end_idx,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
                 num_embeddings=self.vocab_size,
@@ -178,15 +160,12 @@ class BaseEncoderDecoder(lightning.LightningModule):
         util.log_info(f"Decoder: {self.decoder.name}")
 
     @staticmethod
-    def init_embeddings(
-        num_embed: int, embed_size: int, pad_idx: int
-    ) -> nn.Embedding:
+    def init_embeddings(num_embed: int, embed_size: int) -> nn.Embedding:
         """Method interface for initializing the embedding layer.
 
         Args:
             num_embeddings (int): number of embeddings.
             embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
 
         Raises:
             NotImplementedError: This method needs to be overridden.
@@ -198,6 +177,10 @@ class BaseEncoderDecoder(lightning.LightningModule):
 
     def get_decoder(self):
         raise NotImplementedError
+
+    @property
+    def num_parameters(self) -> int:
+        return sum(part.numel() for part in self.parameters())
 
     @property
     def has_features_encoder(self):
@@ -257,7 +240,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         # Gets a dict of all eval metrics for this batch.
         val_eval_items_dict = {
             evaluator.name: evaluator.evaluate(
-                greedy_predictions, target_padded, self.end_idx, self.pad_idx
+                greedy_predictions, target_padded
             )
             for evaluator in self.evaluators
         }
@@ -410,7 +393,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
                 loss function.
         """
         return nn.CrossEntropyLoss(
-            ignore_index=self.pad_idx,
+            ignore_index=special.PAD_IDX,
             label_smoothing=self.label_smoothing,
         )
 

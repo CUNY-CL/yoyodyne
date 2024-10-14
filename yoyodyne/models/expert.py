@@ -16,7 +16,7 @@ import numpy
 from maxwell import actions, sed
 from torch.utils import data
 
-from .. import defaults
+from .. import defaults, special
 from ..data import indexes
 
 

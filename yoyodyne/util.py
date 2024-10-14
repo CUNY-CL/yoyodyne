@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 import torch
 
+from . import special
+
 # Argument parsing.
 
 
@@ -27,19 +29,15 @@ class UniqueAddAction(argparse.Action):
 
 def pad_tensor_after_eos(
     predictions: torch.Tensor,
-    end_idx: int,
-    pad_idx: int,
 ) -> torch.Tensor:
     """Replaces everything after an EOS token with PADs.
 
     Cuts off tensors at the first end_idx, and replaces the rest of the
-    predictions with pad_idx, as these can be erroneously decoded while the
+    predictions with PAD_IDX, as these can be erroneously decoded while the
     rest of the batch is finishing decoding.
 
     Args:
         predictions (torch.Tensor): prediction tensor.
-        end_idx (int).
-        pad_idx (int).
 
     Returns:
         torch.Tensor: finalized predictions.
@@ -49,7 +47,7 @@ def pad_tensor_after_eos(
         return predictions
     for i, prediction in enumerate(predictions):
         # Gets first instance of EOS.
-        eos = (prediction == end_idx).nonzero(as_tuple=False)
+        eos = (prediction == special.END_IDX).nonzero(as_tuple=False)
         if len(eos) > 0 and eos[0].item() < len(prediction):
             # If an EOS was decoded and it is not the last one in the
             # sequence.
@@ -66,9 +64,9 @@ def pad_tensor_after_eos(
         # While waiting on the entire batch to finish.
         pads = (
             torch.ones(len(prediction) - len(symbols), device=symbols.device)
-            * pad_idx
+            * special.PAD_IDX
         )
-        pads[0] = end_idx
+        pads[0] = special.END_IDX
         # Makes an in-place update to an inference tensor.
         with torch.inference_mode():
             predictions[i] = torch.cat((symbols, pads))

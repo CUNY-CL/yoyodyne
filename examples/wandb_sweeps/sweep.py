@@ -25,7 +25,7 @@ def train_sweep(args: argparse.Namespace) -> None:
     wandb.init()
     # Model arguments come from the wandb sweep config and override any
     # conflicting arguments passed via the CLI.
-    for key, value in dict(wandb.config).items():
+    for key, value in wandb.config.items():
         if key in args:
             util.log_info(f"Overriding CLI argument: {key}")
         setattr(args, key, value)
@@ -46,18 +46,14 @@ def main() -> None:
     parser.add_argument(
         "--sweep_id",
         required=True,
-        help="ID for the sweep to run the agent in.",
+        help="ID for the sweep.",
     )
-    parser.add_argument(
-        "--entity", required=True, help="The entity scope for the project."
-    )
-    parser.add_argument(
-        "--project", required=True, help="The project of the sweep."
-    )
+    parser.add_argument("--entity", required=True, help="Entity name.")
+    parser.add_argument("--project", required=True, help="Project name.")
     parser.add_argument(
         "--count",
         type=int,
-        help="The max number of runs for this agent",
+        help="Number of runs to perform.",
     )
     args = parser.parse_args()
     # Forces log_wandb to True, so that the PTL trainer logs runtime metrics

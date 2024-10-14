@@ -18,7 +18,6 @@ class Error(Exception):
 class Collator:
     """Pads data."""
 
-    pad_idx: int
     has_features: bool
     has_target: bool
     separate_features: bool
@@ -87,7 +86,6 @@ class Collator:
         """
         return batches.PaddedTensor(
             [item.source for item in itemlist],
-            self.pad_idx,
             self._source_length_error,
         )
 
@@ -105,7 +103,6 @@ class Collator:
         """
         return batches.PaddedTensor(
             self.concatenate_source_and_features(itemlist),
-            self.pad_idx,
             self._source_length_error,
         )
 
@@ -121,9 +118,7 @@ class Collator:
         Returns:
             batches.PaddedTensor.
         """
-        return batches.PaddedTensor(
-            [item.features for item in itemlist], self.pad_idx
-        )
+        return batches.PaddedTensor([item.features for item in itemlist])
 
     def pad_target(
         self, itemlist: List[datasets.Item]
@@ -138,7 +133,6 @@ class Collator:
         """
         return batches.PaddedTensor(
             [item.target for item in itemlist],
-            self.pad_idx,
             self._target_length_warning,
         )
 
