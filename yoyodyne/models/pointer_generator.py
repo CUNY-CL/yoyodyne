@@ -401,10 +401,16 @@ class PointerGeneratorLSTMEncoderDecoder(
             last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width is not None and self.beam_width > 1:
-                # predictions = self.beam_decode(
-                # batch_size, x_mask, encoder_out, beam_width=self.beam_width
+                # predictions, scores = self.beam_decode(
+                #     encoder_out=source_encoded,
+                #     mask=batch.source.mask,
+                #     beam_width=self.beam_width,
+                #     n=self.n
                 # )
-                raise NotImplementedError
+
+                # LSTM beam search does not work with pointer generator LSTM.
+                raise NotImplementedError(
+                    f"Beam search not implemented for {self.name} model.")
             else:
                 predictions = self.decode(
                     source_encoded,
@@ -427,16 +433,28 @@ class PointerGeneratorLSTMEncoderDecoder(
                 )
             else:
                 h_features, c_features = self.init_hiddens(len(batch))
-            predictions = self.decode(
-                source_encoded,
-                batch.source.mask,
-                batch.source.padded,
-                last_hiddens,
-                self.teacher_forcing if self.training else False,
-                features_enc=features_encoded,
-                features_mask=batch.features.mask,
-                target=batch.target.padded if batch.target else None,
-            )
+            if self.beam_width is not None and self.beam_width > 1:
+                # predictions, scores = self.beam_decode(
+                #     encoder_out=source_encoded,
+                #     mask=batch.source.mask,
+                #     beam_width=self.beam_width,
+                #     n=self.n
+                # )
+
+                # LSTM beam search does not work with pointer generator LSTM.
+                raise NotImplementedError(
+                    f"Beam search not implemented for {self.name} model.")
+            else:
+                predictions = self.decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
         return predictions
 
     @staticmethod
@@ -685,10 +703,13 @@ class PointerGeneratorTransformerEncoderDecoder(
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
             if self.beam_width is not None and self.beam_width > 1:
-                # predictions = self.beam_decode(
-                # batch_size, x_mask, encoder_out, beam_width=self.beam_width
-                # )
-                raise NotImplementedError
+                # Will raise a NotImplementedError
+                output = self.beam_decode(
+                    encoder_out=source_encoded,
+                    mask=batch.source.mask,
+                    beam_width=self.beam_width,
+                    n=self.n
+                )
             else:
                 output = self.decode_step(
                     source_encoded,
@@ -704,14 +725,23 @@ class PointerGeneratorTransformerEncoderDecoder(
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
-            # -> B x seq_len x output_size.
-            output = self._decode_greedy(
-                source_encoded,
-                batch.source.mask,
-                batch.source.padded,
-                batch.target.padded if batch.target else None,
-                features_enc=features_encoded,
-            )
+            if self.beam_width is not None and self.beam_width > 1:
+                # Will raise a NotImplementedError
+                output = self.beam_decode(
+                    encoder_out=source_encoded,
+                    mask=batch.source.mask,
+                    beam_width=self.beam_width,
+                    n=self.n
+                )
+            else:
+                # -> B x seq_len x output_size.
+                output = self._decode_greedy(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    batch.target.padded if batch.target else None,
+                    features_enc=features_encoded,
+                )
         return output
 
     @property

@@ -161,12 +161,22 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             output = logits[:, :-1, :]  # Ignore EOS.
         else:
             encoder_output = self.source_encoder(batch.source).output
-            # -> B x seq_len x output_size.
-            output = self._decode_greedy(
-                encoder_output,
-                batch.source.mask,
-                batch.target.padded if batch.target else None,
-            )
+
+            if self.beam_width is not None and self.beam_width > 1:
+                # Will raise a NotImplementedError
+                output = self.beam_decode(
+                    encoder_out=encoder_output,
+                    mask=batch.source.mask,
+                    beam_width=self.beam_width,
+                    n=self.n,
+                )
+            else:
+                # -> B x seq_len x output_size.
+                output = self._decode_greedy(
+                    encoder_output,
+                    batch.source.mask,
+                    batch.target.padded if batch.target else None,
+                )
         return output
 
     @property

@@ -67,7 +67,15 @@ def get_model_from_argparse_args(
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls_from_argparse_args(args)
-    return model_cls.load_from_checkpoint(args.checkpoint)
+
+    kwargs = {}
+    if args.beam_width:
+        kwargs['beam_width'] = args.beam_width
+    if args.n:
+        kwargs['n'] = args.n
+
+    # Pass kwargs when loading the model
+    return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
 
 
 def _mkdir(output: str) -> None:
@@ -100,9 +108,22 @@ def predict(
     loader = datamodule.predict_dataloader()
     with open(output, "w", encoding=defaults.ENCODING) as sink:
         for batch in trainer.predict(model, loader):
-            batch = util.pad_tensor_after_eos(batch)
-            for prediction in loader.dataset.decode_target(batch):
-                print(prediction, file=sink)
+            # batch -> (predictions, scores)
+            predictions = util.pad_tensor_after_eos(batch[0])
+            if batch[1] is None:
+                for prediction in loader.dataset.decode_target(predictions):
+                    print(prediction, file=sink)
+                    print(prediction)
+            else:
+                decoded_predictions = loader.dataset.decode_target(predictions)
+                for i, (prediction, score) in enumerate(zip(decoded_predictions, batch[1])):
+                    # print(prediction, file=sink)
+                    if i != 0:
+                        print('\t', end="", file=sink)
+                        print('\t', end="")
+                    print(f"{prediction}/{score}", end="", file=sink)
+                    print(f"{prediction}/{score}", end="")
+                print(file=sink)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -133,8 +154,22 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to prediction output data TSV.",
     )
+
     # Prediction arguments.
-    # TODO: add --beam_width.
+    parser.add_argument(
+        "--beam_width",
+        type=int,
+        required=False,
+        help="Size of the beam for beam search. Default: %(default)s."
+    )
+
+    parser.add_argument(
+        "--n",
+        type=int,
+        required=False,
+        help="Number of hypotheses to return in beam search. Default: %(default)s."
+    )
+
     # Data arguments.
     data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.

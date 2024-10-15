@@ -72,3 +72,4 @@ REDUCEONPLATEAU_PATIENCE = 10
 
 # Decoding arguments.
 BEAM_WIDTH = 1
+N = 1

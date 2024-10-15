@@ -110,15 +110,25 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             )
         else:
             last_hiddens = self.init_hiddens(source_mask.shape[0])
-        prediction, loss = self.decode(
-            encoded,
-            last_hiddens,
-            source_padded,
-            source_mask,
-            teacher_forcing=self.teacher_forcing if self.training else False,
-            target=batch.target.padded if batch.target else None,
-            target_mask=batch.target.mask if batch.target else None,
-        )
+
+        if self.beam_width is not None and self.beam_width > 1:
+            # Will raise a NotImplementedError
+            prediction = self.beam_decode(
+                encoder_out=encoded,
+                mask=batch.source.mask,
+                beam_width=self.beam_width,
+                n=self.n,
+            )
+        else:
+            prediction, loss = self.decode(
+                encoded,
+                last_hiddens,
+                source_padded,
+                source_mask,
+                teacher_forcing=self.teacher_forcing if self.training else False,
+                target=batch.target.padded if batch.target else None,
+                target_mask=batch.target.mask if batch.target else None,
+            )
         return prediction, loss
 
     def decode(
