@@ -162,7 +162,7 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         else:
             encoder_output = self.source_encoder(batch.source).output
 
-            if self.beam_width is not None and self.beam_width > 1:
+            if self.beam_width > 1:
                 # Will raise a NotImplementedError
                 output = self.beam_decode(
                     encoder_out=encoder_output,

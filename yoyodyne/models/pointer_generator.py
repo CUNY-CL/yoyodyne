@@ -400,7 +400,7 @@ class PointerGeneratorLSTMEncoderDecoder(
         else:
             last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
-            if self.beam_width is not None and self.beam_width > 1:
+            if self.beam_width > 1:
                 # predictions, scores = self.beam_decode(
                 #     encoder_out=source_encoded,
                 #     mask=batch.source.mask,
@@ -433,7 +433,7 @@ class PointerGeneratorLSTMEncoderDecoder(
                 )
             else:
                 h_features, c_features = self.init_hiddens(len(batch))
-            if self.beam_width is not None and self.beam_width > 1:
+            if self.beam_width > 1:
                 # predictions, scores = self.beam_decode(
                 #     encoder_out=source_encoded,
                 #     mask=batch.source.mask,
@@ -702,7 +702,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
-            if self.beam_width is not None and self.beam_width > 1:
+            if self.beam_width > 1:
                 # Will raise a NotImplementedError
                 output = self.beam_decode(
                     encoder_out=source_encoded,
@@ -725,7 +725,7 @@ class PointerGeneratorTransformerEncoderDecoder(
             if self.has_features_encoder:
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
-            if self.beam_width is not None and self.beam_width > 1:
+            if self.beam_width > 1:
                 # Will raise a NotImplementedError
                 output = self.beam_decode(
                     encoder_out=source_encoded,

@@ -1,7 +1,7 @@
 """Base model class, with PL integration."""
 
 import argparse
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Dict, Optional, Set, Tuple
 
 import lightning
 import torch
@@ -186,15 +186,14 @@ class BaseEncoderDecoder(lightning.LightningModule):
             encoder_out: torch.Tensor,
             mask: torch.Tensor,
             beam_width: int,
-            n: int,
     ):
         """Method interface for beam search.
 
         Args:
             encoder_out (torch.Tensor): encoded inputs.
             encoder_mask (torch.Tensor).
-            beam_width (int): size of the beam.
-            n (int): number of hypotheses to return.
+            beam_width (int): size of the beam. It also works as the number of 
+            hypotheses to return.
 
         Raises:
             NotImplementedError: This method needs to be overridden.
@@ -313,7 +312,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs one predict step.
 
         This is called by the PL Trainer.
@@ -323,14 +322,13 @@ class BaseEncoderDecoder(lightning.LightningModule):
             batch_idx (int).
 
         Returns:
-            Tuple(torch.Tensor, torch.Tensor): position 0 are the indices of 
+            Tuple[torch.Tensor, torch.Tensor]: position 0 are the indices of 
             the argmax at each timestep. Position 1 are the scores for each 
             history in beam search. It will be None when using greedy.
 
         """
         predictions = self(batch)
-
-        if self.beam_width is not None and self.beam_width > 1:
+        if self.beam_width > 1:
             # For beam seach the output of the model is
             # Tuple(predictions, scores).
             return predictions[0], predictions[1]

@@ -178,12 +178,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
             )
-
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
         # Log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
         histories = [[0.0, [special.START_IDX], [0.0], decoder_hiddens]]
-
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x target_vocab_size possibilities
@@ -228,7 +226,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 )
             # Constrains the next step to beamsize.
             for (
-                predictions,
+                logits,
                 beam_loglikelihood,
                 beam_idxs,
                 char_loglikelihoods,
@@ -237,16 +235,9 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 # This is 1 x 1 x target_vocab_size since we fixed batch size
                 # to 1. We squeeze off the first 2 dimensions to get a tensor
                 # of target_vocab_size.
-                predictions = predictions.squeeze(0).squeeze(0)
-
-                # Obtain the log-probabilities of the predictions (logits).
-                predictions = nn.functional.log_softmax(predictions, dim=0)
-
-                # I recommend new names for the variables since we use now
-                # log-likelihoods:
-                #   prob -> logprob
-                #   beam_likelihood -> beam_loglikelihood
-                #   char_likelihoods -> char_loglikelihoods
+                logits = logits.squeeze((0, 1))
+                # Obtain the log-probabilities of the logits.
+                predictions = nn.functional.log_softmax(logits, dim=0)
                 for j, logprob in enumerate(predictions):
                     cl = char_loglikelihoods + [logprob]
                     if len(hypotheses) < beam_width:
@@ -272,24 +263,23 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 break
         # Returns the top-n hypotheses.
         histories = heapq.nlargest(n, hypotheses)
-
-        # Sometimes path lenghts does not match so it is neccesary to pad it
-        # all to same lenght to create a tensor.
+        # Sometimes path lengths does not match so it is neccesary to pad it
+        # all to same length to create a tensor.
         max_len = max(len(h[1]) for h in histories)
         predictions = torch.tensor(
-            [h[1] + [special.PAD_IDX] * (max_len - len(h[1])) for h in histories], device=self.device)
-
+            [h[1] + [special.PAD_IDX] * (max_len - len(h[1]))
+             for h in histories],
+            device=self.device
+        )
         # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
-
-        # beam_serch now returns the log likelihood of each history
-        # instead of the char_loglikelihoods.
+        # Beam search returns the likelihoods of each history.
         return predictions, torch.tensor([h[0] for h in histories])
 
     def forward(
         self,
         batch: data.PaddedBatch,
-    ) -> torch.Tensor:
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
@@ -297,18 +287,18 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
-                search return a tuple with a tensor of predictions of shape 
-                n x seq_len and tensor with the score for each prediction.
-                Greedy returns a tensor of predictions of shape 
+                search returns a tuple with a tensor of predictions of shape 
+                n x seq_len and tensor with the unnormalized sum of symbol 
+                log-probabilities for each prediction. Greedy returns a 
+                tensor of predictions of shape 
                 seq_len x batch_size x target_vocab_size.
         """
         encoder_out = self.source_encoder(batch.source).output
-
         # Now this function has a polymorphic return because beam search needs
         # to return two tensors. For greedy, the return has not been modified
         # to match the Tuple[torch.Tensor, torch.Tensor] type because the
         # training and validation functions depend on it.
-        if self.beam_width is not None and self.beam_width > 1:
+        if self.beam_width > 1:
             predictions, scores = self.beam_decode(
                 encoder_out,
                 batch.source.mask,
@@ -318,7 +308,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
             # Reduce to n x seq_len
             predictions = predictions.transpose(0, 2).squeeze(0)
             return predictions, scores
-
         else:
             predictions = self.decode(
                 encoder_out,
