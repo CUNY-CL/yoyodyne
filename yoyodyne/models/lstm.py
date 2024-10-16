@@ -180,7 +180,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
         # Log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
-        histories = [[0.0, [special.START_IDX], 0.0, decoder_hiddens]]
+        histories = [[0.0, [special.START_IDX], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x target_vocab_size possibilities

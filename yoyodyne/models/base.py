@@ -326,9 +326,8 @@ class BaseEncoderDecoder(lightning.LightningModule):
         """
         predictions = self(batch)
         if self.beam_width > 1:
-            # For beam seach the output of the model is
-            # Tuple(predictions, scores).
-            return predictions[0], predictions[1]
+            predictions, scores = predictions
+            return predictions, scores
         else:
             # -> B x seq_len x 1.
             greedy_predictions = self._get_predicted(predictions)
