@@ -180,7 +180,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
         # Log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
-        histories = [[0.0, [special.START_IDX], [0.0], decoder_hiddens]]
+        histories = [[0.0, [special.START_IDX], 0.0, decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x target_vocab_size possibilities
@@ -236,7 +236,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 # of target_vocab_size.
                 logits = logits.squeeze((0, 1))
                 # Obtain the log-probabilities of the logits.
-                predictions = nn.functional.log_softmax(logits, dim=0)
+                predictions = nn.functional.log_softmax(logits, dim=0).cpu()
                 for j, logprob in enumerate(predictions):
                     cl = char_loglikelihoods + [logprob]
                     if len(hypotheses) < beam_width:
@@ -255,14 +255,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                             decoder_hiddens,
                         ]
                         heapq.heappushpop(hypotheses, fields)
-            # Takes the top beam hypotheses from the heap.
-            # histories = heapq.nlargest(beam_width, hypotheses)
-            histories = hypotheses
+            # Reverse hypotheses to have the min log_likelihood at first index.
+            histories = hypotheses[::-1]
             # If the top n hypotheses are full sequences, break.
             if all([h[1][-1] == special.END_IDX for h in histories]):
                 break
-        # Returns the top-n hypotheses.
-        # histories = heapq.nlargest(beam_width, hypotheses)
         # Sometimes path lengths does not match so it is neccesary to pad it
         # all to same length to create a tensor.
         max_len = max(len(h[1]) for h in histories)
