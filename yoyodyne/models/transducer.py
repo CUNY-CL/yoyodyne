@@ -117,7 +117,6 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 encoder_out=encoded,
                 mask=batch.source.mask,
                 beam_width=self.beam_width,
-                n=self.n,
             )
         else:
             prediction, loss = self.decode(

@@ -168,7 +168,6 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
                     encoder_out=encoder_output,
                     mask=batch.source.mask,
                     beam_width=self.beam_width,
-                    n=self.n,
                 )
             else:
                 # -> B x seq_len x output_size.

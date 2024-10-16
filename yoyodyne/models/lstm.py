@@ -166,7 +166,6 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
         beam_width: int,
-        n: int = defaults.N,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Beam search with beam width.
 
@@ -257,12 +256,13 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                         ]
                         heapq.heappushpop(hypotheses, fields)
             # Takes the top beam hypotheses from the heap.
-            histories = heapq.nlargest(beam_width, hypotheses)
+            # histories = heapq.nlargest(beam_width, hypotheses)
+            histories = hypotheses
             # If the top n hypotheses are full sequences, break.
             if all([h[1][-1] == special.END_IDX for h in histories]):
                 break
         # Returns the top-n hypotheses.
-        histories = heapq.nlargest(n, hypotheses)
+        # histories = heapq.nlargest(beam_width, hypotheses)
         # Sometimes path lengths does not match so it is neccesary to pad it
         # all to same length to create a tensor.
         max_len = max(len(h[1]) for h in histories)
@@ -288,8 +288,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
                 search returns a tuple with a tensor of predictions of shape 
-                n x seq_len and tensor with the unnormalized sum of symbol 
-                log-probabilities for each prediction. Greedy returns a 
+                beam_width x seq_len and tensor with the unnormalized sum of 
+                symbol log-probabilities for each prediction. Greedy returns a 
                 tensor of predictions of shape 
                 seq_len x batch_size x target_vocab_size.
         """
@@ -303,9 +303,8 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                 encoder_out,
                 batch.source.mask,
                 beam_width=self.beam_width,
-                n=self.n,
             )
-            # Reduce to n x seq_len
+            # Reduce to beam_width x seq_len
             predictions = predictions.transpose(0, 2).squeeze(0)
             return predictions, scores
         else:

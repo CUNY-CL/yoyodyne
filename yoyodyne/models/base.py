@@ -42,7 +42,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
     teacher_forcing: bool
     # Decoding arguments.
     beam_width: int
-    n: int
     max_source_length: int
     max_target_length: int
     # Model arguments.
@@ -76,7 +75,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
         label_smoothing=defaults.LABEL_SMOOTHING,
         teacher_forcing=defaults.TEACHER_FORCING,
         beam_width=defaults.BEAM_WIDTH,
-        n=defaults.N,
         max_source_length=defaults.MAX_SOURCE_LENGTH,
         max_target_length=defaults.MAX_TARGET_LENGTH,
         encoder_layers=defaults.ENCODER_LAYERS,
@@ -103,7 +101,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self.label_smoothing = label_smoothing
         self.teacher_forcing = teacher_forcing
         self.beam_width = beam_width
-        self.n = n
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.decoder_layers = decoder_layers
@@ -517,11 +514,4 @@ class BaseEncoderDecoder(lightning.LightningModule):
         #     type=int,
         #     default=defaults.BEAM_WIDTH,
         #     help="Size of the beam for beam search. Default: %(default)s."
-        # )
-
-        # parser.add_argument(
-        #     "--n",
-        #     type=int,
-        #     default=defaults.n,
-        #     help="Number of hypotheses to return in beam search. Default: %(default)s."
         # )

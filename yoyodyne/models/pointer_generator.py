@@ -405,7 +405,6 @@ class PointerGeneratorLSTMEncoderDecoder(
                 #     encoder_out=source_encoded,
                 #     mask=batch.source.mask,
                 #     beam_width=self.beam_width,
-                #     n=self.n
                 # )
 
                 # LSTM beam search does not work with pointer generator LSTM.
@@ -438,7 +437,6 @@ class PointerGeneratorLSTMEncoderDecoder(
                 #     encoder_out=source_encoded,
                 #     mask=batch.source.mask,
                 #     beam_width=self.beam_width,
-                #     n=self.n
                 # )
 
                 # LSTM beam search does not work with pointer generator LSTM.
@@ -708,7 +706,6 @@ class PointerGeneratorTransformerEncoderDecoder(
                     encoder_out=source_encoded,
                     mask=batch.source.mask,
                     beam_width=self.beam_width,
-                    n=self.n
                 )
             else:
                 output = self.decode_step(
@@ -731,7 +728,6 @@ class PointerGeneratorTransformerEncoderDecoder(
                     encoder_out=source_encoded,
                     mask=batch.source.mask,
                     beam_width=self.beam_width,
-                    n=self.n
                 )
             else:
                 # -> B x seq_len x output_size.

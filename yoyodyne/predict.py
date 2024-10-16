@@ -71,8 +71,6 @@ def get_model_from_argparse_args(
     kwargs = {}
     if args.beam_width:
         kwargs['beam_width'] = args.beam_width
-    if args.n:
-        kwargs['n'] = args.n
 
     # Pass kwargs when loading the model
     return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
@@ -161,13 +159,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         type=int,
         required=False,
         help="Size of the beam for beam search. Default: %(default)s."
-    )
-
-    parser.add_argument(
-        "--n",
-        type=int,
-        required=False,
-        help="Number of hypotheses to return in beam search. Default: %(default)s."
     )
 
     # Data arguments.
