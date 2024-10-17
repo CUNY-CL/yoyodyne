@@ -1,7 +1,7 @@
 """Base model class, with PL integration."""
 
 import argparse
-from typing import Callable, Dict, Optional, Set
+from typing import Callable, Dict, Optional, Set, Tuple
 
 import lightning
 import torch
@@ -178,6 +178,31 @@ class BaseEncoderDecoder(lightning.LightningModule):
     def get_decoder(self):
         raise NotImplementedError
 
+    def beam_decode(
+        self,
+        encoder_out: torch.Tensor,
+        mask: torch.Tensor,
+        beam_width: int,
+    ):
+        """Method interface for beam search.
+
+        Args:
+            encoder_out (torch.Tensor): encoded inputs.
+            encoder_mask (torch.Tensor).
+            beam_width (int): size of the beam. It also works as the number of
+            hypotheses to return.
+
+        Raises:
+            NotImplementedError: This method needs to be overridden.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: the predictions tensor and the
+                log-likelihood of each prediction.
+        """
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model."
+        )
+
     @property
     def num_parameters(self) -> int:
         return sum(part.numel() for part in self.parameters())
@@ -285,7 +310,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Runs one predict step.
 
         This is called by the PL Trainer.
@@ -295,12 +320,19 @@ class BaseEncoderDecoder(lightning.LightningModule):
             batch_idx (int).
 
         Returns:
-            torch.Tensor: indices of the argmax at each timestep.
+            Tuple[torch.Tensor, torch.Tensor]: position 0 are the indices of
+            the argmax at each timestep. Position 1 are the scores for each
+            history in beam search. It will be None when using greedy.
+
         """
         predictions = self(batch)
-        # -> B x seq_len x 1.
-        greedy_predictions = self._get_predicted(predictions)
-        return greedy_predictions
+        if self.beam_width > 1:
+            predictions, scores = predictions
+            return predictions, scores
+        else:
+            # -> B x seq_len x 1.
+            greedy_predictions = self._get_predicted(predictions)
+            return greedy_predictions, None
 
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
@@ -398,6 +430,23 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
 
     @staticmethod
+    def add_predict_argparse_args(parser: argparse.ArgumentParser) -> None:
+        """Adds shared configuration options to the argument parser.
+
+        These are only needed at prediction time.
+
+        Args:
+            parser (argparse.ArgumentParser).
+        """
+        # Beam search arguments.
+        parser.add_argument(
+            "--beam_width",
+            type=int,
+            required=False,
+            help="Size of the beam for beam search. Default: %(default)s.",
+        )
+
+    @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         """Adds shared configuration options to the argument parser.
 
@@ -449,7 +498,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
             default=defaults.LABEL_SMOOTHING,
             help="Coefficient for label smoothing. Default: %(default)s.",
         )
-        # TODO: add --beam_width.
         # Model arguments.
         parser.add_argument(
             "--decoder_layers",
