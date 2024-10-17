@@ -124,7 +124,9 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
                 last_hiddens,
                 source_padded,
                 source_mask,
-                teacher_forcing=self.teacher_forcing if self.training else False,
+                teacher_forcing=(
+                    self.teacher_forcing if self.training else False
+                ),
                 target=batch.target.padded if batch.target else None,
                 target_mask=batch.target.mask if batch.target else None,
             )

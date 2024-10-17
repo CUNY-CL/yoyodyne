@@ -72,7 +72,7 @@ def get_model_from_argparse_args(
 
     kwargs = {}
     if args.beam_width:
-        kwargs['beam_width'] = args.beam_width
+        kwargs["beam_width"] = args.beam_width
 
     # Pass kwargs when loading the model
     return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
@@ -109,7 +109,7 @@ def predict(
     if model.beam_width > 1:
         # Beam search
         with open(output, "w", encoding=defaults.ENCODING) as sink:
-            tsv_writer = csv.writer(sink, delimiter='\t')
+            tsv_writer = csv.writer(sink, delimiter="\t")
             # for batch in trainer.predict(model, loader):
             for predictions, scores in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)

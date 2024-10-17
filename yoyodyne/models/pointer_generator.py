@@ -409,7 +409,8 @@ class PointerGeneratorLSTMEncoderDecoder(
 
                 # LSTM beam search does not work with pointer generator LSTM.
                 raise NotImplementedError(
-                    f"Beam search not implemented for {self.name} model.")
+                    f"Beam search not implemented for {self.name} model."
+                )
             else:
                 predictions = self.decode(
                     source_encoded,
@@ -441,7 +442,8 @@ class PointerGeneratorLSTMEncoderDecoder(
 
                 # LSTM beam search does not work with pointer generator LSTM.
                 raise NotImplementedError(
-                    f"Beam search not implemented for {self.name} model.")
+                    f"Beam search not implemented for {self.name} model."
+                )
             else:
                 predictions = self.decode(
                     source_encoded,

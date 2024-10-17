@@ -179,28 +179,29 @@ class BaseEncoderDecoder(lightning.LightningModule):
         raise NotImplementedError
 
     def beam_decode(
-            self,
-            encoder_out: torch.Tensor,
-            mask: torch.Tensor,
-            beam_width: int,
+        self,
+        encoder_out: torch.Tensor,
+        mask: torch.Tensor,
+        beam_width: int,
     ):
         """Method interface for beam search.
 
         Args:
             encoder_out (torch.Tensor): encoded inputs.
             encoder_mask (torch.Tensor).
-            beam_width (int): size of the beam. It also works as the number of 
+            beam_width (int): size of the beam. It also works as the number of
             hypotheses to return.
 
         Raises:
             NotImplementedError: This method needs to be overridden.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: the predictions tensor and the 
+            Tuple[torch.Tensor, torch.Tensor]: the predictions tensor and the
                 log-likelihood of each prediction.
         """
         raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model.")
+            f"Beam search not implemented for {self.name} model."
+        )
 
     @property
     def num_parameters(self) -> int:
@@ -319,8 +320,8 @@ class BaseEncoderDecoder(lightning.LightningModule):
             batch_idx (int).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: position 0 are the indices of 
-            the argmax at each timestep. Position 1 are the scores for each 
+            Tuple[torch.Tensor, torch.Tensor]: position 0 are the indices of
+            the argmax at each timestep. Position 1 are the scores for each
             history in beam search. It will be None when using greedy.
 
         """
@@ -442,7 +443,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
             "--beam_width",
             type=int,
             required=False,
-            help="Size of the beam for beam search. Default: %(default)s."
+            help="Size of the beam for beam search. Default: %(default)s.",
         )
 
     @staticmethod

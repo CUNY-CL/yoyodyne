@@ -169,7 +169,7 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Overrides `beam_decode` in `BaseEncoderDecoder`.
 
-        This method implements the LSTM-specific beam search version. Note 
+        This method implements the LSTM-specific beam search version. Note
         that we assume batch size is 1.
         """
         # TODO: modify to work with batches larger than 1.
@@ -265,9 +265,11 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         # all to same length to create a tensor.
         max_len = max(len(h[1]) for h in histories)
         predictions = torch.tensor(
-            [h[1] + [special.PAD_IDX] * (max_len - len(h[1]))
-             for h in histories],
-            device=self.device
+            [
+                h[1] + [special.PAD_IDX] * (max_len - len(h[1]))
+                for h in histories
+            ],
+            device=self.device,
         )
         # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
@@ -285,10 +287,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
 
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
-                search returns a tuple with a tensor of predictions of shape 
-                beam_width x seq_len and tensor with the unnormalized sum of 
-                symbol log-probabilities for each prediction. Greedy returns a 
-                tensor of predictions of shape 
+                search returns a tuple with a tensor of predictions of shape
+                beam_width x seq_len and tensor with the unnormalized sum of
+                symbol log-probabilities for each prediction. Greedy returns a
+                tensor of predictions of shape
                 seq_len x batch_size x target_vocab_size.
         """
         encoder_out = self.source_encoder(batch.source).output
