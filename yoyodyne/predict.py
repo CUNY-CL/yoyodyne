@@ -110,8 +110,8 @@ def predict(
         # Beam search
         with open(output, "w", encoding=defaults.ENCODING) as sink:
             tsv_writer = csv.writer(sink, delimiter='\t')
-            for batch in trainer.predict(model, loader):
-                predictions, scores = batch
+            # for batch in trainer.predict(model, loader):
+            for predictions, scores in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)
                 decoded_predictions = loader.dataset.decode_target(predictions)
                 row = list(chain(*zip(decoded_predictions, scores.tolist())))
@@ -119,8 +119,7 @@ def predict(
     else:
         # Greedy
         with open(output, "w", encoding=defaults.ENCODING) as sink:
-            for batch in trainer.predict(model, loader):
-                predictions, _ = batch
+            for predictions, _ in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)
                 for prediction in loader.dataset.decode_target(predictions):
                     print(prediction, file=sink)
