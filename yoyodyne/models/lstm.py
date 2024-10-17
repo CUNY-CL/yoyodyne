@@ -167,9 +167,10 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
         encoder_mask: torch.Tensor,
         beam_width: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Beam search with beam width.
+        """Overrides `beam_decode` in `BaseEncoderDecoder`.
 
-        Note that we assume batch size is 1.
+        This method implements the LSTM-specific beam search version. Note 
+        that we assume batch size is 1.
         """
         # TODO: modify to work with batches larger than 1.
         batch_size = encoder_mask.shape[0]
