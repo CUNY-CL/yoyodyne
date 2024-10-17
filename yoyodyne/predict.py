@@ -153,19 +153,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to prediction output data TSV.",
     )
-
-    # Prediction arguments.
-    parser.add_argument(
-        "--beam_width",
-        type=int,
-        required=False,
-        help="Size of the beam for beam search. Default: %(default)s."
-    )
-
     # Data arguments.
     data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.
     models.add_argparse_args(parser)
+    models.BaseEncoderDecoder.add_predict_argparse_args(parser)
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
     # --devices (for multiple device support)

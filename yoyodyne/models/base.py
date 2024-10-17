@@ -429,6 +429,23 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
 
     @staticmethod
+    def add_predict_argparse_args(parser: argparse.ArgumentParser) -> None:
+        """Adds shared configuration options to the argument parser.
+
+        These are only needed at prediction time.
+
+        Args:
+            parser (argparse.ArgumentParser).
+        """
+        # Beam search arguments.
+        parser.add_argument(
+            "--beam_width",
+            type=int,
+            required=False,
+            help="Size of the beam for beam search. Default: %(default)s."
+        )
+
+    @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         """Adds shared configuration options to the argument parser.
 
@@ -480,7 +497,6 @@ class BaseEncoderDecoder(lightning.LightningModule):
             default=defaults.LABEL_SMOOTHING,
             help="Coefficient for label smoothing. Default: %(default)s.",
         )
-
         # Model arguments.
         parser.add_argument(
             "--decoder_layers",
@@ -507,10 +523,3 @@ class BaseEncoderDecoder(lightning.LightningModule):
             help="Dimensionality of the hidden layer(s). "
             "Default: %(default)s.",
         )
-
-        # parser.add_argument(
-        #     "--beam_width",
-        #     type=int,
-        #     default=defaults.BEAM_WIDTH,
-        #     help="Size of the beam for beam search. Default: %(default)s."
-        # )
