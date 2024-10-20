@@ -403,18 +403,19 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
         if self.attention_context > 0:
             return modules.lstm.ContextHardAttentionLSTMDecoder(
                 attention_context=self.attention_context,
+                bidirectional=False,
                 decoder_input_size=(
                     self.source_encoder.output_size
                     + self.features_encoder.output_size
                     if self.has_features_encoder
                     else self.source_encoder.output_size
                 ),
-                num_embeddings=self.target_vocab_size,
                 dropout=self.dropout,
-                bidirectional=False,
+                embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
-                layers=self.decoder_layers,
                 hidden_size=self.hidden_size,
+                layers=self.decoder_layers,
+                num_embeddings=self.target_vocab_size,
             )
         else:
             return modules.lstm.HardAttentionLSTMDecoder(
@@ -424,12 +425,13 @@ class HardAttentionLSTM(lstm.LSTMEncoderDecoder):
                     if self.has_features_encoder
                     else self.source_encoder.output_size
                 ),
-                num_embeddings=self.target_vocab_size,
-                dropout=self.dropout,
                 bidirectional=False,
+                embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
+                dropout=self.dropout,
                 layers=self.decoder_layers,
                 hidden_size=self.hidden_size,
+                num_embeddings=self.target_vocab_size,
             )
 
     def _get_loss_func(
