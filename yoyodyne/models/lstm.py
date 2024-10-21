@@ -256,8 +256,13 @@ class LSTMEncoderDecoder(base.BaseEncoderDecoder):
                             decoder_hiddens,
                         ]
                         heapq.heappushpop(hypotheses, fields)
-            # Reverse hypotheses to have the min log_likelihood at first index.
-            histories = hypotheses[::-1]
+            # I think that this is fastest than doing heapq.nlargest().
+            # Sort hypotheses and reverse to have the min log_likelihood at
+            # first index.
+            hypotheses.sort(reverse=True)
+            # It not neccesary to make a deep copy beacuse hypotheses is going
+            # to be defined again at the start of the loop.
+            histories = hypotheses
             # If the top n hypotheses are full sequences, break.
             if all([h[1][-1] == special.END_IDX for h in histories]):
                 break
