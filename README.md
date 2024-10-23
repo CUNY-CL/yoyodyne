@@ -115,14 +115,19 @@ One must specify the following required arguments:
 -   `--output`: path for predictions
 
 The `--predict` file can either be a TSV file or an ordinary TXT file with one
-source string per line; in the latter case, specify `--target_col 0`.
+source string per line; in the latter case, specify `--target_col 0`. Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
-Beam search is implemented (currently only in LSTM) and can be used via the following arguments:
+Beam search is implemented (currently only in LSTM) and can be used via the following argument:
 
--   `--beam_width`: beam width. Allows beam search for beam_width > 1.
--   `--n`: number of returned hypotheses.
+-   `--beam_width`: beam width. Allows beam search for beam_width > 1. The amount of
+    returned hypotheses are the same as beam_width.
 
-The log-likelihood for each hypothese is always returned. Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
+The log-likelihood for each hypothesis is always returned. The output format is pairs of hypothesis and log-likelihood separated by tabs. For a
+beam_width = N, the output will be:
+
+    hypothesis_1    log-likelihood_1    hypothesis_2    log-likelihood_2    ...    hypothesis_N    log-likelihood_N
+
+where `log-likelihood_1 > log-likelihood_2 > log-likelihood_N`. 
 
 ## Data format
 
