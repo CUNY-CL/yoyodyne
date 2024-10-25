@@ -33,7 +33,7 @@ class ActionVocabulary:
     i2w: Dict[int, actions.Edit]
     w2i: Dict[actions.Edit, int]
     start_vocab_idx: int
-    target_characters: Set[any]
+    target_characters: Set[Any]
 
     def __init__(self, index: data.indexes.Index):
         self.target_characters = set()
@@ -83,11 +83,11 @@ class ActionVocabulary:
         """
         return self.i2w[idx]
 
-    def encode_actions(self, target: any) -> None:
+    def encode_actions(self, target: Any) -> None:
         """Encodes all possible edit actions for given target.
 
         Args:
-            target (any): target symbol produced by encoded edits.
+            target (Any): target symbol produced by encoded edits.
         """
         for c in target:
             if c in self.target_characters:
@@ -262,7 +262,7 @@ class Expert(abc.ABC):
         """Provides edit actions for source symbol and prefix.
 
         Args:
-            source (Sequence[any]): source string to perform edit actions over.
+            source (Sequence[Any]): source string to perform edit actions over.
             alignment (int): index for current symbol to edit in source string.
             prefixes (Iterable[Prefix]): prefix objects aligning current prefix
                 overlap between target and source strings. (Can be multiple.)
@@ -329,8 +329,8 @@ class Expert(abc.ABC):
         Score sums potential edit sequence with cost of action.
 
         Args:
-            source (Sequence[any]): source string to perform edit actions over.
-            target (Sequence[any]): target string for edit actions.
+            source (Sequence[Any]): source string to perform edit actions over.
+            target (Sequence[Any]): target string for edit actions.
             alignment (int): index for current symbol to edit in source string.
             action_prefixes (Iterable[ActionsPrefix]): set of edit
                 actions-prefix pairs to evaluate.
@@ -376,8 +376,8 @@ class Expert(abc.ABC):
         """Provides potential actions given source, target, and prediction.
 
         Args:
-            source (Sequence[any]): source string to perform edit actions over.
-            target (Sequence[any]): target string for edit actions.
+            source (Sequence[Any]): source string to perform edit actions over.
+            target (Sequence[Any]): target string for edit actions.
             alignment (int): index for current symbol to edit in source string.
             prediction (Sequence[Any]): current prediction from previous edits.
 
@@ -403,7 +403,7 @@ class Expert(abc.ABC):
 
         Args:
             prediction (Sequence[Any]): current prediction from prior edits.
-            target (Sequence[any]): target string for edit actions.
+            target (Sequence[Any]): target string for edit actions.
 
         Returns:
             List[Prefix]: prefix objects that index overlap between
