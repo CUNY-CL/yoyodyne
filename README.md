@@ -60,7 +60,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-``` python
+```python
 import yoyodyne
 ```
 
