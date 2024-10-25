@@ -110,9 +110,8 @@ class TransducerEncoderDecoder(lstm.LSTMEncoderDecoder):
             )
         else:
             last_hiddens = self.init_hiddens(source_mask.shape[0])
-
         if self.beam_width > 1:
-            # Will raise a NotImplementedError
+            # Will raise a NotImplementedError.
             prediction = self.beam_decode(
                 encoder_out=encoded,
                 mask=batch.source.mask,

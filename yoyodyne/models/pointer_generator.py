@@ -401,12 +401,6 @@ class PointerGeneratorLSTMEncoderDecoder(
             last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
-                # predictions, scores = self.beam_decode(
-                #     encoder_out=source_encoded,
-                #     mask=batch.source.mask,
-                #     beam_width=self.beam_width,
-                # )
-
                 # LSTM beam search does not work with pointer generator LSTM.
                 raise NotImplementedError(
                     f"Beam search not implemented for {self.name} model."
@@ -434,12 +428,6 @@ class PointerGeneratorLSTMEncoderDecoder(
             else:
                 h_features, c_features = self.init_hiddens(len(batch))
             if self.beam_width > 1:
-                # predictions, scores = self.beam_decode(
-                #     encoder_out=source_encoded,
-                #     mask=batch.source.mask,
-                #     beam_width=self.beam_width,
-                # )
-
                 # LSTM beam search does not work with pointer generator LSTM.
                 raise NotImplementedError(
                     f"Beam search not implemented for {self.name} model."
@@ -703,7 +691,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
             if self.beam_width > 1:
-                # Will raise a NotImplementedError
+                # Will raise a NotImplementedError.
                 output = self.beam_decode(
                     encoder_out=source_encoded,
                     mask=batch.source.mask,
@@ -725,7 +713,7 @@ class PointerGeneratorTransformerEncoderDecoder(
                 features_encoder_output = self.features_encoder(batch.features)
                 features_encoded = features_encoder_output.output
             if self.beam_width > 1:
-                # Will raise a NotImplementedError
+                # Will raise a NotImplementedError.
                 output = self.beam_decode(
                     encoder_out=source_encoded,
                     mask=batch.source.mask,

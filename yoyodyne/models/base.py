@@ -189,8 +189,8 @@ class BaseEncoderDecoder(lightning.LightningModule):
         Args:
             encoder_out (torch.Tensor): encoded inputs.
             encoder_mask (torch.Tensor).
-            beam_width (int): size of the beam. It also works as the number of
-            hypotheses to return.
+            beam_width (int): size of the beam; also determines the number of
+                hypotheses to return.
 
         Raises:
             NotImplementedError: This method needs to be overridden.
@@ -310,7 +310,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Runs one predict step.
 
         This is called by the PL Trainer.

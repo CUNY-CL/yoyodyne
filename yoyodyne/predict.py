@@ -2,12 +2,12 @@
 
 import argparse
 import csv
+import itertools
 import os
 
 import lightning
 
 from . import data, defaults, models, util
-from itertools import chain
 
 
 def get_trainer_from_argparse_args(
@@ -69,12 +69,10 @@ def get_model_from_argparse_args(
         models.BaseEncoderDecoder.
     """
     model_cls = models.get_model_cls_from_argparse_args(args)
-
     kwargs = {}
     if args.beam_width:
         kwargs["beam_width"] = args.beam_width
-
-    # Pass kwargs when loading the model
+    # Passes kwargs when loading the model.
     return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
 
 
@@ -106,19 +104,19 @@ def predict(
     util.log_info(f"Writing to {output}")
     _mkdir(output)
     loader = datamodule.predict_dataloader()
-    if model.beam_width > 1:
-        # Beam search
-        with open(output, "w", encoding=defaults.ENCODING) as sink:
+    with open(output, "w", encoding=defaults.ENCODING) as sink:
+        if model.beam_width > 1:
+            # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
-            # for batch in trainer.predict(model, loader):
             for predictions, scores in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)
                 decoded_predictions = loader.dataset.decode_target(predictions)
-                row = list(chain(*zip(decoded_predictions, scores.tolist())))
+                row = itertools.chain(
+                    *zip(decoded_predictions, scores.tolist())
+                )
                 tsv_writer.writerow(row)
-    else:
-        # Greedy
-        with open(output, "w", encoding=defaults.ENCODING) as sink:
+        else:
+            # Greedy search.
             for predictions, _ in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)
                 for prediction in loader.dataset.decode_target(predictions):
