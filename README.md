@@ -118,6 +118,11 @@ The `--predict` file can either be a TSV file or an ordinary TXT file with one
 source string per line; in the latter case, specify `--target_col 0`. Run
 [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
+Beam search is implemented (currently only for LSTM-based models) and can be
+enabled by setting `--beam_width` \> 1. When using beam search, the
+log-likelihood for each hypothesis is always returned. The outputs are pairs of
+hypotheses and the associated log-likelihoods.
+
 ## Data format
 
 The default data format is a two-column TSV file in which the first column is
