@@ -401,7 +401,6 @@ class PointerGeneratorLSTMEncoderDecoder(
             last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
-                # LSTM beam search does not work with pointer generator LSTM.
                 raise NotImplementedError(
                     f"Beam search not implemented for {self.name} model."
                 )

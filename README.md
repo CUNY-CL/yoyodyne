@@ -4,7 +4,7 @@
 version](https://badge.fury.io/py/yoyodyne.svg)](https://pypi.org/project/yoyodyne)
 [![Supported Python
 versions](https://img.shields.io/pypi/pyversions/yoyodyne.svg)](https://pypi.org/project/yoyodyne)
-[![CircleCI](https://circleci.com/gh/CUNY-CL/yoyodyne/tree/master.svg?style=svg&circle-token=37883deeb03d32c8a7b2aa7c34e5143bf514acdd?)](https://circleci.com/gh/CUNY-CL/yoyodyne/tree/master)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/CUNY-CL/yoyodyne/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/CUNY-CL/yoyodyne/tree/master)
 
 Yoyodyne provides neural models for small-vocabulary sequence-to-sequence
 generation with and without feature conditioning.
@@ -293,12 +293,9 @@ not enabled by default.
 
 By default, Yoyodyne uses a constant learning rate during training, but best
 practice is to gradually decrease learning rate as the model approaches
-convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
+convergence using a [scheduler](yoyodyne/schedulers.py). The following
 schedulers are supported and are selected with `--scheduler`:
 
--   `lineardecay`: linearly decreases the learning rate (multiplying it by
-    `--start_factor`) for `--total_decay_steps` steps, then decreases the
-    learning rate by `--end_factor`.
 -   `reduceonplateau`: reduces the learning rate (multiplying it by
     `--reduceonplateau_factor`) after `--reduceonplateau_patience` epochs with
     no improvement (when validation loss stops decreasing if
