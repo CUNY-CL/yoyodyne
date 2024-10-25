@@ -60,7 +60,7 @@ Then install:
 
 It can then be imported like a regular Python module:
 
-```python
+``` python
 import yoyodyne
 ```
 
@@ -115,19 +115,13 @@ One must specify the following required arguments:
 -   `--output`: path for predictions
 
 The `--predict` file can either be a TSV file or an ordinary TXT file with one
-source string per line; in the latter case, specify `--target_col 0`. Run [`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
+source string per line; in the latter case, specify `--target_col 0`. Run
+[`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
 
-Beam search is implemented (currently only in LSTM) and can be used via the following argument:
-
--   `--beam_width`: beam width. Allows beam search for beam_width > 1. The amount of
-    returned hypotheses are the same as beam_width.
-
-The log-likelihood for each hypothesis is always returned. The output format is pairs of hypothesis and log-likelihood separated by tabs. For a
-beam_width = N, the output will be:
-
-    hypothesis_1    log-likelihood_1    hypothesis_2    log-likelihood_2    ...    hypothesis_N    log-likelihood_N
-
-where `log-likelihood_1 > log-likelihood_2 > log-likelihood_N`. 
+Beam search is implemented (currently only for LSTM-based models) and can be
+enabled by setting `--beam_width` \> 1. When using beam search, the
+log-likelihood for each hypothesis is always returned. The outputs are pairs of
+hypotheses and the associated log-likelihoods.
 
 ## Data format
 
@@ -318,8 +312,8 @@ schedulers are supported and are selected with `--scheduler`:
 ## Tied embeddings
 
 By default, the source and target vocabularies are shared. This can be disabled
-with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes
-between source and target symbols.
+with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes between
+source and target symbols.
 
 ### Batch size tricks
 
