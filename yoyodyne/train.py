@@ -1,6 +1,7 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
+import os
 from typing import List, Optional
 
 import lightning
@@ -198,17 +199,25 @@ def get_model_from_argparse_args(
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
-    # Loads expert if needed.
-    expert = (
-        models.expert.get_expert(
-            datamodule.train_dataloader().dataset,
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
-            sed_params_path=args.sed_params,
+    # Instantiates expert, if needed.
+    expert = None
+    if args.arch in ["transducer"]:
+        sed_params_paths = (
+            args.sed_params
+            if args.sed_params
+            else f"{args.model_dir}/{args.experiment}/sed.pkl"
         )
-        if args.arch in ["transducer"]
-        else None
-    )
+        expert = (
+            models.expert.get_expert(
+                datamodule.train_dataloader().dataset,
+                epochs=args.oracle_em_epochs,
+                oracle_factor=args.oracle_factor,
+                sed_params_path=sed_params_paths,
+                read_from_file=os.path.isfile(sed_params_paths),
+            )
+            if args.arch in ["transducer"]
+            else None
+        )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
     # either:
@@ -270,8 +279,17 @@ def get_model_from_argparse_args(
         scheduler_kwargs=scheduler_kwargs,
         source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
-        target_vocab_size=datamodule.index.target_vocab_size,
-        vocab_size=datamodule.index.vocab_size,
+        start_idx=datamodule.index.start_idx,
+        target_vocab_size=(
+            len(expert.actions)
+            if expert is not None
+            else datamodule.index.target_vocab_size
+        ),
+        vocab_size=(
+            datamodule.index.vocab_size + len(expert.actions)
+            if expert is not None
+            else datamodule.index.vocab_size
+        ),
     )
 
 
