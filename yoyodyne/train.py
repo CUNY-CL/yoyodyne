@@ -76,7 +76,7 @@ def _get_callbacks(
     ]
     # Patience callback if requested.
     if patience is not None:
-        metric = metrics.ValidationMetric(patience_metric)
+        metric = metrics.get_metric(patience_metric)
         trainer_callbacks.append(
             callbacks.early_stopping.EarlyStopping(
                 mode=metric.mode,
@@ -88,7 +88,7 @@ def _get_callbacks(
         )
     # Checkpointing callback. Ensure that this is the last checkpoint,
     # as the API assumes that.
-    metric = metrics.ValidationMetric(checkpoint_metric)
+    metric = metrics.get_metric(checkpoint_metric)
     trainer_callbacks.append(
         callbacks.ModelCheckpoint(
             filename=metric.filename,
@@ -364,26 +364,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "epoch, use `-1`. Default: %(default)s.",
     )
     parser.add_argument(
-        "--checkpoint_metric",
-        choices=["accuracy", "loss", "ser"],
-        default=defaults.CHECKPOINT_METRIC,
-        help="Selects checkpoints to maximize validation `accuracy`, "
-        "or to minimize validation `loss` or `ser`. "
-        "Default: %(default)s.",
-    )
-    parser.add_argument(
         "--patience",
         type=int,
         help="Number of epochs with no progress (according to "
         "`--patience_metric`) before triggering early stopping.",
-    )
-    parser.add_argument(
-        "--patience_metric",
-        choices=["accuracy", "loss", "ser"],
-        default=defaults.PATIENCE_METRIC,
-        help="Stops early when validation `accuracy` does not increase or "
-        "when validation `loss` or `ser` does not decrease. "
-        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
@@ -398,24 +382,18 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         dest="log_wandb",
     )
-    # Data arguments.
     data.add_argparse_args(parser)
-    # Architecture arguments.
+    evaluators.add_argparse_args(parser)
+    metrics.add_argparse_args(parser)
     models.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
-    # Scheduler-specific arguments.
-    schedulers.add_argparse_args(parser)
-    # Automatic batch sizing-specific arguments.
-    sizing.add_argparse_args(parser)
-    # Evaluation-specific arguments.
-    evaluators.add_argparse_args(parser)
-    # Architecture-specific arguments.
     models.BaseEncoderDecoder.add_argparse_args(parser)
     models.HardAttentionLSTM.add_argparse_args(parser)
     models.LSTMEncoderDecoder.add_argparse_args(parser)
     models.TransformerEncoderDecoder.add_argparse_args(parser)
-    # models.modules.BaseEncoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
+    schedulers.add_argparse_args(parser)
+    sizing.add_argparse_args(parser)
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)

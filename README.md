@@ -288,12 +288,9 @@ not enabled by default.
 
 By default, Yoyodyne uses a constant learning rate during training, but best
 practice is to gradually decrease learning rate as the model approaches
-convergence using a [scheduler](yoyodyne/schedulers.py). Three (non-null)
+convergence using a [scheduler](yoyodyne/schedulers.py). The following
 schedulers are supported and are selected with `--scheduler`:
 
--   `lineardecay`: linearly decreases the learning rate (multiplying it by
-    `--start_factor`) for `--total_decay_steps` steps, then decreases the
-    learning rate by `--end_factor`.
 -   `reduceonplateau`: reduces the learning rate (multiplying it by
     `--reduceonplateau_factor`) after `--reduceonplateau_patience` epochs with
     no improvement (when validation loss stops decreasing if
@@ -307,8 +304,8 @@ schedulers are supported and are selected with `--scheduler`:
 ## Tied embeddings
 
 By default, the source and target vocabularies are shared. This can be disabled
-with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes
-between source and target symbols.
+with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes between
+source and target symbols.
 
 ### Batch size tricks
 
