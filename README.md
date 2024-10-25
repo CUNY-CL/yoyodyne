@@ -288,7 +288,7 @@ not enabled by default.
 
 By default, Yoyodyne uses a constant learning rate during training, but best
 practice is to gradually decrease learning rate as the model approaches
-convergence using a [scheduler](yoyodyne/schedulers.py). The following -based
+convergence using a [scheduler](yoyodyne/schedulers.py). The following
 schedulers are supported and are selected with `--scheduler`:
 
 -   `reduceonplateau`: reduces the learning rate (multiplying it by
