@@ -148,7 +148,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self.decoder = self.get_decoder()
         # Saves hyperparameters for PL checkpointing.
         self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "expert", "features_encoder"]
+            ignore=["source_encoder", "decoder", "features_encoder"]
         )
         # Logs the module names.
         util.log_info(f"Model: {self.name}")

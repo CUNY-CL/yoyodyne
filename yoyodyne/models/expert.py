@@ -14,12 +14,15 @@ from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
 import numpy
 from maxwell import actions, sed
-from torch.utils import data
 
-from .. import defaults, special
+from .. import data, defaults
 
 
 class ActionError(Exception):
+    pass
+
+
+class AlignerError(Exception):
     pass
 
 
@@ -27,12 +30,13 @@ class ActionVocabulary:
     """Manages encoding of action vocabulary for transducer training."""
 
     # TODO: Port more of the logic to the dataset class.
-    i2w: Dict[Any, int]
-    w2i: Dict[Any, int]
+    i2w: Dict[int, actions.Edit]
+    w2i: Dict[actions.Edit, int]
     start_vocab_idx: int
     target_characters: Set[Any]
 
-    def __init__(self, i2w=None):
+    def __init__(self, index: data.indexes.Index):
+        self.target_characters = set()
         self.i2w = [
             actions.Start(),
             actions.End(),
@@ -40,12 +44,14 @@ class ActionVocabulary:
             actions.ConditionalCopy(),
         ]
         self.start_vocab_idx = len(self.i2w)
-        if i2w:
-            self.i2w.extend(i2w)
         self.w2i = {w: i for i, w in enumerate(self.i2w)}
-        self.target_characters = set()
+        # Uses index from dataset to create action vocabulary.
+        self.encode_actions([index(t) for t in index.target_vocabulary])
         # Sets unknown character decoding.
-        self.encode_actions([special.UNK_IDX])
+        self.encode_actions([index.unk_idx])
+        # Adds source characters if index has tied embeddings.
+        if index.tie_embeddings:
+            self.encode_actions([index(s) for s in index.source_vocabulary])
 
     def encode(self, symb: actions.Edit) -> int:
         """Returns index referencing symbol in encoding table.
@@ -53,7 +59,7 @@ class ActionVocabulary:
         If the symbol is not encoded, it is added to the encoding table.
 
         Args:
-            symb (Edit): edit action to add to encoding table.
+            symb (actions.Edit): edit action to add to encoding table.
 
         Returns:
             int: index of symbol in encoding table.
@@ -77,11 +83,11 @@ class ActionVocabulary:
         """
         return self.i2w[idx]
 
-    def encode_actions(self, target: str) -> None:
+    def encode_actions(self, target: Any) -> None:
         """Encodes all possible edit actions for given target.
 
         Args:
-            target (str): target symbol produced by encoded edits.
+            target (Any): target symbol produced by encoded edits.
         """
         for c in target:
             if c in self.target_characters:
@@ -112,10 +118,10 @@ class ActionVocabulary:
     def __repr__(self) -> str:
         return f"Vocabulary({str(self.w2i)})"
 
-    def lookup(self, word: Any) -> int:
+    def lookup(self, word: str) -> int:
         return self.w2i[word]
 
-    def to_i2w(self) -> List[Any]:
+    def to_i2w(self) -> List[str]:
         return self.i2w[len(self.start_vocab_idx) :]  # noqa: E203
 
     @property
@@ -256,7 +262,7 @@ class Expert(abc.ABC):
         """Provides edit actions for source symbol and prefix.
 
         Args:
-            source (Sequence[any]): source string to perform edit actions over.
+            source (Sequence[Any]): source string to perform edit actions over.
             alignment (int): index for current symbol to edit in source string.
             prefixes (Iterable[Prefix]): prefix objects aligning current prefix
                 overlap between target and source strings. (Can be multiple.)
@@ -297,6 +303,12 @@ class Expert(abc.ABC):
 
     def roll_in_schedule(self, epoch: int) -> float:
         """Gets probability of sampling from oracle given current epoch."""
+        if self.aligner is None:
+            raise AlignerError(
+                """Expert called `roll_in_schedule` but there
+                               is no aligner present to allow oracle
+                               predictions"""
+            )
         self.roll_in = 1 - self.oracle_factor / (
             self.oracle_factor + numpy.exp(epoch / self.oracle_factor)
         )
@@ -317,8 +329,8 @@ class Expert(abc.ABC):
         Score sums potential edit sequence with cost of action.
 
         Args:
-            source (Sequence[any]): source string to perform edit actions over.
-            target (Sequence[any]): target string for edit actions.
+            source (Sequence[Any]): source string to perform edit actions over.
+            target (Sequence[Any]): target string for edit actions.
             alignment (int): index for current symbol to edit in source string.
             action_prefixes (Iterable[ActionsPrefix]): set of edit
                 actions-prefix pairs to evaluate.
@@ -364,8 +376,8 @@ class Expert(abc.ABC):
         """Provides potential actions given source, target, and prediction.
 
         Args:
-            source (Sequence[any]): source string to perform edit actions over.
-            target (Sequence[any]): target string for edit actions.
+            source (Sequence[Any]): source string to perform edit actions over.
+            target (Sequence[Any]): target string for edit actions.
             alignment (int): index for current symbol to edit in source string.
             prediction (Sequence[Any]): current prediction from previous edits.
 
@@ -391,7 +403,7 @@ class Expert(abc.ABC):
 
         Args:
             prediction (Sequence[Any]): current prediction from prior edits.
-            target (Sequence[any]): target string for edit actions.
+            target (Sequence[Any]): target string for edit actions.
 
         Returns:
             List[Prefix]: prefix objects that index overlap between
@@ -410,81 +422,59 @@ def get_expert(
     epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
     sed_params_path: str = None,
+    read_from_file: bool = False,
 ) -> Expert:
     """Generates expert object for training transducer.
 
     Args:
         data (data.Dataset): dataset for generating expert vocabulary.
         epochs (int): number of EM epochs.
-        sched_factor (float): scaling factor to determine rate of
+        oracle_factor (float): scaling factor to determine rate of
             expert rollout sampling.
+        sed_params_path (str): path to read/write location of sed parameters.
+        read_from_file (bool): bool for whether to use existing parameters.
+            If True, reads from sed_params_path. If False, writes to
+            sed_params_path.
 
     Returns:
         expert.Expert.
     """
 
-    # TODO: Figure out a way to avoid these functions.
-
-    def _generate_data_and_encode_vocabulary(
-        data: data.Dataset, actions: ActionVocabulary
+    def _generate_data(
+        data: data.Dataset,
     ) -> Iterator[Tuple[List[int], List[int]]]:
-        """Function to manage data encoding while aligning SED."
+        """Helper function to manage data encoding for SED."
 
-        SED training over the default data sampling is expensive.
-        Training is quicker if tensors are converted to lists.
-        For efficiency, we encode action vocabulary simultaneously.
+        We want encodings without BOS or EOS tokens. This
+        encodes only raw source-target text for the Maxwell library.
 
         Args:
             data (data.Dataset): Dataset to iterate over.
-            actions (ActionVocabulary): Vocabulary object
-                to encode actions for expert.
+
         Returns:
             Iterator[Tuple[List[int], List[int]]]: Iterator that
                 yields list version of source and target entries
                 in dataset.
         """
-        for item in data:
-            # Dataset encodes BOW and EOW symbols for source. EOW
-            # for target. Removes these for SED training.
-            source = item.source.tolist()[1:-1]
-            target = item.target.tolist()[:-1]
-            actions.encode_actions(target)
-            if data.index.tie_embeddings:
-                actions.encode_actions(source)
-            yield source, target
+        assert data.has_target, """Passed dataset with no target to expert
+            module, cannot perform SED"""
+        for sample in data.samples:
+            source, target = sample[0], sample[-1]
+            yield [data.index(s) for s in source], [
+                data.index(t) for t in target
+            ]
 
-    def _encode_action_vocabulary(
-        data: data.Dataset, actions: ActionVocabulary
-    ) -> None:
-        """Encodes action vocabulary for expert oracle.
-
-        For instantiating SED objects from file.
-
-        Args:
-            data (data.Dataset): Dataset to iterate over.
-            actions (ActionVocabulary): Vocabulary object
-                to encode actions for expert.
-        """
-        for item in data:
-            # Ignores last symbol since EOW.
-            target = item.target.tolist()[:-1]
-            actions.encode_actions(target)
-            if data.index.tie_embeddings:
-                source = item.source.tolist()[1:-1]
-                actions.encode_actions(source)
-
-    actions = ActionVocabulary()
-    if sed_params_path:
+    actions = ActionVocabulary(train_data.index)
+    if read_from_file:
         sed_params = sed.ParamDict.read_params(sed_params_path)
         sed_aligner = sed.StochasticEditDistance(sed_params)
-        # Loads vocabulary into action vocabulary.
-        _encode_action_vocabulary(train_data, actions)
     else:
         sed_aligner = sed.StochasticEditDistance.fit_from_data(
-            _generate_data_and_encode_vocabulary(train_data, actions),
+            _generate_data(train_data),
             epochs=epochs,
         )
-    return Expert(actions, sed_aligner, oracle_factor=oracle_factor)
+        sed_aligner.params.write_params(sed_params_path)
+    return Expert(actions, aligner=sed_aligner, oracle_factor=oracle_factor)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
