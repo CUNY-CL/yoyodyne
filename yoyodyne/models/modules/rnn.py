@@ -447,7 +447,7 @@ class HardAttentionLSTMDecoder(HardAttentionRNNDecoder):
         return "hard attention LSTM"
 
 
-class ContextualHardAttentionRNNDecoder(HardAttentionRNNDecoder):
+class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
     """Base module for first-order HMM hard attention RNN decoder."""
 
     def __init__(self, attention_context, *args, **kwargs):
@@ -500,8 +500,8 @@ class ContextualHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         return alignment_probs.log()
 
 
-class ContextualHardAttentionGRUDecoder(
-    ContextualHardAttentionRNNDecoder, HardAttentionGRUDecoder
+class ContextHardAttentionGRUDecoder(
+    ContextHardAttentionRNNDecoder, HardAttentionGRUDecoder
 ):
     """First-order HMM hard attention GRU decoder."""
 
@@ -510,8 +510,8 @@ class ContextualHardAttentionGRUDecoder(
         return "contextual hard attention GRU"
 
 
-class ContextualHardAttentionLSTMDecoder(
-    ContextualHardAttentionRNNDecoder, HardAttentionLSTMDecoder
+class ContextHardAttentionLSTMDecoder(
+    ContextHardAttentionRNNDecoder, HardAttentionLSTMDecoder
 ):
     """First-order HMM hard attention LSTM decoder."""
 

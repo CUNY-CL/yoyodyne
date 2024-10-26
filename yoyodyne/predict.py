@@ -105,16 +105,6 @@ def predict(
     _mkdir(output)
     loader = datamodule.predict_dataloader()
     with open(output, "w", encoding=defaults.ENCODING) as sink:
-<<<<<<< HEAD
-        for batch in trainer.predict(model, loader):
-            batch = util.pad_tensor_after_eos(
-                batch,
-                datamodule.index.end_idx,
-                datamodule.index.pad_idx,
-            )
-            for prediction in loader.dataset.decode_target(batch):
-                print(prediction, file=sink)
-=======
         if model.beam_width > 1:
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
@@ -131,7 +121,6 @@ def predict(
                 predictions = util.pad_tensor_after_eos(predictions)
                 for prediction in loader.dataset.decode_target(predictions):
                     print(prediction, file=sink)
->>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

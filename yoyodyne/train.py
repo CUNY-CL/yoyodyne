@@ -205,29 +205,19 @@ def get_model_from_argparse_args(
     )
     # Instantiates expert, if needed.
     expert = None
-    if args.arch in ["transducer"]:
+    if args.arch in ["transducer_gru", "transducer_lstm"]:
         sed_params_paths = (
             args.sed_params
             if args.sed_params
             else f"{args.model_dir}/{args.experiment}/sed.pkl"
         )
-        expert = (
-            models.expert.get_expert(
-                datamodule.train_dataloader().dataset,
-                epochs=args.oracle_em_epochs,
-                oracle_factor=args.oracle_factor,
-                sed_params_path=sed_params_paths,
-                read_from_file=os.path.isfile(sed_params_paths),
-            )
-            if args.arch in ["transducer"]
-            else None
+        expert = models.expert.get_expert(
+            datamodule.train_dataloader().dataset,
+            epochs=args.oracle_em_epochs,
+            oracle_factor=args.oracle_factor,
+            sed_params_path=sed_params_paths,
+            read_from_file=os.path.isfile(sed_params_paths),
         )
-<<<<<<< HEAD
-        if args.arch in ["transducer_gru", "transducer_lstm"]
-        else None
-    )
-=======
->>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
     # either:
@@ -269,7 +259,7 @@ def get_model_from_argparse_args(
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
-        # attention_context=args.attention_context,
+        attention_context=args.attention_context,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -277,12 +267,8 @@ def get_model_from_argparse_args(
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
-<<<<<<< HEAD
         end_idx=datamodule.index.end_idx,
-        # enforce_monotonic=args.enforce_monotonic,
-=======
         enforce_monotonic=args.enforce_monotonic,
->>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
         eval_metrics=eval_metrics,
         expert=expert,
         features_attention_heads=args.features_attention_heads,
@@ -408,26 +394,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     models.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
-<<<<<<< HEAD
     models.BaseModel.add_argparse_args(parser)
     models.HardAttentionRNNModel.add_argparse_args(parser)
     models.RNNModel.add_argparse_args(parser)
     models.TransformerModel.add_argparse_args(parser)
-    # Scheduler-specific arguments.
-    schedulers.add_argparse_args(parser)
-    # Automatic batch sizing-specific arguments.
-    sizing.add_argparse_args(parser)
-    # Evaluation-specific arguments.
-    evaluators.add_argparse_args(parser)
-=======
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.HardAttentionLSTM.add_argparse_args(parser)
-    models.LSTMEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
     schedulers.add_argparse_args(parser)
     sizing.add_argparse_args(parser)
->>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)

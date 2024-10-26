@@ -164,11 +164,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-<<<<<<< HEAD
-def get_scheduler_kwargs_from_argparse_args(
-    args: argparse.Namespace,
-) -> Dict:
-=======
 _scheduler_fac = {
     "reduceonplateau": ReduceOnPlateau,
     "warmupinvsqrt": WarmupInverseSquareRoot,
@@ -193,7 +188,6 @@ def get_scheduler_cfg(
 def get_scheduler_kwargs_from_argparse_args(
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
->>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
     """Gets the Dict of kwargs that will be used to instantiate the scheduler.
 
     Args:

@@ -554,15 +554,14 @@ class TransducerRNNModel(rnn.RNNModel):
         """Converts prediction values to tensor for evaluator compatibility."""
         # FIXME: the two steps below may be partially redundant.
         # TODO: Clean this up and make it more efficient.
-        max_len = len(max(prediction, key=len))
-        for i, pred in enumerate(prediction):
+        max_len = len(max(predictions, key=len))
+        for i, pred in enumerate(predictions):
             pad = [self.actions.end_idx] * (max_len - len(pred))
             pred.extend(pad)
-            prediction[i] = torch.tensor(pred, dtype=torch.int)
-        prediction = torch.stack(prediction)
-        # Uses the same util that all other models use.
-        # This turns all symbols after the first EOS into PADs
-        # so prediction tensors match gold tensors.
+            predictions[i] = torch.tensor(pred, dtype=torch.int)
+        predictions = torch.stack(predictions)
+        # This turns all symbols after the first EOS into PAD so prediction
+        # tensors match gold tensors.
         return util.pad_tensor_after_eos(torch.tensor(predictions))
 
     def on_train_epoch_start(self) -> None:

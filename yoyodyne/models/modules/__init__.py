@@ -6,8 +6,8 @@ from .base import BaseModule
 from .linear import LinearEncoder
 from .rnn import AttentiveGRUDecoder  # noqa: F401
 from .rnn import AttentiveLSTMDecoder  # noqa: F401
-from .rnn import ContextualHardAttentionGRUDecoder  # noqa: F401
-from .rnn import ContextualHardAttentionLSTMDecoder  # noqa: F401
+from .rnn import ContextHardAttentionGRUDecoder  # noqa: F401
+from .rnn import ContextHardAttentionLSTMDecoder  # noqa: F401
 from .rnn import GRUDecoder  # noqa: F401
 from .rnn import GRUEncoder
 from .rnn import HardAttentionGRUDecoder  # noqa: F401
