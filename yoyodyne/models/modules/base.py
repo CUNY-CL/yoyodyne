@@ -30,10 +30,6 @@ class ModuleOutput:
 
 
 class BaseModule(lightning.LightningModule):
-    # Indices.
-    pad_idx: int
-    start_idx: int
-    end_idx: int
     # Sizes.
     num_embeddings: int
     # Regularization arguments.
@@ -49,9 +45,6 @@ class BaseModule(lightning.LightningModule):
     def __init__(
         self,
         *,
-        pad_idx,
-        start_idx,
-        end_idx,
         embeddings,
         embedding_size,
         num_embeddings,
@@ -61,9 +54,6 @@ class BaseModule(lightning.LightningModule):
         **kwargs,  # Ignored.
     ):
         super().__init__()
-        self.pad_idx = pad_idx
-        self.start_idx = start_idx
-        self.end_idx = end_idx
         self.dropout = dropout
         self.embeddings = embeddings
         self.embedding_size = embedding_size

@@ -1,6 +1,8 @@
 """Prediction."""
 
 import argparse
+import csv
+import itertools
 import os
 
 import lightning
@@ -67,7 +69,11 @@ def get_model_from_argparse_args(
         models.BaseModel.
     """
     model_cls = models.get_model_cls_from_argparse_args(args)
-    return model_cls.load_from_checkpoint(args.checkpoint)
+    kwargs = {}
+    if args.beam_width:
+        kwargs["beam_width"] = args.beam_width
+    # Passes kwargs when loading the model.
+    return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
 
 
 def _mkdir(output: str) -> None:
@@ -99,6 +105,7 @@ def predict(
     _mkdir(output)
     loader = datamodule.predict_dataloader()
     with open(output, "w", encoding=defaults.ENCODING) as sink:
+<<<<<<< HEAD
         for batch in trainer.predict(model, loader):
             batch = util.pad_tensor_after_eos(
                 batch,
@@ -107,6 +114,24 @@ def predict(
             )
             for prediction in loader.dataset.decode_target(batch):
                 print(prediction, file=sink)
+=======
+        if model.beam_width > 1:
+            # Beam search.
+            tsv_writer = csv.writer(sink, delimiter="\t")
+            for predictions, scores in trainer.predict(model, loader):
+                predictions = util.pad_tensor_after_eos(predictions)
+                decoded_predictions = loader.dataset.decode_target(predictions)
+                row = itertools.chain(
+                    *zip(decoded_predictions, scores.tolist())
+                )
+                tsv_writer.writerow(row)
+        else:
+            # Greedy search.
+            for predictions, _ in trainer.predict(model, loader):
+                predictions = util.pad_tensor_after_eos(predictions)
+                for prediction in loader.dataset.decode_target(predictions):
+                    print(prediction, file=sink)
+>>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -139,12 +164,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to prediction output data TSV.",
     )
-    # Prediction arguments.
-    # TODO: add --beam_width.
     # Data arguments.
     data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.
     models.add_argparse_args(parser)
+    models.BaseEncoderDecoder.add_predict_argparse_args(parser)
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
     # --devices (for multiple device support)

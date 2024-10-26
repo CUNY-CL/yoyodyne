@@ -6,7 +6,7 @@ from typing import Callable, Dict, Optional, Tuple
 import torch
 from torch import nn
 
-from .. import data, defaults
+from .. import data, defaults, special
 from . import modules, rnn
 
 
@@ -82,7 +82,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         decoder_hiddens = self.init_hiddens(batch_size)
         bos = (
             torch.tensor(
-                [self.start_idx], device=self.device, dtype=torch.long
+                [special.START_IDX], device=self.device, dtype=torch.long
             )
             .repeat(batch_size)
             .unsqueeze(-1)
@@ -220,20 +220,18 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 1, 2
             )
             pred, likelihood = self.greedy_step(log_probs, likelihood)
-            finished = finished | (pred == self.end_idx)
+            finished = finished | (pred == special.END_IDX)
             if finished.all().item():
                 break
             # Pads if finished decoding.
             pred = torch.where(
                 ~finished,
                 pred,
-                torch.tensor(self.end_idx, device=self.device),
+                torch.tensor(special.END_IDX, device=self.device),
             )
             predictions = torch.cat((predictions, pred), dim=-1)
             # Updates likelihood emissions.
-            likelihood = likelihood + self._gather_at_idx(
-                log_probs, pred, self.pad_idx
-            )
+            likelihood = likelihood + self._gather_at_idx(log_probs, pred)
         return predictions, likelihood
 
     @staticmethod
@@ -259,9 +257,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         return tgt_char.unsqueeze(-1), likelihood
 
     @staticmethod
-    def _gather_at_idx(
-        prob: torch.Tensor, tgt: torch.Tensor, pad_idx=None
-    ) -> torch.Tensor:
+    def _gather_at_idx(prob: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
         """Collects probability of tgt index across all states in prob.
 
         To calculate the final emission probability, the pseudo-HMM
@@ -282,8 +278,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         idx = tgt.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
         output = torch.gather(prob, -1, idx).view(batch_size, 1, src_seq_len)
         idx = idx.view(batch_size, 1, src_seq_len)
-        if pad_idx:
-            pad_mask = (idx != pad_idx).float()
+        pad_mask = (idx != special.PAD_IDX).float()
         return output * pad_mask
 
     @staticmethod
@@ -345,14 +340,10 @@ class HardAttentionRNNModel(rnn.RNNModel):
         # Processes for accuracy calculation.
         val_eval_items_dict = {}
         for evaluator in self.evaluators:
-            eval_predictions = evaluator.finalize_predictions(
-                predictions, self.end_idx, self.pad_idx
-            )
-            golds = evaluator.finalize_golds(
-                batch.target.padded, self.end_idx, self.pad_idx
-            )
+            predictions = evaluator.finalize_predictions(predictions)
+            golds = evaluator.finalize_golds(batch.target.padded)
             val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
-                eval_predictions, golds, self.pad_idx
+                predictions, golds
             )
         val_eval_items_dict.update({"val_loss": -likelihood.mean()})
         return val_eval_items_dict
@@ -382,15 +373,13 @@ class HardAttentionRNNModel(rnn.RNNModel):
         # each time step. This is costly. Revisit this calculation and see if
         # we can use DP to simplify.
         fwd = transition_probs[0, :, 0].unsqueeze(1) + self._gather_at_idx(
-            log_probs[0], target[:, 0], self.pad_idx
+            log_probs[0], target[:, 0]
         )
         for tgt_char_idx in range(1, target.shape[1]):
             fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
             fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
             fwd = fwd + self._gather_at_idx(
-                log_probs[tgt_char_idx],
-                target[:, tgt_char_idx],
-                self.pad_idx,
+                log_probs[tgt_char_idx], target[:, tgt_char_idx]
             )
         loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
         return loss
@@ -538,11 +527,8 @@ class HardAttentionLSTMModel(HardAttentionRNNModel):
                 hidden_size=self.hidden_size,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
-                end_idx=self.end_idx,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
             )
         else:
             return modules.HardAttentionLSTMDecoder(
@@ -554,14 +540,11 @@ class HardAttentionLSTMModel(HardAttentionRNNModel):
                     else self.source_encoder.output_size
                 ),
                 dropout=self.dropout,
-                end_idx=self.end_idx,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
                 hidden_size=self.hidden_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
             )
 
     def decode_step(

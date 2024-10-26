@@ -1,6 +1,7 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
+import os
 from typing import List, Optional
 
 import lightning
@@ -75,7 +76,7 @@ def _get_callbacks(
     ]
     # Patience callback if requested.
     if patience is not None:
-        metric = metrics.ValidationMetric(patience_metric)
+        metric = metrics.get_metric(patience_metric)
         trainer_callbacks.append(
             callbacks.early_stopping.EarlyStopping(
                 mode=metric.mode,
@@ -87,7 +88,7 @@ def _get_callbacks(
         )
     # Checkpointing callback. Ensure that this is the last checkpoint,
     # as the API assumes that.
-    metric = metrics.ValidationMetric(checkpoint_metric)
+    metric = metrics.get_metric(checkpoint_metric)
     trainer_callbacks.append(
         callbacks.ModelCheckpoint(
             filename=metric.filename,
@@ -202,17 +203,31 @@ def get_model_from_argparse_args(
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
-    # Loads expert if needed.
-    expert = (
-        models.expert.get_expert(
-            datamodule.train_dataloader().dataset,
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
-            sed_params_path=args.sed_params,
+    # Instantiates expert, if needed.
+    expert = None
+    if args.arch in ["transducer"]:
+        sed_params_paths = (
+            args.sed_params
+            if args.sed_params
+            else f"{args.model_dir}/{args.experiment}/sed.pkl"
         )
+        expert = (
+            models.expert.get_expert(
+                datamodule.train_dataloader().dataset,
+                epochs=args.oracle_em_epochs,
+                oracle_factor=args.oracle_factor,
+                sed_params_path=sed_params_paths,
+                read_from_file=os.path.isfile(sed_params_paths),
+            )
+            if args.arch in ["transducer"]
+            else None
+        )
+<<<<<<< HEAD
         if args.arch in ["transducer_gru", "transducer_lstm"]
         else None
     )
+=======
+>>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
     # either:
@@ -262,8 +277,12 @@ def get_model_from_argparse_args(
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
+<<<<<<< HEAD
         end_idx=datamodule.index.end_idx,
         # enforce_monotonic=args.enforce_monotonic,
+=======
+        enforce_monotonic=args.enforce_monotonic,
+>>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
         eval_metrics=eval_metrics,
         expert=expert,
         features_attention_heads=args.features_attention_heads,
@@ -275,14 +294,21 @@ def get_model_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
-        pad_idx=datamodule.index.pad_idx,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
         source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
         start_idx=datamodule.index.start_idx,
-        target_vocab_size=datamodule.index.target_vocab_size,
-        vocab_size=datamodule.index.vocab_size,
+        target_vocab_size=(
+            len(expert.actions)
+            if expert is not None
+            else datamodule.index.target_vocab_size
+        ),
+        vocab_size=(
+            datamodule.index.vocab_size + len(expert.actions)
+            if expert is not None
+            else datamodule.index.vocab_size
+        ),
     )
 
 
@@ -302,10 +328,7 @@ def train(args: argparse.Namespace) -> str:
     datamodule = get_datamodule_from_argparse_args(args)
     model = get_model_from_argparse_args(args, datamodule)
     if args.log_wandb:
-        # Logs number of model parameters for W&B.
-        wandb.config["n_model_params"] = sum(
-            p.numel() for p in model.parameters()
-        )
+        wandb.config["num_parameters"] = model.num_parameters
     if args.find_batch_size:
         sizing.find_batch_size(
             args.find_batch_size,
@@ -361,26 +384,10 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "epoch, use `-1`. Default: %(default)s.",
     )
     parser.add_argument(
-        "--checkpoint_metric",
-        choices=["accuracy", "loss", "ser"],
-        default=defaults.CHECKPOINT_METRIC,
-        help="Selects checkpoints to maximize validation `accuracy`, "
-        "or to minimize validation `loss` or `ser`. "
-        "Default: %(default)s.",
-    )
-    parser.add_argument(
         "--patience",
         type=int,
         help="Number of epochs with no progress (according to "
         "`--patience_metric`) before triggering early stopping.",
-    )
-    parser.add_argument(
-        "--patience_metric",
-        choices=["accuracy", "loss", "ser"],
-        default=defaults.PATIENCE_METRIC,
-        help="Stops early when validation `accuracy` does not increase or "
-        "when validation `loss` or `ser` does not decrease. "
-        "Default: %(default)s.",
     )
     parser.add_argument("--seed", type=int, help="Random seed.")
     parser.add_argument(
@@ -395,12 +402,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         dest="log_wandb",
     )
-    # Data arguments.
     data.add_argparse_args(parser)
-    # Architecture arguments.
+    evaluators.add_argparse_args(parser)
+    metrics.add_argparse_args(parser)
     models.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
     models.modules.add_argparse_args(parser)
+<<<<<<< HEAD
     models.BaseModel.add_argparse_args(parser)
     models.HardAttentionRNNModel.add_argparse_args(parser)
     models.RNNModel.add_argparse_args(parser)
@@ -411,6 +419,15 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     sizing.add_argparse_args(parser)
     # Evaluation-specific arguments.
     evaluators.add_argparse_args(parser)
+=======
+    models.BaseEncoderDecoder.add_argparse_args(parser)
+    models.HardAttentionLSTM.add_argparse_args(parser)
+    models.LSTMEncoderDecoder.add_argparse_args(parser)
+    models.TransformerEncoderDecoder.add_argparse_args(parser)
+    models.expert.add_argparse_args(parser)
+    schedulers.add_argparse_args(parser)
+    sizing.add_argparse_args(parser)
+>>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
     # Trainer arguments.
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)

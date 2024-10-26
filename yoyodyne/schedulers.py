@@ -1,18 +1,18 @@
-"""Custom schedulers."""
+"""Custom learning-rate schedulers.
+
+Additional schedulers will become available on the migration to LightingCLI.
+"""
 
 import argparse
-from typing import Dict
+from typing import Any, Dict
 
 import numpy
 from torch import optim
 
 from . import defaults, metrics
 
-ALL_SCHEDULER_ARGS = [
+SCHEDULER_ARGS = [
     "warmup_steps",
-    "start_factor",
-    "end_factor",
-    "total_decay_steps",
     "reduceonplateau_metric",
     "reduceonplateau_factor",
     "reduceonplateau_patience",
@@ -21,7 +21,7 @@ ALL_SCHEDULER_ARGS = [
 ]
 
 
-class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
+class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
     """Linear warmup and then inverse square root decay.
 
     Linearly increases learning rate from 0 to the learning rate over the
@@ -37,6 +37,7 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
     Args:
         optimizer (optim.Optimizer): optimizer.
         warmup_steps (int): number of warmup steps.
+        *args: ignored.
         **kwargs: ignored.
     """
 
@@ -47,20 +48,15 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         self,
         optimizer: optim.Optimizer,
         warmup_steps,
+        *args,
         **kwargs,
     ):
         self.warmup_steps = warmup_steps
         self.decay_factor = numpy.sqrt(warmup_steps)
         super().__init__(optimizer, self.lr_lambda)
 
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"{self.optimizer}, {self.warmup_steps})"
-        )
-
     def lr_lambda(self, step: int) -> float:
-        """Computes the learning rate lambda at a given step.
+        """Computes the learning rate lambda at a given steps.
 
         Args:
             step (int): current step.
@@ -68,91 +64,57 @@ class WarmupInverseSquareRootSchedule(optim.lr_scheduler.LambdaLR):
         Returns:
             float: lr_lambda.
         """
-        if self.warmup_steps < 1:
-            return self.decay_factor
         if step < self.warmup_steps:
-            return float(step) / float(max(1, self.warmup_steps))
+            # Adding 1 avoids the case where the initial LR is 0.
+            return (1 + step) / self.warmup_steps
         return self.decay_factor * step**-0.5
 
-
-class LinearDecay(optim.lr_scheduler.LinearLR):
-    """Linear decay scheduler.
-
-    Args:
-        optimizer (optim.Optimizer): optimizer.
-        start_factor (float): the start_factor to multiply by the LR.
-        end_factor (float): the end_factor to multiply by the LR after the
-            total decay steps have finished.
-        total_decay_steps (int): number of steps to linearly update the
-            multiplied factor until end_factor.
-        **kwargs: ignored.
-    """
-
-    def __init__(
-        self,
-        optimizer,
-        start_factor,
-        end_factor,
-        total_decay_steps,
-        **kwargs,
-    ):
-        super().__init__(
-            optimizer,
-            total_iters=total_decay_steps,
-            start_factor=start_factor,
-            end_factor=end_factor,
-        )
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}({self.optimizer}, "
-            f"{self.start_factor}, {self.end_factor}, "
-            f"{self.total_decay_steps})"
-        )
+    def config_dict(self) -> Dict[str, Any]:
+        return {"interval": "step", "frequency": 1}
 
 
 class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
     """Reduce on plateau scheduler.
 
-    The following hyperparameters are inherited from the PyTorch defaults:
-    threshold, threshold_mode, cooldown, eps.
+    This is patched to make use of Yoyodyne's metrics library.
 
     Args:
         optimizer (optim.Optimizer): optimizer.
+        check_val_every_n_epoch (int): frequency at which validation metrics
+            are recomputed.
         reduceonplateau_metric (str): reduces the LR when validation
             `accuracy` stops increasing or when validation `loss` stops
             decreasing.
-        reduceonplateau_factor (float): factor by which the learning rate will
-            be reduced: `new_lr *= factor`.
-        reduceonplateau_patience (int): number of epochs with no
-            improvement before reducing LR.
-        min_learning_rate (float): lower bound on the learning rate.
+        *args: ignored.
         **kwargs: ignored.
     """
 
+    check_val_every_n_epoch: int
+    metric: metrics.Metric
+
     def __init__(
         self,
-        optimizer,
-        reduceonplateau_metric,
-        reduceonplateau_factor,
-        reduceonplateau_patience,
-        min_learning_rate,
+        optimizer: optim.Optimizer,
+        check_val_every_n_epoch: int,
+        reduceonplateau_factor: str,
+        reduceonplateau_metric: str,
+        *args,
         **kwargs,
     ):
-        self.metric = metrics.ValidationMetric(reduceonplateau_metric)
+        self.check_val_every_n_epoch = check_val_every_n_epoch
+        self.metric = metrics.get_metric(reduceonplateau_metric)
         super().__init__(
             optimizer,
             factor=reduceonplateau_factor,
-            min_lr=min_learning_rate,
             mode=self.metric.mode,
-            patience=reduceonplateau_patience,
         )
 
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}({self.optimizer}, {self.metric}, "
-            f"{self.factor}, {self.patience}, {self.min_learning_rate})"
-        )
+    def config_dict(self) -> Dict[str, Any]:
+        return {
+            "frequency": self.check_val_every_n_epoch,
+            "interval": "epoch",
+            "monitor": self.metric.monitor,
+        }
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -172,30 +134,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "Default: %(default)s.",
     )
     parser.add_argument(
-        "--start_factor",
-        type=float,
-        default=defaults.START_FACTOR,
-        help="Starting multiplier for the LR (lineardecay scheduler "
-        "only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--end_factor",
-        type=float,
-        default=defaults.END_FACTOR,
-        help="Multiplier for the LR after --total_decay_steps (lineardecay "
-        "scheduler only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--total_decay_steps",
-        type=int,
-        default=defaults.TOTAL_DECAY_STEPS,
-        help="Number of iterations until the LR multiplier reaches "
-        "--end_factor (lineardecay scheduler only). Default: %(default)s.",
-    )
-    parser.add_argument(
         "--reduceonplateau_metric",
         type=str,
-        choices=["loss", "accuracy"],
+        choices=[
+            "accuracy",
+            "loss",
+            "ser",
+        ],
         default=defaults.REDUCEONPLATEAU_METRIC,
         help="Reduces the LR when validation `accuracy` stops increasing or "
         "when validation `loss` stops decreasing (reduceonplateau scheduler "
@@ -217,18 +162,38 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "reducing LR (reduceonplateau scheduler only). "
         "Default: %(default)s.",
     )
-    parser.add_argument(
-        "--min_learning_rate",
-        type=float,
-        default=defaults.MIN_LR,
-        help="Lower bound on the learning rate (reduceonplateau "
-        "scheduler only). Default: %(default)s.",
-    )
+
+
+<<<<<<< HEAD
+def get_scheduler_kwargs_from_argparse_args(
+    args: argparse.Namespace,
+) -> Dict:
+=======
+_scheduler_fac = {
+    "reduceonplateau": ReduceOnPlateau,
+    "warmupinvsqrt": WarmupInverseSquareRoot,
+}
+SCHEDULERS = _scheduler_fac.keys()
+
+
+def get_scheduler_cfg(
+    scheduler: str, optimizer: optim.Optimizer, *args, **kwargs
+) -> Dict[str, Any]:
+    try:
+        scheduler_cls = _scheduler_fac[scheduler]
+    except KeyError:
+        raise NotImplementedError(f"Scheduler not found: {scheduler}")
+    scheduler = scheduler_cls(optimizer, *args, **kwargs)
+    config = scheduler.config_dict()
+    # We also add the scheduler itself to the dictionary.
+    config["scheduler"] = scheduler
+    return config
 
 
 def get_scheduler_kwargs_from_argparse_args(
     args: argparse.Namespace,
-) -> Dict:
+) -> Dict[str, Any]:
+>>>>>>> dbd1c08ae41d833579174e3c07af24826dee03d8
     """Gets the Dict of kwargs that will be used to instantiate the scheduler.
 
     Args:
@@ -238,4 +203,4 @@ def get_scheduler_kwargs_from_argparse_args(
         Dict: hyperparameters for the scheduler.
     """
     kwargs = vars(args)
-    return {k: kwargs.get(k) for k in ALL_SCHEDULER_ARGS}
+    return {k: kwargs.get(k) for k in SCHEDULER_ARGS}

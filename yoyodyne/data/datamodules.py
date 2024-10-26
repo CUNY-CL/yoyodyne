@@ -65,7 +65,6 @@ class DataModule(lightning.LightningDataModule):
         self.separate_features = separate_features
         self.index = index if index is not None else self._make_index()
         self.collator = collators.Collator(
-            pad_idx=self.index.pad_idx,
             has_features=self.has_features,
             has_target=self.has_target,
             separate_features=separate_features,

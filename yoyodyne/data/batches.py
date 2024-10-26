@@ -9,9 +9,11 @@ from typing import Callable, List, Optional
 import torch
 from torch import nn
 
+from .. import special
+
 
 class PaddedTensor(nn.Module):
-    """A tensor and its mask.
+    """A tensor.
 
     This is ordinarily used for padding a tensor list, so it represents
     one of (source, target, features) for a batch.
@@ -21,21 +23,21 @@ class PaddedTensor(nn.Module):
     If not specified, it will be computed using the length of the longest
     input tensor.
 
+    Mask and string length tensors can be generated as needed.
+
     Args:
         tensorlist (List[torch.Tensor]): a list of tensors.
-        pad_idx (int): padding index.
         length_msg_callback (Callable[[int], None]): callback for handling a
             violation of expected tensor length.
         pad_len (int, optional): desired length for padding.
     """
 
+    pad_idx: int
     padded: torch.Tensor
-    mask: torch.Tensor
 
     def __init__(
         self,
         tensorlist: List[torch.Tensor],
-        pad_idx: int,
         length_msg_callback: Optional[Callable[[int], None]] = None,
         pad_len: Optional[int] = None,
     ):
@@ -47,30 +49,29 @@ class PaddedTensor(nn.Module):
         self.register_buffer(
             "padded",
             torch.stack(
-                [
-                    self.pad_tensor(tensor, pad_idx, pad_len)
-                    for tensor in tensorlist
-                ],
+                [self.pad_tensor(tensor, pad_len) for tensor in tensorlist],
             ),
         )
-        self.register_buffer("mask", self.padded == pad_idx)
+
+    @property
+    def mask(self) -> torch.Tensor:
+        return self.padded == special.PAD_IDX
 
     @staticmethod
-    def pad_tensor(
-        tensor: torch.Tensor, pad_idx: int, pad_max: int
-    ) -> torch.Tensor:
+    def pad_tensor(tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
         """Pads a tensor.
 
         Args:
             tensor (torch.Tensor).
-            pad_idx (int): padding index.
             pad_max (int): desired tensor length.
 
         Returns:
             torch.Tensor.
         """
         padding = pad_max - len(tensor)
-        return nn.functional.pad(tensor, (0, padding), "constant", pad_idx)
+        return nn.functional.pad(
+            tensor, (0, padding), "constant", special.PAD_IDX
+        )
 
     def __len__(self) -> int:
         return len(self.padded)
@@ -78,7 +79,7 @@ class PaddedTensor(nn.Module):
     def lengths(self) -> torch.Tensor:
         """Computes the lengths of all the strings in the tensor.
 
-        By convention we seem to want this tensor on CPU.
+        This needs to be on CPU for packing.
 
         Returns:
             torch.Tensor.

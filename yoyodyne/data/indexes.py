@@ -2,7 +2,7 @@
 
 import os
 import pickle
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional
 
 from .. import defaults, special
 
@@ -71,7 +71,7 @@ class Index:
         Returns:
             int.
         """
-        return self._symbol2index.get(lookup, self.unk_idx)
+        return self._symbol2index.get(lookup, special.UNK_IDX)
 
     def get_symbol(self, index: int) -> str:
         """Looks up symbol by index.
@@ -166,6 +166,8 @@ class Index:
     def features_vocab_size(self) -> int:
         return len(self.features_vocabulary) if self.features_vocabulary else 0
 
+    # These are also recorded in the `special` module.
+
     @property
     def pad_idx(self) -> int:
         return self._symbol2index[special.PAD]
@@ -181,12 +183,3 @@ class Index:
     @property
     def unk_idx(self) -> int:
         return self._symbol2index[special.UNK]
-
-    @property
-    def special_idx(self) -> Set[int]:
-        return {
-            self.unk_idx,
-            self.pad_idx,
-            self.start_idx,
-            self.end_idx,
-        }

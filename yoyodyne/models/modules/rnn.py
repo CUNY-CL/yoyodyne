@@ -5,7 +5,7 @@ from typing import Tuple
 import torch
 from torch import nn
 
-from ... import data, defaults
+from ... import data, defaults, special
 from . import attention, base
 
 
@@ -66,7 +66,7 @@ class RNNEncoder(RNNModule):
         encoded, _ = nn.utils.rnn.pad_packed_sequence(
             packed_outs,
             batch_first=True,
-            padding_value=self.pad_idx,
+            padding_value=special.PAD_IDX,
             total_length=None,
         )
         return base.ModuleOutput(encoded, hiddens)

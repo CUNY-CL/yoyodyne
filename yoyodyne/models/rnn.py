@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import data, defaults
+from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
@@ -28,21 +28,20 @@ class RNNModel(base.BaseModel):
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
 
     def init_embeddings(
-        self, num_embeddings: int, embedding_size: int, pad_idx: int
+        self,
+        num_embeddings: int,
+        embedding_size: int,
     ) -> nn.Embedding:
         """Initializes the embedding layer.
 
         Args:
             num_embeddings (int): number of embeddings.
             embedding_size (int): dimension of embeddings.
-            pad_idx (int): index of pad symbol.
 
         Returns:
             nn.Embedding: embedding layer.
         """
-        return embeddings.normal_embedding(
-            num_embeddings, embedding_size, pad_idx
-        )
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
 
     def decode(
         self,
@@ -77,7 +76,7 @@ class RNNModel(base.BaseModel):
         # -> B x 1.
         decoder_input = (
             torch.tensor(
-                [self.start_idx], device=self.device, dtype=torch.long
+                [special.START_IDX], device=self.device, dtype=torch.long
             )
             .repeat(batch_size)
             .unsqueeze(1)
@@ -106,7 +105,7 @@ class RNNModel(base.BaseModel):
                 decoder_input = self._get_predicted(logits)
                 # Updates to track which sequences have decoded an EOS.
                 finished = torch.logical_or(
-                    finished, (decoder_input == self.end_idx)
+                    finished, (decoder_input == special.END_IDX)
                 )
                 # Breaks when all sequences have predicted an EOS symbol. If we
                 # have a target (and are thus computing loss), we only break
@@ -125,40 +124,22 @@ class RNNModel(base.BaseModel):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
         beam_width: int,
-        n: int = 1,
-        return_confidences: bool = False,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Beam search with beam_width.
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Overrides `beam_decode` in `BaseEncoderDecoder`.
 
-        Note that we assume batch size is 1.
-
-        Args:
-            encoder_out (torch.Tensor): encoded inputs.
-            encoder_mask (torch.Tensor).
-            beam_width (int): size of the beam.
-            n (int): number of hypotheses to return.
-            return_confidences (bool, optional): additionally return the
-                likelihood of each hypothesis.
-
-        Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-                the predictions tensor and the confidences if
-                return_confidences.
+        This method implements the LSTM-specific beam search version. Note
+        that we assume batch size is 1.
         """
         # TODO: modify to work with batches larger than 1.
-        # TODO: modify to eliminate polymorphic return type; always
-        # return confidences.
         batch_size = encoder_mask.shape[0]
         if batch_size != 1:
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
             )
         # Initializes hidden states for decoder LSTM.
-        decoder_hiddens = self.init_hiddens(
-            encoder_out.size(0), self.decoder_layers
-        )
-        # log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
-        histories = [[0.0, [self.start_idx], [0.0], decoder_hiddens]]
+        decoder_hiddens = self.init_hiddens(batch_size)
+        # Log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
+        histories = [[0.0, [special.START_IDX], [0.0], decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x target_vocab_size possibilities
@@ -172,7 +153,7 @@ class RNNModel(base.BaseModel):
                 decoder_hiddens,
             ) in histories:
                 # Does not keep decoding a path that has hit EOS.
-                if len(beam_idxs) > 1 and beam_idxs[-1] == self.end_idx:
+                if len(beam_idxs) > 1 and beam_idxs[-1] == special.END_IDX:
                     fields = [
                         beam_likelihood,
                         beam_idxs,
@@ -203,24 +184,23 @@ class RNNModel(base.BaseModel):
                 )
             # Constrains the next step to beamsize.
             for (
-                predictions,
-                beam_likelihood,
+                logits,
+                beam_loglikelihood,
                 beam_idxs,
-                char_likelihoods,
+                char_loglikelihoods,
                 decoder_hiddens,
             ) in likelihoods:
                 # This is 1 x 1 x target_vocab_size since we fixed batch size
                 # to 1. We squeeze off the first 2 dimensions to get a tensor
                 # of target_vocab_size.
-                predictions = predictions.squeeze(0).squeeze(0)
-                for j, prob in enumerate(predictions):
-                    if return_confidences:
-                        cl = char_likelihoods + [prob]
-                    else:
-                        cl = char_likelihoods
+                logits = logits.squeeze((0, 1))
+                # Obtain the log-probabilities of the logits.
+                predictions = nn.functional.log_softmax(logits, dim=0).cpu()
+                for j, logprob in enumerate(predictions):
+                    cl = char_loglikelihoods + [logprob]
                     if len(hypotheses) < beam_width:
                         fields = [
-                            beam_likelihood + prob,
+                            beam_loglikelihood + logprob,
                             beam_idxs + [j],
                             cl,
                             decoder_hiddens,
@@ -228,47 +208,67 @@ class RNNModel(base.BaseModel):
                         heapq.heappush(hypotheses, fields)
                     else:
                         fields = [
-                            beam_likelihood + prob,
+                            beam_loglikelihood + logprob,
                             beam_idxs + [j],
                             cl,
                             decoder_hiddens,
                         ]
                         heapq.heappushpop(hypotheses, fields)
-            # Takes the top beam hypotheses from the heap.
-            histories = heapq.nlargest(beam_width, hypotheses)
+            # Sorts hypotheses and reverse to have the min log_likelihood at
+            # first index. We think that this is faster than heapq.nlargest().
+            hypotheses.sort(reverse=True)
+            # It not necessary to make a deep copy beacuse hypotheses is going
+            # to be defined again at the start of the loop.
+            histories = hypotheses
             # If the top n hypotheses are full sequences, break.
-            if all([h[1][-1] == self.end_idx for h in histories]):
+            if all([h[1][-1] == special.END_IDX for h in histories]):
                 break
-        # Returns the top-n hypotheses.
-        histories = heapq.nlargest(n, hypotheses)
-        predictions = torch.tensor([h[1] for h in histories], self.device)
+        # Sometimes path lengths does not match so it is neccesary to pad it
+        # all to same length to create a tensor.
+        max_len = max(len(h[1]) for h in histories)
+        predictions = torch.tensor(
+            [
+                h[1] + [special.PAD_IDX] * (max_len - len(h[1]))
+                for h in histories
+            ],
+            device=self.device,
+        )
         # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
         predictions = predictions.unsqueeze(0).transpose(0, 2)
-        if return_confidences:
-            return predictions, torch.tensor([h[2] for h in histories])
-        else:
-            return predictions
+        # Beam search returns the likelihoods of each history.
+        return predictions, torch.tensor([h[0] for h in histories])
 
     def forward(
         self,
         batch: data.PaddedBatch,
-    ) -> torch.Tensor:
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Runs the encoder-decoder model.
 
         Args:
             batch (data.PaddedBatch).
 
         Returns:
-            torch.Tensor: tensor of predictions of shape seq_len x
-                batch_size x target_vocab_size.
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
+                search returns a tuple with a tensor of predictions of shape
+                beam_width x seq_len and tensor with the unnormalized sum of
+                symbol log-probabilities for each prediction. Greedy returns a
+                tensor of predictions of shape
+                seq_len x batch_size x target_vocab_size.
         """
         encoder_out = self.source_encoder(batch.source).output
-        if self.beam_width is not None and self.beam_width > 1:
-            predictions = self.beam_decode(
+        # Now this function has a polymorphic return because beam search needs
+        # to return two tensors. For greedy, the return has not been modified
+        # to match the Tuple[torch.Tensor, torch.Tensor] type because the
+        # training and validation functions depend on it.
+        if self.beam_width > 1:
+            predictions, scores = self.beam_decode(
                 encoder_out,
                 batch.source.mask,
                 beam_width=self.beam_width,
             )
+            # Reduce to beam_width x seq_len
+            predictions = predictions.transpose(0, 2).squeeze(0)
+            return predictions, scores
         else:
             predictions = self.decode(
                 encoder_out,
@@ -276,9 +276,9 @@ class RNNModel(base.BaseModel):
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.target else None,
             )
-        # -> B x seq_len x target_vocab_size.
-        predictions = predictions.transpose(0, 1)
-        return predictions
+            # -> B x seq_len x target_vocab_size.
+            predictions = predictions.transpose(0, 1)
+            return predictions
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -400,18 +400,15 @@ class AttentiveGRUModel(GRUModel):
 
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
         return modules.AttentiveGRUDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
+            attention_input_size=self.source_encoder.output_size,
+            bidirectional=False,
             decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            bidirectional=False,
-            layers=self.decoder_layers,
             hidden_size=self.hidden_size,
-            attention_input_size=self.source_encoder.output_size,
+            layers=self.decoder_layers,
+            num_embeddings=self.vocab_size,
         )
 
     @property
@@ -424,18 +421,15 @@ class AttentiveLSTMModel(LSTMModel):
 
     def get_decoder(self) -> modules.AttentiveLSTMDecoder:
         return modules.AttentiveLSTMDecoder(
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
-            end_idx=self.end_idx,
+            attention_input_size=self.source_encoder.output_size,
+            bidirectional=False,
             decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            bidirectional=False,
-            layers=self.decoder_layers,
             hidden_size=self.hidden_size,
-            attention_input_size=self.source_encoder.output_size,
+            layers=self.decoder_layers,
+            num_embeddings=self.vocab_size,
         )
 
     @property
