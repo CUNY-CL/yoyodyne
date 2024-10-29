@@ -34,10 +34,12 @@ class RNNModule(base.BaseModule):
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
-    def get_module(self): ...
+    def get_module(self):
+        raise NotImplementedError
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        raise NotImplementedError
 
 
 class RNNEncoder(RNNModule):

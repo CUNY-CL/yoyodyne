@@ -579,10 +579,12 @@ class TransducerRNNModel(rnn.RNNModel):
                 break
         return action
 
-    def get_decoder(self): ...
+    def get_decoder(self):
+        raise NotImplementedError
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        raise NotImplementedError
 
 
 # TODO: Implement beam decoding.

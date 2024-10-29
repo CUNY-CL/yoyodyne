@@ -300,12 +300,15 @@ class RNNModel(base.BaseModel):
             dest="bidirectional",
         )
 
-    def get_decoder(self): ...
+    def get_decoder(self):
+        raise NotImplementedError
 
-    def init_hiddens(self, batch_size: int): ...
+    def init_hiddens(self, batch_size: int):
+        raise NotImplementedError
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        raise NotImplementedError
 
 
 class GRUModel(RNNModel):

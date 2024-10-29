@@ -384,10 +384,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
         loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
         return loss
 
-    def get_decoder(self): ...
+    def get_decoder(self):
+        raise NotImplementedError
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        raise NotImplementedError
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
