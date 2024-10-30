@@ -10,13 +10,12 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
-class TransformerEncoderDecoder(base.BaseEncoderDecoder):
-    """Transformer encoder-decoder.
+class TransformerModel(base.BaseModel):
+    """Base class for transformer models.
 
     Args:
         source_attention_heads (int).
         max_source_length (int).
-        *args: passed to superclass.
         **kwargs: passed to superclass.
     """
 
@@ -33,7 +32,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
     ):
         self.source_attention_heads = source_attention_heads
         super().__init__(
-            *args, source_attention_heads=source_attention_heads, **kwargs
+            *args,
+            source_attention_heads=source_attention_heads,
+            **kwargs,
         )
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
@@ -53,17 +54,17 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
         """
         return embeddings.xavier_embedding(num_embeddings, embedding_size)
 
-    def get_decoder(self):
+    def get_decoder(self) -> modules.transformer.TransformerDecoder:
         return modules.transformer.TransformerDecoder(
             decoder_input_size=self.source_encoder.output_size,
+            dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
-            dropout=self.dropout,
-            source_attention_heads=self.source_attention_heads,
-            max_source_length=self.max_source_length,
-            layers=self.decoder_layers,
             hidden_size=self.hidden_size,
+            layers=self.decoder_layers,
+            max_source_length=self.max_source_length,
+            num_embeddings=self.vocab_size,
+            source_attention_heads=self.source_attention_heads,
         )
 
     def _decode_greedy(
@@ -103,7 +104,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             target_mask = torch.ones_like(target_tensor, dtype=torch.float)
             target_mask = target_mask == 0
             decoder_output = self.decoder(
-                encoder_hidden, source_mask, target_tensor, target_mask
+                encoder_hidden,
+                source_mask,
+                target_tensor,
+                target_mask,
             ).output
             logits = self.classifier(decoder_output)
             last_output = logits[:, -1, :]  # Ignores EOS.
@@ -144,7 +148,9 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             # Initializes the start symbol for decoding.
             starts = (
                 torch.tensor(
-                    [special.START_IDX], device=self.device, dtype=torch.long
+                    [special.START_IDX],
+                    device=self.device,
+                    dtype=torch.long,
                 )
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
@@ -155,7 +161,10 @@ class TransformerEncoderDecoder(base.BaseEncoderDecoder):
             )
             encoder_output = self.source_encoder(batch.source).output
             decoder_output = self.decoder(
-                encoder_output, batch.source.mask, target_padded, target_mask
+                encoder_output,
+                batch.source.mask,
+                target_padded,
+                target_mask,
             ).output
             logits = self.classifier(decoder_output)
             output = logits[:, :-1, :]  # Ignore EOS.

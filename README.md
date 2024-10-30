@@ -26,11 +26,10 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 -   It is for small-vocabulary sequence-to-sequence generation, and therefore
     includes no affordances for machine translation or language modeling.
     Because of this:
-    -   It has no plugin interface and the architectures provided are intended
-        to be reasonably exhaustive.
+    -   The architectures provided are intended to be reasonably exhaustive.
     -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
-    architecture-specific code handling feature information.
+    architecture-specific code for handling feature information.
 -   It supports the use of validation accuracy (not loss) for model selection
     and early stopping.
 -   Releases are made regularly.
@@ -190,54 +189,65 @@ not an attention mechanism is present. This flag also specifies a default
 architecture for the encoder(s), but it is possible to override this with
 additional flags. Supported values for `--arch` are:
 
--   `attentive_lstm`: This is an LSTM decoder with LSTM encoders (by default)
-    and an attention mechanism. The initial hidden state is treated as a learned
+-   `attentive_gru`: This is an GRU decoder with GRU encoders (by default) and
+    an attention mechanism. The initial hidden state is treated as a learned
     parameter.
--   `hard_attention_lstm`: This is an LSTM encoder/decoder modeling generation
-    as a Markov process. By default, it assumes a non-monotonic progression over
+-   `attentive_lstm`: This is similar to the `attentive_gru` but instead uses an
+    LSTM decoder and encoder (by default).
+-   `gru`: This is an GRU decoder with GRU encoders (by default); in lieu of an
+    attention mechanism, the last non-padding hidden state of the encoder is
+    concatenated with the decoder hidden state.
+-   `hard_attention_gru`: This is an GRU encoder/decoder modeling generation as
+    a Markov process. By default, it assumes a non-monotonic progression over
     the source string, but with `--enforce_monotonic` the model must progress
     over each source character in order. A non-zero value of
     `--attention_context` (default: `0`) widens the context window for
     conditioning state transitions to include one or more previous states.
--   `lstm`: This is an LSTM decoder with LSTM encoders (by default); in lieu of
-    an attention mechanism, the last non-padding hidden state of the encoder is
-    concatenated with the decoder hidden state.
--   `pointer_generator_lstm`: This is an LSTM decoder with LSTM encoders (by
+-   `hard_attention_lstm`: This is similar to the `hard_attention_gru` but
+    instead uses an LSTM decoder and encoder (by deafult). `--attention_context`
+    (default: `0`) widens the context window for conditioning state transitions
+    to include one or more previous states.
+-   `lstm`: This is similar to the `gru` but instead uses an LSTM decoder and
+    encoder (by default).
+-   `pointer_generator_gru`: This is an GRU decoder with GRU encoders (by
     default) and a pointer-generator mechanism. Since this model contains a copy
-    mechanism, it may be superior to an ordinary attentive LSTM when the source
+    mechanism, it may be superior to an ordinary attentive GRU when the source
     and target vocabularies overlap significantly. Note that this model requires
     that the number of `--encoder_layers` and `--decoder_layers` match.
--   `pointer_generator_transformer`: This is a transformer decoder with
-    transformer encoders (by default) and a pointer-generator mechanism. Like
-    `pointer_generator_lstm`, it may be superior to an ordinary transformer when
-    the source and target vocabularies overlap significantly. When using
-    features, the user may wish to specify the n umber of features attention
-    heads (with `--features_attention_heads`; default: `1`).
--   `transducer`: This is an LSTM decoder with LSTM encoders (by default) and a
-    neural transducer mechanism. On model creation, expectation maximization is
-    used to learn a sequence of edit operations, and imitation learning is used
-    to train the model to implement the oracle policy, with roll-in controlled
-    by the `--oracle_factor` flag (default: `1`). Since this model assumes
-    monotonic alignment, it may be superior to attentive models when the
+-   `pointer_generator_lstm`: This is similar to the `pointer_generator_gru` but
+    instead uses an LSTM decoder and encoder (by default).
+-   `pointer_generator_transformer`: This is similar to the
+    `pointer_generator_gru` and `pointer_generator_lstm` but instead uses a
+    transformer decoder and encoder (by default). When using features, the user
+    may wish to specify the number of features attention heads (with
+    `--features_attention_heads`).
+-   `transducer_gru`: This is an GRU decoder with GRU encoders (by default) and
+    a neural transducer mechanism. On model creation, expectation maximization
+    is used to learn a sequence of edit operations, and imitation learning is
+    used to train the model to implement the oracle policy, with roll-in
+    controlled by the `--oracle_factor` flag (default: `1`). Since this model
+    assumes monotonic alignment, it may be superior to attentive models when the
     alignment between input and output is roughly monotonic and when input and
     output vocabularies overlap significantly.
+-   `transducer_lstm`: This is similar to the `transducer_gru` but instead uses
+    an LSTM decoder and encoder (by default).
 -   `transformer`: This is a transformer decoder with transformer encoders (by
     default). Sinusodial positional encodings and layer normalization are used.
     The user may wish to specify the number of attention heads (with
     `--source_attention_heads`; default: `4`).
 
-The user can override the default encoder architectures. One can override the
-source encoder using the `--source_encoder_arch` flag:
+The `--arch` flag specifies the decoder type; the user can override default
+encoder types using the `--source_encoder_arch` flag and, when features are
+present, the `--features_encoder_arch` flag. Valid values are:
 
--   `feature_invariant_transformer`: This is a variant of the transformer
-    encoder used with features; it concatenates source and features and uses a
-    learned embedding to distinguish between source and features symbols.
--   `linear`: This is a linear encoder.
--   `lstm`: This is a LSTM encoder.
--   `transformer`: This is a transformer encoder.
-
-When using features, the user can also specify a non-default features encoder
-using the `--features_encoder_arch` flag (`linear`, `lstm`, `transformer`).
+-   `feature_invariant_transformer` (`--source_encoder_arch` only): a variant of
+    the transformer encoder used with features; it concatenates source and
+    features and uses a learned embedding to distinguish between source and
+    features symbols.
+-   `linear`: a linear encoder.
+-   `gru`: a GRU encoder.
+-   `lstm`: a LSTM encoder.
+-   `transformer`: a transformer encoder.
 
 For all models, the user may also wish to specify:
 
@@ -246,8 +256,8 @@ For all models, the user may also wish to specify:
 -   `--encoder_layers` (default: `1`): number of encoder layers
 -   `--hidden_size` (default: `512`): hidden layer size
 
-By default, LSTM encoders are bidirectional. One can disable this with the
-`--no_bidirectional` flag.
+By default, RNN-backed (i.e., GRU and LSTM) encoders are bidirectional. One can
+disable this with the `--no_bidirectional` flag.
 
 ## Training options
 

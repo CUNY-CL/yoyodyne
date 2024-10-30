@@ -4,9 +4,21 @@ import argparse
 
 from .base import BaseModule
 from .linear import LinearEncoder
-from .lstm import LSTMAttentiveDecoder, LSTMDecoder, LSTMEncoder  # noqa: F401
-from .transformer import TransformerDecoder  # noqa F401
-from .transformer import FeatureInvariantTransformerEncoder, TransformerEncoder
+from .rnn import AttentiveGRUDecoder  # noqa: F401
+from .rnn import AttentiveLSTMDecoder  # noqa: F401
+from .rnn import ContextHardAttentionGRUDecoder  # noqa: F401
+from .rnn import ContextHardAttentionLSTMDecoder  # noqa: F401
+from .rnn import GRUDecoder  # noqa: F401
+from .rnn import GRUEncoder
+from .rnn import HardAttentionGRUDecoder  # noqa: F401
+from .rnn import HardAttentionLSTMDecoder  # noqa: F401
+from .rnn import LSTMDecoder  # noqa: F401
+from .rnn import LSTMEncoder
+from .transformer import TransformerDecoder  # noqa: F401
+from .transformer import (
+    FeatureInvariantTransformerEncoder,
+    TransformerEncoder,
+)
 
 
 class Error(Exception):
@@ -19,18 +31,24 @@ class EncoderMismatchError(Error):
 
 _encoder_fac = {
     "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
+    "gru": GRUEncoder,
     "linear": LinearEncoder,
     "lstm": LSTMEncoder,
     "transformer": TransformerEncoder,
 }
 _model_to_encoder_fac = {
+    "attentive_gru": GRUEncoder,
     "attentive_lstm": LSTMEncoder,
+    "gru": GRUEncoder,
+    "hard_attention_gru": GRUEncoder,
+    "hard_attention_lstm": LSTMEncoder,
     "lstm": LSTMEncoder,
+    "pointer_generator_gru": GRUEncoder,
     "pointer_generator_lstm": LSTMEncoder,
     "pointer_generator_transformer": TransformerEncoder,
-    "transducer": LSTMEncoder,
+    "transducer_gru": GRUEncoder,
+    "transducer_lstm": LSTMEncoder,
     "transformer": TransformerEncoder,
-    "hard_attention_lstm": LSTMEncoder,
 }
 
 
@@ -86,7 +104,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=["linear", "lstm", "transformer"],
+        choices=["gru", "linear", "lstm", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
 

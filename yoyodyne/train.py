@@ -141,10 +141,13 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
+        "hard_attention_gru",
         "hard_attention_lstm",
+        "pointer_generator_gru",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
-        "transducer",
+        "transducer_grm",
+        "transducer_lstm",
     ]
     datamodule = data.DataModule(
         train=args.train,
@@ -171,7 +174,7 @@ def get_datamodule_from_argparse_args(
 def get_model_from_argparse_args(
     args: argparse.Namespace,
     datamodule: data.DataModule,
-) -> models.BaseEncoderDecoder:
+) -> models.BaseModel:
     """Creates the model.
 
     Args:
@@ -179,16 +182,17 @@ def get_model_from_argparse_args(
         datamodule (data.DataModule).
 
     Returns:
-        models.BaseEncoderDecoder.
+        models.BaseModel.
     """
     model_cls = models.get_model_cls(args.arch)
     # TODO(#156): add callback interface to check this.
     if (
         args.arch
         in [
-            "pointer_generator_lstm",
+            "pointer_generator_rnn",
             "pointer_generator_transformer",
-            "transducer",
+            "transducer_gru",
+            "transducer_lstm",
         ]
         and not args.tie_embeddings
     ):
@@ -201,22 +205,18 @@ def get_model_from_argparse_args(
     )
     # Instantiates expert, if needed.
     expert = None
-    if args.arch in ["transducer"]:
+    if args.arch in ["transducer_gru", "transducer_lstm"]:
         sed_params_paths = (
             args.sed_params
             if args.sed_params
             else f"{args.model_dir}/{args.experiment}/sed.pkl"
         )
-        expert = (
-            models.expert.get_expert(
-                datamodule.train_dataloader().dataset,
-                epochs=args.oracle_em_epochs,
-                oracle_factor=args.oracle_factor,
-                sed_params_path=sed_params_paths,
-                read_from_file=os.path.isfile(sed_params_paths),
-            )
-            if args.arch in ["transducer"]
-            else None
+        expert = models.expert.get_expert(
+            datamodule.train_dataloader().dataset,
+            epochs=args.oracle_em_epochs,
+            oracle_factor=args.oracle_factor,
+            sed_params_path=sed_params_paths,
+            read_from_file=os.path.isfile(sed_params_paths),
         )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     # We use a separate features encoder if the datamodule has features, and
@@ -225,20 +225,24 @@ def get_model_from_argparse_args(
     #   the requested module), or
     # - no specific features encoder module is requested, but the model
     #   requires that we use a separate features encoder (in which case we use
-    #   the same module as the source encoder).
+    #   the same type of module as the source encoder).
     features_encoder_cls = (
         models.modules.get_encoder_cls(
-            encoder_arch=args.features_encoder_arch, model_arch=args.arch
+            encoder_arch=args.features_encoder_arch,
+            model_arch=args.arch,
         )
         if datamodule.has_features
         and (
             args.features_encoder_arch
             or args.arch
             in [
+                "hard_attention_gru",
                 "hard_attention_lstm",
+                "pointer_generator_gru",
                 "pointer_generator_lstm",
                 "pointer_generator_transformer",
-                "transducer",
+                "transducer_gru",
+                "transducer_lstm",
             ]
         )
         else None
@@ -279,7 +283,6 @@ def get_model_from_argparse_args(
         scheduler_kwargs=scheduler_kwargs,
         source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
-        start_idx=datamodule.index.start_idx,
         target_vocab_size=(
             len(expert.actions)
             if expert is not None
@@ -353,7 +356,8 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Path to input validation data TSV.",
     )
     parser.add_argument(
-        "--train_from", help="Path to checkpoint used to resume training."
+        "--train_from",
+        help="Path to checkpoint used to resume training.",
     )
     # Other training arguments.
     parser.add_argument(
@@ -386,12 +390,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     evaluators.add_argparse_args(parser)
     metrics.add_argparse_args(parser)
     models.add_argparse_args(parser)
-    models.modules.add_argparse_args(parser)
-    models.BaseEncoderDecoder.add_argparse_args(parser)
-    models.HardAttentionLSTM.add_argparse_args(parser)
-    models.LSTMEncoderDecoder.add_argparse_args(parser)
-    models.TransformerEncoderDecoder.add_argparse_args(parser)
     models.expert.add_argparse_args(parser)
+    models.modules.add_argparse_args(parser)
+    models.BaseModel.add_argparse_args(parser)
+    models.HardAttentionRNNModel.add_argparse_args(parser)
+    models.RNNModel.add_argparse_args(parser)
+    models.TransformerModel.add_argparse_args(parser)
     schedulers.add_argparse_args(parser)
     sizing.add_argparse_args(parser)
     # Trainer arguments.

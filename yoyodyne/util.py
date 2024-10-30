@@ -32,7 +32,7 @@ def pad_tensor_after_eos(
 ) -> torch.Tensor:
     """Replaces everything after an EOS token with PADs.
 
-    Cuts off tensors at the first end_idx, and replaces the rest of the
+    Cuts off tensors at the first END_IDX, and replaces the rest of the
     predictions with PAD_IDX, as these can be erroneously decoded while the
     rest of the batch is finishing decoding.
 

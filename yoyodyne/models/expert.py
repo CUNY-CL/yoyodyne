@@ -10,7 +10,16 @@ Class stores valid edit actions for given dataset.
 import abc
 import argparse
 import dataclasses
-from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 import numpy
 from maxwell import actions, sed
@@ -125,7 +134,9 @@ class ActionVocabulary:
         return self.i2w[len(self.start_vocab_idx) :]  # noqa: E203
 
     @property
-    def substitutions(self) -> List[Tuple[int, actions.ConditionalEdit]]:
+    def substitutions(
+        self,
+    ) -> List[Tuple[int, actions.ConditionalEdit]]:
         return [
             i
             for i, a in enumerate(self.i2w)

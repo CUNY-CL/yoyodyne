@@ -6,15 +6,22 @@ from yoyodyne import models
 @pytest.mark.parametrize(
     ["arch", "expected_cls"],
     [
-        ("attentive_lstm", models.AttentiveLSTMEncoderDecoder),
-        ("hard_attention_lstm", models.HardAttentionLSTM),
-        ("lstm", models.LSTMEncoderDecoder),
+        ("attentive_gru", models.AttentiveGRUModel),
+        ("attentive_lstm", models.AttentiveLSTMModel),
+        ("gru", models.GRUModel),
+        ("hard_attention_lstm", models.HardAttentionLSTMModel),
+        ("lstm", models.LSTMModel),
+        (
+            "pointer_generator_gru",
+            models.PointerGeneratorGRUModel,
+        ),
         (
             "pointer_generator_lstm",
-            models.PointerGeneratorLSTMEncoderDecoder,
+            models.PointerGeneratorLSTMModel,
         ),
-        ("transducer", models.TransducerEncoderDecoder),
-        ("transformer", models.TransformerEncoderDecoder),
+        ("transducer_gru", models.TransducerGRUModel),
+        ("transducer_lstm", models.TransducerLSTMModel),
+        ("transformer", models.TransformerModel),
     ],
 )
 def test_get_model_cls(arch, expected_cls):

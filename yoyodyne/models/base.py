@@ -19,7 +19,7 @@ from .. import (
 from . import modules
 
 
-class BaseEncoderDecoder(lightning.LightningModule):
+class BaseModel(lightning.LightningModule):
     """Base class, handling Lightning integration."""
 
     #  TODO: clean up type checking here.
@@ -56,29 +56,30 @@ class BaseEncoderDecoder(lightning.LightningModule):
     def __init__(
         self,
         *,
-        vocab_size,
-        features_vocab_size,
-        target_vocab_size,
-        source_encoder_cls,
-        eval_metrics=defaults.EVAL_METRICS,
-        features_encoder_cls=None,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
+        features_vocab_size,
+        source_encoder_cls,
+        target_vocab_size,
+        vocab_size,
+        # All of these have keyword defaults.
+        beam_width=defaults.BEAM_WIDTH,
+        decoder_layers=defaults.DECODER_LAYERS,
+        dropout=defaults.DROPOUT,
+        embedding_size=defaults.EMBEDDING_SIZE,
+        encoder_layers=defaults.ENCODER_LAYERS,
+        eval_metrics=defaults.EVAL_METRICS,
+        features_encoder_cls=None,
+        hidden_size=defaults.HIDDEN_SIZE,
+        label_smoothing=defaults.LABEL_SMOOTHING,
         learning_rate=defaults.LEARNING_RATE,
+        max_source_length=defaults.MAX_SOURCE_LENGTH,
+        max_target_length=defaults.MAX_TARGET_LENGTH,
         optimizer=defaults.OPTIMIZER,
         scheduler=None,
         scheduler_kwargs=None,
-        dropout=defaults.DROPOUT,
-        label_smoothing=defaults.LABEL_SMOOTHING,
         teacher_forcing=defaults.TEACHER_FORCING,
-        beam_width=defaults.BEAM_WIDTH,
-        max_source_length=defaults.MAX_SOURCE_LENGTH,
-        max_target_length=defaults.MAX_TARGET_LENGTH,
-        encoder_layers=defaults.ENCODER_LAYERS,
-        decoder_layers=defaults.DECODER_LAYERS,
-        embedding_size=defaults.EMBEDDING_SIZE,
-        hidden_size=defaults.HIDDEN_SIZE,
-        **kwargs,  # Ignored.
+        **kwargs,
     ):
         super().__init__()
         # Symbol processing.
@@ -118,25 +119,25 @@ class BaseEncoderDecoder(lightning.LightningModule):
         )
         # Instantiates encoders class.
         self.source_encoder = source_encoder_cls(
-            embeddings=self.embeddings,
-            embedding_size=self.embedding_size,
-            num_embeddings=self.vocab_size,
             dropout=self.dropout,
-            layers=self.encoder_layers,
-            hidden_size=self.hidden_size,
+            embedding_size=self.embedding_size,
+            embeddings=self.embeddings,
             features_vocab_size=features_vocab_size,
+            hidden_size=self.hidden_size,
+            layers=self.encoder_layers,
             max_source_length=max_source_length,
+            num_embeddings=self.vocab_size,
             **kwargs,
         )
         self.features_encoder = (
             features_encoder_cls(
-                embeddings=self.embeddings,
-                embedding_size=self.embedding_size,
-                num_embeddings=self.vocab_size,
                 dropout=self.dropout,
-                layers=self.encoder_layers,
+                embedding_size=self.embedding_size,
+                embeddings=self.embeddings,
                 hidden_size=self.hidden_size,
+                layers=self.encoder_layers,
                 max_source_length=max_source_length,
+                num_embeddings=self.vocab_size,
                 **kwargs,
             )
             if features_encoder_cls is not None
@@ -145,7 +146,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
         self.decoder = self.get_decoder()
         # Saves hyperparameters for PL checkpointing.
         self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "features_encoder"]
+            ignore=["source_encoder", "decoder", "features_encoder"],
         )
         # Logs the module names.
         util.log_info(f"Model: {self.name}")
@@ -197,7 +198,7 @@ class BaseEncoderDecoder(lightning.LightningModule):
                 log-likelihood of each prediction.
         """
         raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model."
+            f"Beam search not implemented for {self.name} model"
         )
 
     @property
