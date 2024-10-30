@@ -363,7 +363,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
         return predictions
 
 
-class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
+class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
     """Pointer-generator model with an GRU backend."""
 
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
@@ -522,7 +522,7 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
         return "pointer-generator GRU"
 
 
-class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
+class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
     """Pointer-generator model with an LSTM backend."""
 
     def __init__(self, *args, **kwargs):
