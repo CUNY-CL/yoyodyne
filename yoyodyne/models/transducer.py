@@ -715,9 +715,7 @@ class TransducerLSTMModel(TransducerRNNModel):
                 )
                 last_hiddens = h_features, c_features
             else:
-                last_hiddens = self.init_hiddens(
-                    source_mask.shape[0], self.decoder_layers
-                )
+                last_hiddens = self.init_hiddens(source_mask.shape[0])
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
