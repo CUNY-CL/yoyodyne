@@ -122,14 +122,11 @@ class BaseModel(lightning.LightningModule):
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
-            end_idx=self.end_idx,
             features_vocab_size=features_vocab_size,
             hidden_size=self.hidden_size,
             layers=self.encoder_layers,
             max_source_length=max_source_length,
             num_embeddings=self.vocab_size,
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
             **kwargs,
         )
         self.features_encoder = (
@@ -139,11 +136,8 @@ class BaseModel(lightning.LightningModule):
                 embeddings=self.embeddings,
                 hidden_size=self.hidden_size,
                 layers=self.encoder_layers,
-                end_idx=self.end_idx,
                 max_source_length=max_source_length,
                 num_embeddings=self.vocab_size,
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
                 **kwargs,
             )
             if features_encoder_cls is not None

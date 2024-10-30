@@ -322,11 +322,8 @@ class GRUModel(RNNModel):
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
             hidden_size=self.hidden_size,
-            end_idx=self.end_idx,
             layers=self.decoder_layers,
             num_embeddings=self.vocab_size,
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
         )
 
     def init_hiddens(self, batch_size: int) -> torch.Tensor:
@@ -370,11 +367,8 @@ class LSTMModel(RNNModel):
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
             hidden_size=self.hidden_size,
-            end_idx=self.end_idx,
             layers=self.decoder_layers,
             num_embeddings=self.vocab_size,
-            pad_idx=self.pad_idx,
-            start_idx=self.start_idx,
         )
 
     def init_hiddens(self, batch_size: int) -> torch.Tensor:

@@ -267,7 +267,6 @@ def get_model_from_argparse_args(
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
-        end_idx=datamodule.index.end_idx,
         enforce_monotonic=args.enforce_monotonic,
         eval_metrics=eval_metrics,
         expert=expert,
@@ -284,7 +283,6 @@ def get_model_from_argparse_args(
         scheduler_kwargs=scheduler_kwargs,
         source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
-        start_idx=datamodule.index.start_idx,
         target_vocab_size=(
             len(expert.actions)
             if expert is not None

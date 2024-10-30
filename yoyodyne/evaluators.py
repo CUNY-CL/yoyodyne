@@ -126,7 +126,7 @@ class AccuracyEvaluator(Evaluator):
     ) -> torch.Tensor:
         """Finalizes predictions.
 
-        Cuts off tensors at the first end_idx, and replaces the rest of the
+        Cuts off tensors at the first END_IDX, and replaces the rest of the
         predictions with PAD_IDX, as these are erroneously decoded while the
         rest of the batch is finishing decoding.
 
@@ -198,8 +198,8 @@ class SEREvaluator(Evaluator):
         """Finalizes each tensor.
 
         Truncates at EOS for each prediction and returns a List of predictions.
-        This does basically the same as util.pad_after_eos, but does
-        not actually pad since we do not need to return a well-formed tensor.
+        This does basically the same as util.pad_after_eos, but does not
+        actually pad since we do not need to return a well-formed tensor.
 
         Args:
             tensor (torch.Tensor).

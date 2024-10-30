@@ -562,7 +562,7 @@ class TransducerRNNModel(rnn.RNNModel):
         predictions = torch.stack(predictions)
         # This turns all symbols after the first EOS into PAD so prediction
         # tensors match gold tensors.
-        return util.pad_tensor_after_eos(torch.tensor(predictions))
+        return util.pad_tensor_after_eos(predictions)
 
     def on_train_epoch_start(self) -> None:
         """Scheduler for oracle."""

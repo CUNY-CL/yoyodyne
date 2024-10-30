@@ -340,10 +340,10 @@ class HardAttentionRNNModel(rnn.RNNModel):
         # Processes for accuracy calculation.
         val_eval_items_dict = {}
         for evaluator in self.evaluators:
-            predictions = evaluator.finalize_predictions(predictions)
-            golds = evaluator.finalize_golds(batch.target.padded)
+            final_predictions = evaluator.finalize_predictions(predictions)
+            final_golds = evaluator.finalize_golds(batch.target.padded)
             val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
-                predictions, golds
+                final_predictions, final_golds
             )
         val_eval_items_dict.update({"val_loss": -likelihood.mean()})
         return val_eval_items_dict
@@ -419,7 +419,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         )
 
 
-class HardAttentionGRUModel(HardAttentionRNNModel):
+class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
     """Hard attention with GRU backend."""
 
     def get_decoder(self):
@@ -436,12 +436,9 @@ class HardAttentionGRUModel(HardAttentionRNNModel):
                 dropout=self.dropout,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
-                end_idx=self.end_idx,
                 hidden_size=self.hidden_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
             )
         else:
             return modules.HardAttentionGRUDecoder(
@@ -455,12 +452,9 @@ class HardAttentionGRUModel(HardAttentionRNNModel):
                 dropout=self.dropout,
                 embedding_size=self.embedding_size,
                 embeddings=self.embeddings,
-                end_idx=self.end_idx,
                 hidden_size=self.hidden_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
-                pad_idx=self.pad_idx,
-                start_idx=self.start_idx,
             )
 
     def decode_step(
@@ -511,7 +505,7 @@ class HardAttentionGRUModel(HardAttentionRNNModel):
         return "hard attention GRU"
 
 
-class HardAttentionLSTMModel(HardAttentionRNNModel):
+class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
     """Hard attention with LSTM backend."""
 
     def get_decoder(self):

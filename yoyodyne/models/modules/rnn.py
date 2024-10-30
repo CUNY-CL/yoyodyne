@@ -217,6 +217,10 @@ class AttentiveRNNDecoder(RNNDecoder):
             attention_input_size, self.hidden_size
         )
 
+
+class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
+    """Attentive GRU decoder."""
+
     def forward(
         self,
         symbol: torch.Tensor,
@@ -248,10 +252,6 @@ class AttentiveRNNDecoder(RNNDecoder):
         )
         output = self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
-
-
-class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
-    """Attentive GRU decoder."""
 
     @property
     def name(self) -> str:
