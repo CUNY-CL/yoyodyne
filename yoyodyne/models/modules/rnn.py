@@ -257,16 +257,6 @@ class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
     def name(self) -> str:
         return "attentive GRU"
 
-    def get_module(self) -> nn.GRU:
-        return nn.GRU(
-            self.decoder_input_size + self.embedding_size,
-            self.hidden_size,
-            num_layers=self.layers,
-            dropout=self.dropout,
-            batch_first=True,
-            bidirectional=self.bidirectional,
-        )
-
 
 class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
     """Attentive LSTM decoder."""

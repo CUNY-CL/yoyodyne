@@ -16,7 +16,6 @@ class TransformerModel(base.BaseModel):
     Args:
         source_attention_heads (int).
         max_source_length (int).
-        *args: passed to superclass.
         **kwargs: passed to superclass.
     """
 
