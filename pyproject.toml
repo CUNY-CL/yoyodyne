@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 72.1.0", "wheel"]
+requires = ["setuptools >= 75.3.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -11,7 +11,7 @@ exclude = ["examples*"]
 
 [project]
 name = "yoyodyne"
-version = "0.2.13"
+version = "0.2.14"
 description = "Small-vocabulary neural sequence-to-sequence models"
 readme = "README.md"
 requires-python = ">= 3.9"
@@ -32,8 +32,8 @@ dependencies = [
     # TODO: allow >= 2.0.0 once we we migrate to lightning >= 2.0.0".
     "numpy >= 1.26.0, < 2.0.0", 
     "lightning >= 1.7.0, < 2.0.0",
-    "torch >= 2.4.0",
-    "wandb >= 0.17.5",
+    "torch >= 2.5.1",
+    "wandb >= 0.18.5",
 ]
 classifiers = [
     "Programming Language :: Python :: 3.9",
