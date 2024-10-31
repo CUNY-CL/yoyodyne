@@ -258,13 +258,13 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
         # -> B x 1 x target_vocab_size.
         ptr_dist = torch.zeros(
             symbol.size(0),
+            1,
             self.target_vocab_size,
             device=self.device,
             dtype=attention_weights.dtype,
-        ).unsqueeze(1)
+        )
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
-        # -> B x 1 x target_vocab_size.
         ptr_dist.scatter_add_(
             2, source_indices.unsqueeze(1), attention_weights
         )
@@ -315,7 +315,8 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
         # -> B x 1
         decoder_input = (
             torch.tensor(
-                [special.START_IDX], device=self.device, dtype=torch.long
+                [special.START_IDX],
+                device=self.device,
             )
             .repeat(batch_size)
             .unsqueeze(1)
@@ -432,10 +433,11 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         # -> B x 1 x target_vocab_size.
         ptr_dist = torch.zeros(
             symbol.size(0),
+            1,
             self.target_vocab_size,
             device=self.device,
             dtype=attention_weights.dtype,
-        ).unsqueeze(1)
+        )
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x target_vocab_size.
@@ -597,10 +599,11 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
         # -> B x 1 x target_vocab_size.
         ptr_dist = torch.zeros(
             symbol.size(0),
+            1,
             self.target_vocab_size,
             device=self.device,
             dtype=attention_weights.dtype,
-        ).unsqueeze(1)
+        )
         # Gets the attentions to the source in terms of the output generations.
         # These are the "pointer" distribution.
         # -> B x 1 x target_vocab_size.
@@ -915,9 +918,7 @@ class PointerGeneratorTransformerModel(
             ), "Teacher forcing requested but no target provided"
             # Initializes the start symbol for decoding.
             starts = (
-                torch.tensor(
-                    [special.START_IDX], device=self.device, dtype=torch.long
-                )
+                torch.tensor([special.START_IDX], device=self.device)
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
             )

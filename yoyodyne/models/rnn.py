@@ -75,9 +75,7 @@ class RNNModel(base.BaseModel):
         # Feed in the first decoder input, as a start tag.
         # -> B x 1.
         decoder_input = (
-            torch.tensor(
-                [special.START_IDX], device=self.device, dtype=torch.long
-            )
+            torch.tensor([special.START_IDX], device=self.device)
             .repeat(batch_size)
             .unsqueeze(1)
         )
@@ -167,7 +165,8 @@ class RNNModel(base.BaseModel):
                 # Feeds in the first decoder input, as a start tag.
                 # -> batch_size x 1
                 decoder_input = torch.tensor(
-                    [beam_idxs[-1]], device=self.device, dtype=torch.long
+                    [beam_idxs[-1]],
+                    device=self.device,
                 ).unsqueeze(1)
                 decoded = self.decoder(
                     decoder_input, decoder_hiddens, encoder_out, encoder_mask

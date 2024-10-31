@@ -81,9 +81,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         batch_size = encoder_mask.shape[0]
         decoder_hiddens = self.init_hiddens(batch_size)
         bos = (
-            torch.tensor(
-                [special.START_IDX], device=self.device, dtype=torch.long
-            )
+            torch.tensor([special.START_IDX], device=self.device)
             .repeat(batch_size)
             .unsqueeze(-1)
         )
