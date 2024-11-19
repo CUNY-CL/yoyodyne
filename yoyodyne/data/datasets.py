@@ -73,10 +73,7 @@ class Dataset(data.Dataset):
         Returns:
             torch.Tensor: the encoded tensor.
         """
-        return torch.tensor(
-            [self.index(symbol) for symbol in symbols],
-            dtype=torch.long,
-        )
+        return torch.tensor([self.index(symbol) for symbol in symbols])
 
     def encode_source(self, symbols: List[str]) -> torch.Tensor:
         """Encodes a source string, padding with start and end tags.

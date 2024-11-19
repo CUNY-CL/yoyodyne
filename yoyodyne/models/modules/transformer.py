@@ -64,7 +64,7 @@ class PositionalEncoding(nn.Module):
             # Indices should all be 0's until the first unmasked position.
             indices = torch.cumsum(mask, dim=1)
         else:
-            indices = torch.arange(symbols.size(1)).long()
+            indices = torch.arange(symbols.size(1))
         # Selects the tensors from `out` at the specified indices.
         out = out[torch.arange(out.shape[0]).unsqueeze(-1), indices]
         # Zeros out pads.
@@ -260,9 +260,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
                 B x seq_len x embed_dim.
         """
         # Distinguishes features and chars; 1 or 0.
-        char_mask = (
-            symbols < (self.num_embeddings - self.features_vocab_size)
-        ).long()
+        char_mask = symbols < (self.num_embeddings - self.features_vocab_size)
         type_embedding = self.esq * self.type_embedding(char_mask)
         word_embedding = self.esq * self.embeddings(symbols)
         positional_embedding = self.positional_encoding(

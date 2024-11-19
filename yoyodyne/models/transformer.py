@@ -150,7 +150,6 @@ class TransformerModel(base.BaseModel):
                 torch.tensor(
                     [special.START_IDX],
                     device=self.device,
-                    dtype=torch.long,
                 )
                 .repeat(batch.target.padded.size(0))
                 .unsqueeze(1)
