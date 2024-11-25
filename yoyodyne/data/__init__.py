@@ -5,9 +5,10 @@ import argparse
 from .. import defaults
 from .batches import PaddedBatch, PaddedTensor  # noqa: F401
 from .datamodules import DataModule  # noqa: F401
+from .datasets import Dataset  # noqa: F401
 from .indexes import Index  # noqa: F401
 from .mappers import Mapper  # noqa: F401
-from .parser import TsvParser  # noqa: F401
+from .tsv import TsvParser  # noqa: F401
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

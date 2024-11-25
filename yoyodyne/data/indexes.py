@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import pickle
 from typing import Dict, Iterable, List, Optional
 
@@ -49,7 +50,9 @@ class Index:
         if self.tie_embeddings:
             # Vocabulary is the union of source and target.
             vocabulary = sorted(
-                frozenset(source_vocabulary + target_vocabulary)
+                frozenset(
+                    itertools.chain(source_vocabulary, target_vocabulary)
+                )
             )
         else:
             # Vocabulary consists of target symbols followed by source symbols.

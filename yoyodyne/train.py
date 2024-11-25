@@ -149,9 +149,9 @@ def get_datamodule_from_argparse_args(
         "transducer_lstm",
     ]
     datamodule = data.DataModule(
+        model_dir=args.model_dir,
         train=args.train,
         val=args.val,
-        batch_size=args.batch_size,
         source_col=args.source_col,
         features_col=args.features_col,
         target_col=args.target_col,
@@ -159,13 +159,13 @@ def get_datamodule_from_argparse_args(
         features_sep=args.features_sep,
         target_sep=args.target_sep,
         separate_features=separate_features,
+        tie_embeddings=args.tie_embeddings,
+        batch_size=args.batch_size,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
-        tie_embeddings=args.tie_embeddings,
     )
     if not datamodule.has_target:
         raise Error("No target column specified")
-    datamodule.index.write(args.model_dir)
     datamodule.log_vocabularies()
     return datamodule
 
@@ -210,6 +210,7 @@ def get_model_from_argparse_args(
         )
         expert = models.expert.get_expert(
             datamodule.train_dataloader().dataset,
+            datamodule.index,
             epochs=args.oracle_em_epochs,
             oracle_factor=args.oracle_factor,
             sed_params_path=sed_params_paths,
