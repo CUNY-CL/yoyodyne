@@ -122,25 +122,6 @@ class Index:
     def features_vocab_size(self) -> int:
         return len(self.features_vocabulary) if self.features_vocabulary else 0
 
-    # These are also recorded in the `special` module.
-    # TODO: are these still needed?
-
-    @property
-    def pad_idx(self) -> int:
-        return self._symbol2index[special.PAD]
-
-    @property
-    def start_idx(self) -> int:
-        return self._symbol2index[special.START]
-
-    @property
-    def end_idx(self) -> int:
-        return self._symbol2index[special.END]
-
-    @property
-    def unk_idx(self) -> int:
-        return self._symbol2index[special.UNK]
-
     # Serialization.
 
     @classmethod

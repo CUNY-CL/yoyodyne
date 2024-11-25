@@ -121,10 +121,7 @@ class DataModule(lightning.LightningDataModule):
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
-        try:
-            os.mkdir(model_dir)
-        except FileExistsError:
-            pass
+        os.makedirs(model_dir, exist_ok=True)
         index.write(model_dir)
         return index
 

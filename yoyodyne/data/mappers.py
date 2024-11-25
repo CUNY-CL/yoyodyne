@@ -98,7 +98,7 @@ class Mapper:
         return [
             self.index.get_symbol(c)
             for c in indices
-            if c not in self.index.special_idx
+            if not special.isspecial(c)
         ]
 
     # These are just here for compatibility but they all have

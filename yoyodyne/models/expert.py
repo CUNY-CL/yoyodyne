@@ -433,7 +433,7 @@ class Expert(abc.ABC):
 
 
 def get_expert(
-    train_data: data.Dataset,
+    dataset: data.Dataset,
     index: data.Index,
     epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
@@ -443,7 +443,7 @@ def get_expert(
     """Generates expert object for training transducer.
 
     Args:
-        data (data.Dataset): dataset for generating expert vocabulary.
+        dataset (data.Dataset): dataset for generating expert vocabulary.
         index (data.Index): index for mapping symbols to indices.
         epochs (int): number of EM epochs.
         oracle_factor (float): scaling factor to determine rate of
@@ -458,7 +458,7 @@ def get_expert(
     """
 
     def _generate_data(
-        data: data.Dataset,
+        dataset: data.Dataset,
         index: data.Index,
     ) -> Iterator[Tuple[List[int], List[int]]]:
         """Helper function to manage data encoding for SED."
@@ -467,28 +467,28 @@ def get_expert(
         source-target text for the Maxwell library.
 
         Args:
-            data (data.Dataset): dataset for generating expert vocabulary.
+            dataset (data.Dataset): dataset for generating expert vocabulary.
             index (data.Index): index for mapping symbols to indices.
 
         Yields:
             Tuple[List[int, List[int]]]: lists of source and target entries.
         """
-        if not data.has_target:
+        if not dataset.has_target:
             raise Error("Dataset has no target")
-        for sample in data.samples:
+        for sample in dataset.samples:
             source, *_, target = sample
             yield (
                 [index(symbol) for symbol in source],
                 [index(symbol) for symbol in target],
             )
 
-    actions = ActionVocabulary(train_data.index)
+    actions = ActionVocabulary(index)
     if read_from_file:
         sed_params = sed.ParamDict.read_params(sed_params_path)
         sed_aligner = sed.StochasticEditDistance(sed_params)
     else:
         sed_aligner = sed.StochasticEditDistance.fit_from_data(
-            _generate_data(train_data),
+            _generate_data(dataset, index),
             epochs=epochs,
         )
         sed_aligner.params.write_params(sed_params_path)

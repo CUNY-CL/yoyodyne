@@ -36,12 +36,16 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
-        "pointer_generator_rnn",
+        "hard_attention_gru",
+        "hard_attention_lstm",
+        "pointer_generator_gru",
+        "pointer_generator_lstm",
         "pointer_generator_transformer",
-        "transducer",
+        "transducer_grm",
+        "transducer_lstm",
     ]
-    index = data.Index.read(args.model_dir)
     return data.DataModule(
+        model_dir=args.model_dir,
         predict=args.predict,
         batch_size=args.batch_size,
         source_col=args.source_col,
@@ -53,7 +57,6 @@ def get_datamodule_from_argparse_args(
         separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
-        index=index,
     )
 
 
@@ -76,17 +79,6 @@ def get_model_from_argparse_args(
     return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
 
 
-def _mkdir(output: str) -> None:
-    """Creates directory for output file if necessary.
-
-    Args:
-        output (str): output to output file.
-    """
-    dirname = os.path.dirname(output)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
-
-
 def predict(
     trainer: lightning.Trainer,
     model: models.BaseModel,
@@ -104,23 +96,43 @@ def predict(
     util.log_info(f"Writing to {output}")
     _mkdir(output)
     loader = datamodule.predict_dataloader()
+    parser = datamodule.parser
+    mapper = data.Mapper(datamodule.index)
     with open(output, "w", encoding=defaults.ENCODING) as sink:
         if model.beam_width > 1:
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
             for predictions, scores in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)
-                decoded_predictions = loader.dataset.decode_target(predictions)
-                row = itertools.chain(
-                    *zip(decoded_predictions, scores.tolist())
+                # TODO: beam search requires singleton batches and this
+                # assumes that. Revise if that restriction is ever lifted.
+                targets = [
+                    parser.target_string(mapper.decode_target(target))
+                    for target in predictions
+                ]
+                row = itertools.chain.from_iterable(
+                    zip(targets, scores.tolist())
                 )
                 tsv_writer.writerow(row)
         else:
             # Greedy search.
             for predictions, _ in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_eos(predictions)
-                for prediction in loader.dataset.decode_target(predictions):
-                    print(prediction, file=sink)
+                # Unpacks each element in the batch.
+                for target in predictions:
+                    symbols = mapper.decode_target(target)
+                    print(parser.target_string(symbols), file=sink)
+
+
+def _mkdir(output: str) -> None:
+    """Creates directory for output file if necessary.
+
+    Args:
+        output (str): output to output file.
+    """
+    dirname = os.path.dirname(output)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -154,7 +166,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.
     models.add_argparse_args(parser)
-    models.BaseEncoderDecoder.add_predict_argparse_args(parser)
+    models.BaseModel.add_predict_argparse_args(parser)
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
     # --devices (for multiple device support)
