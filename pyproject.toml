@@ -11,7 +11,7 @@ exclude = ["examples*"]
 
 [project]
 name = "yoyodyne"
-version = "0.2.14"
+version = "0.3.0"
 description = "Small-vocabulary neural sequence-to-sequence models"
 readme = "README.md"
 requires-python = ">= 3.9"
@@ -29,9 +29,7 @@ keywords = [
 ]
 dependencies = [
     "maxwell >= 0.2.5",
-    # TODO: allow >= 2.0.0 once we we migrate to lightning >= 2.0.0".
-    "numpy >= 1.26.0, < 2.0.0", 
-    "lightning >= 1.7.0, < 2.0.0",
+    "lightning >= 2.4.0",
     "torch >= 2.5.1",
     "wandb >= 0.18.5",
 ]
@@ -49,8 +47,7 @@ classifiers = [
 ]
 
 [project.scripts]
-yoyodyne-predict = "yoyodyne.predict:main"
-yoyodyne-train = "yoyodyne.train:main"
+yoyodyne = "yoyodyne.cli:main"
 
 [project.urls]
 homepage = "https://github.com/CUNY-CL/yoyodyne"
