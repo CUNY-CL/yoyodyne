@@ -79,7 +79,6 @@ Training is performed by the [`yoyodyne-train`](yoyodyne/train.py) script. One
 must specify the following required arguments:
 
 -   `--model_dir`: path for model metadata and checkpoints
--   `--experiment`: name of experiment (pick something unique)
 -   `--train`: path to TSV file containing training data
 -   `--val`: path to TSV file containing validation data
 
@@ -108,7 +107,6 @@ One must specify the following required arguments:
 
 -   `--arch`: architecture, matching the one used for training
 -   `--model_dir`: path for model metadata
--   `--experiment`: name of experiment
 -   `--checkpoint`: path to checkpoint
 -   `--predict`: path to file containing data to be predicted
 -   `--output`: path for predictions
@@ -162,12 +160,15 @@ provide any symbols of the form `<...>`, `[...]`, or `{...}`.
 Checkpointing is handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
 The path for model information, including checkpoints, is specified by a
-combination of `--model_dir` and `--experiment`, such that we build the path
-`model_dir/experiment/version_n`, where each run of an experiment with the same
-`model_dir` and `experiment` is namespaced with a new version number. A version
-stores everything needed to reload the model, including the hyperparameters
-(`model_dir/experiment_name/version_n/hparams.yaml`) and the checkpoints
-directory (`model_dir/experiment_name/version_n/checkpoints`).
+combination of `--model_dir` such that we build the path `model_dir/version_n`,
+where each run of an experiment with the same `model_dir` is namespaced with a
+new version number. A version stores everything needed to reload the model,
+including:
+
+-   the index (`model_dir/index.pkl`),
+-   the hyperparameters (`model_dir/lightning_logs/version_n/hparams.yaml`),
+-   the metrics (`model_dir/lightning_logs/version_n/metrics.csv`), and
+-   the checkpoints (`model_dir/lightning_logs/version_n/checkpoints`).
 
 By default, each run initializes a new model from scratch, unless the
 `--train_from` argument is specified. To continue training from a specific
