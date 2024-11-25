@@ -87,18 +87,17 @@ class Index:
     # Serialization support.
 
     @classmethod
-    def read(cls, model_dir: str, experiment: str) -> "Index":
+    def read(cls, model_dir: str) -> "Index":
         """Loads index.
 
         Args:
             model_dir (str).
-            experiment (str).
 
         Returns:
             Index.
         """
         index = cls.__new__(cls)
-        path = index.index_path(model_dir, experiment)
+        path = index.index_path(model_dir)
         with open(path, "rb") as source:
             dictionary = pickle.load(source)
         for key, value in dictionary.items():
@@ -106,26 +105,24 @@ class Index:
         return index
 
     @staticmethod
-    def index_path(model_dir: str, experiment: str) -> str:
+    def index_path(model_dir: str) -> str:
         """Computes path for the index file.
 
         Args:
             model_dir (str).
-            experiment (str).
 
         Returns:
             str.
         """
-        return f"{model_dir}/{experiment}/index.pkl"
+        return f"{model_dir}/index.pkl"
 
-    def write(self, model_dir: str, experiment: str) -> None:
+    def write(self, model_dir: str) -> None:
         """Writes index.
 
         Args:
             model_dir (str).
-            experiment (str).
         """
-        path = self.index_path(model_dir, experiment)
+        path = self.index_path(model_dir)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as sink:
             pickle.dump(vars(self), sink)

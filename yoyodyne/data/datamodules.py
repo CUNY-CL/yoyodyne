@@ -128,9 +128,9 @@ class DataModule(lightning.LightningDataModule):
                 f"{self.pprint(self.index.target_vocabulary)}"
             )
 
-    def write_index(self, model_dir: str, experiment: str) -> None:
+    def write_index(self, model_dir: str) -> None:
         """Writes the index."""
-        self.index.write(model_dir, experiment)
+        self.index.write(model_dir)
 
     @property
     def has_features(self) -> bool:
