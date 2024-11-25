@@ -55,6 +55,16 @@ class Dataset(data.Dataset):
     mapper: mappers.Mapper
     parser: tsv.TsvParser  # Ditto.
 
+    # Properties.
+
+    @property
+    def has_features(self) -> bool:
+        return self.parser.has_features
+
+    @property
+    def has_target(self) -> bool:
+        return self.parser.has_target
+
     # Required API.
 
     def __len__(self) -> int:
@@ -69,27 +79,27 @@ class Dataset(data.Dataset):
         Returns:
             Item.
         """
-        row = self.samples[idx]
+        sample = self.samples[idx]
         if self.has_features:
             if self.has_target:
-                source, features, target = row
+                source, features, target = sample
                 return Item(
                     source=self.mapper.encode_source(source),
                     features=self.mapper.encode_features(features),
                     target=self.mapper.encode_target(target),
                 )
             else:
-                source, features = row
+                source, features = sample
                 return Item(
                     source=self.mapper.encode_source(source),
                     features=self.mapper.encode_features(features),
                 )
         elif self.has_target:
-            source, target = row
+            source, target = sample
             return Item(
                 source=self.mapper.encode_source(source),
                 target=self.mapper.encode_target(target),
             )
         else:
-            source = row
+            source = sample
             return Item(source=self.mapper.encode_source(source))

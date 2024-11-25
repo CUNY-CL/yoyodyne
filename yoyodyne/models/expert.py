@@ -27,11 +27,15 @@ from maxwell import actions, sed
 from .. import data, defaults
 
 
-class ActionError(Exception):
+class Error(Exception):
     pass
 
 
-class AlignerError(Exception):
+class ActionError(Error):
+    pass
+
+
+class AlignerError(Error):
     pass
 
 
@@ -430,6 +434,7 @@ class Expert(abc.ABC):
 
 def get_expert(
     train_data: data.Dataset,
+    index: data.Index,
     epochs: int = defaults.ORACLE_EM_EPOCHS,
     oracle_factor: int = defaults.ORACLE_FACTOR,
     sed_params_path: str = None,
@@ -439,6 +444,7 @@ def get_expert(
 
     Args:
         data (data.Dataset): dataset for generating expert vocabulary.
+        index (data.Index): index for mapping symbols to indices.
         epochs (int): number of EM epochs.
         oracle_factor (float): scaling factor to determine rate of
             expert rollout sampling.
@@ -453,27 +459,28 @@ def get_expert(
 
     def _generate_data(
         data: data.Dataset,
+        index: data.Index,
     ) -> Iterator[Tuple[List[int], List[int]]]:
         """Helper function to manage data encoding for SED."
 
-        We want encodings without BOS or EOS tokens. This
-        encodes only raw source-target text for the Maxwell library.
+        We want encodings without BOS or EOS tokens. This encodes only raw
+        source-target text for the Maxwell library.
 
         Args:
-            data (data.Dataset): Dataset to iterate over.
+            data (data.Dataset): dataset for generating expert vocabulary.
+            index (data.Index): index for mapping symbols to indices.
 
-        Returns:
-            Iterator[Tuple[List[int], List[int]]]: Iterator that
-                yields list version of source and target entries
-                in dataset.
+        Yields:
+            Tuple[List[int, List[int]]]: lists of source and target entries.
         """
-        assert data.has_target, """Passed dataset with no target to expert
-            module, cannot perform SED"""
+        if not data.has_target:
+            raise Error("Dataset has no target")
         for sample in data.samples:
-            source, target = sample[0], sample[-1]
-            yield [data.index(s) for s in source], [
-                data.index(t) for t in target
-            ]
+            source, *_, target = sample
+            yield (
+                [index(symbol) for symbol in source],
+                [index(symbol) for symbol in target],
+            )
 
     actions = ActionVocabulary(train_data.index)
     if read_from_file:

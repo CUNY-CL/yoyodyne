@@ -7,7 +7,7 @@ import lightning
 from torch.utils import data
 
 from .. import defaults, util
-from . import collators, datasets, indexes, tsv
+from . import collators, datasets, indexes, mappers, tsv
 
 
 class DataModule(lightning.LightningDataModule):
@@ -49,8 +49,8 @@ class DataModule(lightning.LightningDataModule):
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
         # Modeling options.
-        tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
         separate_features: bool = False,
+        tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
         # Other.
         batch_size: int = defaults.BATCH_SIZE,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
@@ -219,6 +219,6 @@ class DataModule(lightning.LightningDataModule):
     def _dataset(self, path: str) -> datasets.Dataset:
         return datasets.Dataset(
             list(self.parser.samples(path)),
-            self.index,
+            mappers.Mapper(self.index),
             self.parser,
         )
