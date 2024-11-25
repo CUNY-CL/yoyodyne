@@ -1,5 +1,7 @@
 """Symbol index."""
 
+from __future__ import annotations
+
 import os
 import pickle
 from typing import Dict, Iterable, List, Optional
@@ -87,7 +89,7 @@ class Index:
     # Serialization support.
 
     @classmethod
-    def read(cls, model_dir: str) -> "Index":
+    def read(cls, model_dir: str, experiment: str) -> Index:
         """Loads index.
 
         Args:
