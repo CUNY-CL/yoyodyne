@@ -206,9 +206,7 @@ def get_model_from_argparse_args(
     expert = None
     if args.arch in ["transducer_gru", "transducer_lstm"]:
         sed_params_paths = (
-            args.sed_params
-            if args.sed_params
-            else f"{args.model_dir}/sed.pkl"
+            args.sed_params if args.sed_params else f"{args.model_dir}/sed.pkl"
         )
         expert = models.expert.get_expert(
             datamodule.train_dataloader().dataset,
