@@ -1,6 +1,7 @@
 """Symbol index."""
 
-import os
+from __future__ import annotations
+
 import pickle
 from typing import Dict, Iterable, List, Optional
 
@@ -39,7 +40,12 @@ class Index:
         self.tie_embeddings = tie_embeddings
         # We store vocabularies separately for logging purposes.
         self.source_vocabulary = sorted(source_vocabulary)
-        self.target_vocabulary = sorted(target_vocabulary)
+        self.features_vocabulary = (
+            sorted(features_vocabulary) if features_vocabulary else None
+        )
+        self.target_vocabulary = (
+            sorted(target_vocabulary) if target_vocabulary else None
+        )
         if self.tie_embeddings:
             # Vocabulary is the union of source and target.
             vocabulary = sorted(
@@ -47,20 +53,19 @@ class Index:
             )
         else:
             # Vocabulary consists of target symbols followed by source symbols.
-            vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
+            vocabulary = self.target_vocabulary + self.source_vocabulary
         # FeatureInvariantTransformer assumes that features_vocabulary is at
         # the end of the vocabulary.
         if features_vocabulary is not None:
-            self.features_vocabulary = sorted(features_vocabulary)
             vocabulary.extend(self.features_vocabulary)
-        else:
-            self.features_vocabulary = None
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
 
     def __len__(self) -> int:
         return len(self._index2symbol)
+
+    # Lookup.
 
     def __call__(self, lookup: str) -> int:
         """Looks up index by symbol.
@@ -84,63 +89,11 @@ class Index:
         """
         return self._index2symbol[index]
 
-    # Serialization support.
-
-    @classmethod
-    def read(cls, model_dir: str, experiment: str) -> "Index":
-        """Loads index.
-
-        Args:
-            model_dir (str).
-            experiment (str).
-
-        Returns:
-            Index.
-        """
-        index = cls.__new__(cls)
-        path = index.index_path(model_dir, experiment)
-        with open(path, "rb") as source:
-            dictionary = pickle.load(source)
-        for key, value in dictionary.items():
-            setattr(index, key, value)
-        return index
-
-    @staticmethod
-    def index_path(model_dir: str, experiment: str) -> str:
-        """Computes path for the index file.
-
-        Args:
-            model_dir (str).
-            experiment (str).
-
-        Returns:
-            str.
-        """
-        return f"{model_dir}/{experiment}/index.pkl"
-
-    def write(self, model_dir: str, experiment: str) -> None:
-        """Writes index.
-
-        Args:
-            model_dir (str).
-            experiment (str).
-        """
-        path = self.index_path(model_dir, experiment)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as sink:
-            pickle.dump(vars(self), sink)
+    # Properties.
 
     @property
     def symbols(self) -> List[str]:
         return list(self._symbol2index.keys())
-
-    @property
-    def has_features(self) -> bool:
-        return self.features_vocab_size > 0
-
-    @property
-    def has_target(self) -> bool:
-        return self.target_vocab_size > 0
 
     @property
     def vocab_size(self) -> int:
@@ -167,6 +120,7 @@ class Index:
         return len(self.features_vocabulary) if self.features_vocabulary else 0
 
     # These are also recorded in the `special` module.
+    # TODO: are these still needed?
 
     @property
     def pad_idx(self) -> int:
@@ -183,3 +137,35 @@ class Index:
     @property
     def unk_idx(self) -> int:
         return self._symbol2index[special.UNK]
+
+    # Serialization.
+
+    @classmethod
+    def read(cls, model_dir: str, experiment: str) -> Index:
+        """Loads index.
+
+        Args:
+            model_dir (str).
+            experiment (str).
+
+        Returns:
+            Index.
+        """
+        index = cls.__new__(cls)
+        with open(cls.path(model_dir), "rb") as source:
+            for key, value in pickle.load(source).items():
+                setattr(index, key, value)
+        return index
+
+    def write(self, model_dir: str) -> None:
+        """Writes index.
+
+        Args:
+            model_dir (str).
+        """
+        with open(self.index_path(model_dir), "wb") as sink:
+            pickle.dump(vars(self), sink)
+
+    @staticmethod
+    def path(model_dir: str) -> str:
+        return f"{model_dir}/index.pkl"
