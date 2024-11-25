@@ -86,51 +86,45 @@ class Index:
         """
         return self._index2symbol[index]
 
-    # Serialization support.
+    # Serialization....
 
     @classmethod
-    def read(cls, model_dir: str, experiment: str) -> Index:
+    def read(cls, model_dir: str) -> Index:
         """Loads index.
 
         Args:
             model_dir (str).
-            experiment (str).
 
         Returns:
             Index.
         """
-        index = cls.__new__(cls)
-        path = index.index_path(model_dir, experiment)
-        with open(path, "rb") as source:
-            dictionary = pickle.load(source)
-        for key, value in dictionary.items():
-            setattr(index, key, value)
-        return index
+        with open(cls.path(model_dir), "rb") as source:
+            return pickle.load(source)
 
-    @staticmethod
-    def index_path(model_dir: str, experiment: str) -> str:
-        """Computes path for the index file.
-
-        Args:
-            model_dir (str).
-            experiment (str).
-
-        Returns:
-            str.
-        """
-        return f"{model_dir}/{experiment}/index.pkl"
-
-    def write(self, model_dir: str, experiment: str) -> None:
+    def write(self, model_dir: str) -> None:
         """Writes index.
 
         Args:
             model_dir (str).
-            experiment (str).
         """
-        path = self.index_path(model_dir, experiment)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        path = self.path(model_dir)
+        os.mkpath(path)
         with open(path, "wb") as sink:
-            pickle.dump(vars(self), sink)
+            pickle.dump(self, sink)
+
+    @staticmethod
+    def path(model_dir: str) -> str:
+        """Computes path for the index file.
+
+        Args:
+            model_dir (str).
+
+        Returns:
+            str.
+        """
+        return f"{model_dir}/index.pkl"
+
+    # Properties.
 
     @property
     def symbols(self) -> List[str]:
@@ -163,25 +157,3 @@ class Index:
             return len(special.SPECIAL) + len(self.target_vocabulary)
         else:
             return 0
-
-    @property
-    def features_vocab_size(self) -> int:
-        return len(self.features_vocabulary) if self.features_vocabulary else 0
-
-    # These are also recorded in the `special` module.
-
-    @property
-    def pad_idx(self) -> int:
-        return self._symbol2index[special.PAD]
-
-    @property
-    def start_idx(self) -> int:
-        return self._symbol2index[special.START]
-
-    @property
-    def end_idx(self) -> int:
-        return self._symbol2index[special.END]
-
-    @property
-    def unk_idx(self) -> int:
-        return self._symbol2index[special.UNK]

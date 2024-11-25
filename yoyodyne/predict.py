@@ -40,7 +40,7 @@ def get_datamodule_from_argparse_args(
         "pointer_generator_transformer",
         "transducer",
     ]
-    index = data.Index.read(args.model_dir, args.experiment)
+    index = data.Index.read(args.model_dir)
     return data.DataModule(
         predict=args.predict,
         batch_size=args.batch_size,
@@ -139,9 +139,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--model_dir",
         required=True,
         help="Path to output model directory.",
-    )
-    parser.add_argument(
-        "--experiment", required=True, help="Name of experiment."
     )
     parser.add_argument(
         "--predict",

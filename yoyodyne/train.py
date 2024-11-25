@@ -24,20 +24,19 @@ class Error(Exception):
     pass
 
 
-def _get_loggers(experiment: str, model_dir: str, log_wandb: bool) -> List:
+def _get_loggers(model_dir: str, log_wandb: bool) -> List:
     """Creates the logger(s).
 
     Args:
-        experiment (str).
         model_dir (str).
         log_wandb (bool).
 
     Returns:
         List: logger.
     """
-    trainer_loggers = [loggers.CSVLogger(model_dir, name=experiment)]
+    trainer_loggers = [loggers.CSVLogger(model_dir)]
     if log_wandb:
-        trainer_loggers.append(loggers.WandbLogger(project=experiment))
+        trainer_loggers.append(loggers.WandbLogger())
         # Logs the path to local artifacts made by PTL.
         wandb.config["local_run_dir"] = trainer_loggers[0].log_dir
     return trainer_loggers
@@ -125,7 +124,7 @@ def get_trainer_from_argparse_args(
         ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
-        logger=_get_loggers(args.experiment, args.model_dir, args.log_wandb),
+        logger=_get_loggers(args.model_dir, args.log_wandb),
     )
 
 
@@ -166,7 +165,7 @@ def get_datamodule_from_argparse_args(
     )
     if not datamodule.has_target:
         raise Error("No target column specified")
-    datamodule.index.write(args.model_dir, args.experiment)
+    datamodule.index.write(args.model_dir)
     datamodule.log_vocabularies()
     return datamodule
 
@@ -209,7 +208,7 @@ def get_model_from_argparse_args(
         sed_params_paths = (
             args.sed_params
             if args.sed_params
-            else f"{args.model_dir}/{args.experiment}/sed.pkl"
+            else f"{args.model_dir}/sed.pkl"
         )
         expert = models.expert.get_expert(
             datamodule.train_dataloader().dataset,
@@ -341,9 +340,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         "--model_dir",
         required=True,
         help="Path to output model directory.",
-    )
-    parser.add_argument(
-        "--experiment", required=True, help="Name of experiment."
     )
     parser.add_argument(
         "--train",
