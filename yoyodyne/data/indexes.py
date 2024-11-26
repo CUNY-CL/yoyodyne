@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import pickle
+
 from typing import Dict, Iterable, List, Optional
 
 from .. import defaults, special, util
