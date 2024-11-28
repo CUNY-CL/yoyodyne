@@ -157,7 +157,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     data.add_argparse_args(parser)
     # Architecture arguments; the architecture-specific ones are not needed.
     models.add_argparse_args(parser)
-    models.BaseEncoderDecoder.add_predict_argparse_args(parser)
+    models.BaseModel.add_predict_argparse_args(parser)
     # Among the things this adds, the following are likely to be useful:
     # --accelerator ("gpu" for GPU)
     # --devices (for multiple device support)
