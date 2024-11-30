@@ -85,7 +85,7 @@ class TransformerModel(base.BaseModel):
             source_mask (torch.Tensor): mask for the encoded source tokens.
             targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
-                if the decoder has predicted <E> for every sequence in
+                if the decoder has predicted END for every sequence in
                 the batch.
 
         Returns:
