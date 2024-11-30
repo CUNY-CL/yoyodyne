@@ -36,9 +36,13 @@ def get_datamodule_from_argparse_args(
         data.DataModule.
     """
     separate_features = args.features_col != 0 and args.arch in [
-        "pointer_generator_rnn",
+        "hard_attention_gru",
+        "hard_attention_lstm",
+        "pointer_generator_gru",
+        "pointer_generator_lstm",
         "pointer_generator_transformer",
-        "transducer",
+        "transducer_grm",
+        "transducer_lstm",
     ]
     index = data.Index.read(args.model_dir)
     return data.DataModule(
