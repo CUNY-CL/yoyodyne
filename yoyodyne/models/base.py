@@ -191,11 +191,7 @@ class BaseModel(lightning.LightningModule):
                 hypotheses to return.
 
         Raises:
-            NotImplementedError: This method needs to be overridden.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: the predictions tensor and the
-                log-likelihood of each prediction.
+            NotImplementedError: beam search not implemented.
         """
         raise NotImplementedError(
             f"Beam search not implemented for {self.name} model"
