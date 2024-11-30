@@ -170,8 +170,8 @@ class RNNModel(base.BaseModel):
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached <E> up to
-        a specified length depending on the `target` args.
+        Decodes until all sequences in a batch have reached END up to a
+        specified length depending on the `target` args.
 
         Args:
             encoder_out (torch.Tensor): batch of encoded input symbols.
