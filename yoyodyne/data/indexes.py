@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import pickle
+import os
 
 from typing import Dict, Iterable, List, Optional
 
@@ -93,8 +94,51 @@ class Index:
         """
         return self._index2symbol[index]
 
-    # Properties.
+    # Serialization.
 
+    @classmethod
+    def read(cls, model_dir: str) -> Index:
+        """Loads index.
+
+        Args:
+            model_dir (str).
+
+        Returns:
+            Index.
+        """
+        index = cls.__new__(cls)
+        path = index.path(model_dir)
+        with open(path, "rb") as source:
+            dictionary = pickle.load(source)
+        for key, value in dictionary.items():
+            setattr(index, key, value)
+        return index
+
+      def write(self, model_dir: str) -> None:
+        """Writes index.
+
+        Args:
+            model_dir (str).
+        """
+        path = self.path(model_dir)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as sink:
+            pickle.dump(vars(self), sink)
+      
+    @staticmethod
+    def path(model_dir: str) -> str:
+        """Computes path for the index file.
+
+        Args:
+            model_dir (str).
+
+        Returns:
+            str.
+        """
+        return f"{model_dir}/index.pkl"
+
+    # Properties.
+      
     @property
     def symbols(self) -> List[str]:
         return list(self._symbol2index.keys())
@@ -122,34 +166,3 @@ class Index:
     @property
     def features_vocab_size(self) -> int:
         return len(self.features_vocabulary) if self.features_vocabulary else 0
-
-    # Serialization.
-
-    @classmethod
-    def read(cls, model_dir: str) -> Index:
-        """Loads index.
-
-        Args:
-            model_dir (str).
-
-        Returns:
-            Index.
-        """
-        index = cls.__new__(cls)
-        with open(cls.path(model_dir), "rb") as source:
-            for key, value in pickle.load(source).items():
-                setattr(index, key, value)
-        return index
-
-    def write(self, model_dir: str) -> None:
-        """Writes index.
-
-        Args:
-            model_dir (str).
-        """
-        with open(self.path(model_dir), "wb") as sink:
-            pickle.dump(vars(self), sink)
-
-    @staticmethod
-    def path(model_dir: str) -> str:
-        return f"{model_dir}/index.pkl"
