@@ -89,7 +89,7 @@ class Index:
     # Serialization support.
 
     @classmethod
-    def read(cls, model_dir: str, experiment: str) -> Index:
+    def read(cls, model_dir: str) -> Index:
         """Loads index.
 
         Args:
