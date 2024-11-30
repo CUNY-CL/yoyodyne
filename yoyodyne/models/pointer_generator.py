@@ -166,7 +166,6 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
                 "The number of encoder and decoder layers must match "
                 f"({self.encoder_layers} != {self.decoder_layers})"
             )
-
         # We use the inherited defaults for the source embeddings/encoder.
         # Overrides classifier to take larger input.
         if not self.has_features_encoder:
@@ -826,7 +825,7 @@ class PointerGeneratorTransformerModel(
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_ptr_dist)
 
-    def _decode_greedy(
+    def greedy_decode(
         self,
         encoder_hidden: torch.Tensor,
         source_mask: torch.Tensor,
@@ -907,6 +906,9 @@ class PointerGeneratorTransformerModel(
 
         Returns:
             torch.Tensor.
+
+        Raises:
+            NotImplementedError: beam search not implemented.
         """
         source_encoded = self.source_encoder(batch.source).output
         if self.training and self.teacher_forcing:
@@ -930,9 +932,9 @@ class PointerGeneratorTransformerModel(
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 output = self.beam_decode(
-                    encoder_out=source_encoded,
-                    mask=batch.source.mask,
-                    beam_width=self.beam_width,
+                    source_encoded,
+                    batch.source.mask,
+                    self.beam_width,
                 )
             else:
                 output = self.decode_step(
@@ -952,13 +954,13 @@ class PointerGeneratorTransformerModel(
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 output = self.beam_decode(
-                    encoder_out=source_encoded,
-                    mask=batch.source.mask,
-                    beam_width=self.beam_width,
+                    source_encoded,
+                    batch.source.mask,
+                    self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
-                output = self._decode_greedy(
+                output = self.greedy_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,

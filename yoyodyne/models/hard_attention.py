@@ -89,46 +89,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
             bos, decoder_hiddens, encoder_out, encoder_mask
         )
 
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Runs the encoder-decoder model.
-
-        Args:
-            batch (data.PaddedBatch).
-
-        Returns:
-            Tuple[torch.Tensor,torch.Tensor]: emission probabilities for
-                each transition state of shape tgt_len x batch_size x src_len
-                x vocab_size, and transition probabilities for each transition
-                state of shape batch_size x src_len x src_len.
-        """
-        encoder_out = self.source_encoder(batch.source).output
-        if self.has_features_encoder:
-            encoder_features_out = self.features_encoder(batch.features).output
-            # Averages to flatten embedding.
-            encoder_features_out = encoder_features_out.sum(
-                dim=1, keepdim=True
-            )
-            # Sums to flatten embedding; this is done as an alternative to the
-            # linear projection used in the original paper.
-            encoder_features_out = encoder_features_out.expand(
-                -1, encoder_out.shape[1], -1
-            )
-            # Concatenates with the average.
-            encoder_out = torch.cat(
-                [encoder_out, encoder_features_out], dim=-1
-            )
-        if self.training:
-            return self.decode(
-                encoder_out,
-                batch.source.mask,
-                batch.target.padded,
-            )
-        else:
-            return self.greedy_decode(encoder_out, batch.source.mask)
-
     def decode(
         self,
         encoder_out: torch.Tensor,
@@ -306,6 +266,54 @@ class HardAttentionRNNModel(rnn.RNNModel):
             -1, keepdim=True
         )
         return transition_prob
+
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Runs the encoder-decoder model.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            Tuple[torch.Tensor,torch.Tensor]: emission probabilities for
+                each transition state of shape tgt_len x batch_size x src_len
+                x vocab_size, and transition probabilities for each transition
+
+        Raises:
+            NotImplementedError: beam search not implemented.
+                state of shape batch_size x src_len x src_len.
+        """
+        encoder_out = self.source_encoder(batch.source).output
+        if self.has_features_encoder:
+            encoder_features_out = self.features_encoder(batch.features).output
+            # Averages to flatten embedding.
+            encoder_features_out = encoder_features_out.sum(
+                dim=1, keepdim=True
+            )
+            # Sums to flatten embedding; this is done as an alternative to the
+            # linear projection used in the original paper.
+            encoder_features_out = encoder_features_out.expand(
+                -1, encoder_out.shape[1], -1
+            )
+            # Concatenates with the average.
+            encoder_out = torch.cat(
+                [encoder_out, encoder_features_out], dim=-1
+            )
+        if self.training:
+            return self.decode(
+                encoder_out,
+                batch.source.mask,
+                batch.target.padded,
+            )
+        elif self.beam_width > 1:
+            # Will raise a NotImplementedError.
+            output = self.beam_decode(
+                encoder_out, batch.source.mask, beam_width
+            )
+        else:
+            return self.greedy_decode(encoder_out, batch.source.mask)
 
     def training_step(
         self, batch: data.PaddedBatch, batch_idx: int

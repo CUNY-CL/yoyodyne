@@ -67,7 +67,7 @@ class TransformerModel(base.BaseModel):
             source_attention_heads=self.source_attention_heads,
         )
 
-    def _decode_greedy(
+    def greedy_decode(
         self,
         encoder_hidden: torch.Tensor,
         source_mask: torch.Tensor,
@@ -172,13 +172,13 @@ class TransformerModel(base.BaseModel):
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 output = self.beam_decode(
-                    encoder_out=encoder_output,
-                    mask=batch.source.mask,
-                    beam_width=self.beam_width,
+                    encoder_output,
+                    batch.source.mask,
+                    self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
-                output = self._decode_greedy(
+                output = self.greedy_decode(
                     encoder_output,
                     batch.source.mask,
                     batch.target.padded if batch.target else None,
