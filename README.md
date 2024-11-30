@@ -107,7 +107,6 @@ One must specify the following required arguments:
 
 -   `--arch`: architecture, matching the one used for training
 -   `--model_dir`: path for model metadata
--   `--experiment`: name of experiment
 -   `--checkpoint`: path to checkpoint
 -   `--predict`: path to file containing data to be predicted
 -   `--output`: path for predictions
