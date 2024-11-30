@@ -285,7 +285,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached [EOS] up to
+        Decodes until all sequences in a batch have reached <E> up to
         a specified length depending on the `target` args.
 
         Args:
@@ -323,7 +323,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
         num_steps = (
             target.size(1) if target is not None else self.max_target_length
         )
-        # Tracks when each sequence has decoded an EOS.
+        # Tracks when each sequence has decoded an END.
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x target_vocab_size.
@@ -345,11 +345,11 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
             # (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(output)
-                # Tracks which sequences have decoded an EOS.
+                # Tracks which sequences have decoded an END.
                 finished = torch.logical_or(
                     finished, (decoder_input == special.END_IDX)
                 )
-                # Breaks when all sequences have predicted an EOS symbol. If we
+                # Breaks when all sequences have predicted an END symbol. If we
                 # have a target (and are thus computing loss), we only break
                 # when we have decoded at least the the same number of steps as
                 # the target length.
@@ -842,7 +842,7 @@ class PointerGeneratorTransformerModel(
             source_indices (torch.Tensor): indices of the source symbols.
             targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
-                if the decoder has predicted [EOS] for every sequence in
+                if the decoder has predicted <E> for every sequence in
                 the batch.
             features_enc (Optional[torch.Tensor]): encoded features.
             features_mask (Optional[torch.Tensor]): mask for encoded features.
@@ -860,7 +860,7 @@ class PointerGeneratorTransformerModel(
                 device=self.device,
             )
         ]
-        # Tracking when each sequence has decoded an EOS.
+        # Tracking when each sequence has decoded an END.
         finished = torch.zeros(batch_size, device=self.device)
         for _ in range(self.max_target_length):
             target_tensor = torch.stack(predictions, dim=1)
@@ -881,11 +881,11 @@ class PointerGeneratorTransformerModel(
             # -> B x 1 x 1.
             _, pred = torch.max(last_output, dim=1)
             predictions.append(pred)
-            # Updates to track which sequences have decoded an EOS.
+            # Updates to track which sequences have decoded an END.
             finished = torch.logical_or(
                 finished, (predictions[-1] == special.END_IDX)
             )
-            # Breaks when all sequences have predicted an EOS symbol. If we
+            # Breaks when all sequences have predicted an END symbol. If we
             # have a target (and are thus computing loss), we only break when
             # we have decoded at least the the same number of steps as the
             # target length.
@@ -945,7 +945,7 @@ class PointerGeneratorTransformerModel(
                     target_mask,
                     features_enc=features_encoded,
                 )
-                output = output[:, :-1, :]  # Ignore EOS.
+                output = output[:, :-1, :]  # Ignore END.
         else:
             features_encoded = None
             if self.has_features_encoder:

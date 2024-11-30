@@ -52,7 +52,7 @@ class RNNModel(base.BaseModel):
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached [EOS] up to
+        Decodes until all sequences in a batch have reached <E> up to
         a specified length depending on the `target` args.
 
         Args:
@@ -83,7 +83,7 @@ class RNNModel(base.BaseModel):
         num_steps = (
             target.size(1) if target is not None else self.max_target_length
         )
-        # Tracks when each sequence has decoded an EOS.
+        # Tracks when each sequence has decoded an END.
         finished = torch.zeros(batch_size, device=self.device)
         for t in range(num_steps):
             # pred: B x 1 x output_size.
@@ -101,11 +101,11 @@ class RNNModel(base.BaseModel):
             # (i.e., student forcing, greedy decoding).
             else:
                 decoder_input = self._get_predicted(logits)
-                # Updates to track which sequences have decoded an EOS.
+                # Updates to track which sequences have decoded an END.
                 finished = torch.logical_or(
                     finished, (decoder_input == special.END_IDX)
                 )
-                # Breaks when all sequences have predicted an EOS symbol. If we
+                # Breaks when all sequences have predicted an END symbol. If we
                 # have a target (and are thus computing loss), we only break
                 # when we have decoded at least the the same number of steps as
                 # the target length.
@@ -121,7 +121,6 @@ class RNNModel(base.BaseModel):
         self,
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
-        beam_width: int,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Overrides `beam_decode` in `BaseEncoderDecoder`.
 
@@ -150,7 +149,7 @@ class RNNModel(base.BaseModel):
                 char_likelihoods,
                 decoder_hiddens,
             ) in histories:
-                # Does not keep decoding a path that has hit EOS.
+                # Does not keep decoding a path that has hit END.
                 if len(beam_idxs) > 1 and beam_idxs[-1] == special.END_IDX:
                     fields = [
                         beam_likelihood,
@@ -158,7 +157,6 @@ class RNNModel(base.BaseModel):
                         char_likelihoods,
                         decoder_hiddens,
                     ]
-                    # TODO: Beam search with beam_width.
                     # TODO: Replace heapq with torch.max or similar?
                     heapq.heappush(hypotheses, fields)
                     continue
@@ -197,7 +195,7 @@ class RNNModel(base.BaseModel):
                 predictions = nn.functional.log_softmax(logits, dim=0).cpu()
                 for j, logprob in enumerate(predictions):
                     cl = char_loglikelihoods + [logprob]
-                    if len(hypotheses) < beam_width:
+                    if len(hypotheses) < self.beam_width:
                         fields = [
                             beam_loglikelihood + logprob,
                             beam_idxs + [j],
@@ -249,9 +247,9 @@ class RNNModel(base.BaseModel):
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
                 search returns a tuple with a tensor of predictions of shape
-                beam_width x seq_len and tensor with the unnormalized sum of
-                symbol log-probabilities for each prediction. Greedy returns a
-                tensor of predictions of shape
+                beam_width x seq_len and tensor with the unnormalized sum
+                of symbol log-probabilities for each prediction. Greedy returns
+                a tensor of predictions of shape
                 seq_len x batch_size x target_vocab_size.
         """
         encoder_out = self.source_encoder(batch.source).output
@@ -263,9 +261,8 @@ class RNNModel(base.BaseModel):
             predictions, scores = self.beam_decode(
                 encoder_out,
                 batch.source.mask,
-                beam_width=self.beam_width,
             )
-            # Reduce to beam_width x seq_len
+            # Reduces to beam_width x seq_len
             predictions = predictions.transpose(0, 2).squeeze(0)
             return predictions, scores
         else:

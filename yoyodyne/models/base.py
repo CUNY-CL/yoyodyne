@@ -180,15 +180,12 @@ class BaseModel(lightning.LightningModule):
         self,
         encoder_out: torch.Tensor,
         mask: torch.Tensor,
-        beam_width: int,
     ):
         """Method interface for beam search.
 
         Args:
-            encoder_out (torch.Tensor): encoded inputs.
+            encoder_out (torch.Tensor).
             encoder_mask (torch.Tensor).
-            beam_width (int): size of the beam; also determines the number of
-                hypotheses to return.
 
         Raises:
             NotImplementedError: beam search not implemented.
