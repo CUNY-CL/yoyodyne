@@ -102,7 +102,6 @@ def predict(
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
             for predictions, scores in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_eos(predictions)
                 # TODO: beam search requires singleton batches and this
                 # assumes that. Revise if that restriction is ever lifted.
                 targets = [
@@ -121,17 +120,6 @@ def predict(
                 for target in predictions:
                     symbols = mapper.decode_target(target)
                     print(parser.target_string(symbols), file=sink)
-
-
-def _mkdir(output: str) -> None:
-    """Creates directory for output file if necessary.
-
-    Args:
-        output (str): output to output file.
-    """
-    dirname = os.path.dirname(output)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

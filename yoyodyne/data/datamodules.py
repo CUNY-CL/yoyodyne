@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Set
 
 import lightning
 from torch.utils import data
@@ -89,9 +89,13 @@ class DataModule(lightning.LightningDataModule):
     def _make_index(
         self, model_dir: str, tie_embeddings: bool
     ) -> indexes.Index:
-        source_vocabulary = set()
-        features_vocabulary = set() if self.has_features else None
-        target_vocabulary = set() if self.has_target else None
+        source_vocabulary: Set[str] = set()
+        features_vocabulary: Optional[Set[str]] = (
+            set() if self.has_features else None
+        )
+        target_vocabulary: Optional[Set[str]] = (
+            set() if self.has_target else None
+        )
         if self.has_features:
             if self.has_target:
                 for source, features, target in self.parser.samples(

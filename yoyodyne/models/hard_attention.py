@@ -97,7 +97,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached [EOS] up to
+        Decodes until all sequences in a batch have reached <E> up to
         length of `target` args.
 
         Args:
@@ -133,6 +133,24 @@ class HardAttentionRNNModel(rnn.RNNModel):
             all_transition_probs.append(transition_probs)
         return torch.stack(all_log_probs), torch.stack(all_transition_probs)
 
+    def beam_decode(
+        self,
+        encoder_out: torch.Tensor,
+        mask: torch.Tensor,
+    ):
+        """Overrides incompatible implementation inherited from RNNModel.
+
+        Args:
+            encoder_out (torch.Tensor).
+            encoder_mask (torch.Tensor).
+
+        Raises:
+            NotImplementedError: beam search not implemented.
+        """
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
+        )
+
     def greedy_decode(
         self,
         encoder_out: torch.Tensor,
@@ -140,7 +158,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached [EOS] up to
+        Decodes until all sequences in a batch have reached <E> up to
         a specified length depending on the `target` args.
 
         Args:
@@ -309,9 +327,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             )
         elif self.beam_width > 1:
             # Will raise a NotImplementedError.
-            output = self.beam_decode(
-                encoder_out, batch.source.mask, beam_width
-            )
+            return self.beam_decode(encoder_out, batch.source.mask)
         else:
             return self.greedy_decode(encoder_out, batch.source.mask)
 
