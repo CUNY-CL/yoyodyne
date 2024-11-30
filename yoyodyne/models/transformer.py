@@ -67,6 +67,11 @@ class TransformerModel(base.BaseModel):
             source_attention_heads=self.source_attention_heads,
         )
 
+    def beam_decode(self, *args, **kwargs):
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
+        )
+
     def greedy_decode(
         self,
         encoder_hidden: torch.Tensor,
@@ -166,24 +171,23 @@ class TransformerModel(base.BaseModel):
                 target_mask,
             ).output
             logits = self.classifier(decoder_output)
-            output = logits[:, :-1, :]  # Ignore END.
+            return logits[:, :-1, :]  # Ignores END.
         else:
             encoder_output = self.source_encoder(batch.source).output
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                output = self.beam_decode(
+                return self.beam_decode(
                     encoder_output,
                     batch.source.mask,
                     self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
-                output = self.greedy_decode(
+                return self.greedy_decode(
                     encoder_output,
                     batch.source.mask,
                     batch.target.padded if batch.target else None,
                 )
-        return output
 
     @property
     def name(self) -> str:

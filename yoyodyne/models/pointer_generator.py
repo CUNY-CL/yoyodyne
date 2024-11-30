@@ -208,71 +208,13 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
                 f"({self.encoder_layers} != {self.decoder_layers})"
             )
 
-    def decode_step(
-        self,
-        symbol: torch.Tensor,
-        last_hiddens: Tuple[torch.Tensor, torch.Tensor],
-        source_indices: torch.Tensor,
-        source_enc: torch.Tensor,
-        source_mask: torch.Tensor,
-        features_enc: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Runs a single step of the decoder.
-
-        This predicts a distribution for one symbol.
-
-        Args:
-            symbol (torch.Tensor).
-            last_hiddens (Tuple[torch.Tensor, torch.Tensor]).
-            source_indices (torch.Tensor).
-            source_enc (torch.Tensor).
-            source_mask (torch.Tensor).
-            features_enc (Optional[torch.Tensor]).
-            features_mask (Optional[torch.Tensor]).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor].
-        """
-        embedded = self.decoder.embed(symbol)
-        last_h0, last_c0 = last_hiddens
-        source_context, attention_weights = self.decoder.attention(
-            last_h0.transpose(0, 1), source_enc, source_mask
+    def beam_decode(self, *args, **kwargs):
+        """Overrides incompatible implementation inherited from RNNModel."""
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
         )
-        if self.has_features_encoder:
-            features_context, _ = self.features_attention(
-                last_h0.transpose(0, 1), features_enc, features_mask
-            )
-            # -> B x 1 x 4*hidden_size.
-            context = torch.cat([source_context, features_context], dim=2)
-        else:
-            context = source_context
-        _, (h, c) = self.decoder.module(
-            torch.cat((embedded, context), 2), (last_h0, last_c0)
-        )
-        # -> B x 1 x hidden_size
-        hidden = h[-1, :, :].unsqueeze(1)
-        output_dist = self.classifier(torch.cat([hidden, context], dim=2))
-        output_dist = nn.functional.softmax(output_dist, dim=2)
-        # -> B x 1 x target_vocab_size.
-        ptr_dist = torch.zeros(
-            symbol.size(0),
-            self.target_vocab_size,
-            device=self.device,
-            dtype=attention_weights.dtype,
-        ).unsqueeze(1)
-        # Gets the attentions to the source in terms of the output generations.
-        # These are the "pointer" distribution.
-        ptr_dist.scatter_add_(
-            2, source_indices.unsqueeze(1), attention_weights
-        )
-        # Probability of generating (from output_dist).
-        gen_probs = self.generation_probability(context, hidden, embedded)
-        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
-        scaled_output_dist = output_dist * gen_probs
-        return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
 
-    def decode(
+    def greedy_decode(
         self,
         source_enc: torch.Tensor,
         source_mask: torch.Tensor,
@@ -285,7 +227,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached <E> up to
+        Decodes until all sequences in a batch have reached END up to
         a specified length depending on the `target` args.
 
         Args:
@@ -360,6 +302,70 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
                         break
         predictions = torch.stack(predictions).transpose(0, 1)
         return predictions
+
+    def decode_step(
+        self,
+        symbol: torch.Tensor,
+        last_hiddens: Tuple[torch.Tensor, torch.Tensor],
+        source_indices: torch.Tensor,
+        source_enc: torch.Tensor,
+        source_mask: torch.Tensor,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Runs a single step of the decoder.
+
+        This predicts a distribution for one symbol.
+
+        Args:
+            symbol (torch.Tensor).
+            last_hiddens (Tuple[torch.Tensor, torch.Tensor]).
+            source_indices (torch.Tensor).
+            source_enc (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_enc (Optional[torch.Tensor]).
+            features_mask (Optional[torch.Tensor]).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor].
+        """
+        embedded = self.decoder.embed(symbol)
+        last_h0, last_c0 = last_hiddens
+        source_context, attention_weights = self.decoder.attention(
+            last_h0.transpose(0, 1), source_enc, source_mask
+        )
+        if self.has_features_encoder:
+            features_context, _ = self.features_attention(
+                last_h0.transpose(0, 1), features_enc, features_mask
+            )
+            # -> B x 1 x 4*hidden_size.
+            context = torch.cat([source_context, features_context], dim=2)
+        else:
+            context = source_context
+        _, (h, c) = self.decoder.module(
+            torch.cat((embedded, context), 2), (last_h0, last_c0)
+        )
+        # -> B x 1 x hidden_size
+        hidden = h[-1, :, :].unsqueeze(1)
+        output_dist = self.classifier(torch.cat([hidden, context], dim=2))
+        output_dist = nn.functional.softmax(output_dist, dim=2)
+        # -> B x 1 x target_vocab_size.
+        ptr_dist = torch.zeros(
+            symbol.size(0),
+            self.target_vocab_size,
+            device=self.device,
+            dtype=attention_weights.dtype,
+        ).unsqueeze(1)
+        # Gets the attentions to the source in terms of the output generations.
+        # These are the "pointer" distribution.
+        ptr_dist.scatter_add_(
+            2, source_indices.unsqueeze(1), attention_weights
+        )
+        # Probability of generating (from output_dist).
+        gen_probs = self.generation_probability(context, hidden, embedded)
+        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
+        scaled_output_dist = output_dist * gen_probs
+        return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
 
 
 class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
@@ -459,11 +465,11 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         Returns:
             torch.Tensor.
         """
-        encoder_output = self.source_encoder(batch.source)
-        source_encoded = encoder_output.output
-        if encoder_output.has_hiddens:
+        encoder_out = self.source_encoder(batch.source)
+        source_encoded = encoder_out.output
+        if encoder_out.has_hiddens:
             last_hiddens = self._reshape_hiddens(
-                encoder_output.hiddens,
+                encoder_out.hiddens,
                 self.source_encoder.layers,
                 self.source_encoder.num_directions,
             )
@@ -472,23 +478,31 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
                 len(batch), self.source_encoder.layers
             )
         if not self.has_features_encoder:
-            if self.beam_width is not None and self.beam_width > 1:
-                raise NotImplementedError
-            else:
-                predictions = self.decode(
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
                     last_hiddens,
                     self.teacher_forcing if self.training else False,
-                    target=(batch.target.padded if batch.target else None),
+                    target=batch.target.padded if batch.target else None,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    target=batch.target.padded if batch.target else None,
                 )
         else:
-            features_encoder_output = self.features_encoder(batch.features)
-            features_encoded = features_encoder_output.output
-            if features_encoder_output.has_hiddens:
+            features_encoder_out = self.features_encoder(batch.features)
+            features_encoded = features_encoder_out.output
+            if features_encoder_out.has_hiddens:
                 last_hiddens = self._reshape_hiddens(
-                    features_encoder_output.hiddens,
+                    features_encoder_out.hiddens,
                     self.features_encoder.layers,
                     self.features_encoder.num_directions,
                 )
@@ -496,17 +510,29 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
                 last_hiddens = self.init_hiddens(
                     len(batch), self.source_encoder.layers
                 )
-            predictions = self.decode(
-                source_encoded,
-                batch.source.mask,
-                batch.source.padded,
-                last_hiddens,
-                self.teacher_forcing if self.training else False,
-                features_enc=features_encoded,
-                features_mask=batch.features.mask,
-                target=batch.target.padded if batch.target else None,
-            )
-        return predictions
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
 
     @staticmethod
     def _reshape_hiddens(
@@ -624,10 +650,10 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
         Returns:
             torch.Tensor.
         """
-        encoder_output = self.source_encoder(batch.source)
-        source_encoded = encoder_output.output
-        if encoder_output.has_hiddens:
-            h_source, c_source = encoder_output.hiddens
+        encoder_out = self.source_encoder(batch.source)
+        source_encoded = encoder_out.output
+        if encoder_out.has_hiddens:
+            h_source, c_source = encoder_out.hiddens
             last_hiddens = self._reshape_hiddens(
                 h_source,
                 c_source,
@@ -638,23 +664,29 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
             last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
-                raise NotImplementedError(
-                    f"Beam search not implemented for {self.name} model"
-                )
-            else:
-                predictions = self.decode(
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
                     last_hiddens,
                     self.teacher_forcing if self.training else False,
-                    target=(batch.target.padded if batch.target else None),
+                    target=batch.target.padded if batch.target else None,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    target=batch.target.padded if batch.target else None,
                 )
         else:
-            features_encoder_output = self.features_encoder(batch.features)
-            features_encoded = features_encoder_output.output
-            if features_encoder_output.has_hiddens:
-                h_features, c_features = features_encoder_output.hiddens
+            features_encoder_out = self.features_encoder(batch.features)
+            features_encoded = features_encoder_out.output
+            if features_encoder_out.has_hiddens:
+                h_features, c_features = features_encoder_out.hiddens
                 h_features, c_features = self._reshape_hiddens(
                     h_features,
                     c_features,
@@ -664,12 +696,8 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
             else:
                 h_features, c_features = self.init_hiddens(len(batch))
             if self.beam_width > 1:
-                # LSTM beam search does not work with pointer generator LSTM.
-                raise NotImplementedError(
-                    f"Beam search not implemented for {self.name} model"
-                )
-            else:
-                predictions = self.decode(
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
@@ -679,7 +707,17 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
                     features_mask=batch.features.mask,
                     target=batch.target.padded if batch.target else None,
                 )
-        return predictions
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
 
     @staticmethod
     def _reshape_hiddens(
@@ -748,7 +786,7 @@ class PointerGeneratorTransformerModel(
 
     def decode_step(
         self,
-        encoder_outputs: torch.Tensor,
+        encoder_outs: torch.Tensor,
         source_mask: torch.Tensor,
         source_indices: torch.Tensor,
         target_tensor: torch.Tensor,
@@ -765,7 +803,7 @@ class PointerGeneratorTransformerModel(
         parallel with a diagonal mask.
 
         Args:
-            encoder_outputs (torch.Tensor): encoded output representations.
+            encoder_outs (torch.Tensor): encoded output representations.
             source_mask (torch.Tensor): mask for the encoded source tokens.
             source_indices (torch.Tensor): source token vocabulary ids.
             target_tensor (torch.Tensor): target token vocabulary ids.
@@ -779,7 +817,7 @@ class PointerGeneratorTransformerModel(
                 target_seq_len is inferred form the target_tensor.
         """
         decoder_output = self.decoder(
-            encoder_outputs,
+            encoder_outs,
             source_mask,
             target_tensor,
             target_mask,
@@ -816,7 +854,7 @@ class PointerGeneratorTransformerModel(
         ptr_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
         # A matrix of context vectors from applying attention to the encoder
         # representations w.r.t. each decoder step.
-        context = torch.bmm(mha_outputs, encoder_outputs)
+        context = torch.bmm(mha_outputs, encoder_outs)
         # Probability of generating (from output_dist).
         gen_probs = self.generation_probability(
             context, decoder_output, target_embeddings
@@ -842,7 +880,7 @@ class PointerGeneratorTransformerModel(
             source_indices (torch.Tensor): indices of the source symbols.
             targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
-                if the decoder has predicted <E> for every sequence in
+                if the decoder has predicted END for every sequence in
                 the batch.
             features_enc (Optional[torch.Tensor]): encoded features.
             features_mask (Optional[torch.Tensor]): mask for encoded features.
@@ -927,11 +965,11 @@ class PointerGeneratorTransformerModel(
             )
             features_encoded = None
             if self.has_features_encoder:
-                features_encoder_output = self.features_encoder(batch.features)
-                features_encoded = features_encoder_output.output
+                features_encoder_out = self.features_encoder(batch.features)
+                features_encoded = features_encoder_out.output
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                output = self.beam_decode(
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     self.beam_width,
@@ -945,29 +983,29 @@ class PointerGeneratorTransformerModel(
                     target_mask,
                     features_enc=features_encoded,
                 )
-                output = output[:, :-1, :]  # Ignore END.
+                output = output[:, :-1, :]  # Ignores END.
+                return output
         else:
             features_encoded = None
             if self.has_features_encoder:
-                features_encoder_output = self.features_encoder(batch.features)
-                features_encoded = features_encoder_output.output
+                features_encoder_out = self.features_encoder(batch.features)
+                features_encoded = features_encoder_out.output
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                output = self.beam_decode(
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
-                output = self.greedy_decode(
+                return self.greedy_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
                     batch.target.padded if batch.target else None,
                     features_enc=features_encoded,
                 )
-        return output
 
     @property
     def name(self) -> str:

@@ -176,24 +176,6 @@ class BaseModel(lightning.LightningModule):
     def get_decoder(self):
         raise NotImplementedError
 
-    def beam_decode(
-        self,
-        encoder_out: torch.Tensor,
-        mask: torch.Tensor,
-    ):
-        """Method interface for beam search.
-
-        Args:
-            encoder_out (torch.Tensor).
-            encoder_mask (torch.Tensor).
-
-        Raises:
-            NotImplementedError: beam search not implemented.
-        """
-        raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
-        )
-
     @property
     def num_parameters(self) -> int:
         return sum(part.numel() for part in self.parameters())
