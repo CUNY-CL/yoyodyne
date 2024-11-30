@@ -96,13 +96,13 @@ class TransducerRNNModel(rnn.RNNModel):
             last_hiddens = self.init_hiddens(source_mask.shape[0])
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
-            prediction = self.beam_decode(
+            return self.beam_decode(
                 encoder_out=encoded,
                 mask=batch.source.mask,
                 beam_width=self.beam_width,
             )
         else:
-            prediction, loss = self.decode(
+            return self.greedy_decode(
                 encoded,
                 last_hiddens,
                 source_padded,
@@ -113,9 +113,14 @@ class TransducerRNNModel(rnn.RNNModel):
                 target=batch.target.padded if batch.target else None,
                 target_mask=batch.target.mask if batch.target else None,
             )
-        return prediction, loss
 
-    def decode(
+    def beam_decode(self, *args, **kwargs):
+        """Overrides incompatible implementation inherited from RNNModel."""
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
+        )
+
+    def greedy_decode(
         self,
         encoder_out: torch.Tensor,
         last_hiddens: Tuple[torch.Tensor, torch.Tensor],
