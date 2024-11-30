@@ -114,7 +114,7 @@ class Index:
             setattr(index, key, value)
         return index
 
-      def write(self, model_dir: str) -> None:
+    def write(self, model_dir: str) -> None:
         """Writes index.
 
         Args:
@@ -124,7 +124,7 @@ class Index:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as sink:
             pickle.dump(vars(self), sink)
-      
+
     @staticmethod
     def path(model_dir: str) -> str:
         """Computes path for the index file.
@@ -138,7 +138,7 @@ class Index:
         return f"{model_dir}/index.pkl"
 
     # Properties.
-      
+
     @property
     def symbols(self) -> List[str]:
         return list(self._symbol2index.keys())
