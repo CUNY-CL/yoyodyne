@@ -6,6 +6,7 @@ separators.
 
 import csv
 import dataclasses
+
 from typing import Iterator, List, Tuple, Union
 
 from .. import defaults
