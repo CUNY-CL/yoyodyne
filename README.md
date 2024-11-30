@@ -161,9 +161,9 @@ provide any symbols of the form `<...>`, `[...]`, or `{...}`.
 Checkpointing is handled by
 [Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
 The path for model information, including checkpoints, is specified by
-`--model_dir` such that we build the path `model_dir/version_n`,
-where each run of an experiment with the same `model_dir` is namespaced with a
-new version number. A version stores all of the following:
+`--model_dir` such that we build the path `model_dir/version_n`, where each run
+of an experiment with the same `model_dir` is namespaced with a new version
+number. A version stores all of the following:
 
 -   the index (`model_dir/index.pkl`),
 -   the hyperparameters (`model_dir/lightning_logs/version_n/hparams.yaml`),
@@ -288,7 +288,9 @@ A non-exhaustive list includes:
 -   Seeding:
     -   `--seed`
 -   [Weights & Biases](https://wandb.ai/site):
-    -   `--log_wandb` (default: `False`): enables Weights & Biases tracking
+    -   `--log_wandb` (default: `False`): enables Weights & Biases tracking; the
+        "project" name can be specified using the environmental variable
+        `$WANDB_PROJECT`.
 
 Additional training options are discussed below.
 
