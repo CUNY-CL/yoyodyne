@@ -15,20 +15,25 @@ class DataModule(lightning.LightningDataModule):
     The batch size tuner is permitted to mutate the `batch_size` argument.
     """
 
+    train: Optional[str]
+    val: Optional[str]
+    predict: Optional[str]
+    test: Optional[str]
     parser: tsv.TsvParser
-    index: indexes.Index
+    separate_features: bool
     batch_size: int
+    index: indexes.Index
     collator: collators.Collator
 
     def __init__(
         self,
         # Paths.
         *,
-        train: Optional[str] = None,
-        val: Optional[str] = None,
-        predict: Optional[str] = None,
-        test: Optional[str] = None,
-        index_path: Optional[str] = None,
+        model_dir: str,
+        train=None,
+        val=None,
+        predict=None,
+        test=None,
         # TSV parsing arguments.
         source_col: int = defaults.SOURCE_COL,
         features_col: int = defaults.FEATURES_COL,
@@ -47,6 +52,10 @@ class DataModule(lightning.LightningDataModule):
         index: Optional[indexes.Index] = None,
     ):
         super().__init__()
+        self.train = train
+        self.val = val
+        self.predict = predict
+        self.test = test
         self.parser = tsv.TsvParser(
             source_col=source_col,
             features_col=features_col,
@@ -56,14 +65,13 @@ class DataModule(lightning.LightningDataModule):
             target_sep=target_sep,
             tie_embeddings=tie_embeddings,
         )
-        self.tie_embeddings = tie_embeddings
-        self.train = train
-        self.val = val
-        self.predict = predict
-        self.test = test
-        self.batch_size = batch_size
         self.separate_features = separate_features
-        self.index = index if index is not None else self._make_index()
+        # TODO: it may not be necessary to store this.
+        self.tie_embeddings = tie_embeddings
+        self.batch_size = batch_size
+        self.index = (
+            index if index is not None else self._make_index(model_dir)
+        )
         self.collator = collators.Collator(
             has_features=self.has_features,
             has_target=self.has_target,

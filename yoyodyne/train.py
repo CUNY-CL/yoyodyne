@@ -148,20 +148,21 @@ def get_datamodule_from_argparse_args(
         "transducer_grm",
         "transducer_lstm",
     ]
+    # Please pass all arguments by keyword and keep in lexicographic order.
     datamodule = data.DataModule(
-        train=args.train,
-        val=args.val,
         batch_size=args.batch_size,
-        source_col=args.source_col,
         features_col=args.features_col,
-        target_col=args.target_col,
-        source_sep=args.source_sep,
         features_sep=args.features_sep,
-        target_sep=args.target_sep,
-        separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
+        model_dir=args.model_dir,
+        separate_features=separate_features,
+        source_sep=args.source_sep,
+        target_col=args.target_col,
+        target_sep=args.target_sep,
         tie_embeddings=args.tie_embeddings,
+        train=args.train,
+        val=args.val,
     )
     if not datamodule.has_target:
         raise Error("No target column specified")
