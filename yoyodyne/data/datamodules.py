@@ -72,7 +72,7 @@ class DataModule(lightning.LightningDataModule):
             max_target_length=max_target_length,
         )
 
-    def _make_index(self) -> indexes.Index:
+    def _make_index(self, model_dir: str) -> indexes.Index:
         # Computes index.
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
@@ -96,7 +96,7 @@ class DataModule(lightning.LightningDataModule):
         else:
             for source in self.parser.samples(self.train):
                 source_vocabulary.update(source)
-        return indexes.Index(
+        index = indexes.Index(
             source_vocabulary=sorted(source_vocabulary),
             features_vocabulary=(
                 sorted(features_vocabulary) if features_vocabulary else None
@@ -106,6 +106,8 @@ class DataModule(lightning.LightningDataModule):
             ),
             tie_embeddings=self.tie_embeddings,
         )
+        index.write(model_dir)
+        return index
 
     @staticmethod
     def pprint(vocabulary: Iterable) -> str:
@@ -127,10 +129,6 @@ class DataModule(lightning.LightningDataModule):
                 f"Target vocabulary: "
                 f"{self.pprint(self.index.target_vocabulary)}"
             )
-
-    def write_index(self, model_dir: str) -> None:
-        """Writes the index."""
-        self.index.write(model_dir)
 
     @property
     def has_features(self) -> bool:

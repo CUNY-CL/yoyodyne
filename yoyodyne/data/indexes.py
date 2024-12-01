@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import pickle
 from typing import Dict, Iterable, List, Optional
 
-from .. import defaults, special
+from .. import defaults, special, util
 
 
 class Error(Exception):
@@ -86,7 +85,7 @@ class Index:
         """
         return self._index2symbol[index]
 
-    # Serialization support.
+    # Serialization.
 
     @classmethod
     def read(cls, model_dir: str) -> Index:
@@ -98,16 +97,22 @@ class Index:
         Returns:
             Index.
         """
-        index = cls.__new__(cls)
-        path = index.index_path(model_dir)
-        with open(path, "rb") as source:
-            dictionary = pickle.load(source)
-        for key, value in dictionary.items():
-            setattr(index, key, value)
-        return index
+        with open(cls.path(model_dir), "rb") as source:
+            return pickle.load(source)
+
+    def write(self, model_dir: str) -> None:
+        """Writes index.
+
+        Args:
+            model_dir (str).
+        """
+        path = self.path(model_dir)
+        util.mkpath(path)
+        with open(path, "wb") as sink:
+            pickle.dump(self, sink)
 
     @staticmethod
-    def index_path(model_dir: str) -> str:
+    def path(model_dir: str) -> str:
         """Computes path for the index file.
 
         Args:
@@ -118,16 +123,7 @@ class Index:
         """
         return f"{model_dir}/index.pkl"
 
-    def write(self, model_dir: str) -> None:
-        """Writes index.
-
-        Args:
-            model_dir (str).
-        """
-        path = self.index_path(model_dir)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as sink:
-            pickle.dump(vars(self), sink)
+    # Properties.
 
     @property
     def symbols(self) -> List[str]:
@@ -164,21 +160,3 @@ class Index:
     @property
     def features_vocab_size(self) -> int:
         return len(self.features_vocabulary) if self.features_vocabulary else 0
-
-    # These are also recorded in the `special` module.
-
-    @property
-    def pad_idx(self) -> int:
-        return self._symbol2index[special.PAD]
-
-    @property
-    def start_idx(self) -> int:
-        return self._symbol2index[special.START]
-
-    @property
-    def end_idx(self) -> int:
-        return self._symbol2index[special.END]
-
-    @property
-    def unk_idx(self) -> int:
-        return self._symbol2index[special.UNK]

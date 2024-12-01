@@ -3,7 +3,6 @@
 import argparse
 import csv
 import itertools
-import os
 
 import lightning
 
@@ -80,17 +79,6 @@ def get_model_from_argparse_args(
     return model_cls.load_from_checkpoint(args.checkpoint, **kwargs)
 
 
-def _mkdir(output: str) -> None:
-    """Creates directory for output file if necessary.
-
-    Args:
-        output (str): output to output file.
-    """
-    dirname = os.path.dirname(output)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
-
-
 def predict(
     trainer: lightning.Trainer,
     model: models.BaseModel,
@@ -106,7 +94,7 @@ def predict(
          output (str).
     """
     util.log_info(f"Writing to {output}")
-    _mkdir(output)
+    util.mkpath(output)
     loader = datamodule.predict_dataloader()
     with open(output, "w", encoding=defaults.ENCODING) as sink:
         if model.beam_width > 1:
