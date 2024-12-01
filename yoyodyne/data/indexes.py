@@ -149,6 +149,10 @@ class Index:
             return len(self.SPECIAL) + len(self.source_vocabulary)
 
     @property
+    def features_vocab_size(self) -> int:
+        return len(self.features_vocabulary) if self.features_vocabulary else 0
+
+    @property
     def target_vocab_size(self) -> int:
         if self.tie_embeddings:
             return self.vocab_size
@@ -156,7 +160,3 @@ class Index:
             return len(special.SPECIAL) + len(self.target_vocabulary)
         else:
             return 0
-
-    @property
-    def features_vocab_size(self) -> int:
-        return len(self.features_vocabulary) if self.features_vocabulary else 0
