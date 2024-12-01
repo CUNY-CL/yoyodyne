@@ -69,8 +69,12 @@ class DataModule(lightning.LightningDataModule):
         # TODO: it may not be necessary to store this.
         self.tie_embeddings = tie_embeddings
         self.batch_size = batch_size
+        # If the training data is specified, it is used to create (or recreate)
+        # the index; if not specified it is read from the model directory.
         self.index = (
-            index if index is not None else self._make_index(model_dir)
+            self._make_index(model_dir)
+            if self.train
+            else indexes.Index.read(model_dir)
         )
         self.collator = collators.Collator(
             has_features=self.has_features,

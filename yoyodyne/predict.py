@@ -43,20 +43,20 @@ def get_datamodule_from_argparse_args(
         "transducer_grm",
         "transducer_lstm",
     ]
-    index = data.Index.read(args.model_dir)
+    # Please pass all arguments by keyword and keep in lexicographic order.
     return data.DataModule(
-        predict=args.predict,
         batch_size=args.batch_size,
-        source_col=args.source_col,
         features_col=args.features_col,
-        target_col=args.target_col,
-        source_sep=args.source_sep,
         features_sep=args.features_sep,
-        target_sep=args.target_sep,
-        separate_features=separate_features,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
-        index=index,
+        model_dir=args.model_dir,
+        predict=args.predict,
+        separate_features=separate_features,
+        source_col=args.source_col,
+        source_sep=args.source_sep,
+        target_col=args.target_col,
+        target_sep=args.target_sep,
     )
 
 
