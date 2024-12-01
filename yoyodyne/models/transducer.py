@@ -51,69 +51,6 @@ class TransducerRNNModel(rnn.RNNModel):
         self.substitutions = self.actions.substitutions
         self.insertions = self.actions.insertions
 
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> Tuple[List[List[int]], torch.Tensor]:
-        """Runs the encoder-decoder model.
-
-        Args:
-            batch (data.PaddedBatch).
-
-        Returns:
-            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
-                and loss tensor; due to transducer setup, prediction is
-                performed during training, so these are returned.
-        """
-        encoder_out = self.source_encoder(batch.source)
-        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
-        source_padded = batch.source.padded[:, 1:]
-        source_mask = batch.source.mask[:, 1:]
-        # Start of decoding.
-        if self.has_features_encoder:
-            features_encoder_out = self.features_encoder(batch.features)
-            features_encoded = features_encoder_out.output
-            if features_encoder_out.has_hiddens:
-                h_features, c_features = features_encoder_out.hiddens
-                h_features = h_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                c_features = c_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                last_hiddens = h_features, c_features
-            else:
-                last_hiddens = self.init_hiddens(source_mask.shape[0])
-            features_encoded = features_encoded.mean(dim=1, keepdim=True)
-            encoded = torch.cat(
-                (
-                    encoded,
-                    features_encoded.expand(-1, encoded.shape[1], -1),
-                ),
-                dim=2,
-            )
-        else:
-            last_hiddens = self.init_hiddens(source_mask.shape[0])
-        if self.beam_width > 1:
-            # Will raise a NotImplementedError.
-            return self.beam_decode(
-                encoder_out=encoded,
-                mask=batch.source.mask,
-                beam_width=self.beam_width,
-            )
-        else:
-            return self.greedy_decode(
-                encoded,
-                last_hiddens,
-                source_padded,
-                source_mask,
-                teacher_forcing=(
-                    self.teacher_forcing if self.training else False
-                ),
-                target=batch.target.padded if batch.target else None,
-                target_mask=batch.target.mask if batch.target else None,
-            )
-
     def beam_decode(self, *args, **kwargs):
         """Overrides incompatible implementation inherited from RNNModel."""
         raise NotImplementedError(
@@ -546,10 +483,10 @@ class TransducerRNNModel(rnn.RNNModel):
         val_eval_items_dict.update({"val_loss": loss})
         return val_eval_items_dict
 
-    def predict_step(self, batch: Tuple[torch.tensor], batch_idx: int) -> Dict:
-        predictions, _ = self.forward(
-            batch,
-        )
+    def predict_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
+        predictions, _ = self(batch)
         # Evaluation requires prediction tensor.
         return self.convert_predictions(predictions)
 
@@ -590,9 +527,6 @@ class TransducerRNNModel(rnn.RNNModel):
     @property
     def name(self) -> str:
         raise NotImplementedError
-
-
-# TODO: Implement beam decoding.
 
 
 class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
@@ -644,16 +578,31 @@ class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
             )
         else:
             last_hiddens = self.init_hiddens(source_mask.shape[0])
-        prediction, loss = self.decode(
-            encoded,
-            last_hiddens,
-            source_padded,
-            source_mask,
-            teacher_forcing=(self.teacher_forcing if self.training else False),
-            target=batch.target.padded if batch.target else None,
-            target_mask=batch.target.mask if batch.target else None,
-        )
-        return prediction, loss
+        if self.beam_width > 1:
+            # Will raise a NotImplementedError.
+            return self.beam_decode(
+                encoded,
+                last_hiddens,
+                source_padded,
+                source_mask,
+                teacher_forcing=(
+                    self.teacher_forcing if self.training else False
+                ),
+                target=batch.target.padded if batch.target else None,
+                target_mask=batch.target.mask if batch.target else None,
+            )
+        else:
+            return self.greedy_decode(
+                encoded,
+                last_hiddens,
+                source_padded,
+                source_mask,
+                teacher_forcing=(
+                    self.teacher_forcing if self.training else False
+                ),
+                target=batch.target.padded if batch.target else None,
+                target_mask=batch.target.mask if batch.target else None,
+            )
 
     def get_decoder(self) -> modules.GRUDecoder:
         return modules.GRUDecoder(
@@ -731,16 +680,31 @@ class TransducerLSTMModel(TransducerRNNModel):
             )
         else:
             last_hiddens = self.init_hiddens(source_mask.shape[0])
-        prediction, loss = self.decode(
-            encoded,
-            last_hiddens,
-            source_padded,
-            source_mask,
-            teacher_forcing=(self.teacher_forcing if self.training else False),
-            target=batch.target.padded if batch.target else None,
-            target_mask=batch.target.mask if batch.target else None,
-        )
-        return prediction, loss
+        if self.beam_width > 1:
+            # Will raise a NotImplementedError.
+            return self.beam_decode(
+                encoded,
+                last_hiddens,
+                source_padded,
+                source_mask,
+                teacher_forcing=(
+                    self.teacher_forcing if self.training else False
+                ),
+                target=batch.target.padded if batch.target else None,
+                target_mask=batch.target.mask if batch.target else None,
+            )
+        else:
+            return self.greedy_decode(
+                encoded,
+                last_hiddens,
+                source_padded,
+                source_mask,
+                teacher_forcing=(
+                    self.teacher_forcing if self.training else False
+                ),
+                target=batch.target.padded if batch.target else None,
+                target_mask=batch.target.mask if batch.target else None,
+            )
 
     def init_hiddens(
         self, batch_size: int

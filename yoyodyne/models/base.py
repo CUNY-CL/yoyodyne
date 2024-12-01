@@ -283,7 +283,7 @@ class BaseModel(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Runs one predict step.
 
         This is called by the PL Trainer.
@@ -293,19 +293,16 @@ class BaseModel(lightning.LightningModule):
             batch_idx (int).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: position 0 are the indices of
-            the argmax at each timestep. Position 1 are the scores for each
-            history in beam search. It will be None when using greedy.
-
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: if
+                using beam search, the predictions and scores as a tuple of
+                tensors; if using greedy search, the predictions as a tensor.
         """
         predictions = self(batch)
         if self.beam_width > 1:
             predictions, scores = predictions
             return predictions, scores
         else:
-            # -> B x seq_len x 1.
-            greedy_predictions = self._get_predicted(predictions)
-            return greedy_predictions, None
+            return self._get_predicted(predictions)
 
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
