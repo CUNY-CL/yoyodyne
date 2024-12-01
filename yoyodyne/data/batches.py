@@ -26,7 +26,7 @@ class PaddedTensor(nn.Module):
     Mask and string length tensors can be generated as needed.
 
     Args:
-        tensorlist (List[torch.Tensor]): a list of tensors.
+        tensors (List[torch.Tensor]): a list of tensors.
         length_msg_callback (Callable[[int], None]): callback for handling a
             violation of expected tensor length.
         pad_len (int, optional): desired length for padding.
@@ -37,19 +37,19 @@ class PaddedTensor(nn.Module):
 
     def __init__(
         self,
-        tensorlist: List[torch.Tensor],
+        tensors: List[torch.Tensor],
         length_msg_callback: Optional[Callable[[int], None]] = None,
         pad_len: Optional[int] = None,
     ):
         super().__init__()
         if pad_len is None:
-            pad_len = max(len(tensor) for tensor in tensorlist)
+            pad_len = max(len(tensor) for tensor in tensors)
         if length_msg_callback is not None:
             length_msg_callback(pad_len)
         self.register_buffer(
             "padded",
-            torch.stack(
-                [self.pad_tensor(tensor, pad_len) for tensor in tensorlist],
+            nn.utils.rnn.pad_sequence(
+                tensors, batch_first=True, padding_value=special.PAD_IDX
             ),
         )
 
@@ -57,34 +57,8 @@ class PaddedTensor(nn.Module):
     def mask(self) -> torch.Tensor:
         return self.padded == special.PAD_IDX
 
-    @staticmethod
-    def pad_tensor(tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
-        """Pads a tensor.
-
-        Args:
-            tensor (torch.Tensor).
-            pad_max (int): desired tensor length.
-
-        Returns:
-            torch.Tensor.
-        """
-        padding = pad_max - len(tensor)
-        return nn.functional.pad(
-            tensor, (0, padding), "constant", special.PAD_IDX
-        )
-
     def __len__(self) -> int:
         return len(self.padded)
-
-    def lengths(self) -> torch.Tensor:
-        """Computes the lengths of all the strings in the tensor.
-
-        This needs to be on CPU for packing.
-
-        Returns:
-            torch.Tensor.
-        """
-        return (self.mask == 0).sum(dim=1).cpu()
 
 
 class PaddedBatch(nn.Module):
