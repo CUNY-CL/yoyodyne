@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Iterable, Optional, Set
+from typing import Iterable, Optional
 
 import lightning
 from torch.utils import data
@@ -10,43 +10,56 @@ from . import collators, datasets, indexes, tsv
 
 
 class DataModule(lightning.LightningDataModule):
-    """Parses, indexes, collates and loads data.
+    """Data module.
 
-    The batch size tuner is permitted to mutate the `batch_size` argument.
+    This class is initialized by the LightningCLI interface. It manages all
+    data loading steps.
+
+    Args:
+        model_dir: Path for checkpoints, indexes, and logs.
+        predict
+
     """
 
+    predict: Optional[str]
+    test: Optional[str]
+    train: Optional[str]
+    val: Optional[str]
     parser: tsv.TsvParser
-    index: indexes.Index
+    separate_features: bool
     batch_size: int
+    index: indexes.Index
     collator: collators.Collator
 
     def __init__(
         self,
         # Paths.
         *,
-        train: Optional[str] = None,
-        val: Optional[str] = None,
-        predict: Optional[str] = None,
-        test: Optional[str] = None,
-        index_path: Optional[str] = None,
-        # TSV parsing arguments.
+        model_dir: str,
+        predict=None,
+        train=None,
+        test=None,
+        val=None,
+        # TSV parsing options.
         source_col: int = defaults.SOURCE_COL,
         features_col: int = defaults.FEATURES_COL,
         target_col: int = defaults.TARGET_COL,
-        # String parsing arguments.
         source_sep: str = defaults.SOURCE_SEP,
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
+        # Modeling options.
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
-        # Collator options.
-        batch_size: int = defaults.BATCH_SIZE,
         separate_features: bool = False,
+        # Other.
+        batch_size: int = defaults.BATCH_SIZE,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
-        # Indexing.
-        index: Optional[indexes.Index] = None,
     ):
         super().__init__()
+        self.train = train
+        self.val = val
+        self.predict = predict
+        self.test = test
         self.parser = tsv.TsvParser(
             source_col=source_col,
             features_col=features_col,
@@ -56,14 +69,15 @@ class DataModule(lightning.LightningDataModule):
             target_sep=target_sep,
             tie_embeddings=tie_embeddings,
         )
-        self.tie_embeddings = tie_embeddings
-        self.train = train
-        self.val = val
-        self.predict = predict
-        self.test = test
-        self.batch_size = batch_size
         self.separate_features = separate_features
-        self.index = index if index is not None else self._make_index()
+        self.batch_size = batch_size
+        # If the training data is specified, it is used to create (or recreate)
+        # the index; if not specified it is read from the model directory.
+        self.index = (
+            self._make_index(model_dir, tie_embeddings)
+            if self.train
+            else indexes.Index.read(model_dir)
+        )
         self.collator = collators.Collator(
             has_features=self.has_features,
             has_target=self.has_target,
@@ -72,11 +86,12 @@ class DataModule(lightning.LightningDataModule):
             max_target_length=max_target_length,
         )
 
-    def _make_index(self) -> indexes.Index:
-        # Computes index.
-        source_vocabulary: Set[str] = set()
-        features_vocabulary: Set[str] = set()
-        target_vocabulary: Set[str] = set()
+    def _make_index(
+        self, model_dir: str, tie_embeddings: bool
+    ) -> indexes.Index:
+        source_vocabulary = set()
+        features_vocabulary = set() if self.has_features else None
+        target_vocabulary = set() if self.has_target else None
         if self.has_features:
             if self.has_target:
                 for source, features, target in self.parser.samples(
@@ -96,16 +111,18 @@ class DataModule(lightning.LightningDataModule):
         else:
             for source in self.parser.samples(self.train):
                 source_vocabulary.update(source)
-        return indexes.Index(
-            source_vocabulary=sorted(source_vocabulary),
+        index = indexes.Index(
+            source_vocabulary=source_vocabulary,
             features_vocabulary=(
-                sorted(features_vocabulary) if features_vocabulary else None
+                features_vocabulary if features_vocabulary else None
             ),
-            target_vocabulary=(
-                sorted(target_vocabulary) if target_vocabulary else None
-            ),
-            tie_embeddings=self.tie_embeddings,
+            target_vocabulary=target_vocabulary if target_vocabulary else None,
+            tie_embeddings=tie_embeddings,
         )
+        index.write(model_dir)
+        return index
+
+    # Logging.
 
     @staticmethod
     def pprint(vocabulary: Iterable) -> str:
@@ -128,9 +145,7 @@ class DataModule(lightning.LightningDataModule):
                 f"{self.pprint(self.index.target_vocabulary)}"
             )
 
-    def write_index(self, model_dir: str) -> None:
-        """Writes the index."""
-        self.index.write(model_dir)
+    # Properties.
 
     @property
     def has_features(self) -> bool:
@@ -149,13 +164,6 @@ class DataModule(lightning.LightningDataModule):
                 self.index.source_vocab_size + self.index.features_vocab_size
             )
 
-    def _dataset(self, path: str) -> datasets.Dataset:
-        return datasets.Dataset(
-            list(self.parser.samples(path)),
-            self.index,
-            self.parser,
-        )
-
     # Required API.
 
     def train_dataloader(self) -> data.DataLoader:
@@ -166,6 +174,7 @@ class DataModule(lightning.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=1,
+            persistent_workers=True,
         )
 
     def val_dataloader(self) -> data.DataLoader:
@@ -174,7 +183,9 @@ class DataModule(lightning.LightningDataModule):
             self._dataset(self.val),
             collate_fn=self.collator,
             batch_size=self.batch_size,
+            shuffle=False,
             num_workers=1,
+            persistent_workers=True,
         )
 
     def predict_dataloader(self) -> data.DataLoader:
@@ -183,7 +194,9 @@ class DataModule(lightning.LightningDataModule):
             self._dataset(self.predict),
             collate_fn=self.collator,
             batch_size=self.batch_size,
+            shuffle=False,
             num_workers=1,
+            persistent_workers=True,
         )
 
     def test_dataloader(self) -> data.DataLoader:
@@ -192,5 +205,14 @@ class DataModule(lightning.LightningDataModule):
             self._dataset(self.test),
             collate_fn=self.collator,
             batch_size=self.batch_size,
+            shuffle=False,
             num_workers=1,
+            persistent_workers=True,
+        )
+
+    def _dataset(self, path: str) -> datasets.Dataset:
+        return datasets.Dataset(
+            list(self.parser.samples(path)),
+            self.index,
+            self.parser,
         )

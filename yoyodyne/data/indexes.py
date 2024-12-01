@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import pickle
 from typing import Dict, Iterable, List, Optional
 
-from .. import defaults, special
+from .. import defaults, special, util
 
 
 class Error(Exception):
@@ -41,7 +40,12 @@ class Index:
         self.tie_embeddings = tie_embeddings
         # We store vocabularies separately for logging purposes.
         self.source_vocabulary = sorted(source_vocabulary)
-        self.target_vocabulary = sorted(target_vocabulary)
+        self.features_vocabulary = (
+            sorted(features_vocabulary) if features_vocabulary else None
+        )
+        self.target_vocabulary = (
+            sorted(target_vocabulary) if target_vocabulary else None
+        )
         if self.tie_embeddings:
             # Vocabulary is the union of source and target.
             vocabulary = sorted(
@@ -49,20 +53,19 @@ class Index:
             )
         else:
             # Vocabulary consists of target symbols followed by source symbols.
-            vocabulary = sorted(target_vocabulary) + sorted(source_vocabulary)
+            vocabulary = self.target_vocabulary + self.source_vocabulary
         # FeatureInvariantTransformer assumes that features_vocabulary is at
         # the end of the vocabulary.
         if features_vocabulary is not None:
-            self.features_vocabulary = sorted(features_vocabulary)
             vocabulary.extend(self.features_vocabulary)
-        else:
-            self.features_vocabulary = None
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary
         self._symbol2index = {c: i for i, c in enumerate(self._index2symbol)}
 
     def __len__(self) -> int:
         return len(self._index2symbol)
+
+    # Lookup.
 
     def __call__(self, lookup: str) -> int:
         """Looks up index by symbol.
@@ -86,14 +89,15 @@ class Index:
         """
         return self._index2symbol[index]
 
-    # Serialization....
+    # Serialization.
 
     @classmethod
-    def read(cls, model_dir: str) -> Index:
+    def read(cls, model_dir: str, experiment: str) -> Index:
         """Loads index.
 
         Args:
             model_dir (str).
+            experiment (str).
 
         Returns:
             Index.
@@ -131,14 +135,6 @@ class Index:
         return list(self._symbol2index.keys())
 
     @property
-    def has_features(self) -> bool:
-        return self.features_vocab_size > 0
-
-    @property
-    def has_target(self) -> bool:
-        return self.target_vocab_size > 0
-
-    @property
     def vocab_size(self) -> int:
         return len(self._symbol2index)
 
@@ -148,6 +144,10 @@ class Index:
             return self.vocab_size
         else:
             return len(self.SPECIAL) + len(self.source_vocabulary)
+
+    @property
+    def features_vocab_size(self) -> int:
+        return len(self.features_vocabulary) if self.features_vocabulary else 0
 
     @property
     def target_vocab_size(self) -> int:
