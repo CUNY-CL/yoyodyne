@@ -278,7 +278,7 @@ class RNNModel(base.BaseModel):
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds LSTM configuration options to the argument parser.
+        """Adds RNN configuration options to the argument parser.
 
         Args:
             parser (argparse.ArgumentParser).
