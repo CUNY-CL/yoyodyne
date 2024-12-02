@@ -125,17 +125,6 @@ def predict(
                     print(parser.target_string(symbols), file=sink)
 
 
-def _mkdir(output: str) -> None:
-    """Creates directory for output file if necessary.
-
-    Args:
-        output (str): output to output file.
-    """
-    dirname = os.path.dirname(output)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
-
-
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds prediction arguments to parser.
 

@@ -1,6 +1,6 @@
 """Data modules."""
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Set
 
 import lightning
 from torch.utils import data
@@ -116,7 +116,7 @@ class DataModule(lightning.LightningDataModule):
                 features_vocabulary if features_vocabulary else None
             ),
             target_vocabulary=target_vocabulary if target_vocabulary else None,
-              tie_embeddings=tie_embeddings,
+            tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
         index.write(model_dir)
@@ -154,15 +154,6 @@ class DataModule(lightning.LightningDataModule):
     @property
     def has_target(self) -> bool:
         return self.parser.has_target
-
-    @property
-    def source_vocab_size(self) -> int:
-        if self.separate_features:
-            return self.index.source_vocab_size
-        else:
-            return (
-                self.index.source_vocab_size + self.index.features_vocab_size
-            )
 
     # Required API.
 
