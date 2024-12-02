@@ -12,13 +12,32 @@ from . import collators, datasets, indexes, mappers, tsv
 class DataModule(lightning.LightningDataModule):
     """Data module.
 
-    This class is initialized by the LightningCLI interface. It manages all
-    data loading steps.
-
     Args:
         model_dir: Path for checkpoints, indexes, and logs.
-        predict
-
+        train: Path for training data TSV.
+        val: Path for validation data TSV.
+        predict: Path for prediction data TSV.
+        test: Path for test data TSV.
+        source_col: 1-indexed column in TSV containing source strings.
+        features_col: 1-indexed column in TSV containing features strings.
+        target_col: 1-indexed column in TSV containing target strings.
+        source_sep: String used to split source string into symbols; an empty
+            string indicates that each Unicode codepoint is its own symbol.
+        features_sep: String used to split features string into symbols; an
+            empty string indicates that each Unicode codepoint is its own symbol.
+        target_sep: String used to split target string into symbols; an empty
+            string indicates that each Unicode codepoint is its own symbol.
+        separate_features: Whether or not a separate encoder should be used
+            for features.
+        tie_embeddings: Whether or not source and target embeddings are tied. If
+             not, then source symbols are wrapped in {...}.
+        batch_size: Desired batch size.
+        max_source_length: The maximum length of a source string; this includes
+            concatenated feature strings if not using separate features. An
+            error will be raised if any source exceeds this limit.
+        max_target_length: The maximum length of a target string. A warning
+            will be raised and the target strings will be truncated if any
+            target exceeds this limit.
     """
 
     train: Optional[str]
@@ -87,6 +106,7 @@ class DataModule(lightning.LightningDataModule):
     def _make_index(
         self, model_dir: str, tie_embeddings: bool
     ) -> indexes.Index:
+        """Creates the index from a training set."""
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
         target_vocabulary: Set[str] = set()
@@ -125,7 +145,7 @@ class DataModule(lightning.LightningDataModule):
 
     @staticmethod
     def pprint(vocabulary: Iterable) -> str:
-        """Prints the vocabulary for debugging adn logging purposes."""
+        """Prints the vocabulary for debugging dnd logging purposes."""
         return ", ".join(f"{symbol!r}" for symbol in vocabulary)
 
     def log_vocabularies(self) -> None:
