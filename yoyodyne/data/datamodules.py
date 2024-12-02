@@ -68,7 +68,6 @@ class DataModule(lightning.LightningDataModule):
             target_sep=target_sep,
             tie_embeddings=tie_embeddings,
         )
-        self.separate_features = separate_features
         self.batch_size = batch_size
         # If the training data is specified, it is used to create (or recreate)
         # the index; if not specified it is read from the model directory.
