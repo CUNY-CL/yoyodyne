@@ -119,8 +119,11 @@ def predict(
             # Greedy search.
             for predictions in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_end(predictions)
-                for prediction in loader.dataset.decode_target(predictions):
-                    print(prediction, file=sink)
+                for target in predictions:
+                    print(
+                        parser.target_string(mapper.decode_target(target)),
+                        file=sink,
+                    )
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
