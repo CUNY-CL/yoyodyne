@@ -456,7 +456,7 @@ def get_expert(
     ) -> Iterator[Tuple[List[int], List[int]]]:
         """Helper function to manage data encoding for SED."
 
-        We want encodings without BOS or EOS tokens. This
+        We want encodings without BOS or END tokens. This
         encodes only raw source-target text for the Maxwell library.
 
         Args:

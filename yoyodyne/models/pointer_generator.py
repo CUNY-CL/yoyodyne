@@ -166,7 +166,6 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
                 "The number of encoder and decoder layers must match "
                 f"({self.encoder_layers} != {self.decoder_layers})"
             )
-
         # We use the inherited defaults for the source embeddings/encoder.
         # Overrides classifier to take larger input.
         if not self.has_features_encoder:
@@ -208,6 +207,101 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
                 "The number of encoder and decoder layers must match "
                 f"({self.encoder_layers} != {self.decoder_layers})"
             )
+
+    def beam_decode(self, *args, **kwargs):
+        """Overrides incompatible implementation inherited from RNNModel."""
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
+        )
+
+    def greedy_decode(
+        self,
+        source_enc: torch.Tensor,
+        source_mask: torch.Tensor,
+        source_indices: torch.Tensor,
+        decoder_hiddens: torch.Tensor,
+        teacher_forcing: bool,
+        features_enc: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
+        target: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Decodes a sequence given the encoded input.
+
+        Decodes until all sequences in a batch have reached END up to
+        a specified length depending on the `target` args.
+
+        Args:
+            source_enc (torch.Tensor): batch of encoded input symbols.
+            source_mask (torch.Tensor): mask for the batch of encoded input
+                symbols.
+            source_indices (torch.Tensor): indices of the input for calculating
+                pointer weights.
+            decoder_hiddens (torch.Tensor).
+            teacher_forcing (bool): whether or not to decode with teacher
+                forcing.
+            features_enc (torch.Tensor, optional): batch of encoded feaure
+                symbols.
+            features_mask (torch.Tensor, optional): mask for the batch of
+                encoded feature symbols.
+            target (torch.Tensor, optional): target symbols; we decode up to
+                `len(target)` symbols. If it is None, then we decode up to
+                `self.max_target_length` symbols.
+
+        Returns:
+            torch.Tensor.
+        """
+        batch_size = source_enc.shape[0]
+        # Feeds in the first decoder input, as a start tag.
+        # -> B x 1
+        decoder_input = (
+            torch.tensor(
+                [special.START_IDX],
+                device=self.device,
+            )
+            .repeat(batch_size)
+            .unsqueeze(1)
+        )
+        predictions = []
+        num_steps = (
+            target.size(1) if target is not None else self.max_target_length
+        )
+        # Tracks when each sequence has decoded an END.
+        finished = torch.zeros(batch_size, device=self.device)
+        for t in range(num_steps):
+            # pred: B x 1 x target_vocab_size.
+            output, decoder_hiddens = self.decode_step(
+                decoder_input,
+                decoder_hiddens,
+                source_indices,
+                source_enc,
+                source_mask,
+                features_enc=features_enc,
+                features_mask=features_mask,
+            )
+            predictions.append(output.squeeze(1))
+            # In teacher forcing mode the next input is the gold symbol
+            # for this step.
+            if teacher_forcing:
+                decoder_input = target[:, t].unsqueeze(1)
+            # Otherwise we pass the top pred to the next timestep
+            # (i.e., student forcing, greedy decoding).
+            else:
+                decoder_input = self._get_predicted(output)
+                # Tracks which sequences have decoded an END.
+                finished = torch.logical_or(
+                    finished, (decoder_input == special.END_IDX)
+                )
+                # Breaks when all sequences have predicted an END symbol. If we
+                # have a target (and are thus computing loss), we only break
+                # when we have decoded at least the the same number of steps as
+                # the target length.
+                if finished.all():
+                    if target is None or decoder_input.size(-1) >= target.size(
+                        -1
+                    ):
+                        break
+        predictions = torch.stack(predictions).transpose(0, 1)
+        return predictions
 
     def decode_step(
         self,
@@ -272,95 +366,6 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
         scaled_ptr_dist = ptr_dist * (1 - gen_probs)
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_ptr_dist), (h, c)
-
-    def decode(
-        self,
-        source_enc: torch.Tensor,
-        source_mask: torch.Tensor,
-        source_indices: torch.Tensor,
-        decoder_hiddens: torch.Tensor,
-        teacher_forcing: bool,
-        features_enc: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
-        target: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        """Decodes a sequence given the encoded input.
-
-        Decodes until all sequences in a batch have reached [EOS] up to
-        a specified length depending on the `target` args.
-
-        Args:
-            source_enc (torch.Tensor): batch of encoded input symbols.
-            source_mask (torch.Tensor): mask for the batch of encoded input
-                symbols.
-            source_indices (torch.Tensor): indices of the input for calculating
-                pointer weights.
-            decoder_hiddens (torch.Tensor).
-            teacher_forcing (bool): whether or not to decode with teacher
-                forcing.
-            features_enc (torch.Tensor, optional): batch of encoded feaure
-                symbols.
-            features_mask (torch.Tensor, optional): mask for the batch of
-                encoded feature symbols.
-            target (torch.Tensor, optional): target symbols; we decode up to
-                `len(target)` symbols. If it is None, then we decode up to
-                `self.max_target_length` symbols.
-
-        Returns:
-            torch.Tensor.
-        """
-        batch_size = source_enc.shape[0]
-        # Feeds in the first decoder input, as a start tag.
-        # -> B x 1
-        decoder_input = (
-            torch.tensor(
-                [special.START_IDX],
-                device=self.device,
-            )
-            .repeat(batch_size)
-            .unsqueeze(1)
-        )
-        predictions = []
-        num_steps = (
-            target.size(1) if target is not None else self.max_target_length
-        )
-        # Tracks when each sequence has decoded an EOS.
-        finished = torch.zeros(batch_size, device=self.device)
-        for t in range(num_steps):
-            # pred: B x 1 x target_vocab_size.
-            output, decoder_hiddens = self.decode_step(
-                decoder_input,
-                decoder_hiddens,
-                source_indices,
-                source_enc,
-                source_mask,
-                features_enc=features_enc,
-                features_mask=features_mask,
-            )
-            predictions.append(output.squeeze(1))
-            # In teacher forcing mode the next input is the gold symbol
-            # for this step.
-            if teacher_forcing:
-                decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise we pass the top pred to the next timestep
-            # (i.e., student forcing, greedy decoding).
-            else:
-                decoder_input = self._get_predicted(output)
-                # Tracks which sequences have decoded an EOS.
-                finished = torch.logical_or(
-                    finished, (decoder_input == special.END_IDX)
-                )
-                # Breaks when all sequences have predicted an EOS symbol. If we
-                # have a target (and are thus computing loss), we only break
-                # when we have decoded at least the the same number of steps as
-                # the target length.
-                if finished.all():
-                    if target is None or decoder_input.size(-1) >= target.size(
-                        -1
-                    ):
-                        break
-        predictions = torch.stack(predictions).transpose(0, 1)
-        return predictions
 
 
 class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
@@ -460,11 +465,11 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         Returns:
             torch.Tensor.
         """
-        encoder_output = self.source_encoder(batch.source)
-        source_encoded = encoder_output.output
-        if encoder_output.has_hiddens:
+        encoder_out = self.source_encoder(batch.source)
+        source_encoded = encoder_out.output
+        if encoder_out.has_hiddens:
             last_hiddens = self._reshape_hiddens(
-                encoder_output.hiddens,
+                encoder_out.hiddens,
                 self.source_encoder.layers,
                 self.source_encoder.num_directions,
             )
@@ -473,23 +478,31 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
                 len(batch), self.source_encoder.layers
             )
         if not self.has_features_encoder:
-            if self.beam_width is not None and self.beam_width > 1:
-                raise NotImplementedError
-            else:
-                predictions = self.decode(
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
                     last_hiddens,
                     self.teacher_forcing if self.training else False,
-                    target=(batch.target.padded if batch.target else None),
+                    target=batch.target.padded if batch.target else None,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    target=batch.target.padded if batch.target else None,
                 )
         else:
-            features_encoder_output = self.features_encoder(batch.features)
-            features_encoded = features_encoder_output.output
-            if features_encoder_output.has_hiddens:
+            features_encoder_out = self.features_encoder(batch.features)
+            features_encoded = features_encoder_out.output
+            if features_encoder_out.has_hiddens:
                 last_hiddens = self._reshape_hiddens(
-                    features_encoder_output.hiddens,
+                    features_encoder_out.hiddens,
                     self.features_encoder.layers,
                     self.features_encoder.num_directions,
                 )
@@ -497,17 +510,29 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
                 last_hiddens = self.init_hiddens(
                     len(batch), self.source_encoder.layers
                 )
-            predictions = self.decode(
-                source_encoded,
-                batch.source.mask,
-                batch.source.padded,
-                last_hiddens,
-                self.teacher_forcing if self.training else False,
-                features_enc=features_encoded,
-                features_mask=batch.features.mask,
-                target=batch.target.padded if batch.target else None,
-            )
-        return predictions
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
 
     @staticmethod
     def _reshape_hiddens(
@@ -625,10 +650,10 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
         Returns:
             torch.Tensor.
         """
-        encoder_output = self.source_encoder(batch.source)
-        source_encoded = encoder_output.output
-        if encoder_output.has_hiddens:
-            h_source, c_source = encoder_output.hiddens
+        encoder_out = self.source_encoder(batch.source)
+        source_encoded = encoder_out.output
+        if encoder_out.has_hiddens:
+            h_source, c_source = encoder_out.hiddens
             last_hiddens = self._reshape_hiddens(
                 h_source,
                 c_source,
@@ -639,23 +664,29 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
             last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
-                raise NotImplementedError(
-                    f"Beam search not implemented for {self.name} model"
-                )
-            else:
-                predictions = self.decode(
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
                     last_hiddens,
                     self.teacher_forcing if self.training else False,
-                    target=(batch.target.padded if batch.target else None),
+                    target=batch.target.padded if batch.target else None,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    target=batch.target.padded if batch.target else None,
                 )
         else:
-            features_encoder_output = self.features_encoder(batch.features)
-            features_encoded = features_encoder_output.output
-            if features_encoder_output.has_hiddens:
-                h_features, c_features = features_encoder_output.hiddens
+            features_encoder_out = self.features_encoder(batch.features)
+            features_encoded = features_encoder_out.output
+            if features_encoder_out.has_hiddens:
+                h_features, c_features = features_encoder_out.hiddens
                 h_features, c_features = self._reshape_hiddens(
                     h_features,
                     c_features,
@@ -665,12 +696,8 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
             else:
                 h_features, c_features = self.init_hiddens(len(batch))
             if self.beam_width > 1:
-                # LSTM beam search does not work with pointer generator LSTM.
-                raise NotImplementedError(
-                    f"Beam search not implemented for {self.name} model"
-                )
-            else:
-                predictions = self.decode(
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
@@ -680,7 +707,17 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
                     features_mask=batch.features.mask,
                     target=batch.target.padded if batch.target else None,
                 )
-        return predictions
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.source.padded,
+                    last_hiddens,
+                    self.teacher_forcing if self.training else False,
+                    features_enc=features_encoded,
+                    features_mask=batch.features.mask,
+                    target=batch.target.padded if batch.target else None,
+                )
 
     @staticmethod
     def _reshape_hiddens(
@@ -749,7 +786,7 @@ class PointerGeneratorTransformerModel(
 
     def decode_step(
         self,
-        encoder_outputs: torch.Tensor,
+        encoder_outs: torch.Tensor,
         source_mask: torch.Tensor,
         source_indices: torch.Tensor,
         target_tensor: torch.Tensor,
@@ -766,7 +803,7 @@ class PointerGeneratorTransformerModel(
         parallel with a diagonal mask.
 
         Args:
-            encoder_outputs (torch.Tensor): encoded output representations.
+            encoder_outs (torch.Tensor): encoded output representations.
             source_mask (torch.Tensor): mask for the encoded source tokens.
             source_indices (torch.Tensor): source token vocabulary ids.
             target_tensor (torch.Tensor): target token vocabulary ids.
@@ -780,7 +817,7 @@ class PointerGeneratorTransformerModel(
                 target_seq_len is inferred form the target_tensor.
         """
         decoder_output = self.decoder(
-            encoder_outputs,
+            encoder_outs,
             source_mask,
             target_tensor,
             target_mask,
@@ -817,7 +854,7 @@ class PointerGeneratorTransformerModel(
         ptr_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
         # A matrix of context vectors from applying attention to the encoder
         # representations w.r.t. each decoder step.
-        context = torch.bmm(mha_outputs, encoder_outputs)
+        context = torch.bmm(mha_outputs, encoder_outs)
         # Probability of generating (from output_dist).
         gen_probs = self.generation_probability(
             context, decoder_output, target_embeddings
@@ -826,7 +863,7 @@ class PointerGeneratorTransformerModel(
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_ptr_dist)
 
-    def _decode_greedy(
+    def greedy_decode(
         self,
         encoder_hidden: torch.Tensor,
         source_mask: torch.Tensor,
@@ -843,7 +880,7 @@ class PointerGeneratorTransformerModel(
             source_indices (torch.Tensor): indices of the source symbols.
             targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
-                if the decoder has predicted [EOS] for every sequence in
+                if the decoder has predicted END for every sequence in
                 the batch.
             features_enc (Optional[torch.Tensor]): encoded features.
             features_mask (Optional[torch.Tensor]): mask for encoded features.
@@ -861,7 +898,7 @@ class PointerGeneratorTransformerModel(
                 device=self.device,
             )
         ]
-        # Tracking when each sequence has decoded an EOS.
+        # Tracking when each sequence has decoded an END.
         finished = torch.zeros(batch_size, device=self.device)
         for _ in range(self.max_target_length):
             target_tensor = torch.stack(predictions, dim=1)
@@ -882,11 +919,11 @@ class PointerGeneratorTransformerModel(
             # -> B x 1 x 1.
             _, pred = torch.max(last_output, dim=1)
             predictions.append(pred)
-            # Updates to track which sequences have decoded an EOS.
+            # Updates to track which sequences have decoded an END.
             finished = torch.logical_or(
                 finished, (predictions[-1] == special.END_IDX)
             )
-            # Breaks when all sequences have predicted an EOS symbol. If we
+            # Breaks when all sequences have predicted an END symbol. If we
             # have a target (and are thus computing loss), we only break when
             # we have decoded at least the the same number of steps as the
             # target length.
@@ -907,6 +944,9 @@ class PointerGeneratorTransformerModel(
 
         Returns:
             torch.Tensor.
+
+        Raises:
+            NotImplementedError: beam search not implemented.
         """
         source_encoded = self.source_encoder(batch.source).output
         if self.training and self.teacher_forcing:
@@ -925,14 +965,14 @@ class PointerGeneratorTransformerModel(
             )
             features_encoded = None
             if self.has_features_encoder:
-                features_encoder_output = self.features_encoder(batch.features)
-                features_encoded = features_encoder_output.output
+                features_encoder_out = self.features_encoder(batch.features)
+                features_encoded = features_encoder_out.output
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                output = self.beam_decode(
-                    encoder_out=source_encoded,
-                    mask=batch.source.mask,
-                    beam_width=self.beam_width,
+                return self.beam_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    self.beam_width,
                 )
             else:
                 output = self.decode_step(
@@ -943,29 +983,29 @@ class PointerGeneratorTransformerModel(
                     target_mask,
                     features_enc=features_encoded,
                 )
-                output = output[:, :-1, :]  # Ignore EOS.
+                output = output[:, :-1, :]  # Ignores END.
+                return output
         else:
             features_encoded = None
             if self.has_features_encoder:
-                features_encoder_output = self.features_encoder(batch.features)
-                features_encoded = features_encoder_output.output
+                features_encoder_out = self.features_encoder(batch.features)
+                features_encoded = features_encoder_out.output
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                output = self.beam_decode(
-                    encoder_out=source_encoded,
-                    mask=batch.source.mask,
-                    beam_width=self.beam_width,
+                return self.beam_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
-                output = self._decode_greedy(
+                return self.greedy_decode(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
                     batch.target.padded if batch.target else None,
                     features_enc=features_encoded,
                 )
-        return output
 
     @property
     def name(self) -> str:

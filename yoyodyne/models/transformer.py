@@ -67,7 +67,12 @@ class TransformerModel(base.BaseModel):
             source_attention_heads=self.source_attention_heads,
         )
 
-    def _decode_greedy(
+    def beam_decode(self, *args, **kwargs):
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
+        )
+
+    def greedy_decode(
         self,
         encoder_hidden: torch.Tensor,
         source_mask: torch.Tensor,
@@ -80,7 +85,7 @@ class TransformerModel(base.BaseModel):
             source_mask (torch.Tensor): mask for the encoded source tokens.
             targets (torch.Tensor, optional): the optional target tokens,
                 which is only used for early stopping during validation
-                if the decoder has predicted [EOS] for every sequence in
+                if the decoder has predicted END for every sequence in
                 the batch.
 
         Returns:
@@ -96,7 +101,7 @@ class TransformerModel(base.BaseModel):
                 device=self.device,
             )
         ]
-        # Tracking when each sequence has decoded an EOS.
+        # Tracking when each sequence has decoded an END.
         finished = torch.zeros(batch_size, device=self.device)
         for _ in range(self.max_target_length):
             target_tensor = torch.stack(predictions, dim=1)
@@ -110,16 +115,16 @@ class TransformerModel(base.BaseModel):
                 target_mask,
             ).output
             logits = self.classifier(decoder_output)
-            last_output = logits[:, -1, :]  # Ignores EOS.
+            last_output = logits[:, -1, :]  # Ignores END.
             outputs.append(last_output)
             # -> B x 1 x 1
             _, pred = torch.max(last_output, dim=1)
             predictions.append(pred)
-            # Updates to track which sequences have decoded an EOS.
+            # Updates to track which sequences have decoded an END.
             finished = torch.logical_or(
                 finished, (predictions[-1] == special.END_IDX)
             )
-            # Breaks when all sequences have predicted an EOS symbol. If we
+            # Breaks when all sequences have predicted an END symbol. If we
             # have a target (and are thus computing loss), we only break when
             # we have decoded at least the the same number of steps as the
             # target length.
@@ -166,24 +171,23 @@ class TransformerModel(base.BaseModel):
                 target_mask,
             ).output
             logits = self.classifier(decoder_output)
-            output = logits[:, :-1, :]  # Ignore EOS.
+            return logits[:, :-1, :]  # Ignores END.
         else:
             encoder_output = self.source_encoder(batch.source).output
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                output = self.beam_decode(
-                    encoder_out=encoder_output,
-                    mask=batch.source.mask,
-                    beam_width=self.beam_width,
+                return self.beam_decode(
+                    encoder_output,
+                    batch.source.mask,
+                    self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
-                output = self._decode_greedy(
+                return self.greedy_decode(
                     encoder_output,
                     batch.source.mask,
                     batch.target.padded if batch.target else None,
                 )
-        return output
 
     @property
     def name(self) -> str:

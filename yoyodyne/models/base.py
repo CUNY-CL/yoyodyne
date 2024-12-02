@@ -176,31 +176,6 @@ class BaseModel(lightning.LightningModule):
     def get_decoder(self):
         raise NotImplementedError
 
-    def beam_decode(
-        self,
-        encoder_out: torch.Tensor,
-        mask: torch.Tensor,
-        beam_width: int,
-    ):
-        """Method interface for beam search.
-
-        Args:
-            encoder_out (torch.Tensor): encoded inputs.
-            encoder_mask (torch.Tensor).
-            beam_width (int): size of the beam; also determines the number of
-                hypotheses to return.
-
-        Raises:
-            NotImplementedError: This method needs to be overridden.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: the predictions tensor and the
-                log-likelihood of each prediction.
-        """
-        raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
-        )
-
     @property
     def num_parameters(self) -> int:
         return sum(part.numel() for part in self.parameters())
@@ -308,7 +283,7 @@ class BaseModel(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Runs one predict step.
 
         This is called by the PL Trainer.
@@ -318,19 +293,16 @@ class BaseModel(lightning.LightningModule):
             batch_idx (int).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: position 0 are the indices of
-            the argmax at each timestep. Position 1 are the scores for each
-            history in beam search. It will be None when using greedy.
-
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: if
+                using beam search, the predictions and scores as a tuple of
+                tensors; if using greedy search, the predictions as a tensor.
         """
         predictions = self(batch)
         if self.beam_width > 1:
             predictions, scores = predictions
             return predictions, scores
         else:
-            # -> B x seq_len x 1.
-            greedy_predictions = self._get_predicted(predictions)
-            return greedy_predictions, None
+            return self._get_predicted(predictions)
 
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.

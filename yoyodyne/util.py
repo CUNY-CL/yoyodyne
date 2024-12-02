@@ -59,12 +59,12 @@ def mkpath(path: str) -> None:
     os.makedirs(dirname, exist_ok=True)
 
 
-def pad_tensor_after_eos(
+def pad_tensor_after_end(
     predictions: torch.Tensor,
 ) -> torch.Tensor:
-    """Replaces everything after an EOS token with PADs.
+    """Replaces everything after an END token with PADs.
 
-    Cuts off tensors at the first END_IDX, and replaces the rest of the
+    Cuts off tensors at the first END, and replaces the rest of the
     predictions with PAD_IDX, as these can be erroneously decoded while the
     rest of the batch is finishing decoding.
 
@@ -78,20 +78,20 @@ def pad_tensor_after_eos(
     if predictions.size(0) == 1:
         return predictions
     for i, prediction in enumerate(predictions):
-        # Gets first instance of EOS.
-        eos = (prediction == special.END_IDX).nonzero(as_tuple=False)
-        if len(eos) > 0 and eos[0].item() < len(prediction):
-            # If an EOS was decoded and it is not the last one in the
+        # Gets first instance of END.
+        end = (prediction == special.END_IDX).nonzero(as_tuple=False)
+        if len(end) > 0 and end[0].item() < len(prediction):
+            # If an END was decoded and it is not the last one in the
             # sequence.
-            eos = eos[0]
+            end = end[0]
         else:
             # Leaves predictions[i] alone.
             continue
-        # Hack in case the first prediction is EOS. In this case
+        # Hack in case the first prediction is END. In this case
         # torch.split will result in an error, so we change these 0's to
-        # 1's, which will make the entire sequence EOS as intended.
-        eos[eos == 0] = 1
-        symbols, *_ = torch.split(prediction, eos)
+        # 1's, which will make the entire sequence END as intended.
+        end[end == 0] = 1
+        symbols, *_ = torch.split(prediction, end)
         # Replaces everything after with PAD, to replace erroneous decoding
         # While waiting on the entire batch to finish.
         pads = (
