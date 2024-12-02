@@ -8,7 +8,7 @@ import os
 
 from typing import Dict, Iterable, List, Optional
 
-from .. import defaults, special
+from .. import defaults, special, util
 
 
 class Error(Exception):
@@ -106,13 +106,8 @@ class Index:
         Returns:
             Index.
         """
-        index = cls.__new__(cls)
-        path = index.path(model_dir)
-        with open(path, "rb") as source:
-            dictionary = pickle.load(source)
-        for key, value in dictionary.items():
-            setattr(index, key, value)
-        return index
+        with open(cls.path(model_dir), "rb") as source:
+            return pickle.load(source)
 
     def write(self, model_dir: str) -> None:
         """Writes index.
@@ -121,9 +116,9 @@ class Index:
             model_dir (str).
         """
         path = self.path(model_dir)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        util.mkpath(path)
         with open(path, "wb") as sink:
-            pickle.dump(vars(self), sink)
+            pickle.dump(self, sink)
 
     @staticmethod
     def path(model_dir: str) -> str:
@@ -155,6 +150,10 @@ class Index:
             return len(self.SPECIAL) + len(self.source_vocabulary)
 
     @property
+    def features_vocab_size(self) -> int:
+        return len(self.features_vocabulary) if self.features_vocabulary else 0
+
+    @property
     def target_vocab_size(self) -> int:
         if self.tie_embeddings:
             return self.vocab_size
@@ -162,7 +161,3 @@ class Index:
             return len(special.SPECIAL) + len(self.target_vocabulary)
         else:
             return 0
-
-    @property
-    def features_vocab_size(self) -> int:
-        return len(self.features_vocabulary) if self.features_vocabulary else 0

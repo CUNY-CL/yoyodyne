@@ -24,7 +24,7 @@ from typing import (
 import numpy
 from maxwell import actions, sed
 
-from .. import data, defaults
+from .. import data, defaults, special
 
 
 class Error(Exception):
@@ -61,7 +61,7 @@ class ActionVocabulary:
         # Uses index from dataset to create action vocabulary.
         self.encode_actions([index(t) for t in index.target_vocabulary])
         # Sets unknown character decoding.
-        self.encode_actions([index.unk_idx])
+        self.encode_actions([special.UNK_IDX])
         # Adds source characters if index has tied embeddings.
         if index.tie_embeddings:
             self.encode_actions([index(s) for s in index.source_vocabulary])

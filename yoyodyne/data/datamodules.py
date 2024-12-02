@@ -21,12 +21,11 @@ class DataModule(lightning.LightningDataModule):
 
     """
 
-    predict: Optional[str]
-    test: Optional[str]
     train: Optional[str]
     val: Optional[str]
+    predict: Optional[str]
+    test: Optional[str]
     parser: tsv.TsvParser
-    separate_features: bool
     batch_size: int
     index: indexes.Index
     collator: collators.Collator
@@ -36,11 +35,11 @@ class DataModule(lightning.LightningDataModule):
         # Paths.
         *,
         model_dir: str,
-        predict=None,
         train=None,
-        test=None,
         val=None,
-        # TSV parsing options.
+        predict=None,
+        test=None,
+        # TSV parsing arguments.
         source_col: int = defaults.SOURCE_COL,
         features_col: int = defaults.FEATURES_COL,
         target_col: int = defaults.TARGET_COL,
@@ -89,9 +88,9 @@ class DataModule(lightning.LightningDataModule):
     def _make_index(
         self, model_dir: str, tie_embeddings: bool
     ) -> indexes.Index:
-        source_vocabulary = set()
-        features_vocabulary = set() if self.has_features else None
-        target_vocabulary = set() if self.has_target else None
+        source_vocabulary: Set[str] = set()
+        features_vocabulary: Set[str] = set()
+        target_vocabulary: Set[str] = set()
         if self.has_features:
             if self.has_target:
                 for source, features, target in self.parser.samples(
@@ -117,7 +116,7 @@ class DataModule(lightning.LightningDataModule):
                 features_vocabulary if features_vocabulary else None
             ),
             target_vocabulary=target_vocabulary if target_vocabulary else None,
-            tie_embeddings=tie_embeddings,
+              tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
         index.write(model_dir)
