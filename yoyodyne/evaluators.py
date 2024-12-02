@@ -136,7 +136,7 @@ class AccuracyEvaluator(Evaluator):
         Returns:
             torch.Tensor: finalized predictions.
         """
-        return util.pad_tensor_after_eos(predictions)
+        return util.pad_tensor_after_end(predictions)
 
     def finalize_golds(
         self,
@@ -197,8 +197,8 @@ class SEREvaluator(Evaluator):
     ) -> List[torch.Tensor]:
         """Finalizes each tensor.
 
-        Truncates at EOS for each prediction and returns a List of predictions.
-        This does basically the same as util.pad_after_eos, but does not
+        Truncates at END for each prediction and returns a List of predictions.
+        This does basically the same as util.pad_tensor_after_end, but does not
         actually pad since we do not need to return a well-formed tensor.
 
         Args:
@@ -212,21 +212,21 @@ class SEREvaluator(Evaluator):
             return [tensor]
         out = []
         for prediction in tensor:
-            # Gets first instance of EOS.
-            eos = (prediction == special.END_IDX).nonzero(as_tuple=False)
-            if len(eos) > 0 and eos[0].item() < len(prediction):
-                # If an EOS was decoded and it is not the last one in the
+            # Gets first instance of END.
+            end = (prediction == special.END_IDX).nonzero(as_tuple=False)
+            if len(end) > 0 and end[0].item() < len(prediction):
+                # If an END was decoded and it is not the last one in the
                 # sequence.
-                eos = eos[0]
+                end = end[0]
             else:
                 # Leaves tensor[i] alone.
                 out.append(prediction)
                 continue
-            # Hack in case the first prediction is EOS. In this case
+            # Hack in case the first prediction is END. In this case
             # torch.split will result in an error, so we change these 0's to
-            # 1's, which will make the entire sequence EOS as intended.
-            eos[eos == 0] = 1
-            symbols, *_ = torch.split(prediction, eos)
+            # 1's, which will make the entire sequence END as intended.
+            end[end == 0] = 1
+            symbols, *_ = torch.split(prediction, end)
             out.append(symbols)
         return out
 

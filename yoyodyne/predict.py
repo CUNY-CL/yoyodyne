@@ -117,12 +117,10 @@ def predict(
                 tsv_writer.writerow(row)
         else:
             # Greedy search.
-            for predictions, _ in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_eos(predictions)
-                # Unpacks each element in the batch.
-                for target in predictions:
-                    symbols = mapper.decode_target(target)
-                    print(parser.target_string(symbols), file=sink)
+            for predictions in trainer.predict(model, loader):
+                predictions = util.pad_tensor_after_end(predictions)
+                for prediction in loader.dataset.decode_target(predictions):
+                    print(prediction, file=sink)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
