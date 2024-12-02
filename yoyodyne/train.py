@@ -210,6 +210,7 @@ def get_model_from_argparse_args(
         )
         expert = models.expert.get_expert(
             datamodule.train_dataloader().dataset,
+            datamodule.index,
             epochs=args.oracle_em_epochs,
             oracle_factor=args.oracle_factor,
             sed_params_path=sed_params_paths,

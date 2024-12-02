@@ -20,6 +20,7 @@ from .rnn import RNNModel  # noqa: F401
 from .transducer import TransducerGRUModel, TransducerLSTMModel  # noqa: F401
 from .transformer import TransformerModel
 
+
 _model_fac = {
     "attentive_gru": AttentiveGRUModel,
     "attentive_lstm": AttentiveLSTMModel,

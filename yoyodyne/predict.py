@@ -26,7 +26,7 @@ def get_trainer_from_argparse_args(
 def get_datamodule_from_argparse_args(
     args: argparse.Namespace,
 ) -> data.DataModule:
-    """Creates the dataset from CLI arguments.
+    """Creates the datamoodule from CLI arguments.
 
     Args:
         args (argparse.Namespace).
@@ -96,15 +96,23 @@ def predict(
     util.log_info(f"Writing to {output}")
     util.mkpath(output)
     loader = datamodule.predict_dataloader()
+    parser = datamodule.parser
+    mapper = data.Mapper(datamodule.index)
     with open(output, "w", encoding=defaults.ENCODING) as sink:
         if model.beam_width > 1:
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
             for predictions, scores in trainer.predict(model, loader):
                 predictions = util.pad_tensor_after_end(predictions)
-                decoded_predictions = loader.dataset.decode_target(predictions)
-                row = itertools.chain(
-                    *zip(decoded_predictions, scores.tolist())
+                # TODO: beam search requires singleton batches and this
+                # assumes that. Revise if that restriction is ever lifted.
+                targets = [
+                    parser.target_string(mapper.decode_target(target))
+                    for target in predictions
+                ]
+                # Collates target strings and their scores.
+                row = itertools.chain.from_iterable(
+                    zip(targets, scores.tolist())
                 )
                 tsv_writer.writerow(row)
         else:
