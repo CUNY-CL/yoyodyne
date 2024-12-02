@@ -110,6 +110,7 @@ def predict(
                     parser.target_string(mapper.decode_target(target))
                     for target in predictions
                 ]
+                # Collates target strings and their scores.
                 row = itertools.chain.from_iterable(
                     zip(targets, scores.tolist())
                 )

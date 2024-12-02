@@ -1,7 +1,5 @@
 """Data modules."""
 
-import os
-
 from typing import Iterable, Optional
 
 import lightning
@@ -122,7 +120,6 @@ class DataModule(lightning.LightningDataModule):
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
-        os.makedirs(model_dir, exist_ok=True)
         index.write(model_dir)
         return index
 
