@@ -198,7 +198,7 @@ class SEREvaluator(Evaluator):
         """Finalizes each tensor.
 
         Truncates at END for each prediction and returns a List of predictions.
-        This does basically the same as util.pad_after_end, but does not
+        This does basically the same as util.pad_tensor_after_end, but does not
         actually pad since we do not need to return a well-formed tensor.
 
         Args:
