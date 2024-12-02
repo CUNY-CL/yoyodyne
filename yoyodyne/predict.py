@@ -103,7 +103,7 @@ def predict(
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
             for predictions, scores in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_eos(predictions)
+                predictions = util.pad_tensor_after_end(predictions)
                 # TODO: beam search requires singleton batches and this
                 # assumes that. Revise if that restriction is ever lifted.
                 targets = [

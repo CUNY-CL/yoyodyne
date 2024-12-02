@@ -461,10 +461,10 @@ def get_expert(
         dataset: data.Dataset,
         index: data.Index,
     ) -> Iterator[Tuple[List[int], List[int]]]:
-        """Helper function to manage data encoding for SED."
+        """Helper function to manage data encoding for SED.
 
-        We want encodings without BOS or EOS tokens. This encodes only raw
-        source-target text for the Maxwell library.
+        We want encodings without padding. This encodes only raw source-target
+        text for the Maxwell library.
 
         Args:
             dataset (data.Dataset): dataset for generating expert vocabulary.
