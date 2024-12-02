@@ -12,6 +12,9 @@ from . import collators, datasets, indexes, mappers, tsv
 class DataModule(lightning.LightningDataModule):
     """Data module.
 
+    This is responsible for indexing the data, collating/padding, and
+    generating datasets.
+
     Args:
         model_dir: Path for checkpoints, indexes, and logs.
         train: Path for training data TSV.
@@ -24,13 +27,14 @@ class DataModule(lightning.LightningDataModule):
         source_sep: String used to split source string into symbols; an empty
             string indicates that each Unicode codepoint is its own symbol.
         features_sep: String used to split features string into symbols; an
-            empty string indicates that each Unicode codepoint is its own symbol.
+            empty string indicates that each Unicode codepoint is its own
+            symbol.
         target_sep: String used to split target string into symbols; an empty
             string indicates that each Unicode codepoint is its own symbol.
         separate_features: Whether or not a separate encoder should be used
             for features.
-        tie_embeddings: Whether or not source and target embeddings are tied. If
-             not, then source symbols are wrapped in {...}.
+        tie_embeddings: Whether or not source and target embeddings are tied.
+            If not, then source symbols are wrapped in {...}.
         batch_size: Desired batch size.
         max_source_length: The maximum length of a source string; this includes
             concatenated feature strings if not using separate features. An
