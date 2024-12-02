@@ -61,7 +61,7 @@ class Index:
             vocabulary = self.target_vocabulary + self.source_vocabulary
         # FeatureInvariantTransformer assumes that features_vocabulary is at
         # the end of the vocabulary.
-        if features_vocabulary is not None:
+        if self.features_vocabulary is not None:
             vocabulary.extend(self.features_vocabulary)
         # Keeps special.SPECIAL first to maintain overlap with features.
         self._index2symbol = special.SPECIAL + vocabulary

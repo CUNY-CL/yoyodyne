@@ -27,7 +27,7 @@ def get_trainer_from_argparse_args(
 def get_datamodule_from_argparse_args(
     args: argparse.Namespace,
 ) -> data.DataModule:
-    """Creates the dataset from CLI arguments.
+    """Creates the datamoodule from CLI arguments.
 
     Args:
         args (argparse.Namespace).
