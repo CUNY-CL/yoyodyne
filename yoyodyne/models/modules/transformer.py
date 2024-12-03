@@ -259,8 +259,11 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             embedded (torch.Tensor): embedded tensor of shape
                 B x seq_len x embed_dim.
         """
-        # Distinguishes features and chars; 1 or 0.
-        char_mask = symbols < (self.num_embeddings - self.features_vocab_size)
+        # Distinguishes features and chars; 1 or 0; embedding layer requires
+        # this to be integral.
+        char_mask = (
+            symbols < (self.num_embeddings - self.features_vocab_size)
+        ).long()
         type_embedding = self.esq * self.type_embedding(char_mask)
         word_embedding = self.esq * self.embeddings(symbols)
         positional_embedding = self.positional_encoding(
