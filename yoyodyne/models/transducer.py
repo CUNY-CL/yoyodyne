@@ -423,7 +423,7 @@ class TransducerRNNModel(rnn.RNNModel):
         """Computes log loss.
 
         After:
-            Riezler, S. Prescher, D., Kuhn, J. and Johnson, M. 2000.
+            Riezler, S., Prescher, D., Kuhn, J., and Johnson, M. 2000.
             Lexicalized stochastic modeling of constraint-based grammars using
             log-linear measures and EM training. In Proceedings of the 38th
             Annual Meeting of the Association for Computational
