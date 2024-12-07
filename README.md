@@ -432,7 +432,7 @@ calling them as functions (which invokes their `forward` methods); however, in
 some cases it is also necessary for the model to call ancillary members or
 methods of its modules. The `base.ModuleOutput` class is used to capture the
 output of the various modules, and it is this which is essential to, e.g.,
-abstracting between different kinds of encoders which, e.g., may or may not have
+abstracting between different kinds of encoders which may or may not have
 hidden or cell state to return.
 
 #### Decoding strategies
