@@ -28,7 +28,7 @@ keywords = [
     "language",
 ]
 dependencies = [
-    "maxwell >= 0.2.5",
+    "maxwell >= 0.2.6",
     # TODO: allow >= 2.0.0 once we we migrate to lightning >= 2.0.0".
     "numpy >= 1.26.0, < 2.0.0", 
     "lightning >= 1.7.0, < 2.0.0",
