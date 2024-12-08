@@ -314,8 +314,7 @@ class BaseModel(lightning.LightningModule):
             torch.Tensor: indices of the argmax at each timestep.
         """
         assert len(predictions.size()) == 3
-        _, indices = torch.max(predictions, dim=2)
-        return indices
+        return torch.argmax(predictions, dim=2)
 
     def configure_optimizers(
         self,

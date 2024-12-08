@@ -118,7 +118,7 @@ class TransformerModel(base.BaseModel):
             last_output = logits[:, -1, :]  # Ignores END.
             outputs.append(last_output)
             # -> B x 1 x 1
-            _, pred = torch.max(last_output, dim=1)
+            pred = torch.argmax(last_output, dim=1)
             predictions.append(pred)
             # Updates to track which sequences have decoded an END.
             finished = torch.logical_or(
