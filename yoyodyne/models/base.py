@@ -1,7 +1,7 @@
 """Base model class, with PL integration."""
 
 import argparse
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning
 import torch
@@ -10,7 +10,7 @@ from torch import nn, optim
 from .. import (
     data,
     defaults,
-    evaluators,
+    metrics,
     optimizers,
     schedulers,
     special,
@@ -48,9 +48,11 @@ class BaseModel(lightning.LightningModule):
     features_encoder_cls: Optional[modules.base.BaseModule]
     hidden_size: int
     source_encoder_cls: modules.base.BaseModule
-    # Constructed inside __init__.
+    # Evaluation objects.
+    accuracy: Optional[metrics.Accuracy]
+    ser: Optional[metrics.SymbolErrorRate]
+    # Model parameters.
     dropout_layer: nn.Dropout
-    eval_metrics: Set[evaluators.Evaluator]
     loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
@@ -64,11 +66,12 @@ class BaseModel(lightning.LightningModule):
         vocab_size,
         # All of these have keyword defaults.
         beam_width=defaults.BEAM_WIDTH,
+        compute_accuracy=False,
+        compute_ser=False,
         decoder_layers=defaults.DECODER_LAYERS,
         dropout=defaults.DROPOUT,
         embedding_size=defaults.EMBEDDING_SIZE,
         encoder_layers=defaults.ENCODER_LAYERS,
-        eval_metrics=defaults.EVAL_METRICS,
         features_encoder_cls=None,
         hidden_size=defaults.HIDDEN_SIZE,
         label_smoothing=defaults.LABEL_SMOOTHING,
@@ -86,7 +89,6 @@ class BaseModel(lightning.LightningModule):
         self.vocab_size = vocab_size
         self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
-        self.eval_metrics = eval_metrics
         self.beta1 = beta1
         self.beta2 = beta2
         self.label_smoothing = label_smoothing
@@ -109,20 +111,16 @@ class BaseModel(lightning.LightningModule):
             self.vocab_size, self.embedding_size
         )
         self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
-        self.evaluators = [
-            evaluators.get_evaluator(eval_metric)()
-            for eval_metric in self.eval_metrics
-        ]
         # Checks compatibility with feature encoder and dataloader.
         modules.check_encoder_compatibility(
             source_encoder_cls, features_encoder_cls
         )
-        # Instantiates encoders class.
+        # Instantiates encoder(s).
         self.source_encoder = source_encoder_cls(
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
-            features_vocab_size=features_vocab_size,
+            features_vocab_size=self.features_vocab_size,
             hidden_size=self.hidden_size,
             layers=self.encoder_layers,
             max_source_length=max_source_length,
@@ -143,11 +141,8 @@ class BaseModel(lightning.LightningModule):
             if features_encoder_cls is not None
             else None
         )
+        # Instantiates decoder.
         self.decoder = self.get_decoder()
-        # Saves hyperparameters for PL checkpointing.
-        self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "features_encoder"],
-        )
         # Logs the module names.
         util.log_info(f"Model: {self.name}")
         if self.features_encoder is not None:
@@ -156,6 +151,17 @@ class BaseModel(lightning.LightningModule):
         else:
             util.log_info(f"Encoder: {self.source_encoder.name}")
         util.log_info(f"Decoder: {self.decoder.name}")
+        # Instantiates metrics objects.
+        self.accuracy = (
+            metrics.Accuracy(self.target_vocab_size)
+            if compute_accuracy
+            else None
+        )
+        self.ser = metrics.SymbolErrorRate() if compute_ser else None
+        # Saves hyperparameters for PL checkpointing.
+        self.save_hyperparameters(
+            ignore=["source_encoder", "decoder", "features_encoder"],
+        )
 
     @staticmethod
     def init_embeddings(num_embed: int, embed_size: int) -> nn.Embedding:
@@ -176,44 +182,45 @@ class BaseModel(lightning.LightningModule):
     def get_decoder(self):
         raise NotImplementedError
 
+    # Properties.
+
+    @property
+    def compute_accuracy(self) -> bool:
+        return self.accuracy is not None
+
+    @property
+    def compute_ser(self) -> bool:
+        return self.ser is not None
+
+    @property
+    def has_features_encoder(self) -> bool:
+        return self.features_encoder is not None
+
     @property
     def num_parameters(self) -> int:
         return sum(part.numel() for part in self.parameters())
 
-    @property
-    def has_features_encoder(self):
-        return self.features_encoder is not None
+    # Implemented Lightning interface.
 
     def training_step(
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> torch.Tensor:
+    ) -> None:
         """Runs one step of training.
 
-        This is called by the PL Trainer.
+        This tracks training loss but no other metric.
 
         Args:
-            batch (data.PaddedBatch)
-            batch_idx (int).
-
-        Returns:
-            torch.Tensor: loss.
+            batch (data.PaddedBatch).
+            batch_idx (int): ignored.
         """
         # -> B x seq_len x target_vocab_size.
         predictions = self(batch)
-        target_padded = batch.target.padded
-        # -> B x target_vocab_size x seq_len. For loss.
-        predictions = predictions.transpose(1, 2)
-        loss = self.loss_func(predictions, target_padded)
-        self.log(
-            "train_loss",
-            loss,
-            batch_size=len(batch),
-            on_step=False,
-            on_epoch=True,
-        )
-        return loss
+        self._log_loss(predictions, batch.target.padded, "train")
+
+    def on_validation_epoch_start(self) -> None:
+        self._reset_metrics()
 
     def validation_step(
         self,
@@ -222,62 +229,61 @@ class BaseModel(lightning.LightningModule):
     ) -> Dict:
         """Runs one validation step.
 
-        This is called by the PL Trainer.
+        This tracks validation loss and any other metrics enabled.
 
         Args:
             batch (data.PaddedBatch).
             batch_idx (int).
-
-        Returns:
-            Dict[str, float]: validation metrics.
         """
-        # Greedy decoding.
-        # -> B x seq_len x target_vocab_size.
-        target_padded = batch.target.padded
-        greedy_predictions = self(batch)
-        # Gets a dict of all eval metrics for this batch.
-        val_eval_items_dict = {
-            evaluator.name: evaluator.evaluate(
-                greedy_predictions, target_padded
-            )
-            for evaluator in self.evaluators
-        }
-        # -> B x target_vocab_size x seq_len. For loss.
-        greedy_predictions = greedy_predictions.transpose(1, 2)
-        # Truncates predictions to the size of the target.
-        greedy_predictions = torch.narrow(
-            greedy_predictions, 2, 0, target_padded.size(1)
+        predictions = self(batch)
+        self._log_loss(predictions, batch.target.padded, "val")
+        self._update_metrics(predictions, batch.target.padded)
+
+    def on_validation_epoch_end(self) -> None:
+        self._log_metrics_epoch_end("val")
+
+    def _log_loss(
+        self, predictions: torch.Tensor, target: torch.Tensor, subset: str
+    ) -> None:
+        loss = self.loss_func(predictions, target)
+        self.log(
+            f"{subset}_loss",
+            loss,
+            batch_size=len(target),
+            on_step=False,
+            on_epoch=True,
         )
-        loss = self.loss_func(greedy_predictions, target_padded)
-        val_eval_items_dict.update({"val_loss": loss})
-        return val_eval_items_dict
 
-    def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
-        """Computes average loss and average accuracy.
+    def _reset_metrics(self) -> None:
+        # Loss is automatically reset between batches.
+        if self.compute_accuracy:
+            self.accuracy.reset()
+        if self.compute_ser:
+            self.ser.reset()
 
-        Args:
-            validation_step_outputs (Dict).
+    def _update_metrics(
+        self, predictions: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        # I might need to further pad the predictions and/or target accuracies
+        # for this.
+        if self.compute_accuracy:
+            self.accuracy.update(predictions, target)
+        if self.compute_ser:
+            self.ser.update(predictions, target)
 
-        Returns:
-            Dict: averaged metrics over all validation steps.
-        """
-        avg_val_loss = torch.tensor(
-            [v["val_loss"] for v in validation_step_outputs]
-        ).mean()
-        # Gets requested metrics.
-        metrics = {
-            metric_name: sum(
-                (v[metric_name] for v in validation_step_outputs),
-                start=evaluators.EvalItem([]),
-            ).metric
-            for metric_name in self.eval_metrics
-        }
-        # Always logs validation loss.
-        metrics.update({"loss": avg_val_loss})
-        # del validation_step_outputs
-        for metric, value in metrics.items():
-            self.log(f"val_{metric}", value, prog_bar=True)
-        return metrics
+    def _log_metrics_on_epoch_end(self, subset: str) -> None:
+        if self.compute_accuracy:
+            self.log(
+                f"{subset}_accuracy",
+                self.accuracy.compute(),
+                on_epoch=True,
+            )
+        if self.compute_ser:
+            self.log(
+                f"{subset}_ser",
+                self.ser.compute(),
+                on_epoch=True,
+            )
 
     def predict_step(
         self,
@@ -286,7 +292,7 @@ class BaseModel(lightning.LightningModule):
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Runs one predict step.
 
-        This is called by the PL Trainer.
+        This doesn't track any metrics.
 
         Args:
             batch (data.PaddedBatch).
@@ -297,12 +303,13 @@ class BaseModel(lightning.LightningModule):
                 using beam search, the predictions and scores as a tuple of
                 tensors; if using greedy search, the predictions as a tensor.
         """
-        predictions = self(batch)
         if self.beam_width > 1:
-            predictions, scores = predictions
+            predictions, scores = self(batch)
+            # Calling `_get_predicted` is not necessary as it is called
+            # inside the beam search.
             return predictions, scores
         else:
-            return self._get_predicted(predictions)
+            return self._get_predicted(self(batch))
 
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
@@ -313,9 +320,8 @@ class BaseModel(lightning.LightningModule):
         Returns:
             torch.Tensor: indices of the argmax at each timestep.
         """
-        assert len(predictions.size()) == 3
-        _, indices = torch.max(predictions, dim=2)
-        return indices
+        assert predictions.ndim == 3
+        return torch.argmax(predictions, dim=2)
 
     def configure_optimizers(
         self,
@@ -373,6 +379,9 @@ class BaseModel(lightning.LightningModule):
         self,
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Returns the actual function used to compute loss.
+
+        This is overriden by certain classes which compute loss as a side
+        effect of training or inference.
 
         Returns:
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
