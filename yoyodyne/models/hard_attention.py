@@ -217,7 +217,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         """
         tgt_prob = likelihood + log_probs.transpose(1, 2)
         tgt_prob = tgt_prob.logsumexp(dim=-1)
-        tgt_char = torch.max(tgt_prob, dim=-1)[1]
+        tgt_char = torch.argmax(tgt_prob, dim=-1)
         return tgt_char.unsqueeze(-1), likelihood
 
     @staticmethod
