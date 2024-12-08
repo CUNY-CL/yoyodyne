@@ -61,8 +61,8 @@ class RNNModel(base.BaseModel):
             )
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
-        # Log likelihood, last decoded idx, all likelihoods,  hiddens tensor.
-        histories = [[0.0, [special.START_IDX], [0.0], decoder_hiddens]]
+        # Log likelihood, last decoded idx, hidden state tensor.
+        histories = [[0.0, [special.START_IDX], decoder_hiddens]]
         for t in range(self.max_target_length):
             # List that stores the heap of the top beam_width elements from all
             # beam_width x target_vocab_size possibilities
@@ -72,7 +72,6 @@ class RNNModel(base.BaseModel):
             for (
                 beam_likelihood,
                 beam_idxs,
-                char_likelihoods,
                 decoder_hiddens,
             ) in histories:
                 # Does not keep decoding a path that has hit END.
@@ -80,7 +79,6 @@ class RNNModel(base.BaseModel):
                     fields = [
                         beam_likelihood,
                         beam_idxs,
-                        char_likelihoods,
                         decoder_hiddens,
                     ]
                     # TODO: Replace heapq with torch.max or similar?
@@ -101,7 +99,6 @@ class RNNModel(base.BaseModel):
                         logits,
                         beam_likelihood,
                         beam_idxs,
-                        char_likelihoods,
                         decoded.hiddens,
                     )
                 )
@@ -110,7 +107,6 @@ class RNNModel(base.BaseModel):
                 logits,
                 beam_loglikelihood,
                 beam_idxs,
-                char_loglikelihoods,
                 decoder_hiddens,
             ) in likelihoods:
                 # This is 1 x 1 x target_vocab_size since we fixed batch size
@@ -120,12 +116,10 @@ class RNNModel(base.BaseModel):
                 # Obtain the log-probabilities of the logits.
                 predictions = nn.functional.log_softmax(logits, dim=0).cpu()
                 for j, logprob in enumerate(predictions):
-                    cl = char_loglikelihoods + [logprob]
                     if len(hypotheses) < self.beam_width:
                         fields = [
                             beam_loglikelihood + logprob,
                             beam_idxs + [j],
-                            cl,
                             decoder_hiddens,
                         ]
                         heapq.heappush(hypotheses, fields)
@@ -133,7 +127,6 @@ class RNNModel(base.BaseModel):
                         fields = [
                             beam_loglikelihood + logprob,
                             beam_idxs + [j],
-                            cl,
                             decoder_hiddens,
                         ]
                         heapq.heappushpop(hypotheses, fields)
