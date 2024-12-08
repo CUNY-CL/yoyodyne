@@ -206,7 +206,7 @@ class BaseModel(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> None:
+    ) -> torch.Tensor:
         """Runs one step of training.
 
         This tracks training loss but no other metric.
@@ -214,10 +214,13 @@ class BaseModel(lightning.LightningModule):
         Args:
             batch (data.PaddedBatch).
             batch_idx (int): ignored.
+
+        Returns:
+            torch.Tensor: loss.
         """
         # -> B x seq_len x target_vocab_size.
         predictions = self(batch)
-        self._log_loss(predictions, batch.target.padded, "train")
+        return self._log_loss(predictions, batch.target.padded, "train")
 
     def on_validation_epoch_start(self) -> None:
         self._reset_metrics()
@@ -237,14 +240,44 @@ class BaseModel(lightning.LightningModule):
         """
         predictions = self(batch)
         self._log_loss(predictions, batch.target.padded, "val")
-        self._update_metrics(predictions, batch.target.padded)
+        self._update_metrics(
+            self._get_predicted(predictions), batch.target.padded
+        )
 
     def on_validation_epoch_end(self) -> None:
-        self._log_metrics_epoch_end("val")
+        self._log_metrics_on_epoch_end("val")
+
+    def on_test_epoch_start(self) -> None:
+        self._reset_metrics()
+
+    def test_step(
+        self,
+        batch: data.PaddedBatch,
+        batch_idx: int,
+    ) -> None:
+        """Runs one test step.
+
+        This tracks test loss and any other metrics enabled.
+
+        Args:
+            batch (data.PaddedBatch).
+            batch_idx (int).
+        """
+        predictions = self(batch)
+        self._log_loss(predictions, batch.target.padded, "test")
+        self._update_metrics(
+            self._get_predicted(predictions), batch.target.padded
+        )
+
+    def on_test_epoch_end(self) -> None:
+        self._log_metrics_on_epoch_end("test")
 
     def _log_loss(
         self, predictions: torch.Tensor, target: torch.Tensor, subset: str
-    ) -> None:
+    ) -> torch.Tensor:
+        predictions = predictions.transpose(1, 2)
+        # Truncates predictions to the size of the target for loss computation.
+        predictions = torch.narrow(predictions, 2, 0, target.size(1))
         loss = self.loss_func(predictions, target)
         self.log(
             f"{subset}_loss",
@@ -253,6 +286,7 @@ class BaseModel(lightning.LightningModule):
             on_step=False,
             on_epoch=True,
         )
+        return loss
 
     def _reset_metrics(self) -> None:
         # Loss is automatically reset between batches.
@@ -264,8 +298,6 @@ class BaseModel(lightning.LightningModule):
     def _update_metrics(
         self, predictions: torch.Tensor, target: torch.Tensor
     ) -> None:
-        # I might need to further pad the predictions and/or target accuracies
-        # for this.
         if self.compute_accuracy:
             self.accuracy.update(predictions, target)
         if self.compute_ser:
@@ -277,12 +309,16 @@ class BaseModel(lightning.LightningModule):
                 f"{subset}_accuracy",
                 self.accuracy.compute(),
                 on_epoch=True,
+                logger=True,
+                prog_bar=True,
             )
         if self.compute_ser:
             self.log(
                 f"{subset}_ser",
                 self.ser.compute(),
                 on_epoch=True,
+                logger=True,
+                prog_bar=True,
             )
 
     def predict_step(
@@ -311,7 +347,8 @@ class BaseModel(lightning.LightningModule):
         else:
             return self._get_predicted(self(batch))
 
-    def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _get_predicted(predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.
 
         Args:

@@ -11,7 +11,7 @@ import numpy
 import torch
 import torchmetrics
 
-from . import defaults, special
+from . import defaults, special, util
 
 
 class Error(Exception):
@@ -61,7 +61,7 @@ class Accuracy(torchmetrics.classification.MulticlassExactMatch):
     """Exact match string accuracy ignoring padding symbols."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, ignore_index=special.PAD_IDX, **kwargs)
+        super().__init__(*args, ignore_index=special.PAD_IDX, **kwargs)
 
 
 class SymbolErrorRate(torchmetrics.Metric):
@@ -71,6 +71,8 @@ class SymbolErrorRate(torchmetrics.Metric):
     characters, as in the `torchmetrics.text` module) scaled by the length
     of the gold hypotheses. Theoretically its range is $[0, \infty]$ but in
     practice it is usually in [0, 1]; smaller is better.
+
+    Some definitions multiple this by 100; we don't bother here.
 
     We assume tensors of shape B x seq_len as input. For reasons documented
     below, seq_len must be $< 2^16$.
@@ -91,10 +93,10 @@ class SymbolErrorRate(torchmetrics.Metric):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.add_state("edits", default=0, dist_reduce_fx="sum")
-        self.add_state("length", default=0, dist_reduce_fx="sum")
+        self.add_state("edits", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("length", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, gold: torch.Tensor, hypo: torch.Tensor) -> None:
+    def update(self, hypo: torch.Tensor, gold: torch.Tensor) -> None:
         """Accumulates edit distance sufficient statistics for a batch.
 
         This also performs all the necessary data validation work:
@@ -104,48 +106,50 @@ class SymbolErrorRate(torchmetrics.Metric):
           much, but neither can exceed $2^16$ for precision reasons.
 
         Args:
-            gold (torch.Tensor): a tensor of gold data of shape B x seq_len.
             hypo (torch.Tensor): a tensor of hypothesis data of shape
                 B x seq_len.
+            gold (torch.Tensor): a tensor of gold data of shape B x seq_len.
 
         Raises:
-            Error: Gold tensor is not 2d.
             Error: Hypothesis tensor is not 2d.
-            Error: Gold string lengths exceeds precision.
+            Error: Gold tensor is not 2d.
+            Error: Hypothesis and gold batch sizes do not match.
             Error: Hypothesis string lengths exceeds precision.
-            Error: Gold and hypothesis batch sizes do not match.
+            Error: Gold string lengths exceeds precision.
         """
-        if gold.ndim != 2:
-            raise Error(f"Gold tensor is not 2d ({gold.ndim})")
         if hypo.ndim != 2:
             raise Error(f"Hypothesis tensor is not 2d ({hypo.ndim})")
+        if gold.ndim != 2:
+            raise Error(f"Gold tensor is not 2d ({gold.ndim})")
+        if hypo.size(0) != gold.size(0):
+            raise Error(
+                "Hypothesis and gold batch sizes do not match "
+                f"({gold.size(0)} != {hypo.size(0)})"
+            )
         # uint16 is used for the dynamic programming table, so this
         # implementation is not necessarily correct for strings longer than
         # $2^16 = 65536$. This is not much of a limitation in practice because
         # quadratic growth makes the computation infeasible at that length
         # anyways. This checks the length of the second dimension to ensure it
         # does not exceed this length.
-        sixteen_bits = 2**16
-        if gold.shape(1) > sixteen_bits:
-            raise Error(
-                "Gold string lengths exceeds precision "
-                f"({gold.shape(1)} > {sixteen_bits})"
-            )
-        if hypo.shape(1) > sixteen_bits:
+        max_size = numpy.iinfo(numpy.uint16).max
+        if hypo.size(1) > max_size:
             raise Error(
                 "Hypothesis string lengths exceeds precision "
-                f"({hypo.shape(1)} > {sixteen_bits})"
+                f"({hypo.size(1)} > {max_size})"
             )
-        if gold.shape(0) != hypo.shape(1):
+        if gold.size(1) > max_size:
             raise Error(
-                "Gold and hypothesis batch shapes do not match "
-                f"({gold.shape(0)} != {hypo.shape(0)})"
+                "Gold string lengths exceeds precision "
+                f"({gold.size(1)} > {max_size})"
             )
-        for gold_row, hypo_row in zip(gold, hypo):
-            self._row_edit_distance(gold_row, hypo_row)
+        for hypo_row, gold_row in zip(hypo, gold):
+            self._row_edit_distance(hypo_row, gold_row)
 
     def _row_edit_distance(
-        self, gold: torch.Tensor, hypo: torch.Tensor
+        self,
+        hypo: torch.Tensor,
+        gold: torch.Tensor,
     ) -> None:
         """Computes edit distance sufficient statistics for single tensors.
 
@@ -157,33 +161,40 @@ class SymbolErrorRate(torchmetrics.Metric):
           are not.
 
         Args:
-            gold (torch.Tensor): gold 1d tensor viewed as string.
-            hypo (torch.Tensor): gold 1d tensor viewed as string.
+            hypo (torch.Tensor): hypothesis 1d tensor.
+            gold (torch.Tensor): gold 1d tensor.
         """
-        # This has a desired "add-one" effect; it will fail if there is no
-        # END_IDX present.
-        gold_len = torch.where(gold == special.END_IDX)[0].item()
-        hypo_len = torch.where(hypo == special.END_IDX)[0].item()
-        table = numpy.zeros((gold_len, hypo_len), dtype=numpy.uint16)
-        table[:, 0] = range(gold_len)
-        table[0, :] = range(hypo_len)
-        for i in range(1, gold_len):
-            for j in range(1, hypo_len):
-                if gold[i - 1] == hypo[j - 1]:
+        # The - 1 term reflects that `END_IDX` is not part of the string
+        # with respect to edit distance. This also cannot fail.
+        gold_length = torch.where(gold == special.END_IDX)[0].item() - 1
+        self.length += gold_length
+        try:
+            hypo_length = torch.where(hypo == special.END_IDX)[0].item()
+        except RuntimeError:
+            # If END_IDX isn't present, we'll consider this is a "total loss"
+            # with an edit distance equivalent to the gold length. One can
+            # imagine more elaborate strategies but this oughta do.
+            self.edits += gold_length
+            return
+        table = numpy.zeros(
+            (hypo_length + 1, gold_length + 1), dtype=numpy.uint16
+        )
+        table[:, 0] = range(hypo_length + 1)
+        table[0, :] = range(gold_length + 1)
+        for i in range(1, hypo_length + 1):
+            for j in range(1, gold_length + 1):
+                if hypo[i - 1] == gold[j - 1]:
                     table[i, j] = table[i - 1, j - 1]
                 else:
-                    table[i][j] = min(
+                    table[i, j] = min(
                         table[i - 1, j],
                         table[i, j - 1],
                         table[i - 1, j - 1],
                     )
         self.edits += table[-1, -1]
-        self.length += gold_len
 
     def compute(self) -> torch.Tensor:
-        # TODO: this returns a scalar as a tensor since that's what the
-        # documentation suggests. Test whether this is necessary.
-        return torch.Tensor(self.edits / self.length)
+        return self.edits / self.length
 
 
 # Helper function to determine whether we need to compute a metric.
@@ -221,6 +232,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Selects checkpoints to maximize validation `accuracy`, "
         "or to minimize validation `loss` or `ser`. "
         "Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--eval_metric",
+        action=util.UniqueAddAction,
+        choices=_metric_fac.keys(),
+        default=defaults.EVAL_METRICS,
+        help="Additional metrics to compute.",
     )
     parser.add_argument(
         "--patience_metric",
