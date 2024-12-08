@@ -226,7 +226,7 @@ class BaseModel(lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> Dict:
+    ) -> None:
         """Runs one validation step.
 
         This tracks validation loss and any other metrics enabled.

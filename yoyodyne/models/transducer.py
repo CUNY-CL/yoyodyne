@@ -444,7 +444,7 @@ class TransducerRNNModel(rnn.RNNModel):
         # Prevents base construction of unused loss function.
         return None
 
-    def training_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+    def training_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
         """Runs one step of training.
 
         This is called by the PL Trainer.
@@ -452,9 +452,6 @@ class TransducerRNNModel(rnn.RNNModel):
         Args:
             batch (data.PaddedBatch)
             batch_idx (int).
-
-        Returns:
-            torch.Tensor: loss.
         """
         # Forward pass produces loss by default.
         _, loss = self(batch)
@@ -465,23 +462,28 @@ class TransducerRNNModel(rnn.RNNModel):
             on_step=False,
             on_epoch=True,
         )
-        return loss
 
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+    def on_validation_epoch_start(self) -> None:
+        self._reset_metrics()
+
+    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
         predictions, loss = self(batch)
-        # Evaluation requires prediction as a tensor.
-        predictions = self.convert_predictions(predictions)
-        # Gets a dict of all eval metrics for this batch.
-        val_eval_items_dict = {
-            evaluator.name: evaluator.evaluate(
-                predictions,
-                batch.target.padded,
-                predictions_finalized=True,
-            )
-            for evaluator in self.evaluators
-        }
-        val_eval_items_dict.update({"val_loss": loss})
-        return val_eval_items_dict
+        self._log_loss(loss, len(batch), "val")
+        self._update_metrics(predictions, batch.target.padded)
+
+    def on_validation_epoch_end(self) -> None:
+        self._log_metrics_epoch_end("val")
+
+    def _log_loss(
+        self, loss: torch.Tensor, batch_size: int, subset: str
+    ) -> None:
+        self.log(
+            f"{subset}_loss",
+            loss,
+            batch_size=batch_size,
+            on_step=False,
+            on_epoch=True,
+        )
 
     def predict_step(
         self, batch: data.PaddedBatch, batch_idx: int
@@ -505,10 +507,6 @@ class TransducerRNNModel(rnn.RNNModel):
         # This turns all symbols after the first END into PAD so prediction
         # tensors match gold tensors.
         return util.pad_tensor_after_end(predictions)
-
-    def on_train_epoch_start(self) -> None:
-        """Scheduler for oracle."""
-        self.expert.roll_in_schedule(self.current_epoch)
 
     @staticmethod
     def sample(log_probs: torch.Tensor) -> torch.Tensor:

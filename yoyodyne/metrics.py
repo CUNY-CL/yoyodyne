@@ -75,8 +75,9 @@ class SymbolErrorRate(torchmetrics.Metric):
     We assume tensors of shape B x seq_len as input. For reasons documented
     below, seq_len must be $< 2^16$.
 
-    This is intended to be a corpus-level description, not a micro-average, so
-    the number of edits and the lengths of strings are stored separately.
+    This is inteded to be a corpus-level statistic, so the number of edits and
+    the lengths of strings are stored separately and are only combined as
+    needed.
 
     It is not obvious whether the dynamic programming table ought to be stored
     on CPU, using a Numpy array, or in a 2d tensor on the accelerator. Since
