@@ -62,6 +62,20 @@ class HardAttentionRNNModel(rnn.RNNModel):
             self.teacher_forcing
         ), "Teacher forcing disabled but required by this model"
 
+    # Properties
+
+    @property
+    def decoder_input_size(self) -> int:
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
+
+    # Implemented interface.
+
     def init_decoding(
         self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
@@ -394,12 +408,16 @@ class HardAttentionRNNModel(rnn.RNNModel):
         loss = -torch.logsumexp(fwd, dim=-1).mean() / target.size(1)
         return loss
 
+    # Interface.
+
     def get_decoder(self):
         raise NotImplementedError
 
     @property
     def name(self) -> str:
         raise NotImplementedError
+
+    # Flags.
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -437,12 +455,7 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
             return modules.ContextHardAttentionGRUDecoder(
                 attention_context=self.attention_context,
                 bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
@@ -453,12 +466,7 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
         else:
             return modules.HardAttentionGRUDecoder(
                 bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embedding_size=self.embedding_size,
                 embeddings=self.embeddings,
@@ -523,12 +531,7 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
             return modules.ContextHardAttentionLSTMDecoder(
                 attention_context=self.attention_context,
                 bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 hidden_size=self.hidden_size,
                 embeddings=self.embeddings,
@@ -539,12 +542,7 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
         else:
             return modules.HardAttentionLSTMDecoder(
                 bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
