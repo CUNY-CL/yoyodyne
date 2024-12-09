@@ -66,7 +66,7 @@ class PositionalEncoding(nn.Module):
         else:
             indices = torch.arange(symbols.size(1))
         # Selects the tensors from `out` at the specified indices.
-        out = out[torch.arange(out.shape[0]).unsqueeze(-1), indices]
+        out = out[torch.arange(out.size(0)).unsqueeze(-1), indices]
         # Zeros out pads.
         pad_mask = symbols.ne(special.PAD_IDX).unsqueeze(2)
         # TODO: consider in-place mul_.

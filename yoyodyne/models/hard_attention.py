@@ -78,7 +78,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
                 torch.Tensor]].
         """
-        batch_size = encoder_mask.shape[0]
+        batch_size = encoder_mask.size(0)
         decoder_hiddens = self.init_hiddens(batch_size)
         bos = (
             torch.tensor([special.START_IDX], device=self.device)
@@ -161,7 +161,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 x pred_seq_len, final likelihoods per prediction step of shape
                 batch_size x 1 x src_len.
         """
-        batch_size = encoder_mask.shape[0]
+        batch_size = encoder_mask.size(0)
         log_probs, transition_prob, decoder_hiddens = self.init_decoding(
             encoder_out, encoder_mask
         )
@@ -301,7 +301,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             # Sums to flatten embedding; this is done as an alternative to the
             # linear projection used in the original paper.
             encoder_features_out = encoder_features_out.expand(
-                -1, encoder_out.shape[1], -1
+                -1, encoder_out.size(1), -1
             )
             # Concatenates with the average.
             encoder_out = torch.cat(
@@ -385,13 +385,13 @@ class HardAttentionRNNModel(rnn.RNNModel):
         fwd = transition_probs[0, :, 0].unsqueeze(1) + self._gather_at_idx(
             log_probs[0], target[:, 0]
         )
-        for tgt_char_idx in range(1, target.shape[1]):
+        for tgt_char_idx in range(1, target.size(1)):
             fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
             fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
             fwd = fwd + self._gather_at_idx(
                 log_probs[tgt_char_idx], target[:, tgt_char_idx]
             )
-        loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
+        loss = -torch.logsumexp(fwd, dim=-1).mean() / target.size(1)
         return loss
 
     def get_decoder(self):

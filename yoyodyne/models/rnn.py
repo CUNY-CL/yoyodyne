@@ -54,7 +54,7 @@ class RNNModel(base.BaseModel):
         that we assume batch size is 1.
         """
         # TODO: modify to work with batches larger than 1.
-        batch_size = encoder_mask.shape[0]
+        batch_size = encoder_mask.size(0)
         if batch_size != 1:
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
@@ -180,7 +180,7 @@ class RNNModel(base.BaseModel):
             torch.Tensor: tensor of predictions of shape seq_len x
                 batch_size x target_vocab_size.
         """
-        batch_size = encoder_mask.shape[0]
+        batch_size = encoder_mask.size(0)
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
         # Feed in the first decoder input, as a start tag.

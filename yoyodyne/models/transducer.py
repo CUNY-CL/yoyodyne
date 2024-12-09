@@ -567,17 +567,17 @@ class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
                 )
                 last_hiddens = h_features
             else:
-                last_hiddens = self.init_hiddens(source_mask.shape[0])
+                last_hiddens = self.init_hiddens(source_mask.size(0))
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
                     encoded,
-                    features_encoded.expand(-1, encoded.shape[1], -1),
+                    features_encoded.expand(-1, encoded.size(1), -1),
                 ),
                 dim=2,
             )
         else:
-            last_hiddens = self.init_hiddens(source_mask.shape[0])
+            last_hiddens = self.init_hiddens(source_mask.size(0))
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(
@@ -669,17 +669,17 @@ class TransducerLSTMModel(TransducerRNNModel):
                 )
                 last_hiddens = h_features, c_features
             else:
-                last_hiddens = self.init_hiddens(source_mask.shape[0])
+                last_hiddens = self.init_hiddens(source_mask.size(0))
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
                     encoded,
-                    features_encoded.expand(-1, encoded.shape[1], -1),
+                    features_encoded.expand(-1, encoded.size(1), -1),
                 ),
                 dim=2,
             )
         else:
-            last_hiddens = self.init_hiddens(source_mask.shape[0])
+            last_hiddens = self.init_hiddens(source_mask.size(0))
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(
