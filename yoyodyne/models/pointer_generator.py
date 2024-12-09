@@ -250,7 +250,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGenerator):
         Returns:
             torch.Tensor.
         """
-        batch_size = source_enc.shape[0]
+        batch_size = source_enc.size(0)
         # Feeds in the first decoder input, as a start tag.
         # -> B x 1
         decoder_input = (

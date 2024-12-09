@@ -361,7 +361,7 @@ class HardAttentionRNNDecoder(RNNDecoder):
         return (
             alignment_probs.log()
             .unsqueeze(1)
-            .expand(-1, encoder_out.shape[1], -1)
+            .expand(-1, encoder_out.size(1), -1)
         )
 
     def forward(
@@ -391,7 +391,7 @@ class HardAttentionRNNDecoder(RNNDecoder):
         embedded = self.embed(symbol)
         decoded, hiddens = self.module(embedded, last_hiddens)
         # Gets emission probabilities over each hidden state (source symbol).
-        output = decoded.expand(-1, encoder_out.shape[1], -1)
+        output = decoded.expand(-1, encoder_out.size(1), -1)
         output = torch.cat([output, encoder_out], dim=-1)
         output = self.output_proj(output)
         # Gets transition probabilities (alignment) for current states.
@@ -459,7 +459,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         # Matrix multiplies encoding and decoding for alignment
         # representations. See: https://aclanthology.org/P19-1148/.
         # Expands decoded to concatenate with alignments
-        decoded = decoded.expand(-1, encoder_out.shape[1], -1)
+        decoded = decoded.expand(-1, encoder_out.size(1), -1)
         # -> B x seq_len.
         alignment_scores = torch.cat(
             [self.scale_encoded(encoder_out), decoded], dim=2
@@ -474,7 +474,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
                     t,
                     (
                         -self.delta + i,
-                        encoder_mask.shape[1] - (self.delta + 1) - i,
+                        encoder_mask.size(1) - (self.delta + 1) - i,
                     ),
                 )
                 for i, t in enumerate(alignment_probs)
