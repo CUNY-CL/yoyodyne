@@ -71,7 +71,7 @@ class Evaluator(abc.ABC):
             )
         if not predictions_finalized:
             # Gets the max value at each dim2 in predictions.
-            _, predictions = torch.max(predictions, dim=2)
+            predictions = torch.argmax(predictions, dim=2)
             # Finalizes the predictions.
             predictions = self.finalize_predictions(predictions)
         golds = self.finalize_golds(golds)
