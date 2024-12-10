@@ -142,17 +142,17 @@ class RNNModel(base.BaseModel):
         # Sometimes path lengths does not match so it is neccesary to pad it
         # all to same length to create a tensor.
         max_len = max(len(h[1]) for h in histories)
+        # -> B x beam_size x seq_len.
         predictions = torch.tensor(
             [
                 h[1] + [special.PAD_IDX] * (max_len - len(h[1]))
                 for h in histories
             ],
             device=self.device,
-        )
-        # Converts shape to that of `decode`: seq_len x B x target_vocab_size.
-        predictions = predictions.unsqueeze(0).transpose(0, 2)
-        # Beam search returns the likelihoods of each history.
-        return predictions, torch.tensor([h[0] for h in histories])
+        ).unsqueeze(0)
+        # -> B x beam_size.
+        scores = torch.tensor([h[0] for h in histories]).unsqueeze(0)
+        return predictions, scores
 
     def greedy_decode(
         self,
@@ -225,7 +225,8 @@ class RNNModel(base.BaseModel):
                         -1
                     ):
                         break
-        predictions = torch.stack(predictions)
+        # -> B x seq_len x target_vocab_size.
+        predictions = torch.stack(predictions, dim=1)
         return predictions
 
     def forward(
@@ -240,34 +241,26 @@ class RNNModel(base.BaseModel):
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
                 search returns a tuple with a tensor of predictions of shape
-                beam_width x seq_len and tensor with the unnormalized sum
-                of symbol log-probabilities for each prediction. Greedy returns
+                B x beam_width x seq_len and a tensor of shape beam_width with
+                the likelihood (the unnormalized sum of sequence
+                log-probabilities) for each prediction; greedy search returns
                 a tensor of predictions of shape
-                seq_len x batch_size x target_vocab_size.
+                B x target_vocab_size x seq_len.
         """
         encoder_out = self.source_encoder(batch.source).output
-        # Now this function has a polymorphic return because beam search needs
-        # to return two tensors. For greedy, the return has not been modified
-        # to match the Tuple[torch.Tensor, torch.Tensor] type because the
+        # This function has a polymorphic return because beam search needs to
+        # return two tensors. For greedy, the return has not been modified to
+        # match the Tuple[torch.Tensor, torch.Tensor] type because the
         # training and validation functions depend on it.
         if self.beam_width > 1:
-            predictions, scores = self.beam_decode(
-                encoder_out,
-                batch.source.mask,
-            )
-            # Reduces to beam_width x seq_len
-            predictions = predictions.transpose(0, 2).squeeze(0)
-            return predictions, scores
+            return self.beam_decode(encoder_out, batch.source.mask)
         else:
-            predictions = self.greedy_decode(
+            return self.greedy_decode(
                 encoder_out,
                 batch.source.mask,
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.target else None,
             )
-            # -> B x seq_len x target_vocab_size.
-            predictions = predictions.transpose(0, 1)
-            return predictions
 
     @staticmethod
     def add_argparse_args(parser: argparse.ArgumentParser) -> None:

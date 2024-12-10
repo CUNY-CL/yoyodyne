@@ -297,12 +297,11 @@ class BaseModel(lightning.LightningModule):
                 using beam search, the predictions and scores as a tuple of
                 tensors; if using greedy search, the predictions as a tensor.
         """
-        predictions = self(batch)
+
         if self.beam_width > 1:
-            predictions, scores = predictions
-            return predictions, scores
+            return self(batch)
         else:
-            return self._get_predicted(predictions)
+            return self._get_predicted(self(batch))
 
     def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
         """Picks the best index from the vocabulary.

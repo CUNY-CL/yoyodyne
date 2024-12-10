@@ -89,20 +89,23 @@ class Mapper:
     ) -> List[str]:
         """Decodes a tensor.
 
+        Decoding halts at END; other special symbols are omitted.
+
         Args:
             indices (torch.Tensor): 1d tensor of indices.
 
         Yields:
             List[str]: Decoded symbols.
         """
-        return [
-            self.index.get_symbol(c)
-            for c in indices
-            if not special.isspecial(c)
-        ]
+        symbols = []
+        for idx in indices:
+            if idx == special.END_IDX:
+                return symbols
+            elif not special.isspecial(idx):
+                symbols.append(self.index.get_symbol(idx))
+        return symbols
 
-    # These are just here for compatibility but they all have
-    # the same implementation.
+    # These are here for compatibility; they all have the same implementation.
 
     def decode_source(
         self,
