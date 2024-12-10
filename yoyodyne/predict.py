@@ -102,26 +102,28 @@ def predict(
         if model.beam_width > 1:
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
-            for predictions, scores in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_end(predictions)
-                # TODO: beam search requires singleton batches and this
-                # assumes that. Revise if that restriction is ever lifted.
-                targets = [
-                    parser.target_string(mapper.decode_target(target))
-                    for target in predictions
-                ]
-                # Collates target strings and their scores.
-                row = itertools.chain.from_iterable(
-                    zip(targets, scores.tolist())
-                )
-                tsv_writer.writerow(row)
+            for batch_predictions, batch_scores in trainer.predict(
+                model, loader
+            ):
+                # Even though beam search currently assumes batch size of 1,
+                # this assumption is not baked-in here and should generalize
+                # if this restriction is lifted.
+                for beam, beam_scores in zip(batch_predictions, batch_scores):
+                    beam_strings = [
+                        parser.target_string(mapper.decode_target(prediction))
+                        for prediction in beam
+                    ]
+                    # Collates target strings and their scores.
+                    row = itertools.chain.from_iterable(
+                        zip(beam_strings, beam_scores.tolist())
+                    )
+                    tsv_writer.writerow(row)
         else:
             # Greedy search.
-            for predictions in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_end(predictions)
-                for target in predictions:
+            for batch in trainer.predict(model, loader):
+                for prediction in batch:
                     print(
-                        parser.target_string(mapper.decode_target(target)),
+                        parser.target_string(mapper.decode_target(prediction)),
                         file=sink,
                     )
 
