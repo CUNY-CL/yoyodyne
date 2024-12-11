@@ -77,27 +77,32 @@ class Evaluator(abc.ABC):
         golds = self.finalize_golds(golds)
         return self.get_eval_item(predictions, golds)
 
+    @abc.abstractmethod
     def get_eval_item(
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
     ) -> EvalItem:
-        raise NotImplementedError
+        ...
 
+    @abc.abstractmethod
     def finalize_predictions(
         self,
         predictions: torch.Tensor,
     ) -> torch.Tensor:
-        raise NotImplementedError
+        ...
 
+    @abc.abstractmethod
     def finalize_golds(
         self,
         predictions: torch.Tensor,
     ) -> torch.Tensor:
-        raise NotImplementedError
+        ...
 
+    @property
+    @abc.abstractmethod
     def name(self) -> str:
-        raise NotImplementedError
+        ...
 
 
 class AccuracyEvaluator(Evaluator):
