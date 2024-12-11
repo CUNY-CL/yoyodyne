@@ -222,8 +222,6 @@ class RNNModel(base.BaseModel):
                 # Under teacher forcing the next input is the gold symbol for
                 # this step.
                 decoder_input = target[:, t].unsqueeze(1)
-            # Otherwise we pass the top pred to the next timestep
-            # (i.e., student forcing, greedy decoding).
             else:
                 # Otherwise, under student forcing, the next input is the top
                 # prediction.
