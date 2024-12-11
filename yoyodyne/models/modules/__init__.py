@@ -5,6 +5,7 @@ import argparse
 from .base import BaseModule
 from .hard_attention import ContextHardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import ContextHardAttentionLSTMDecoder  # noqa: F401
+from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
 from .hard_attention import HardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import HardAttentionLSTMDecoder  # noqa: F401
 from .linear import LinearEncoder

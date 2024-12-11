@@ -138,7 +138,9 @@ class DataModule(lightning.LightningDataModule):
             features_vocabulary=(
                 features_vocabulary if features_vocabulary else None
             ),
-            target_vocabulary=target_vocabulary if target_vocabulary else None,
+            target_vocabulary=(
+                target_vocabulary if target_vocabulary else None
+            ),
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.

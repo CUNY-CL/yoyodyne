@@ -31,12 +31,12 @@ class RNNModule(base.BaseModule):
         self.bidirectional = bidirectional
         self.module = self.get_module()
 
+    @abc.abstractmethod
+    def get_module(self) -> nn.RNNBase: ...
+
     @property
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
-
-    @abc.abstractmethod
-    def get_module(self) -> nn.RNNBase: ...
 
 
 class RNNEncoder(RNNModule):

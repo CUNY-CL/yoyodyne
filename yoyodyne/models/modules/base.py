@@ -31,6 +31,8 @@ class ModuleOutput:
 
 
 class BaseModule(abc.ABC, lightning.LightningModule):
+    """Abstract base class for encoder and decoder modules."""
+
     # Sizes.
     num_embeddings: int
     # Regularization arguments.

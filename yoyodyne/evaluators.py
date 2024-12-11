@@ -82,27 +82,23 @@ class Evaluator(abc.ABC):
         self,
         predictions: torch.Tensor,
         golds: torch.Tensor,
-    ) -> EvalItem:
-        ...
+    ) -> EvalItem: ...
 
     @abc.abstractmethod
     def finalize_predictions(
         self,
         predictions: torch.Tensor,
-    ) -> torch.Tensor:
-        ...
+    ) -> torch.Tensor: ...
 
     @abc.abstractmethod
     def finalize_golds(
         self,
         predictions: torch.Tensor,
-    ) -> torch.Tensor:
-        ...
+    ) -> torch.Tensor: ...
 
     @property
     @abc.abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
 
 class AccuracyEvaluator(Evaluator):

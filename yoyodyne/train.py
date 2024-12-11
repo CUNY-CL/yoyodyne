@@ -334,6 +334,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         argparse.ArgumentParser.
     """
+    data.add_argparse_args(parser)
+    evaluators.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
+    metrics.add_argparse_args(parser)
+    models.add_argparse_args(parser)
+    schedulers.add_argparse_args(parser)
+    sizing.add_argparse_args(parser)
     # Path arguments.
     parser.add_argument(
         "--model_dir",
@@ -381,30 +388,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         dest="log_wandb",
     )
-    data.add_argparse_args(parser)
-    evaluators.add_argparse_args(parser)
-    metrics.add_argparse_args(parser)
-    models.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
-    models.modules.add_argparse_args(parser)
-    models.BaseModel.add_argparse_args(parser)
-    models.HardAttentionRNNModel.add_argparse_args(parser)
-    models.RNNModel.add_argparse_args(parser)
-    models.TransformerModel.add_argparse_args(parser)
-    schedulers.add_argparse_args(parser)
-    sizing.add_argparse_args(parser)
-    # Trainer arguments.
-    # Among the things this adds, the following are likely to be useful:
-    # --accelerator ("gpu" for GPU)
-    # --check_val_every_n_epoch
-    # --devices (for multiple device support)
-    # --gradient_clip_val
-    # --max_epochs
-    # --min_epochs
-    # --max_steps
-    # --min_steps
-    # --max_time
-    lightning.Trainer.add_argparse_args(parser)
 
 
 def main() -> None:

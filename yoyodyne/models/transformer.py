@@ -11,10 +11,11 @@ from . import base, embeddings, modules
 
 
 class TransformerModel(base.BaseModel):
-    """Base class for transformer models.
+    """Vanilla transformer model.
 
     Args:
         source_attention_heads (int).
+        *args: passed to superclass.
         max_source_length (int).
         **kwargs: passed to superclass.
     """
@@ -54,6 +55,66 @@ class TransformerModel(base.BaseModel):
         """
         return embeddings.xavier_embedding(num_embeddings, embedding_size)
 
+    def beam_decode(self, *args, **kwargs):
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
+        )
+
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> torch.Tensor:
+        """Runs the encoder-decoder.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            torch.Tensor.
+        """
+        if self.training and self.teacher_forcing:
+            assert (
+                batch.target.padded is not None
+            ), "Teacher forcing requested but no target provided"
+            # Initializes the start symbol for decoding.
+            starts = (
+                torch.tensor(
+                    [special.START_IDX],
+                    device=self.device,
+                )
+                .repeat(batch.target.padded.size(0))
+                .unsqueeze(1)
+            )
+            target_padded = torch.cat((starts, batch.target.padded), dim=1)
+            target_mask = torch.cat(
+                (starts == special.PAD_IDX, batch.target.mask), dim=1
+            )
+            encoder_output = self.source_encoder(batch.source).output
+            decoder_output = self.decoder(
+                encoder_output,
+                batch.source.mask,
+                target_padded,
+                target_mask,
+            ).output
+            logits = self.classifier(decoder_output)
+            return logits[:, :-1, :]  # Ignores END.
+        else:
+            encoder_output = self.source_encoder(batch.source).output
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
+                    encoder_output,
+                    batch.source.mask,
+                    self.beam_width,
+                )
+            else:
+                # -> B x seq_len x output_size.
+                return self.greedy_decode(
+                    encoder_output,
+                    batch.source.mask,
+                    batch.target.padded if batch.target else None,
+                )
+
     def get_decoder(self) -> modules.transformer.TransformerDecoder:
         return modules.transformer.TransformerDecoder(
             decoder_input_size=self.source_encoder.output_size,
@@ -65,11 +126,6 @@ class TransformerModel(base.BaseModel):
             max_source_length=self.max_source_length,
             num_embeddings=self.vocab_size,
             source_attention_heads=self.source_attention_heads,
-        )
-
-    def beam_decode(self, *args, **kwargs):
-        raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
         )
 
     def greedy_decode(
@@ -134,86 +190,31 @@ class TransformerModel(base.BaseModel):
         # -> B x seq_len x target_vocab_size.
         return torch.stack(outputs).transpose(0, 1)
 
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> torch.Tensor:
-        """Runs the encoder-decoder.
-
-        Args:
-            batch (data.PaddedBatch).
-
-        Returns:
-            torch.Tensor.
-        """
-        if self.training and self.teacher_forcing:
-            assert (
-                batch.target.padded is not None
-            ), "Teacher forcing requested but no target provided"
-            # Initializes the start symbol for decoding.
-            starts = (
-                torch.tensor(
-                    [special.START_IDX],
-                    device=self.device,
-                )
-                .repeat(batch.target.padded.size(0))
-                .unsqueeze(1)
-            )
-            target_padded = torch.cat((starts, batch.target.padded), dim=1)
-            target_mask = torch.cat(
-                (starts == special.PAD_IDX, batch.target.mask), dim=1
-            )
-            encoder_output = self.source_encoder(batch.source).output
-            decoder_output = self.decoder(
-                encoder_output,
-                batch.source.mask,
-                target_padded,
-                target_mask,
-            ).output
-            logits = self.classifier(decoder_output)
-            return logits[:, :-1, :]  # Ignores END.
-        else:
-            encoder_output = self.source_encoder(batch.source).output
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    encoder_output,
-                    batch.source.mask,
-                    self.beam_width,
-                )
-            else:
-                # -> B x seq_len x output_size.
-                return self.greedy_decode(
-                    encoder_output,
-                    batch.source.mask,
-                    batch.target.padded if batch.target else None,
-                )
-
     @property
     def name(self) -> str:
         return "transformer"
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds transformer configuration options to the argument parser.
 
-        These are only needed at training time.
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds transformer configuration options to the argument parser.
 
-        Args:
-            parser (argparse.ArgumentParser).
-        """
-        parser.add_argument(
-            "--source_attention_heads",
-            type=int,
-            default=defaults.SOURCE_ATTENTION_HEADS,
-            help="Number of attention heads "
-            "(transformer-backed architectures only. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--features_attention_heads",
-            type=int,
-            default=defaults.FEATURES_ATTENTION_HEADS,
-            help="Number of features attention heads "
-            "(transformer-backed pointer-generator only). "
-            "Default: %(default)s.",
-        )
+    These are only needed at training time.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--source_attention_heads",
+        type=int,
+        default=defaults.SOURCE_ATTENTION_HEADS,
+        help="Number of attention heads "
+        "(transformer-backed architectures only. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--features_attention_heads",
+        type=int,
+        default=defaults.FEATURES_ATTENTION_HEADS,
+        help="Number of features attention heads "
+        "(transformer-backed pointer-generator only). "
+        "Default: %(default)s.",
+    )
