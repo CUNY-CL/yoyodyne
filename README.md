@@ -408,10 +408,8 @@ accelerator. Furthermore, since it is developed at "low-intensity" by a
 geographically-dispersed team, consistency is particularly important. Some
 consistency decisions made thus far:
 
--   The abstract/concrete class distinction is enforced at runtime by the
-    presence of methods raising `NotImplementedError`, though in the future we
-    may consider [PEP 3119](https://peps.python.org/pep-3119/)-style
-    "compile-time" enforcement.
+-   Abstract classes overrides are enforced using [PEP
+    3119](https://peps.python.org/pep-3119/).
 -   [`numpy`](https://numpy.org/) is used for basic mathematical operations and
     constants even in places where the built-in
     [`math`](https://docs.python.org/3/library/math.html) would do.
@@ -432,8 +430,8 @@ calling them as functions (which invokes their `forward` methods); however, in
 some cases it is also necessary for the model to call ancillary members or
 methods of its modules. The `base.ModuleOutput` class is used to capture the
 output of the various modules, and it is this which is essential to, e.g.,
-abstracting between different kinds of encoders which may or may not have
-hidden or cell state to return.
+abstracting between different kinds of encoders which may or may not have hidden
+or cell state to return.
 
 #### Decoding strategies
 
