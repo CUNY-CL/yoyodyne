@@ -1,5 +1,6 @@
 """RNN module classes."""
 
+import abc
 from typing import Tuple
 
 import torch
@@ -10,7 +11,7 @@ from . import attention, base
 
 
 class RNNModule(base.BaseModule):
-    """Base class for RNN modules.
+    """Abstract base class for RNN modules.
 
     Args:
         bidirectional (bool).
@@ -34,16 +35,12 @@ class RNNModule(base.BaseModule):
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
-    def get_module(self):
-        raise NotImplementedError
-
-    @property
-    def name(self) -> str:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def get_module(self) -> nn.RNNBase: ...
 
 
 class RNNEncoder(RNNModule):
-    """Base class for RNN encoders."""
+    """Abstract base class for RNN encoders."""
 
     def forward(self, source: data.PaddedTensor) -> base.ModuleOutput:
         """Encodes the input.
@@ -115,7 +112,7 @@ class LSTMEncoder(RNNEncoder):
 
 
 class RNNDecoder(RNNModule):
-    """Base class for RNN decoders."""
+    """Abstract base class for RNN decoders."""
 
     def __init__(self, decoder_input_size, *args, **kwargs):
         self.decoder_input_size = decoder_input_size
@@ -209,7 +206,7 @@ class LSTMDecoder(RNNDecoder):
 
 
 class AttentiveRNNDecoder(RNNDecoder):
-    """Base class for attentive RNN decoders."""
+    """Abstract base class for attentive RNN decoders."""
 
     def __init__(self, attention_input_size, *args, **kwargs):
         super().__init__(*args, **kwargs)

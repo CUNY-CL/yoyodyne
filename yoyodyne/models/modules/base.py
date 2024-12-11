@@ -1,5 +1,6 @@
 """Base module class with PL integration."""
 
+import abc
 import dataclasses
 from typing import Optional, Union, Tuple
 
@@ -29,7 +30,7 @@ class ModuleOutput:
         return self.embeddings is not None
 
 
-class BaseModule(lightning.LightningModule):
+class BaseModule(abc.ABC, lightning.LightningModule):
     # Sizes.
     num_embeddings: int
     # Regularization arguments.
@@ -76,5 +77,9 @@ class BaseModule(lightning.LightningModule):
         return self.dropout_layer(embedded)
 
     @property
-    def output_size(self) -> int:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abc.abstractmethod
+    def output_size(self) -> int: ...
