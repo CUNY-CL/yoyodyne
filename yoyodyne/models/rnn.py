@@ -48,10 +48,24 @@ class RNNModel(base.BaseModel):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Overrides `beam_decode` in `BaseEncoderDecoder`.
+        """Decodes with a beam.
 
-        This method implements the LSTM-specific beam search version. Note
-        that we assume batch size is 1.
+        Args:
+            encoder_out (torch.Tensor): batch of encoded input symbols.
+            encoder_mask (torch.Tensor): mask for the batch of encoded
+                input symbols.
+
+        Decoding halts once all sequences in a batch have reached END. It is
+        not currently possible to combine this with loss computation or
+        teacher forcing.
+
+        The implementation assumes batch size is 1, but both inputs and outputs
+        are still assumed to have a leading dimension representing batch size.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: predictions of shape
+                B x beam_size x seq_length and log-likelihoods of shape
+                B x beam_size.
         """
         # TODO: modify to work with batches larger than 1.
         batch_size = encoder_mask.size(0)
@@ -161,42 +175,42 @@ class RNNModel(base.BaseModel):
         teacher_forcing: bool,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Decodes a sequence given the encoded input.
+        """Decodes greedily.
 
-        Decodes until all sequences in a batch have reached END up to a
-        specified length depending on the `target` args.
+        A hard upper bound on the length of the decoded strings is provided by
+        the length of the target strings (more specifically, the length of the
+        longest target string) if a target is provided, or `max_target_length`
+        if not. Decoding will halt earlier if no target is provided and all
+        sequences have reached END.
 
         Args:
             encoder_out (torch.Tensor): batch of encoded input symbols.
             encoder_mask (torch.Tensor): mask for the batch of encoded
                 input symbols.
-            teacher_forcing (bool): Whether or not to decode
-                with teacher forcing.
-            target (torch.Tensor, optional): target symbols;  we
-                decode up to `len(target)` symbols. If None, we decode up to
-                `self.max_target_length` symbols.
+            teacher_forcing (bool): whether or not to decode with teacher
+                forcing.
+            target (torch.Tensor, optional): target symbols; if provided this
+                decoding continues until this length is reached.
 
         Returns:
-            torch.Tensor: tensor of predictions of shape seq_len x
-                batch_size x target_vocab_size.
+            torch.Tensor: predictions of B x seq_length x target_vocab_size.
         """
         batch_size = encoder_mask.size(0)
         # Initializes hidden states for decoder LSTM.
         decoder_hiddens = self.init_hiddens(batch_size)
-        # Feed in the first decoder input, as a start tag.
-        # -> B x 1.
         decoder_input = (
             torch.tensor([special.START_IDX], device=self.device)
             .repeat(batch_size)
             .unsqueeze(1)
         )
         predictions = []
-        num_steps = (
-            target.size(1) if target is not None else self.max_target_length
-        )
-        # Tracks when each sequence has decoded an END.
-        finished = torch.zeros(batch_size, device=self.device)
-        for t in range(num_steps):
+        if target is None:
+            max_num_steps = self.max_target_length
+            # Tracks when each sequence has decoded an END.
+            finished = torch.zeros(batch_size, device=self.device)
+        else:
+            max_num_steps = target.size(1)
+        for t in range(max_num_steps):
             # pred: B x 1 x output_size.
             decoded = self.decoder(
                 decoder_input, decoder_hiddens, encoder_out, encoder_mask
@@ -204,27 +218,23 @@ class RNNModel(base.BaseModel):
             decoder_output, decoder_hiddens = decoded.output, decoded.hiddens
             logits = self.classifier(decoder_output)
             predictions.append(logits.squeeze(1))
-            # In teacher forcing mode the next input is the gold symbol
-            # for this step.
             if teacher_forcing:
+                # Under teacher forcing the next input is the gold symbol for
+                # this step.
                 decoder_input = target[:, t].unsqueeze(1)
             # Otherwise we pass the top pred to the next timestep
             # (i.e., student forcing, greedy decoding).
             else:
+                # Otherwise, under student forcing, the next input is the top
+                # prediction.
                 decoder_input = self._get_predicted(logits)
-                # Updates to track which sequences have decoded an END.
+            if target is None:
+                # Updates which sequences have decoded an END.
                 finished = torch.logical_or(
                     finished, (decoder_input == special.END_IDX)
                 )
-                # Breaks when all sequences have predicted an END symbol. If we
-                # have a target (and are thus computing loss), we only break
-                # when we have decoded at least the the same number of steps as
-                # the target length.
                 if finished.all():
-                    if target is None or decoder_input.size(-1) >= target.size(
-                        -1
-                    ):
-                        break
+                    break
         # -> B x seq_len x target_vocab_size.
         predictions = torch.stack(predictions, dim=1)
         return predictions
