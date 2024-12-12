@@ -36,7 +36,7 @@ class RNNModel(base.BaseModel):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Decodes with a beam.
+        """Decodes with beam search.
 
         Args:
             encoder_out (torch.Tensor): batch of encoded input symbols.
@@ -48,7 +48,7 @@ class RNNModel(base.BaseModel):
         teacher forcing.
 
         The implementation assumes batch size is 1, but both inputs and outputs
-        are assumed to have a leading dimension representing batch size.
+        are still assumed to have a leading dimension representing batch size.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
