@@ -48,7 +48,7 @@ class RNNModel(base.BaseModel):
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Decodes with a beam.
+        """Decodes with beam search.
 
         Args:
             encoder_out (torch.Tensor): batch of encoded input symbols.
