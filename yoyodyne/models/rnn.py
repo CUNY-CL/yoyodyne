@@ -16,9 +16,10 @@ class RNNModel(base.BaseModel):
     """Abstract base class for RNN models.
 
     The implementation of `get_decoder` in the derived classes determines not
-    just what kind of RNN is used (i.e., GRU or LSTM), but also whether this
-    is an this is "inattentive"---in which case last (non-padding) hidden state
-    of the encoder is the input to the decoder---or attentive.
+    just what kind of RNN is used (i.e., GRU or LSTM), and this decoder
+    implementation also determines whether this is inattentive---in which
+    case last (non-padding) hidden state of the encoder is the input to the
+    decoder---or attentive.
     """
 
     # Constructed inside __init__.

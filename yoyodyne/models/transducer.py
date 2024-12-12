@@ -72,8 +72,7 @@ class TransducerRNNModel(rnn.RNNModel):
     ) -> Tuple[List[List[int]], torch.Tensor]: ...
 
     @abc.abstractmethod
-    def get_decoder(self):
-        modules.RNNDecoder: ...
+    def get_decoder(self) -> modules.RNNDecoder: ...
 
     def greedy_decode(
         self,
