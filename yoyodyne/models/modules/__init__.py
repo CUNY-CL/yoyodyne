@@ -15,6 +15,7 @@ from .rnn import GRUDecoder  # noqa: F401
 from .rnn import GRUEncoder
 from .rnn import LSTMDecoder  # noqa: F401
 from .rnn import LSTMEncoder
+from .rnn import RNNDecoder  # noqa: F401
 from .transformer import TransformerDecoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder
 from .transformer import TransformerEncoder
