@@ -164,7 +164,7 @@ class RNNDecoder(RNNModule):
         output, hiddens = self.module(
             torch.cat((embedded, last_encoder_out), 2), last_hiddens
         )
-        output = self.dropout_layer(output)
+        self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
 
     @property
@@ -250,7 +250,7 @@ class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
         output, hiddens = self.module(
             torch.cat((embedded, context), 2), last_hiddens
         )
-        output = self.dropout_layer(output)
+        self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
 
     @property
@@ -293,7 +293,7 @@ class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
         output, hiddens = self.module(
             torch.cat((embedded, context), 2), last_hiddens
         )
-        output = self.dropout_layer(output)
+        self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
 
     @property

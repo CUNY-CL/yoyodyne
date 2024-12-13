@@ -108,7 +108,6 @@ class BaseModel(lightning.LightningModule):
         self.embeddings = self.init_embeddings(
             self.vocab_size, self.embedding_size
         )
-        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         self.evaluators = [
             evaluators.get_evaluator(eval_metric)()
             for eval_metric in self.eval_metrics
