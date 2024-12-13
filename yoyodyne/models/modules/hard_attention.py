@@ -108,13 +108,13 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         """
         alignment_scores = torch.bmm(
             self.scale_encoded(encoder_out), decoded.transpose(1, 2)
-        ).squeeze(-1)
+        ).squeeze(2)
         # Gets probability of alignments.
         alignment_probs = nn.functional.softmax(alignment_scores, dim=1)
         # Mask padding.
         alignment_probs = alignment_probs * (~encoder_mask) + defaults.EPSILON
         alignment_probs = alignment_probs / alignment_probs.sum(
-            dim=-1, keepdim=True
+            dim=1, keepdim=True
         )
         # Expands over all time steps. Log probs for quicker computation.
         return (
@@ -175,7 +175,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
             self.hidden_size * 2, (attention_context * 2) + 1
         )
 
-    def _alignment_step(
+    def _get_transitions(
         self,
         decoded: torch.Tensor,
         encoder_out: torch.Tensor,
