@@ -382,25 +382,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         return torch.argmax(predictions, dim=2)
 
 
-def add_predict_argparse_args(
-    parser: argparse.ArgumentParser,
-) -> None:
-    """Adds shared configuration options to the argument parser.
-
-    These are only needed at prediction time.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    # Beam search arguments.
-    parser.add_argument(
-        "--beam_width",
-        type=int,
-        required=False,
-        help="Size of the beam for beam search. Default: %(default)s.",
-    )
-
-
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """Adds shared configuration options to the argument parser.
 

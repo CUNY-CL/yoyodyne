@@ -336,11 +336,11 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     """
     data.add_argparse_args(parser)
     evaluators.add_argparse_args(parser)
-    lightning.Trainer.add_argparse_args(parser)
     metrics.add_argparse_args(parser)
     models.add_argparse_args(parser)
     schedulers.add_argparse_args(parser)
     sizing.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
     # Path arguments.
     parser.add_argument(
         "--model_dir",

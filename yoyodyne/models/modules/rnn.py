@@ -137,7 +137,7 @@ class RNNDecoder(RNNModule):
                 torch.Tensor]]): last hidden states from the decoder of shape
                 1 x B x decoder_dim.
             encoder_out (torch.Tensor): encoded input sequence of shape
-                B x seq_len x target_vocab_size.
+                B x seq_len x encoder_dim.
             encoder_mask (torch.Tensor): mask for the encoded input batch of
                 shape B x seq_len.
 
@@ -160,17 +160,17 @@ class RNNDecoder(RNNModule):
 
         Args:
             encoder_out (torch.Tensor): encoded input sequence of shape
-                B x seq_len x target_vocab_size.
+                B x seq_len x encoder_dim.
             encoder_mask (torch.Tensor): mask for the encoded input batch of
                 shape B x seq_len.
 
         Returns:
-            torch.Tensor: indices of shape B x 1 x target_vocab_size.
+            torch.Tensor: indices of shape B x 1 x encoder_dim.
         """
         # Gets the index of the last unmasked tensor.
         # -> B.
         last_idx = (~encoder_mask).sum(dim=1) - 1
-        # -> B x 1 x target_vocab_size.
+        # -> B x 1 x encoder_dim.
         last_idx = last_idx.view(encoder_out.size(0), 1, 1).expand(
             -1, -1, encoder_out.size(2)
         )
@@ -249,7 +249,7 @@ class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
             last_hiddens (torch.Tensor): last hidden states from the decoder
                 of shape 1 x B x decoder_dim.
             encoder_out (torch.Tensor): encoded input sequence of shape
-                B x seq_len x target_vocab_size.
+                B x seq_len x encoder_dim.
             encoder_mask (torch.Tensor): mask for the encoded input batch of
                 shape B x seq_len.
 
@@ -288,7 +288,7 @@ class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
             last_hiddens (Tuple[torch.Tensor, torch.Tensor]): last hidden
                 and cell state from the decoder of shape 1 x B x decoder_dim.
             encoder_out (torch.Tensor): encoded input sequence of shape
-                B x seq_len x target_vocab_size.
+                B x seq_len x encoder_dim.
             encoder_mask (torch.Tensor): mask for the encoded input batch of
                 shape B x seq_len.
 

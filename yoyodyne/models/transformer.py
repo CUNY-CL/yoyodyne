@@ -74,7 +74,7 @@ class TransformerModel(base.BaseModel):
         """
         if self.training and self.teacher_forcing:
             assert (
-                batch.target.padded is not None
+                batch.has_target
             ), "Teacher forcing requested but no target provided"
             # Initializes the start symbol for decoding.
             starts = (
