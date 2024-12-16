@@ -46,12 +46,9 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
             base.ModuleOutput: step-wise emission probabilities, alignment
                 matrix, and hidden states of decoder.
         """
-        # Encodes current symbol.
         embedded = self.embed(symbol)
         decoded, hiddens = self.module(embedded, last_hiddens)
-        # Gets emission probabilities over each hidden state.
         emissions = self._get_emissions(decoded, encoder_out)
-        # Gets transition probabilities (alignments) for current states.
         transitions = self._get_transitions(decoded, encoder_out, encoder_mask)
         return base.ModuleOutput(emissions, hiddens, embeddings=transitions)
 
@@ -111,12 +108,13 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         ).squeeze(2)
         # Gets probability of alignments.
         alignment_probs = nn.functional.softmax(alignment_scores, dim=1)
-        # Mask padding.
+        # Masks padding.
         alignment_probs = alignment_probs * (~encoder_mask) + defaults.EPSILON
         alignment_probs = alignment_probs / alignment_probs.sum(
             dim=1, keepdim=True
         )
-        # Expands over all time steps. Log probs for quicker computation.
+        # Expands over all time steps; uses log probabilities for quicker
+        # computations.
         return (
             alignment_probs.log()
             .unsqueeze(1)
@@ -170,7 +168,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
     def __init__(self, attention_context, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.delta = attention_context
-        # Window size must include center and both sides.
+        # The window size must include center and both sides.
         self.alignment_proj = nn.Linear(
             self.hidden_size * 2, (attention_context * 2) + 1
         )
@@ -197,7 +195,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         """
         # Matrix multiplies encoding and decoding for alignment
         # representations. See: https://aclanthology.org/P19-1148/.
-        # Expands decoded to concatenate with alignments
+        # Expands decoded so it can concatenate with alignments.
         decoded = decoded.expand(-1, encoder_out.size(1), -1)
         # -> B x seq_len.
         alignment_scores = torch.cat(
@@ -205,7 +203,8 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         )
         alignment_scores = self.alignment_proj(alignment_scores)
         alignment_probs = nn.functional.softmax(alignment_scores, dim=1)
-        # Limits context to window of self.delta (context length).
+        # Limits context to a window of the size delta (i.e., the context
+        # length).
         alignment_probs = alignment_probs.split(1, dim=1)
         alignment_probs = torch.cat(
             [
@@ -227,7 +226,7 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         alignment_probs = alignment_probs / alignment_probs.sum(
             dim=2, keepdim=True
         )
-        # Log probs for quicker computation.
+        # Uses log probabilities for quicker computations.
         return alignment_probs.log()
 
 
