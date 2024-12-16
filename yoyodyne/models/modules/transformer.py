@@ -162,9 +162,11 @@ class TransformerModule(base.BaseModule):
             embedded (torch.Tensor): embedded tensor of shape
                 B x seq_len x embed_dim.
         """
-        word_embedding = self.esq * self.embeddings(symbols)
-        positional_embedding = self.positional_encoding(symbols)
-        return self.dropout_layer(word_embedding + positional_embedding)
+        word_embedded = self.esq * self.embeddings(symbols)
+        positional_embedded = self.positional_encoding(symbols)
+        embedded = word_embedded + positional_embedded
+        self.dropout_layer(embedded)
+        return embedded
 
     @abc.abstractmethod
     def get_module(self) -> base.BaseModule: ...
@@ -268,14 +270,12 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         char_mask = (
             symbols < (self.num_embeddings - self.features_vocab_size)
         ).long()
-        type_embedding = self.esq * self.type_embedding(char_mask)
-        word_embedding = self.esq * self.embeddings(symbols)
-        positional_embedding = self.positional_encoding(
-            symbols, mask=char_mask
-        )
-        return self.dropout_layer(
-            word_embedding + positional_embedding + type_embedding
-        )
+        word_embedded = self.esq * self.embeddings(symbols)
+        type_embedded = self.esq * self.type_embedding(char_mask)
+        positional_embedded = self.positional_encoding(symbols, mask=char_mask)
+        embedded = word_embedded + type_embedded + positional_embedded
+        self.dropout_layer(embedded)
+        return embedded
 
     @property
     def name(self) -> str:
