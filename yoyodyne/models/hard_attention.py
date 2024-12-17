@@ -1,7 +1,8 @@
 """Hard monotonic neural HMM classes."""
 
+import abc
 import argparse
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -11,7 +12,7 @@ from . import modules, rnn
 
 
 class HardAttentionRNNModel(rnn.RNNModel):
-    """Base class for hard attention models.
+    """Abstract base class for hard attention models.
 
     Learns probability distribution of target string by modeling transduction
     of source string to target string as Markov process. Assumes each character
@@ -62,45 +63,44 @@ class HardAttentionRNNModel(rnn.RNNModel):
             self.teacher_forcing
         ), "Teacher forcing disabled but required by this model"
 
-    # Properties
+    def _get_loss_func(
+        self,
+    ) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Returns the actual function used to compute loss.
 
-    @property
-    def decoder_input_size(self) -> int:
-        if self.has_features_encoder:
-            return (
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-            )
-        else:
-            return self.source_encoder.output_size
-
-    # Implemented interface.
-
-    def init_decoding(
-        self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Initializes hiddens and initial decoding output.
-
-        This feeds the BOS string to the decoder to provide an initial
-        probability.
-
-        Args:
-            encoder_out (torch.Tensor).
-            encoder_mask (torch.Tensor).
+        This overrides the inherited loss function.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
-                torch.Tensor]].
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
         """
-        batch_size = encoder_mask.size(0)
-        decoder_hiddens = self.init_hiddens(batch_size)
-        bos = (
-            torch.tensor([special.START_IDX], device=self.device)
-            .repeat(batch_size)
-            .unsqueeze(-1)
+        return self._loss
+
+    def _loss(
+        self,
+        target: torch.Tensor,
+        log_probs: torch.Tensor,
+        transition_probs: torch.Tensor,
+    ) -> torch.Tensor:
+        # TODO: Currently we're storing a concatenation of loss tensors for
+        # each time step. This is costly. Revisit this calculation and see if
+        # we can use DP to simplify.
+        fwd = transition_probs[0, :, 0].unsqueeze(1) + self._gather_at_idx(
+            log_probs[0], target[:, 0]
         )
-        return self.decode_step(
-            bos, decoder_hiddens, encoder_out, encoder_mask
+        for tgt_char_idx in range(1, target.size(1)):
+            fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
+            fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
+            fwd = fwd + self._gather_at_idx(
+                log_probs[tgt_char_idx], target[:, tgt_char_idx]
+            )
+        loss = -torch.logsumexp(fwd, dim=-1).mean() / target.size(1)
+        return loss
+
+    def beam_decode(self, *args, **kwargs):
+        """Overrides incompatible implementation inherited from RNNModel."""
+        raise NotImplementedError(
+            f"Beam search not implemented for {self.name} model"
         )
 
     def decode(
@@ -147,11 +147,30 @@ class HardAttentionRNNModel(rnn.RNNModel):
             all_transition_probs.append(transition_probs)
         return torch.stack(all_log_probs), torch.stack(all_transition_probs)
 
-    def beam_decode(self, *args, **kwargs):
-        """Overrides incompatible implementation inherited from RNNModel."""
-        raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
-        )
+    @abc.abstractmethod
+    def decode_step(
+        self,
+        tgt_symbol: torch.Tensor,
+        decoder_hiddens: Union[
+            torch.Tensor, Tuple[torch.Tensor, torch.Tensor]
+        ],
+        encoder_out: torch.Tensor,
+        encoder_mask: torch.Tensor,
+    ) -> Tuple[
+        torch.Tensor,
+        torch.Tensor,
+        Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+    ]: ...
+
+    @property
+    def decoder_input_size(self) -> int:
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
 
     def greedy_decode(
         self,
@@ -179,7 +198,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         log_probs, transition_prob, decoder_hiddens = self.init_decoding(
             encoder_out, encoder_mask
         )
-        predictions, likelihood = self.greedy_step(
+        predictions, likelihood = self._greedy_step(
             log_probs, transition_prob[:, 0].unsqueeze(1)
         )
         finished = (
@@ -197,7 +216,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             likelihood = likelihood.logsumexp(dim=-1, keepdim=True).transpose(
                 1, 2
             )
-            pred, likelihood = self.greedy_step(log_probs, likelihood)
+            pred, likelihood = self._greedy_step(log_probs, likelihood)
             finished = finished | (pred == special.END_IDX)
             if finished.all().item():
                 break
@@ -213,7 +232,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         return predictions, likelihood
 
     @staticmethod
-    def greedy_step(
+    def _greedy_step(
         log_probs: torch.Tensor, likelihood: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Greedy decoding of current timestep.
@@ -258,34 +277,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
         idx = idx.view(batch_size, 1, src_seq_len)
         pad_mask = (idx != special.PAD_IDX).float()
         return output * pad_mask
-
-    @staticmethod
-    def _apply_mono_mask(
-        transition_prob: torch.Tensor,
-    ) -> torch.Tensor:
-        """Applies monotonic attention mask to transition probabilities.
-
-        Enforces a 0 log-probability values for all non-monotonic relations
-        in the transition_prob tensor (i.e., all values i < j per row j).
-
-        Args:
-            transition_prob (torch.Tensor): transition probabilities between
-                all hidden states (source sequence) of shape batch_size x
-                src_len x src_len.
-
-        Returns:
-            torch.Tensor: masked transition probabilities of shape batch_size
-                x src_len x src_len.
-        """
-        mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
-        # Using 0 log-probability value for masking; this is borrowed from the
-        # original implementation.
-        mask = (mask - 1) * defaults.NEG_LOG_EPSILON
-        transition_prob = transition_prob + mask
-        transition_prob = transition_prob - transition_prob.logsumexp(
-            -1, keepdim=True
-        )
-        return transition_prob
 
     def forward(
         self,
@@ -333,6 +324,33 @@ class HardAttentionRNNModel(rnn.RNNModel):
         else:
             return self.greedy_decode(encoder_out, batch.source.mask)
 
+    def init_decoding(
+        self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        """Initializes hiddens and initial decoding output.
+
+        This feeds the BOS string to the decoder to provide an initial
+        probability.
+
+        Args:
+            encoder_out (torch.Tensor).
+            encoder_mask (torch.Tensor).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
+                torch.Tensor]].
+        """
+        batch_size = encoder_mask.size(0)
+        decoder_hiddens = self.init_hiddens(batch_size)
+        bos = (
+            torch.tensor([special.START_IDX], device=self.device)
+            .repeat(batch_size)
+            .unsqueeze(-1)
+        )
+        return self.decode_step(
+            bos, decoder_hiddens, encoder_out, encoder_mask
+        )
+
     def training_step(
         self, batch: data.PaddedBatch, batch_idx: int
     ) -> torch.Tensor:
@@ -359,6 +377,10 @@ class HardAttentionRNNModel(rnn.RNNModel):
         )
         return loss
 
+    def predict_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+        predictions, _ = self(batch)
+        return predictions
+
     def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
         predictions, likelihood = self(batch)
         # Processes for accuracy calculation.
@@ -372,108 +394,44 @@ class HardAttentionRNNModel(rnn.RNNModel):
         val_eval_items_dict.update({"val_loss": -likelihood.mean()})
         return val_eval_items_dict
 
-    def predict_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
-        predictions, _ = self(batch)
-        return predictions
-
-    def _get_loss_func(
-        self,
-    ) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Returns the actual function used to compute loss.
-
-        Returns:
-            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
-                loss function.
-        """
-        return self._loss
-
-    def _loss(
-        self,
-        target: torch.Tensor,
-        log_probs: torch.Tensor,
-        transition_probs: torch.Tensor,
-    ) -> torch.Tensor:
-        # TODO: Currently we're storing a concatenation of loss tensors for
-        # each time step. This is costly. Revisit this calculation and see if
-        # we can use DP to simplify.
-        fwd = transition_probs[0, :, 0].unsqueeze(1) + self._gather_at_idx(
-            log_probs[0], target[:, 0]
-        )
-        for tgt_char_idx in range(1, target.size(1)):
-            fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
-            fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
-            fwd = fwd + self._gather_at_idx(
-                log_probs[tgt_char_idx], target[:, tgt_char_idx]
-            )
-        loss = -torch.logsumexp(fwd, dim=-1).mean() / target.size(1)
-        return loss
-
-    # Interface.
-
-    def get_decoder(self):
-        raise NotImplementedError
-
-    @property
-    def name(self) -> str:
-        raise NotImplementedError
-
-    # Flags.
-
     @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds HMM configuration options to the argument parser.
+    def _apply_mono_mask(
+        transition_prob: torch.Tensor,
+    ) -> torch.Tensor:
+        """Applies monotonic attention mask to transition probabilities.
+
+        Enforces a 0 log-probability values for all non-monotonic relations
+        in the transition_prob tensor (i.e., all values i < j per row j).
 
         Args:
-            parser (argparse.ArgumentParser).
+            transition_prob (torch.Tensor): transition probabilities between
+                all hidden states (source sequence) of shape batch_size x
+                src_len x src_len.
+
+        Returns:
+            torch.Tensor: masked transition probabilities of shape batch_size
+                x src_len x src_len.
         """
-        parser.add_argument(
-            "--enforce_monotonic",
-            action="store_true",
-            default=defaults.ENFORCE_MONOTONIC,
-            help="Enforce monotonicity "
-            "(hard attention architectures only). Default: %(default)s.",
+        mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
+        # Using 0 log-probability value for masking; this is borrowed from the
+        # original implementation.
+        mask = (mask - 1) * defaults.NEG_LOG_EPSILON
+        transition_prob = transition_prob + mask
+        transition_prob = transition_prob - transition_prob.logsumexp(
+            -1, keepdim=True
         )
-        parser.add_argument(
-            "--no_enforce_monotonic",
-            action="store_false",
-            dest="enforce_monotonic",
-        )
-        parser.add_argument(
-            "--attention_context",
-            type=int,
-            default=defaults.ATTENTION_CONTEXT,
-            help="Width of attention context "
-            "(hard attention architectures only). Default: %(default)s.",
-        )
+        return transition_prob
+
+    @abc.abstractmethod
+    def get_decoder(self) -> modules.HardAttentionRNNDecoder: ...
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str: ...
 
 
 class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
     """Hard attention with GRU backend."""
-
-    def get_decoder(self):
-        if self.attention_context > 0:
-            return modules.ContextHardAttentionGRUDecoder(
-                attention_context=self.attention_context,
-                bidirectional=False,
-                decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                embeddings=self.embeddings,
-                embedding_size=self.embedding_size,
-                hidden_size=self.hidden_size,
-                layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
-            )
-        else:
-            return modules.HardAttentionGRUDecoder(
-                bidirectional=False,
-                decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                embedding_size=self.embedding_size,
-                embeddings=self.embeddings,
-                hidden_size=self.hidden_size,
-                layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
-            )
 
     def decode_step(
         self,
@@ -518,6 +476,31 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
             transition_prob = self._apply_mono_mask(transition_prob)
         return log_probs, transition_prob, decoder_hiddens
 
+    def get_decoder(self):
+        if self.attention_context > 0:
+            return modules.ContextHardAttentionGRUDecoder(
+                attention_context=self.attention_context,
+                bidirectional=False,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.dropout,
+                embeddings=self.embeddings,
+                embedding_size=self.embedding_size,
+                hidden_size=self.hidden_size,
+                layers=self.decoder_layers,
+                num_embeddings=self.target_vocab_size,
+            )
+        else:
+            return modules.HardAttentionGRUDecoder(
+                bidirectional=False,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.dropout,
+                embedding_size=self.embedding_size,
+                embeddings=self.embeddings,
+                hidden_size=self.hidden_size,
+                layers=self.decoder_layers,
+                num_embeddings=self.target_vocab_size,
+            )
+
     @property
     def name(self) -> str:
         return "hard attention GRU"
@@ -525,31 +508,6 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
 
 class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
     """Hard attention with LSTM backend."""
-
-    def get_decoder(self):
-        if self.attention_context > 0:
-            return modules.ContextHardAttentionLSTMDecoder(
-                attention_context=self.attention_context,
-                bidirectional=False,
-                decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                hidden_size=self.hidden_size,
-                embeddings=self.embeddings,
-                embedding_size=self.embedding_size,
-                layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
-            )
-        else:
-            return modules.HardAttentionLSTMDecoder(
-                bidirectional=False,
-                decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                embeddings=self.embeddings,
-                embedding_size=self.embedding_size,
-                hidden_size=self.hidden_size,
-                layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
-            )
 
     def decode_step(
         self,
@@ -596,6 +554,58 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
             transition_prob = self._apply_mono_mask(transition_prob)
         return log_probs, transition_prob, decoder_hiddens
 
+    def get_decoder(self):
+        if self.attention_context > 0:
+            return modules.ContextHardAttentionLSTMDecoder(
+                attention_context=self.attention_context,
+                bidirectional=False,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.dropout,
+                hidden_size=self.hidden_size,
+                embeddings=self.embeddings,
+                embedding_size=self.embedding_size,
+                layers=self.decoder_layers,
+                num_embeddings=self.target_vocab_size,
+            )
+        else:
+            return modules.HardAttentionLSTMDecoder(
+                bidirectional=False,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.dropout,
+                embeddings=self.embeddings,
+                embedding_size=self.embedding_size,
+                hidden_size=self.hidden_size,
+                layers=self.decoder_layers,
+                num_embeddings=self.target_vocab_size,
+            )
+
     @property
     def name(self) -> str:
         return "hard attention LSTM"
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds HMM configuration options to the argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--enforce_monotonic",
+        action="store_true",
+        default=defaults.ENFORCE_MONOTONIC,
+        help="Enforce monotonicity "
+        "(hard attention architectures only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--no_enforce_monotonic",
+        action="store_false",
+        dest="enforce_monotonic",
+    )
+    parser.add_argument(
+        "--attention_context",
+        type=int,
+        default=defaults.ATTENTION_CONTEXT,
+        help="Width of attention context "
+        "(hard attention architectures only). Default: %(default)s.",
+    )

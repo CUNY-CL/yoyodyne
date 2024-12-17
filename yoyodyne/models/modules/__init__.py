@@ -5,6 +5,7 @@ import argparse
 from .base import BaseModule
 from .hard_attention import ContextHardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import ContextHardAttentionLSTMDecoder  # noqa: F401
+from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
 from .hard_attention import HardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import HardAttentionLSTMDecoder  # noqa: F401
 from .linear import LinearEncoder
@@ -14,6 +15,7 @@ from .rnn import GRUDecoder  # noqa: F401
 from .rnn import GRUEncoder
 from .rnn import LSTMDecoder  # noqa: F401
 from .rnn import LSTMEncoder
+from .rnn import RNNDecoder  # noqa: F401
 from .transformer import TransformerDecoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder
 from .transformer import TransformerEncoder

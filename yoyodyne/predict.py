@@ -134,6 +134,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (argparse.ArgumentParser).
     """
+    data.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
+    models.add_argparse_args(parser)
     # Path arguments.
     parser.add_argument(
         "--checkpoint",
@@ -155,15 +158,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to prediction output data TSV.",
     )
-    # Data arguments.
-    data.add_argparse_args(parser)
-    # Architecture arguments; the architecture-specific ones are not needed.
-    models.add_argparse_args(parser)
-    models.BaseModel.add_predict_argparse_args(parser)
-    # Among the things this adds, the following are likely to be useful:
-    # --accelerator ("gpu" for GPU)
-    # --devices (for multiple device support)
-    lightning.Trainer.add_argparse_args(parser)
+    # Other prediction arguments.
+    parser.add_argument(
+        "--beam_width",
+        type=int,
+        required=False,
+        help="Size of the beam for beam search. Default: %(default)s.",
+    )
 
 
 def main() -> None:

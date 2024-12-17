@@ -1,6 +1,7 @@
 """RNN module classes."""
 
-from typing import Tuple
+import abc
+from typing import Tuple, Union
 
 import torch
 from torch import nn
@@ -10,7 +11,7 @@ from . import attention, base
 
 
 class RNNModule(base.BaseModule):
-    """Base class for RNN modules.
+    """Abstract base class for RNN modules.
 
     Args:
         bidirectional (bool).
@@ -30,20 +31,16 @@ class RNNModule(base.BaseModule):
         self.bidirectional = bidirectional
         self.module = self.get_module()
 
+    @abc.abstractmethod
+    def get_module(self) -> nn.RNNBase: ...
+
     @property
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
 
-    def get_module(self):
-        raise NotImplementedError
-
-    @property
-    def name(self) -> str:
-        raise NotImplementedError
-
 
 class RNNEncoder(RNNModule):
-    """Base class for RNN encoders."""
+    """Abstract base class for RNN encoders."""
 
     def forward(self, source: data.PaddedTensor) -> base.ModuleOutput:
         """Encodes the input.
@@ -63,7 +60,7 @@ class RNNEncoder(RNNModule):
             batch_first=True,
             enforce_sorted=False,
         )
-        # -> B x seq_len x encoder_dim, hiddens
+        # -> B x seq_len x target_vocab_size, hiddens
         packed_outs, hiddens = self.module(packed)
         encoded, _ = nn.utils.rnn.pad_packed_sequence(
             packed_outs,
@@ -115,7 +112,11 @@ class LSTMEncoder(RNNEncoder):
 
 
 class RNNDecoder(RNNModule):
-    """Base class for RNN decoders."""
+    """Abstract base class for RNN decoders.
+
+    This implementation is inattentive; it uses the last (non-padding) hidden
+    state of the encoder as the input to the decoder.
+    """
 
     def __init__(self, decoder_input_size, *args, **kwargs):
         self.decoder_input_size = decoder_input_size
@@ -124,7 +125,7 @@ class RNNDecoder(RNNModule):
     def forward(
         self,
         symbol: torch.Tensor,
-        last_hiddens: torch.Tensor,
+        last_hiddens: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
         encoder_out: torch.Tensor,
         encoder_mask: torch.Tensor,
     ) -> base.ModuleOutput:
@@ -132,9 +133,9 @@ class RNNDecoder(RNNModule):
 
         Args:
             symbol (torch.Tensor): previously decoded symbol of shape B x 1.
-            last_hiddens (Tuple[torch.Tensor, torch.Tensor]): last hidden
-                states from the decoder of shape
-                (1 x B x decoder_dim, 1 x B x decoder_dim).
+            last_hiddens (Union[torch.Tensor, Tuple[torch.Tensor,
+                torch.Tensor]]): last hidden states from the decoder of shape
+                1 x B x decoder_dim.
             encoder_out (torch.Tensor): encoded input sequence of shape
                 B x seq_len x encoder_dim.
             encoder_mask (torch.Tensor): mask for the encoded input batch of
@@ -145,27 +146,36 @@ class RNNDecoder(RNNModule):
                 from the decoder RNN.
         """
         embedded = self.embed(symbol)
-        # -> 1 x B x decoder_dim.
-        # Get the index of the last unmasked tensor.
-        # -> B.
-        last_encoder_out_idxs = (~encoder_mask).sum(dim=1) - 1
-        # -> B x 1 x 1.
-        last_encoder_out_idxs = last_encoder_out_idxs.view(
-            encoder_out.size(0), 1, 1
-        )
-        # -> 1 x 1 x encoder_dim. This indexes the last non-padded dimension.
-        last_encoder_out_idxs = last_encoder_out_idxs.expand(
-            -1, -1, encoder_out.size(-1)
-        )
-        # -> B x 1 x encoder_dim.
-        last_encoder_out = torch.gather(encoder_out, 1, last_encoder_out_idxs)
-        # The input to decoder RNN is the embedding concatenated to the
-        # weighted, encoded, inputs.
-        output, hiddens = self.module(
-            torch.cat((embedded, last_encoder_out), 2), last_hiddens
-        )
+        last_encoder_out = self._last_encoder_out(encoder_out, encoder_mask)
+        decoder_input = torch.cat((embedded, last_encoder_out), dim=2)
+        output, hiddens = self.module(decoder_input, last_hiddens)
         self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
+
+    @staticmethod
+    def _last_encoder_out(
+        encoder_out: torch.Tensor, encoder_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Gets the encoding at the first END for each tensor.
+
+        Args:
+            encoder_out (torch.Tensor): encoded input sequence of shape
+                B x seq_len x encoder_dim.
+            encoder_mask (torch.Tensor): mask for the encoded input batch of
+                shape B x seq_len.
+
+        Returns:
+            torch.Tensor: indices of shape B x 1 x encoder_dim.
+        """
+        # Gets the index of the last unmasked tensor.
+        # -> B.
+        last_idx = (~encoder_mask).sum(dim=1) - 1
+        # -> B x 1 x encoder_dim.
+        last_idx = last_idx.view(encoder_out.size(0), 1, 1).expand(
+            -1, -1, encoder_out.size(2)
+        )
+        # -> B x 1 x encoder_dim.
+        return encoder_out.gather(1, last_idx)
 
     @property
     def output_size(self) -> int:
@@ -209,7 +219,11 @@ class LSTMDecoder(RNNDecoder):
 
 
 class AttentiveRNNDecoder(RNNDecoder):
-    """Base class for attentive RNN decoders."""
+    """Abstract base class for attentive RNN decoders.
+
+    Subsequent concrete implementations use the attention module to
+    differentially attend to different parts of the encoder output.
+    """
 
     def __init__(self, attention_input_size, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -247,9 +261,8 @@ class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
         context, _ = self.attention(
             last_hiddens.transpose(0, 1), encoder_out, encoder_mask
         )
-        output, hiddens = self.module(
-            torch.cat((embedded, context), 2), last_hiddens
-        )
+        decoder_input = torch.cat((embedded, context), dim=2)
+        output, hiddens = self.module(decoder_input, last_hiddens)
         self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
 
@@ -283,16 +296,14 @@ class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
             base.ModuleOutput: decoder output, and the previous hidden states
                 from the decoder RNN.
         """
-        # The last hiddens includes the cell state, which isn't needed for the
-        # forward pass.
         embedded = self.embed(symbol)
-        last_h0, last_c0 = last_hiddens
+        # Cell state isn't needed for the forward pass.
+        last_h0, _ = last_hiddens
         context, _ = self.attention(
             last_h0.transpose(0, 1), encoder_out, encoder_mask
         )
-        output, hiddens = self.module(
-            torch.cat((embedded, context), 2), last_hiddens
-        )
+        decoder_input = torch.cat((embedded, context), dim=2)
+        output, hiddens = self.module(decoder_input, last_hiddens)
         self.dropout_layer(output)
         return base.ModuleOutput(output, hiddens)
 

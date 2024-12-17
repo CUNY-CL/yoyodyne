@@ -1,5 +1,6 @@
 """RNN model classes."""
 
+import abc
 import argparse
 import heapq
 from typing import Optional, Tuple, Union
@@ -12,10 +13,13 @@ from . import base, embeddings, modules
 
 
 class RNNModel(base.BaseModel):
-    """Base class for RNN models.
+    """Abstract base class for RNN models.
 
-    In lieu of attention, we concatenate the last (non-padding) hidden state of
-    the encoder to the decoder hidden state.
+    The implementation of `get_decoder` in the derived classes determines not
+    just what kind of RNN is used (i.e., GRU or LSTM), and this decoder
+    implementation also determines whether this is inattentive---in which
+    case last (non-padding) hidden state of the encoder is the input to the
+    decoder---or attentive.
     """
 
     # Constructed inside __init__.
@@ -26,22 +30,6 @@ class RNNModel(base.BaseModel):
         super().__init__(*args, **kwargs)
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
-
-    def init_embeddings(
-        self,
-        num_embeddings: int,
-        embedding_size: int,
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return embeddings.normal_embedding(num_embeddings, embedding_size)
 
     def beam_decode(
         self,
@@ -105,7 +93,10 @@ class RNNModel(base.BaseModel):
                     device=self.device,
                 ).unsqueeze(1)
                 decoded = self.decoder(
-                    decoder_input, decoder_hiddens, encoder_out, encoder_mask
+                    decoder_input,
+                    decoder_hiddens,
+                    encoder_out,
+                    encoder_mask,
                 )
                 logits = self.classifier(decoded.output)
                 likelihoods.append(
@@ -168,6 +159,42 @@ class RNNModel(base.BaseModel):
         scores = torch.tensor([h[0] for h in histories]).unsqueeze(0)
         return predictions, scores
 
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Runs the encoder-decoder model.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
+                search returns a tuple with a tensor of predictions of shape
+                B x beam_width x seq_len and a tensor of B x shape beam_width
+                with the likelihood (the unnormalized sum of sequence
+                log-probabilities) for each prediction; greedy search returns
+                a tensor of predictions of shape
+                B x seq_len x target_vocab_size.
+        """
+        encoder_out = self.source_encoder(batch.source).output
+        # This function has a polymorphic return because beam search needs to
+        # return two tensors. For greedy, the return has not been modified to
+        # match the Tuple[torch.Tensor, torch.Tensor] type because the
+        # training and validation functions depend on it.
+        if self.beam_width > 1:
+            return self.beam_decode(encoder_out, batch.source.mask)
+        else:
+            return self.greedy_decode(
+                encoder_out,
+                batch.source.mask,
+                self.teacher_forcing if self.training else False,
+                batch.target.padded if batch.target else None,
+            )
+
+    @abc.abstractmethod
+    def get_decoder(self) -> modules.BaseModule: ...
+
     def greedy_decode(
         self,
         encoder_out: torch.Tensor,
@@ -213,9 +240,15 @@ class RNNModel(base.BaseModel):
         for t in range(max_num_steps):
             # pred: B x 1 x output_size.
             decoded = self.decoder(
-                decoder_input, decoder_hiddens, encoder_out, encoder_mask
+                decoder_input,
+                decoder_hiddens,
+                encoder_out,
+                encoder_mask,
             )
-            decoder_output, decoder_hiddens = decoded.output, decoded.hiddens
+            decoder_output, decoder_hiddens = (
+                decoded.output,
+                decoded.hiddens,
+            )
             logits = self.classifier(decoder_output)
             predictions.append(logits.squeeze(1))
             if teacher_forcing:
@@ -237,72 +270,34 @@ class RNNModel(base.BaseModel):
         predictions = torch.stack(predictions, dim=1)
         return predictions
 
-    def forward(
+    def init_embeddings(
         self,
-        batch: data.PaddedBatch,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Runs the encoder-decoder model.
+        num_embeddings: int,
+        embedding_size: int,
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
 
         Args:
-            batch (data.PaddedBatch).
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
 
         Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam
-                search returns a tuple with a tensor of predictions of shape
-                B x beam_width x seq_len and a tensor of shape beam_width with
-                the likelihood (the unnormalized sum of sequence
-                log-probabilities) for each prediction; greedy search returns
-                a tensor of predictions of shape
-                B x target_vocab_size x seq_len.
+            nn.Embedding: embedding layer.
         """
-        encoder_out = self.source_encoder(batch.source).output
-        # This function has a polymorphic return because beam search needs to
-        # return two tensors. For greedy, the return has not been modified to
-        # match the Tuple[torch.Tensor, torch.Tensor] type because the
-        # training and validation functions depend on it.
-        if self.beam_width > 1:
-            return self.beam_decode(encoder_out, batch.source.mask)
-        else:
-            return self.greedy_decode(
-                encoder_out,
-                batch.source.mask,
-                self.teacher_forcing if self.training else False,
-                batch.target.padded if batch.target else None,
-            )
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds RNN configuration options to the argument parser.
-
-        Args:
-            parser (argparse.ArgumentParser).
-        """
-        parser.add_argument(
-            "--bidirectional",
-            action="store_true",
-            default=defaults.BIDIRECTIONAL,
-            help="Uses a bidirectional encoder (RNN-backed architectures "
-            "only. Default: enabled.",
-        )
-        parser.add_argument(
-            "--no_bidirectional",
-            action="store_false",
-            dest="bidirectional",
-        )
-
-    def get_decoder(self):
-        raise NotImplementedError
-
-    def init_hiddens(self, batch_size: int):
-        raise NotImplementedError
+    @abc.abstractmethod
+    def init_hiddens(
+        self, batch_size: int
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: ...
 
     @property
-    def name(self) -> str:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def name(self) -> str: ...
 
 
 class GRUModel(RNNModel):
-    """GRU encoder-decoder without attention."""
+    """GRU model without attention."""
 
     def get_decoder(self) -> modules.GRUDecoder:
         return modules.GRUDecoder(
@@ -335,7 +330,7 @@ class GRUModel(RNNModel):
 
 
 class LSTMModel(RNNModel):
-    """LSTM encoder-decoder without attention.
+    """LSTM model without attention.
 
     Args:
         *args: passed to superclass.
@@ -361,7 +356,9 @@ class LSTMModel(RNNModel):
             num_embeddings=self.vocab_size,
         )
 
-    def init_hiddens(self, batch_size: int) -> torch.Tensor:
+    def init_hiddens(
+        self, batch_size: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Initializes the hidden state to pass to the RNN.
 
         We treat the initial value as a model parameter.
@@ -383,7 +380,7 @@ class LSTMModel(RNNModel):
 
 
 class AttentiveGRUModel(GRUModel):
-    """GRU encoder-decoder with attention."""
+    """GRU model with attention."""
 
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
         return modules.AttentiveGRUDecoder(
@@ -404,7 +401,7 @@ class AttentiveGRUModel(GRUModel):
 
 
 class AttentiveLSTMModel(LSTMModel):
-    """LSTM encoder-decoder with attention."""
+    """LSTM model with attention."""
 
     def get_decoder(self) -> modules.AttentiveLSTMDecoder:
         return modules.AttentiveLSTMDecoder(
@@ -422,3 +419,23 @@ class AttentiveLSTMModel(LSTMModel):
     @property
     def name(self) -> str:
         return "attentive LSTM"
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds RNN configuration options to the argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--bidirectional",
+        action="store_true",
+        default=defaults.BIDIRECTIONAL,
+        help="Uses a bidirectional encoder (RNN-backed architectures "
+        "only. Default: enabled.",
+    )
+    parser.add_argument(
+        "--no_bidirectional",
+        action="store_false",
+        dest="bidirectional",
+    )

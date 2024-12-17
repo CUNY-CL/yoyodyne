@@ -5,6 +5,7 @@ from . import base
 
 
 class LinearEncoder(base.BaseModule):
+
     def forward(self, source: data.PaddedTensor) -> base.ModuleOutput:
         """Encodes the input.
 

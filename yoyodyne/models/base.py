@@ -1,7 +1,17 @@
 """Base model class, with PL integration."""
 
+import abc
 import argparse
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import lightning
 import torch
@@ -19,8 +29,8 @@ from .. import (
 from . import modules
 
 
-class BaseModel(lightning.LightningModule):
-    """Base class, handling Lightning integration."""
+class BaseModel(abc.ABC, lightning.LightningModule):
+    """Abstract base class for models handling Lightning integration."""
 
     #  TODO: clean up type checking here.
     # Sizes.
@@ -156,168 +166,25 @@ class BaseModel(lightning.LightningModule):
             util.log_info(f"Encoder: {self.source_encoder.name}")
         util.log_info(f"Decoder: {self.decoder.name}")
 
-    @staticmethod
-    def init_embeddings(num_embed: int, embed_size: int) -> nn.Embedding:
-        """Method interface for initializing the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-
-        Raises:
-            NotImplementedError: This method needs to be overridden.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        raise NotImplementedError
-
-    def get_decoder(self):
-        raise NotImplementedError
-
-    @property
-    def num_parameters(self) -> int:
-        return sum(part.numel() for part in self.parameters())
-
-    @property
-    def has_features_encoder(self):
-        return self.features_encoder is not None
-
-    def training_step(
+    def _get_loss_func(
         self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> torch.Tensor:
-        """Runs one step of training.
-
-        This is called by the PL Trainer.
-
-        Args:
-            batch (data.PaddedBatch)
-            batch_idx (int).
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Returns the actual function used to compute loss.
 
         Returns:
-            torch.Tensor: loss.
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
         """
-        # -> B x seq_len x target_vocab_size.
-        predictions = self(batch)
-        target_padded = batch.target.padded
-        # -> B x target_vocab_size x seq_len. For loss.
-        predictions = predictions.transpose(1, 2)
-        loss = self.loss_func(predictions, target_padded)
-        self.log(
-            "train_loss",
-            loss,
-            batch_size=len(batch),
-            on_step=False,
-            on_epoch=True,
+        return nn.CrossEntropyLoss(
+            ignore_index=special.PAD_IDX,
+            label_smoothing=self.label_smoothing,
         )
-        return loss
-
-    def validation_step(
-        self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> Dict:
-        """Runs one validation step.
-
-        This is called by the PL Trainer.
-
-        Args:
-            batch (data.PaddedBatch).
-            batch_idx (int).
-
-        Returns:
-            Dict[str, float]: validation metrics.
-        """
-        # Greedy decoding.
-        # -> B x seq_len x target_vocab_size.
-        target_padded = batch.target.padded
-        greedy_predictions = self(batch)
-        # Gets a dict of all eval metrics for this batch.
-        val_eval_items_dict = {
-            evaluator.name: evaluator.evaluate(
-                greedy_predictions, target_padded
-            )
-            for evaluator in self.evaluators
-        }
-        # -> B x target_vocab_size x seq_len. For loss.
-        greedy_predictions = greedy_predictions.transpose(1, 2)
-        # Truncates predictions to the size of the target.
-        greedy_predictions = torch.narrow(
-            greedy_predictions, 2, 0, target_padded.size(1)
-        )
-        loss = self.loss_func(greedy_predictions, target_padded)
-        val_eval_items_dict.update({"val_loss": loss})
-        return val_eval_items_dict
-
-    def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
-        """Computes average loss and average accuracy.
-
-        Args:
-            validation_step_outputs (Dict).
-
-        Returns:
-            Dict: averaged metrics over all validation steps.
-        """
-        avg_val_loss = torch.tensor(
-            [v["val_loss"] for v in validation_step_outputs]
-        ).mean()
-        # Gets requested metrics.
-        metrics = {
-            metric_name: sum(
-                (v[metric_name] for v in validation_step_outputs),
-                start=evaluators.EvalItem([]),
-            ).metric
-            for metric_name in self.eval_metrics
-        }
-        # Always logs validation loss.
-        metrics.update({"loss": avg_val_loss})
-        # del validation_step_outputs
-        for metric, value in metrics.items():
-            self.log(f"val_{metric}", value, prog_bar=True)
-        return metrics
-
-    def predict_step(
-        self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Runs one predict step.
-
-        This is called by the PL Trainer.
-
-        Args:
-            batch (data.PaddedBatch).
-            batch_idx (int).
-
-        Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: if
-                using beam search, the predictions and scores as a tuple of
-                tensors; if using greedy search, the predictions as a tensor.
-        """
-
-        if self.beam_width > 1:
-            return self(batch)
-        else:
-            return self._get_predicted(self(batch))
-
-    def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
-        """Picks the best index from the vocabulary.
-
-        Args:
-            predictions (torch.Tensor): B x seq_len x target_vocab_size.
-
-        Returns:
-            torch.Tensor: indices of the argmax at each timestep.
-        """
-        assert len(predictions.size()) == 3
-        return torch.argmax(predictions, dim=2)
 
     def configure_optimizers(
         self,
     ) -> Union[
-        optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict[str, Any]]]
+        optim.Optimizer,
+        Tuple[List[optim.Optimizer], List[Dict[str, Any]]],
     ]:
         """Gets the configured torch optimizer and scheduler.
 
@@ -366,112 +233,228 @@ class BaseModel(lightning.LightningModule):
             self.scheduler, optimizer, **dict(self.scheduler_kwargs)
         )
 
-    def _get_loss_func(
+    @abc.abstractmethod
+    def get_decoder(self): ...
+
+    @staticmethod
+    @abc.abstractmethod
+    def init_embeddings(
+        num_embeddings: int, embedding_size: int
+    ) -> nn.Embedding: ...
+
+    @property
+    def has_features_encoder(self):
+        return self.features_encoder is not None
+
+    @property
+    def num_parameters(self) -> int:
+        return sum(part.numel() for part in self.parameters())
+
+    def training_step(
         self,
-    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Returns the actual function used to compute loss.
+        batch: data.PaddedBatch,
+        batch_idx: int,
+    ) -> torch.Tensor:
+        """Runs one step of training.
+
+        This is called by the PL Trainer.
+
+        Args:
+            batch (data.PaddedBatch)
+            batch_idx (int).
 
         Returns:
-            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
-                loss function.
+            torch.Tensor: loss.
         """
-        return nn.CrossEntropyLoss(
-            ignore_index=special.PAD_IDX,
-            label_smoothing=self.label_smoothing,
+        # -> B x seq_len x target_vocab_size.
+        predictions = self(batch)
+        target_padded = batch.target.padded
+        # -> B x target_vocab_size x seq_len. For loss.
+        predictions = predictions.transpose(1, 2)
+        loss = self.loss_func(predictions, target_padded)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            on_step=False,
+            on_epoch=True,
         )
+        return loss
 
-    @staticmethod
-    def add_predict_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds shared configuration options to the argument parser.
-
-        These are only needed at prediction time.
+    def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
+        """Computes average loss and average accuracy.
 
         Args:
-            parser (argparse.ArgumentParser).
+            validation_step_outputs (Dict).
+
+        Returns:
+            Dict: averaged metrics over all validation steps.
         """
-        # Beam search arguments.
-        parser.add_argument(
-            "--beam_width",
-            type=int,
-            required=False,
-            help="Size of the beam for beam search. Default: %(default)s.",
-        )
+        avg_val_loss = torch.tensor(
+            [v["val_loss"] for v in validation_step_outputs]
+        ).mean()
+        # Gets requested metrics.
+        metrics = {
+            metric_name: sum(
+                (v[metric_name] for v in validation_step_outputs),
+                start=evaluators.EvalItem([]),
+            ).metric
+            for metric_name in self.eval_metrics
+        }
+        # Always logs validation loss.
+        metrics.update({"loss": avg_val_loss})
+        # del validation_step_outputs
+        for metric, value in metrics.items():
+            self.log(f"val_{metric}", value, prog_bar=True)
+        return metrics
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds shared configuration options to the argument parser.
+    def validation_step(
+        self,
+        batch: data.PaddedBatch,
+        batch_idx: int,
+    ) -> Dict:
+        """Runs one validation step.
 
-        These are only needed at training time.
+        This is called by the PL Trainer.
 
         Args:
-            parser (argparse.ArgumentParser).
+            batch (data.PaddedBatch).
+            batch_idx (int).
+
+        Returns:
+            Dict[str, float]: validation metrics.
         """
-        # Optimizer arguments.
-        parser.add_argument(
-            "--beta1",
-            type=float,
-            default=defaults.BETA1,
-            help="beta_1 (Adam optimizer only). Default: %(default)s.",
+        # Greedy decoding.
+        # -> B x seq_len x target_vocab_size.
+        target_padded = batch.target.padded
+        greedy_predictions = self(batch)
+        # Gets a dict of all eval metrics for this batch.
+        val_eval_items_dict = {
+            evaluator.name: evaluator.evaluate(
+                greedy_predictions, target_padded
+            )
+            for evaluator in self.evaluators
+        }
+        # -> B x target_vocab_size x seq_len. For loss.
+        greedy_predictions = greedy_predictions.transpose(1, 2)
+        # Truncates predictions to the size of the target.
+        greedy_predictions = torch.narrow(
+            greedy_predictions, 2, 0, target_padded.size(1)
         )
-        parser.add_argument(
-            "--beta2",
-            type=float,
-            default=defaults.BETA2,
-            help="beta_2 (Adam optimizer only). Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--learning_rate",
-            type=float,
-            default=defaults.LEARNING_RATE,
-            help="Learning rate. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--optimizer",
-            choices=optimizers.OPTIMIZERS,
-            default=defaults.OPTIMIZER,
-            help="Optimizer. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--scheduler",
-            choices=schedulers.SCHEDULERS,
-            help="Learning rate scheduler.",
-        )
-        # Regularization arguments.
-        parser.add_argument(
-            "--dropout",
-            type=float,
-            default=defaults.DROPOUT,
-            help="Dropout probability. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--label_smoothing",
-            type=float,
-            default=defaults.LABEL_SMOOTHING,
-            help="Coefficient for label smoothing. Default: %(default)s.",
-        )
-        # Model arguments.
-        parser.add_argument(
-            "--decoder_layers",
-            type=int,
-            default=defaults.DECODER_LAYERS,
-            help="Number of decoder layers. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--encoder_layers",
-            type=int,
-            default=defaults.ENCODER_LAYERS,
-            help="Number of encoder layers. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--embedding_size",
-            type=int,
-            default=defaults.EMBEDDING_SIZE,
-            help="Dimensionality of embeddings. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--hidden_size",
-            type=int,
-            default=defaults.HIDDEN_SIZE,
-            help="Dimensionality of the hidden layer(s). "
-            "Default: %(default)s.",
-        )
+        loss = self.loss_func(greedy_predictions, target_padded)
+        val_eval_items_dict.update({"val_loss": loss})
+        return val_eval_items_dict
+
+    def predict_step(
+        self,
+        batch: data.PaddedBatch,
+        batch_idx: int,
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Runs one predict step.
+
+        This is called by the PL Trainer.
+
+        Args:
+            batch (data.PaddedBatch).
+            batch_idx (int).
+
+        Returns:
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: if
+                using beam search, the predictions and scores as a tuple of
+                tensors; if using greedy search, the predictions as a tensor.
+        """
+
+        if self.beam_width > 1:
+            return self(batch)
+        else:
+            return self._get_predicted(self(batch))
+
+    def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
+        """Picks the best index from the vocabulary.
+
+        Args:
+            predictions (torch.Tensor): B x seq_len x target_vocab_size.
+
+        Returns:
+            torch.Tensor: indices of the argmax at each timestep.
+        """
+        assert len(predictions.size()) == 3
+        return torch.argmax(predictions, dim=2)
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds shared configuration options to the argument parser.
+
+    These are only needed at training time.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    # Optimizer arguments.
+    parser.add_argument(
+        "--beta1",
+        type=float,
+        default=defaults.BETA1,
+        help="beta_1 (Adam optimizer only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--beta2",
+        type=float,
+        default=defaults.BETA2,
+        help="beta_2 (Adam optimizer only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=defaults.LEARNING_RATE,
+        help="Learning rate. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--optimizer",
+        choices=optimizers.OPTIMIZERS,
+        default=defaults.OPTIMIZER,
+        help="Optimizer. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--scheduler",
+        choices=schedulers.SCHEDULERS,
+        help="Learning rate scheduler.",
+    )
+    # Regularization arguments.
+    parser.add_argument(
+        "--dropout",
+        type=float,
+        default=defaults.DROPOUT,
+        help="Dropout probability. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--label_smoothing",
+        type=float,
+        default=defaults.LABEL_SMOOTHING,
+        help="Coefficient for label smoothing. Default: %(default)s.",
+    )
+    # Model arguments.
+    parser.add_argument(
+        "--decoder_layers",
+        type=int,
+        default=defaults.DECODER_LAYERS,
+        help="Number of decoder layers. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--encoder_layers",
+        type=int,
+        default=defaults.ENCODER_LAYERS,
+        help="Number of encoder layers. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--embedding_size",
+        type=int,
+        default=defaults.EMBEDDING_SIZE,
+        help="Dimensionality of embeddings. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--hidden_size",
+        type=int,
+        default=defaults.HIDDEN_SIZE,
+        help="Dimensionality of the hidden layer(s). " "Default: %(default)s.",
+    )

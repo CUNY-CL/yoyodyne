@@ -60,7 +60,7 @@ class Attention(nn.Module):
         # B  x seq_len x decoder_dim.
         hidden = hidden.repeat(1, encoder_outputs.size(1), 1)
         # Gets the scores of each time step in the output.
-        attention_scores = self.score(hidden, encoder_outputs)
+        attention_scores = self._score(hidden, encoder_outputs)
         # Masks the scores with -inf at each padded character so that softmax
         # computes a 0 towards the distribution for that cell.
         attention_scores.data.masked_fill_(mask, defaults.NEG_INF)
@@ -70,7 +70,7 @@ class Attention(nn.Module):
         weighted = torch.bmm(weights, encoder_outputs)
         return weighted, weights
 
-    def score(
+    def _score(
         self, hidden: torch.Tensor, encoder_outputs: torch.Tensor
     ) -> torch.Tensor:
         """Computes the scores with concat attention.

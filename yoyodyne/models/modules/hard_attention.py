@@ -10,7 +10,7 @@ from . import base, rnn
 
 
 class HardAttentionRNNDecoder(rnn.RNNDecoder):
-    """Base module for zeroth-order HMM hard attention RNN decoders."""
+    """Abstract base class for zeroth-order HMM hard attention RNN decoders."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -163,7 +163,7 @@ class HardAttentionLSTMDecoder(HardAttentionRNNDecoder):
 
 
 class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
-    """Base module for first-order HMM hard attention RNN decoder."""
+    """Abstract base class for first-order HMM hard attention RNN decoder."""
 
     def __init__(self, attention_context, *args, **kwargs):
         super().__init__(*args, **kwargs)

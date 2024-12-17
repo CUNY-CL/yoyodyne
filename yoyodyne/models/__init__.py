@@ -3,11 +3,19 @@
 import argparse
 
 from .. import defaults
-from .base import BaseModel
 
+# These are used to call the `add_argparse_args` functions.
+from . import base as _base
+from . import expert as _expert
+from . import hard_attention as _hard_attention
+from . import modules as _modules
+from . import rnn as _rnn
+from . import transformer as _transformer
+
+# These are used to export the models themselves.
+from .base import BaseModel
 from .hard_attention import HardAttentionGRUModel
 from .hard_attention import HardAttentionLSTMModel
-from .hard_attention import HardAttentionRNNModel  # noqa: F401
 from .pointer_generator import PointerGeneratorGRUModel
 from .pointer_generator import PointerGeneratorLSTMModel
 from .pointer_generator import PointerGeneratorTransformerModel
@@ -15,22 +23,21 @@ from .rnn import AttentiveGRUModel
 from .rnn import AttentiveLSTMModel
 from .rnn import GRUModel
 from .rnn import LSTMModel
-from .rnn import RNNModel  # noqa: F401
-
-from .transducer import TransducerGRUModel, TransducerLSTMModel  # noqa: F401
+from .transducer import TransducerGRUModel
+from .transducer import TransducerLSTMModel
 from .transformer import TransformerModel
 
 
 _model_fac = {
     "attentive_gru": AttentiveGRUModel,
     "attentive_lstm": AttentiveLSTMModel,
+    "gru": GRUModel,
     "hard_attention_gru": HardAttentionGRUModel,
     "hard_attention_lstm": HardAttentionLSTMModel,
+    "lstm": LSTMModel,
     "pointer_generator_gru": PointerGeneratorGRUModel,
     "pointer_generator_lstm": PointerGeneratorLSTMModel,
-    "pointer_generator_transformer": PointerGeneratorTransformerModel,  # noqa: E501
-    "gru": GRUModel,
-    "lstm": LSTMModel,
+    "pointer_generator_transformer": PointerGeneratorTransformerModel,
     "transducer_gru": TransducerGRUModel,
     "transducer_lstm": TransducerLSTMModel,
     "transformer": TransformerModel,
@@ -79,6 +86,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (argparse.ArgumentParser).
     """
+    _base.add_argparse_args(parser)
+    _expert.add_argparse_args(parser)
+    _hard_attention.add_argparse_args(parser)
+    _modules.add_argparse_args(parser)
+    _rnn.add_argparse_args(parser)
+    _transformer.add_argparse_args(parser)
     parser.add_argument(
         "--arch",
         choices=_model_fac.keys(),

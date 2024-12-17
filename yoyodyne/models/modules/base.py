@@ -1,5 +1,6 @@
 """Base module class with PL integration."""
 
+import abc
 import dataclasses
 from typing import Optional, Union, Tuple
 
@@ -29,7 +30,9 @@ class ModuleOutput:
         return self.embeddings is not None
 
 
-class BaseModule(lightning.LightningModule):
+class BaseModule(abc.ABC, lightning.LightningModule):
+    """Abstract base class for encoder and decoder modules."""
+
     # Sizes.
     num_embeddings: int
     # Regularization arguments.
@@ -77,5 +80,9 @@ class BaseModule(lightning.LightningModule):
         return embedded
 
     @property
-    def output_size(self) -> int:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abc.abstractmethod
+    def output_size(self) -> int: ...

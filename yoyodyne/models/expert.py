@@ -3,11 +3,9 @@
 Given an input string x, a target string t, alignment index i, and a partial
 prediction y, it returns optimal cost-to-go for all valid edit actions.
 
-Also includes ActionVocabulary class for compatibility with maxwell dictionary.
-Class stores valid edit actions for given dataset.
-"""
+Also includes ActionVocabulary class for compatibility with the `maxwell`
+dictionary. This class stores valid edit actions for given dataset."""
 
-import abc
 import argparse
 import dataclasses
 from typing import (
@@ -203,11 +201,11 @@ class ActionPrefix:
 def edit_distance(
     x: Sequence[Any],
     y: Sequence[Any],
-    del_cost=1.0,
-    ins_cost=1.0,
-    sub_cost=1.0,
-    x_offset=0,
-    y_offset=0,
+    del_cost: float = 1.0,
+    ins_cost: float = 1.0,
+    sub_cost: float = 1.0,
+    x_offset: int = 0,
+    y_offset: int = 0,
 ) -> numpy.ndarray:
     """Generates edit distance matrix from source (x) to target (y).
 
@@ -246,7 +244,7 @@ def edit_distance(
     return prefix_matrix
 
 
-class Expert(abc.ABC):
+class Expert:
     """Oracle scores possible edit actions between prediction and target.
 
     Args:
@@ -386,7 +384,7 @@ class Expert(abc.ABC):
         target: Sequence[Any],
         alignment: int,
         prediction: Sequence[Any],
-        max_action_seq_len=150,
+        max_action_seq_len: int = 150,
     ) -> Dict[actions.Edit, float]:
         """Provides potential actions given source, target, and prediction.
 

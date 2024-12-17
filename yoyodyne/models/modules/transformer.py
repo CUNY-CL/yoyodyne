@@ -1,5 +1,6 @@
 """Transformer module classes."""
 
+import abc
 from typing import List, Optional, Tuple
 
 import numpy
@@ -114,7 +115,7 @@ class AttentionOutput:
 
 
 class TransformerModule(base.BaseModule):
-    """Base module for transformer.
+    """Abstract base module for transformers.
 
     Args:
         *args: passed to superclass.
@@ -167,9 +168,12 @@ class TransformerModule(base.BaseModule):
         self.dropout_layer(embedded)
         return embedded
 
+    @abc.abstractmethod
+    def get_module(self) -> base.BaseModule: ...
+
 
 class TransformerEncoder(TransformerModule):
-    """Ordinary transformer encoder.
+    """Transformer encoder.
 
     Our implementation uses "pre-norm", i.e., it applies layer normalization
     before attention. Because of this, we are not currently able to make use
@@ -216,12 +220,12 @@ class TransformerEncoder(TransformerModule):
         )
 
     @property
-    def output_size(self) -> int:
-        return self.embedding_size
-
-    @property
     def name(self) -> str:
         return "transformer"
+
+    @property
+    def output_size(self) -> int:
+        return self.embedding_size
 
 
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
@@ -461,7 +465,7 @@ class TransformerDecoderLayerSeparateFeatures(nn.TransformerDecoderLayer):
 
 
 class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
-    """A transformer decoder with separate features.
+    """Transformer decoder with separate features.
 
     Adding separate features into the transformer stack is implemented with
     TransformerDecoderLayerseparateFeatures layers.
@@ -518,7 +522,7 @@ class TransformerDecoderSeparateFeatures(nn.TransformerDecoder):
 
 
 class TransformerDecoder(TransformerModule):
-    """A transformer decoder."""
+    """Transformer decoder."""
 
     # Output arg.
     decoder_input_size: int
@@ -597,12 +601,12 @@ class TransformerDecoder(TransformerModule):
         )
 
     @property
-    def output_size(self) -> int:
-        return self.num_embeddings
-
-    @property
     def name(self) -> str:
         return "transformer"
+
+    @property
+    def output_size(self) -> int:
+        return self.num_embeddings
 
 
 class TransformerPointerDecoder(TransformerDecoder):
