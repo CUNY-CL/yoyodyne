@@ -65,14 +65,21 @@ class TransducerRNNModel(rnn.RNNModel):
             f"Beam search not implemented for {self.name} model"
         )
 
+    @property
+    def decoder_input_size(self) -> int:
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
+
     @abc.abstractmethod
     def forward(
         self,
         batch: data.PaddedBatch,
     ) -> Tuple[List[List[int]], torch.Tensor]: ...
-
-    @abc.abstractmethod
-    def get_decoder(self) -> modules.RNNDecoder: ...
 
     def greedy_decode(
         self,
@@ -620,12 +627,7 @@ class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
     def get_decoder(self) -> modules.GRUDecoder:
         return modules.GRUDecoder(
             bidirectional=False,
-            decoder_input_size=(
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-                if self.has_features_encoder
-                else self.source_encoder.output_size
-            ),
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
@@ -717,12 +719,7 @@ class TransducerLSTMModel(TransducerRNNModel, rnn.LSTMModel):
     def get_decoder(self) -> modules.LSTMDecoder:
         return modules.LSTMDecoder(
             bidirectional=False,
-            decoder_input_size=(
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-                if self.has_features_encoder
-                else self.source_encoder.output_size
-            ),
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
