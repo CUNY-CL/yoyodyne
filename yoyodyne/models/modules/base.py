@@ -63,7 +63,7 @@ class BaseModule(abc.ABC, lightning.LightningModule):
         self.num_embeddings = num_embeddings
         self.layers = layers
         self.hidden_size = hidden_size
-        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=True)
+        self.dropout_layer = nn.Dropout(p=self.dropout)
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
         """Embeds the source symbols and adds positional encodings.
@@ -75,9 +75,7 @@ class BaseModule(abc.ABC, lightning.LightningModule):
         Returns:
             torch.Tensor: embedded tensor of shape B x seq_len x embed_dim.
         """
-        embedded = self.embeddings(symbols)
-        self.dropout_layer(embedded)
-        return embedded
+        return self.dropout_layer(self.embeddings(symbols))
 
     @property
     @abc.abstractmethod
