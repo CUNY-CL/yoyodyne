@@ -157,6 +157,7 @@ def get_datamodule_from_argparse_args(
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
         separate_features=separate_features,
+        source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,
         target_sep=args.target_sep,
