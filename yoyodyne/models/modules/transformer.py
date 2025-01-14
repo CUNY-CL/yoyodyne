@@ -164,9 +164,7 @@ class TransformerModule(base.BaseModule):
         """
         word_embedded = self.esq * self.embeddings(symbols)
         positional_embedded = self.positional_encoding(symbols)
-        embedded = word_embedded + positional_embedded
-        self.dropout_layer(embedded)
-        return embedded
+        return self.dropout_layer(word_embedded + positional_embedded)
 
     @abc.abstractmethod
     def get_module(self) -> base.BaseModule: ...
@@ -273,9 +271,9 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         word_embedded = self.esq * self.embeddings(symbols)
         type_embedded = self.esq * self.type_embedding(char_mask)
         positional_embedded = self.positional_encoding(symbols, mask=char_mask)
-        embedded = word_embedded + type_embedded + positional_embedded
-        self.dropout_layer(embedded)
-        return embedded
+        return self.dropout_layer(
+            word_embedded + type_embedded + positional_embedded
+        )
 
     @property
     def name(self) -> str:

@@ -58,10 +58,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     features_encoder_cls: Optional[modules.base.BaseModule]
     hidden_size: int
     source_encoder_cls: modules.base.BaseModule
-    # Constructed inside __init__.
-    dropout_layer: nn.Dropout
+    # Other stuff.
     eval_metrics: Set[evaluators.Evaluator]
-    loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
         self,
