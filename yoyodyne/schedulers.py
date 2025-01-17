@@ -69,7 +69,7 @@ class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
             return (step + 1) / self.warmup_steps
         # +1 in base of exponent avoids an undefined operation (0 to a negative
         # exponent) in the unlikely case one is using this without warmup.
-        return self.decay_factor * (step + 1)**-0.5
+        return self.decay_factor * (step + 1) ** -0.5
 
     def config_dict(self) -> Dict[str, Any]:
         return {"interval": "step", "frequency": 1}
