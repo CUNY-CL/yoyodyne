@@ -386,7 +386,7 @@ class TransducerRNNModel(rnn.RNNModel):
     # TODO: Merge action classes to remove need for this method.
     @staticmethod
     def _remap_actions(
-        action_scores: Dict[actions.Edit, float]
+        action_scores: Dict[actions.Edit, float],
     ) -> Dict[actions.Edit, float]:
         """Maps generative oracle's edit to conditional counterpart.
 
