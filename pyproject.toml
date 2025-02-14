@@ -11,7 +11,7 @@ exclude = ["examples*"]
 
 [project]
 name = "yoyodyne"
-version = "0.2.19"
+version = "0.2.20"
 description = "Small-vocabulary neural sequence-to-sequence models"
 readme = "README.md"
 requires-python = ">= 3.9"
