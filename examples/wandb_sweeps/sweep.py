@@ -47,14 +47,16 @@ def populate_argv(argv: List[str]) -> List[str]:
     wandb.init()
     result = argv.copy()
     for key, value in wandb.config.items():
+        if value is None:
+            continue
         result.append(f"--{key}")
-        if value is not None:
-            result.append(f"{value}")
+        result.append(f"{value}")
     return result
 
 
 def main(args: argparse.Namespace, argv: List[str]) -> None:
-    argv = ["yoyodyne-train", *argv]
+    # W&B support must be enabled.
+    argv = ["yoyodyne-train", "--log_wandb", *argv]
     try:
         wandb.agent(
             sweep_id=args.sweep_id,
