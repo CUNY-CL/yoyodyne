@@ -180,7 +180,6 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGeneratorModel):
                 self.source_encoder.output_size,
             )
         else:
-            self.merge_h = nn.Linear(2 * self.hidden_size, self.hidden_size)
             self.features_attention = modules.attention.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
@@ -506,8 +505,6 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.has_features_encoder:
-            self.merge_c = nn.Linear(2 * self.hidden_size, self.hidden_size)
 
     def decode_step(
         self,
