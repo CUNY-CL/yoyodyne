@@ -402,9 +402,7 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         """
         encoder_out = self.source_encoder(batch.source)
         source_encoded = encoder_out.output
-        last_hiddens = self.init_hiddens(
-            len(batch), self.source_encoder.layers
-        )
+        last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
@@ -428,9 +426,6 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         else:
             features_encoder_out = self.features_encoder(batch.features)
             features_encoded = features_encoder_out.output
-            last_hiddens = self.init_hiddens(
-                len(batch), self.source_encoder.layers
-            )
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 return self.beam_decode(
