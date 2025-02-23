@@ -83,69 +83,6 @@ class Cell:
         return self.symbols[-1] == special.END_IDX
 
 
-'''
-class Cell:
-    """Represents a (partial) hypotheses in the beam search.
-
-    Only the log-likelihood field is used for comparison.
-
-    A cell is "final" once it has decoded the END symbol.
-
-    Args:
-        state (modules.RNNState).
-        symbols (List[int], optional).
-        score (float, optional).
-    """
-
-    state: modules.RNNState
-    symbols: List[int]
-    score: float
-
-    def __init__(self, state, symbols=None, score=0.0):
-        self.state = state
-        self.symbols = [special.START_IDX] if symbols is None else symbols
-        self.score = score
-
-    def extensions(
-        self, state: modules.RNNState, scores: torch.Tensor
-    ) -> Iterator[Cell]:
-        """Generates extension cells.
-
-        Args:
-            state (modules.RNNState).
-            scores (torch.Tensor):
-
-        Yields:
-            Cell: all single-symbol extensions of the current cell.
-        """
-        for symbol, score in enumerate(scores):
-            yield Cell(
-                state, self.symbols + [symbol], self.score + score.item()
-            )
-
-    @property
-    def last_symbol(self) -> torch.Tensor:
-        return torch.tensor([[self.symbols[-1]]], dtype=torch.int64)
-
-    @property
-    def final(self) -> bool:
-        return self.symbols[-1] == special.END_IDX
-
-    # Comparision.
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, Cell):
-            return NotImplemented
-        return self.score == other.score
-
-    def __lt__(self, other) -> bool:
-        if not isinstance(other, Cell):
-            return NotImplemented
-        return self.score < other.score
-'''
-# FIXME
-
-
 class Beam:
     """The beam.
 
