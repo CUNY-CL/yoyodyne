@@ -169,17 +169,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGeneratorModel):
             )
         # We use the inherited defaults for the source embeddings/encoder.
         # Overrides classifier to take larger input.
-        if not self.has_features_encoder:
-            self.classifier = nn.Linear(
-                self.hidden_size + self.source_encoder.output_size,
-                self.target_vocab_size,
-            )
-            self.generation_probability = GenerationProbability(
-                self.embedding_size,
-                self.hidden_size,
-                self.source_encoder.output_size,
-            )
-        else:
+        if self.has_features_encoder:
             self.features_attention = modules.attention.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
@@ -194,6 +184,16 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGeneratorModel):
                 self.hidden_size,
                 self.source_encoder.output_size
                 + self.features_encoder.output_size,
+            )
+        else:
+            self.classifier = nn.Linear(
+                self.hidden_size + self.source_encoder.output_size,
+                self.target_vocab_size,
+            )
+            self.generation_probability = GenerationProbability(
+                self.embedding_size,
+                self.hidden_size,
+                self.source_encoder.output_size,
             )
 
     def _check_layer_sizes(self) -> None:
@@ -402,16 +402,7 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         """
         encoder_out = self.source_encoder(batch.source)
         source_encoded = encoder_out.output
-        if encoder_out.has_hiddens:
-            last_hiddens = self._reshape_hiddens(
-                encoder_out.hiddens,
-                self.source_encoder.layers,
-                self.source_encoder.num_directions,
-            )
-        else:
-            last_hiddens = self.init_hiddens(
-                len(batch), self.source_encoder.layers
-            )
+        last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
@@ -435,16 +426,6 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
         else:
             features_encoder_out = self.features_encoder(batch.features)
             features_encoded = features_encoder_out.output
-            if features_encoder_out.has_hiddens:
-                last_hiddens = self._reshape_hiddens(
-                    features_encoder_out.hiddens,
-                    self.features_encoder.layers,
-                    self.features_encoder.num_directions,
-                )
-            else:
-                last_hiddens = self.init_hiddens(
-                    len(batch), self.source_encoder.layers
-                )
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 return self.beam_decode(
@@ -468,14 +449,6 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel, rnn.GRUModel):
                     features_mask=batch.features.mask,
                     target=(batch.target.padded if batch.target else None),
                 )
-
-    @staticmethod
-    def _reshape_hiddens(
-        h: torch.Tensor,
-        layers: int,
-        num_directions: int,
-    ) -> torch.Tensor:
-        return h.view(layers, num_directions, h.size(1), h.size(2)).sum(axis=1)
 
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
         return modules.AttentiveGRUDecoder(
@@ -585,16 +558,7 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
         """
         encoder_out = self.source_encoder(batch.source)
         source_encoded = encoder_out.output
-        if encoder_out.has_hiddens:
-            h_source, c_source = encoder_out.hiddens
-            last_hiddens = self._reshape_hiddens(
-                h_source,
-                c_source,
-                self.source_encoder.layers,
-                self.source_encoder.num_directions,
-            )
-        else:
-            last_hiddens = self.init_hiddens(len(batch))
+        last_hiddens = self.init_hiddens(len(batch))
         if not self.has_features_encoder:
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
@@ -618,16 +582,6 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
         else:
             features_encoder_out = self.features_encoder(batch.features)
             features_encoded = features_encoder_out.output
-            if features_encoder_out.has_hiddens:
-                h_features, c_features = features_encoder_out.hiddens
-                h_features, c_features = self._reshape_hiddens(
-                    h_features,
-                    c_features,
-                    self.features_encoder.layers,
-                    self.features_encoder.num_directions,
-                )
-            else:
-                h_features, c_features = self.init_hiddens(len(batch))
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 return self.beam_decode(
@@ -651,17 +605,6 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel, rnn.LSTMModel):
                     features_mask=batch.features.mask,
                     target=(batch.target.padded if batch.target else None),
                 )
-
-    @staticmethod
-    def _reshape_hiddens(
-        h: torch.Tensor,
-        c: torch.Tensor,
-        layers: int,
-        num_directions: int,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        h = h.view(layers, num_directions, h.size(1), h.size(2)).sum(axis=1)
-        c = c.view(layers, num_directions, c.size(1), c.size(2)).sum(axis=1)
-        return h, c
 
     def get_decoder(self) -> modules.AttentiveLSTMDecoder:
         return modules.AttentiveLSTMDecoder(
