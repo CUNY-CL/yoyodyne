@@ -150,6 +150,7 @@ class PointerGeneratorModel(base.BaseModel):
         return loss
 
 
+# FIXME this order of subclassing looks wrong to me.
 class PointerGeneratorRNNModel(rnn.RNNModel, PointerGeneratorModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
@@ -179,7 +180,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGeneratorModel):
                 + self.features_encoder.output_size,
                 self.target_vocab_size,
             )
-            self.generation_probability = GenerationProbability(  # noqa: E501
+            self.generation_probability = GenerationProbability(
                 self.embedding_size,
                 self.hidden_size,
                 self.source_encoder.output_size

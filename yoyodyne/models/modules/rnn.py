@@ -127,8 +127,8 @@ class RNNEncoder(RNNModule):
         anything so it's discarded here.
 
         Args:
-            source (data.PaddedTensor): source padded tensors and mask
-                for source, of shape B x seq_len x 1.
+            source (data.PaddedTensor): source padded tensors of shape
+                B x seq_len x 1.
 
         Returns:
             torch.Tensor.
@@ -193,6 +193,7 @@ class LSTMDecoderModule(nn.LSTM):
     def forward(
         self, symbol: torch.Tensor, state: RNNState
     ) -> Tuple[torch.Tensor, RNNState]:
+        assert state.cell is not None, "expected cell state"
         decoded, (hidden, cell) = super().forward(
             symbol, (state.hidden, state.cell)
         )
@@ -227,10 +228,8 @@ class RNNDecoder(RNNModule):
         Args:
             encoded (torch.Tensor): encoded source sequence of shape
                 B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask for the encoded source batch of shape
-                B x seq_len.
-            symbol (torch.Tensor): previously decoded symbol(s) of shape
-                B x 1.
+            mask (torch.Tensor): mask of shape B x seq_len.
+            symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
             state (RNNState).
 
         Returns:
@@ -251,8 +250,7 @@ class RNNDecoder(RNNModule):
         Args:
             encoded (torch.Tensor): encoded input sequence of shape
                 B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask for the encoded input batch of shape
-                B x seq_len.
+            mask (torch.Tensor): mask of shape B x seq_len.
 
         Returns:
             torch.Tensor: indices of shape B x 1 x encoder_dim.
@@ -271,6 +269,9 @@ class RNNDecoder(RNNModule):
         return torch.tensor([special.START_IDX], device=self.device).repeat(
             batch_size, 1
         )
+
+    @abc.abstractmethod
+    def initial_state(self, batch_size: int) -> RNNState: ...
 
     def _init_hidden(self, batch_size: int) -> torch.Tensor:
         return self.h0.repeat(self.layers, batch_size, 1)
@@ -361,8 +362,7 @@ class AttentiveRNNDecoder(RNNDecoder):
         Args:
             encoded (torch.Tensor): encoded source sequence of shape
                 B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask for the encoded input batch of shape
-                B x seq_len.
+            mask (torch.Tensor): mask of shape B x seq_len.
             symbol (torch.Tensor): previously decoded symbol(s) of shape
                 B x 1.
             state (RNNState).

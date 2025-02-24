@@ -38,16 +38,16 @@ class RNNModel(base.BaseModel):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
-        Args:
-            encoded (torch.Tensor): batch of encoded input symbols.
-            mask (torch.Tensor): mask for the batch of encoded input symbols.
-
         Decoding halts once all sequences in a batch have reached END. It is
         not currently possible to combine this with loss computation or
         teacher forcing.
 
         The implementation assumes batch size is 1, but both inputs and outputs
         are still assumed to have a leading dimension representing batch size.
+
+        Args:
+            encoded (torch.Tensor): batch of encoded source symbols.
+            mask (torch.Tensor): mask.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
@@ -60,6 +60,8 @@ class RNNModel(base.BaseModel):
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
             )
+        # initial_input is not needed here because the start symbol is already
+        # implicit in the beam.
         state = self.decoder.initial_state(batch_size)
         beam = beam_search.Beam(self.beam_width, state)
         for _ in range(self.max_target_length):
@@ -142,9 +144,8 @@ class RNNModel(base.BaseModel):
         sequences have reached END.
 
         Args:
-            encoded (torch.Tensor): batch of encoded input symbols.
-            mask (torch.Tensor): mask for the batch of encoded
-                input symbols.
+            encoded (torch.Tensor): batch of encoded source symbols.
+            mask (torch.Tensor): mask.
             teacher_forcing (bool, optional): whether or not to decode with
                 teacher forcing.
             target (torch.Tensor, optional): target symbols; if provided this
@@ -154,29 +155,29 @@ class RNNModel(base.BaseModel):
             torch.Tensor: predictions of B x seq_length x target_vocab_size.
         """
         batch_size = mask.size(0)
-        sequence = self.decoder.initial_input(batch_size)
+        symbol = self.decoder.initial_input(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
         if target is None:
             max_num_steps = self.max_target_length
-            # Tracks when each sequence has decoded an END.
-            final = torch.zeros(batch_size, device=self.device)
+            # Tracks when each /equence has decoded an END.
+            final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
-            decoded, state = self.decoder(encoded, mask, sequence, state)
+            decoded, state = self.decoder(encoded, mask, symbol, state)
             logits = self.classifier(decoded)
             predictions.append(logits.squeeze(1))
             # With teacher forcing the next input is the gold symbol for this
             # step; with student forcing, it's the top prediction.
-            sequence = (
+            symbol = (
                 target[:, t].unsqueeze(1)
                 if teacher_forcing
                 else torch.argmax(logits, dim=2)
             )
             if target is None:
                 # Updates which sequences have decoded an END.
-                final = torch.logical_or(final, (sequence == special.END_IDX))
+                final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():
                     break
         # -> B x seq_len x target_vocab_size.
