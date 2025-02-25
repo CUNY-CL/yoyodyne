@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Runs a W&B sweep."""
+"""Runs a W&B sweep, training a model each run."""
 
 import argparse
 import functools
@@ -88,6 +88,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--count",
+        required=True,
         type=int,
         help="Number of runs to perform.",
     )
