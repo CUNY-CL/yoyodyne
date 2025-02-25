@@ -265,16 +265,13 @@ class RNNDecoder(RNNModule):
         # -> B x 1 x encoder_dim.
         return encoded.gather(1, last_idx)
 
-    def initial_input(self, batch_size: int) -> torch.Tensor:
+    def start_symbol(self, batch_size: int) -> torch.Tensor:
         return torch.tensor([special.START_IDX], device=self.device).repeat(
             batch_size, 1
         )
 
     @abc.abstractmethod
     def initial_state(self, batch_size: int) -> RNNState: ...
-
-    def _init_hidden(self, batch_size: int) -> torch.Tensor:
-        return self.h0.repeat(self.layers, batch_size, 1)
 
     @property
     def output_size(self) -> int:
@@ -295,7 +292,7 @@ class GRUDecoder(RNNDecoder):
         )
 
     def initial_state(self, batch_size: int) -> RNNState:
-        return RNNState(self._init_hidden(batch_size))
+        return RNNState(self.h0.repeat(self.layers, batch_size, 1))
 
     @property
     def name(self) -> str:
@@ -324,12 +321,10 @@ class LSTMDecoder(RNNDecoder):
             bidirectional=self.bidirectional,
         )
 
-    def _init_cell(self, batch_size: int) -> torch.Tensor:
-        return self.c0.repeat(self.layers, batch_size, 1)
-
     def initial_state(self, batch_size: int) -> RNNState:
         return RNNState(
-            self._init_hidden(batch_size), self._init_cell(batch_size)
+            self.h0.repeat(self.layers, batch_size, 1),
+            self.c0.repeat(self.layers, batch_size, 1),
         )
 
     @property
@@ -365,7 +360,7 @@ class AttentiveRNNDecoder(RNNDecoder):
             mask (torch.Tensor): mask of shape B x seq_len.
             symbol (torch.Tensor): previously decoded symbol(s) of shape
                 B x 1.
-            state (RNNState).
+            state (RNNState): RNN state.
 
         Returns:
             Tuple[torch.Tensor, RNNState].

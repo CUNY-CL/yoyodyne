@@ -32,6 +32,7 @@ import heapq
 from typing import Iterator, List
 
 import torch
+from torch import nn
 
 from . import modules
 from .. import special
@@ -75,8 +76,8 @@ class Cell:
             )
 
     @property
-    def last_symbol(self) -> torch.Tensor:
-        return torch.tensor([[self.symbols[-1]]], dtype=torch.int64)
+    def symbol(self) -> int:
+        return self.symbols[-1]
 
     @property
     def final(self) -> bool:
@@ -129,3 +130,35 @@ class Beam:
     @property
     def final(self) -> bool:
         return all(cell.final for cell in self.cells)
+
+    def predictions(self, device: torch.device) -> torch.Tensor:
+        """Converts the best sequences into a padded tensor of predictions.
+
+        This implementation assumes batch size is 1.
+
+        Args:
+            device (torch.device): the device to move the data to.
+
+        Returns:
+            torch.Tensor: a B x beam_width x seq_length tensor of predictions.
+        """
+        return nn.utils.rnn.pad_sequence(
+            [torch.tensor(cell.symbols, device=device) for cell in self.cells],
+            batch_first=True,
+            padding_value=special.PAD_IDX,
+        ).unsqueeze(0)
+
+    def scores(self, device: torch.device) -> torch.Tensor:
+        """Converts the sequence scores into tensors.
+
+        This implementation assumes batch size is 1.
+
+        Args:
+            device (torch.device): the device to move the data to.
+
+        Returns:
+            torch.Tensor: a B x beam_width tensor of log-likelihoods.
+        """
+        return torch.tensor(
+            [cell.score for cell in self.cells], device=device
+        ).unsqueeze(0)

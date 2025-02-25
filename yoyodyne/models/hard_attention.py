@@ -131,18 +131,19 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 target_len x B x src_len x src_len.
         """
         batch_size = mask.size(0)
-        sequence = self.decoder.initial_input(batch_size)
+        symbol = self.decoder.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         emissions, transitions, state = self.decode_step(
-            encoded, mask, sequence, state
+            encoded, mask, symbol, state
         )
         all_emissions = [emissions]
         all_transitions = [transitions]
         for idx in range(target.size(1)):
+            symbol = target[:, idx].unsqueeze(1)
             emissions, transitions, state = self.decode_step(
                 encoded,
                 mask,
-                target[:, idx].unsqueeze(-1),
+                symbol,
                 state,
             )
             all_emissions.append(emissions)
@@ -151,12 +152,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
 
     def decode_step(
         self,
-        encoded,
-        mask,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
         symbol: torch.Tensor,
         state: modules.RNNState,
     ) -> Tuple[torch.Tensor, torch.Tensor, modules.RNNState]:
-        """Performs a single decoding step for current state of decoder.
+        """Performs a single decoding step.
 
         Args:
             encoded (torch.Tensor): batch of encoded source symbols
@@ -173,7 +174,8 @@ class HardAttentionRNNModel(rnn.RNNModel):
             encoded, mask, symbol, state
         )
         logits = self.classifier(emissions)
-        scores = nn.functional.log_softmax(logits, dim=-1)
+        # FIXME right dim?
+        scores = nn.functional.log_softmax(logits, dim=1)
         # Expands matrix for all time steps.
         if self.enforce_monotonic:
             transitions = self._apply_mono_mask(transitions)
@@ -199,8 +201,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         Decodes until all sequences in a batch have reached END up to a
         specified length depending on the `target` args.
 
-        Args:
-            encoded (torch.Tensor): batch of encoded source symbols
+        Args: encoded (torch.Tensor): batch of encoded source symbols
                 of shape B x src_len x (encoder_hidden * num_directions).
             mask (torch.Tensor): mask.
 
@@ -210,42 +211,37 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 B x 1 x src_len.
         """
         batch_size = mask.size(0)
-        sequence = self.decoder.initial_input(batch_size)
+        symbol = self.decoder.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         emissions, transitions, state = self.decode_step(
-            encoded, mask, sequence, state
+            encoded, mask, symbol, state
         )
-        predictions, likelihood = self._greedy_step(
+        symbol, likelihood = self._greedy_step(
             emissions, transitions[:, 0].unsqueeze(1)
         )
+        predictions = [symbol]
+        # Tracks when each sequence has decoded an END.
         final = torch.zeros(batch_size, device=self.device, dtype=bool)
-        for idx in range(self.max_target_length):
-            symbol = predictions[:, idx]
+        for _ in range(self.max_target_length):
             emissions, transitions, state = self.decode_step(
                 encoded,
                 mask,
-                symbol.unsqueeze(-1),
+                symbol.unsqueeze(1),
                 state,
             )
             likelihood = likelihood + transitions.transpose(1, 2)
             likelihood = likelihood.logsumexp(dim=2, keepdim=True).transpose(
                 1, 2
             )
-            prediction, likelihood = self._greedy_step(emissions, likelihood)
-            final = torch.logical_or(final, prediction == special.END_IDX)
+            symbol, likelihood = self._greedy_step(emissions, likelihood)
+            predictions.append(symbol)
+            final = torch.logical_or(final, symbol == special.END_IDX)
             if final.all():
                 break
-            # Pads if finished decoding.
-            prediction = nn.utils.rnn.pad_sequence(
-                prediction,
-                batch_first=True,
-                padding_value=special.PAD_IDX,
-            )
-            predictions = torch.cat((predictions, prediction), dim=1)
             # Updates likelihood emissions.
-            likelihood = likelihood + self._gather_at_idx(
-                emissions, prediction
-            )
+            likelihood = likelihood + self._gather_at_idx(emissions, symbol)
+        # -> B x seq_len x target_vocab_size.
+        predictions = torch.stack(predictions, dim=1)
         return predictions, likelihood
 
     @staticmethod
@@ -267,8 +263,9 @@ class HardAttentionRNNModel(rnn.RNNModel):
         """
         probabilities = likelihood + emissions.transpose(1, 2)
         probabilities = probabilities.logsumexp(dim=2)
+        # -> B.
         symbol = torch.argmax(probabilities, dim=1)
-        return symbol.unsqueeze(-1), likelihood
+        return symbol, likelihood
 
     @staticmethod
     def _gather_at_idx(
@@ -319,16 +316,16 @@ class HardAttentionRNNModel(rnn.RNNModel):
         """
         encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
-            encoded_features = self.features_encoder(batch.features)
+            features_encoded = self.features_encoder(batch.features)
             # Averages to flatten embedding.
-            encoded_features = encoded_features.sum(dim=1, keepdim=True)
+            features_encoded = torch.sum(features_encoded, dim=1, keepdim=True)
             # Sums to flatten embedding; this is done as an alternative to the
             # linear projection used in the original paper.
-            encoded_features = encoded_features.expand(
-                -1, encoded_features.size(1), -1
+            features_encoded = features_encoded.expand(
+                -1, features_encoded.size(1), -1
             )
-            # Concatenates with the average.
-            encoded = torch.cat((encoded, encoded_features), dim=2)
+            # Concatenates with the encoded source.
+            encoded = torch.cat((encoded, features_encoded), dim=1)
         if self.training:
             return self.decode(
                 encoded,
@@ -356,7 +353,9 @@ class HardAttentionRNNModel(rnn.RNNModel):
         )
         return loss
 
-    def predict_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+    def predict_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
         predictions, _ = self(batch)
         return predictions
 

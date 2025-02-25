@@ -60,8 +60,7 @@ class RNNModel(base.BaseModel):
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
             )
-        # initial_input is not needed here because the start symbol is already
-        # implicit in the beam.
+        # The start input is not needed here because it's implicit in the beam.
         state = self.decoder.initial_state(batch_size)
         beam = beam_search.Beam(self.beam_width, state)
         for _ in range(self.max_target_length):
@@ -69,30 +68,39 @@ class RNNModel(base.BaseModel):
                 if cell.final:
                     beam.push(cell)
                 else:
-                    decoded, state = self.decoder(
-                        encoded,
-                        mask,
-                        cell.last_symbol.to(self.device),
-                        cell.state,
+                    symbol = torch.tensor([[cell.symbol]], device=self.device)
+                    logits, state = self.decode_step(
+                        encoded, mask, symbol, cell.state
                     )
-                    logits = self.classifier(decoded)
                     scores = nn.functional.log_softmax(logits.squeeze(), dim=0)
                     for new_cell in cell.extensions(state, scores):
                         beam.push(new_cell)
             beam.update()
             if beam.final:
                 break
-        # -> B x beam_size x seq_length.
-        predictions = nn.utils.rnn.pad_sequence(
-            [torch.tensor(cell.symbols) for cell in beam.cells],
-            batch_first=True,
-            padding_value=special.PAD_IDX,
-        ).unsqueeze(0)
-        # -> B x beam_size.
-        scores = torch.tensor(
-            [cell.score for cell in beam.cells], device=self.device
-        ).unsqueeze(0)
-        return predictions, scores
+        return beam.predictions(self.device), beam.scores(self.device)
+
+    def decode_step(
+        self,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
+        symbol: torch.Tensor,
+        state: modules.RNNState,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Performs a single decoding step.
+
+        Args:
+            encoded (torch.Tensor): batch of encoded source symbols.
+            mask (torch.Tensor): mask.
+            symbol (torch.Tensor): next symbol.
+            state (modules.RNNState): RNN state.
+
+        Returns:
+            Tuple[torch.Tensor, modules.RNNState]: logits and the RNN state.
+        """
+        decoded, state = self.decoder(encoded, mask, symbol, state)
+        logits = self.classifier(decoded)
+        return logits, state
 
     def forward(
         self,
@@ -122,7 +130,7 @@ class RNNModel(base.BaseModel):
                 encoded,
                 batch.source.mask,
                 self.teacher_forcing if self.training else False,
-                batch.target.padded if batch.target else None,
+                batch.target.padded if batch.has_target else None,
             )
 
     @abc.abstractmethod
@@ -155,18 +163,17 @@ class RNNModel(base.BaseModel):
             torch.Tensor: predictions of B x seq_length x target_vocab_size.
         """
         batch_size = mask.size(0)
-        symbol = self.decoder.initial_input(batch_size)
+        symbol = self.decoder.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
         if target is None:
             max_num_steps = self.max_target_length
-            # Tracks when each /equence has decoded an END.
+            # Tracks when each sequence has decoded an END.
             final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
-            decoded, state = self.decoder(encoded, mask, symbol, state)
-            logits = self.classifier(decoded)
+            logits, state = self.decode_step(encoded, mask, symbol, state)
             predictions.append(logits.squeeze(1))
             # With teacher forcing the next input is the gold symbol for this
             # step; with student forcing, it's the top prediction.

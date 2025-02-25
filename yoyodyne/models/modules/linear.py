@@ -3,10 +3,12 @@
 from ... import data
 from . import base
 
+import torch
+
 
 class LinearEncoder(base.BaseModule):
 
-    def forward(self, source: data.PaddedTensor) -> base.ModuleOutput:
+    def forward(self, source: data.PaddedTensor) -> torch.Tensor:
         """Encodes the input.
 
         Args:
@@ -14,9 +16,9 @@ class LinearEncoder(base.BaseModule):
                 for source, of shape B x seq_len x 1.
 
         Returns:
-            base.ModuleOutput.
+            torch.Tensor.
         """
-        return base.ModuleOutput(self.embed(source.padded))
+        return self.embed(source.padded)
 
     @property
     def name(self) -> str:
