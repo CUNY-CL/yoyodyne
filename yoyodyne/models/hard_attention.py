@@ -164,7 +164,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 of shape B x src_len x (encoder_hidden * num_directions).
             mask (torch.Tensor): mask.
             symbol (torch.Tensor): target symbol for current state.
-            state (modules.RNNSTate): RNN state.
+            state (modules.RNNState): RNN state.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: emission
@@ -175,7 +175,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         )
         logits = self.classifier(emissions)
         # FIXME right dim?
-        scores = nn.functional.log_softmax(logits, dim=1)
+        scores = nn.functional.log_softmax(logits, dim=0)
         # Expands matrix for all time steps.
         if self.enforce_monotonic:
             transitions = self._apply_mono_mask(transitions)
@@ -318,14 +318,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
             # Averages to flatten embedding.
-            features_encoded = torch.sum(features_encoded, dim=1, keepdim=True)
+            features_encoded = features_encoded.sum(dim=1, keepdim=True)
             # Sums to flatten embedding; this is done as an alternative to the
             # linear projection used in the original paper.
-            features_encoded = features_encoded.expand(
-                -1, features_encoded.size(1), -1
-            )
+            features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             # Concatenates with the encoded source.
-            encoded = torch.cat((encoded, features_encoded), dim=1)
+            encoded = torch.cat((encoded, features_encoded), dim=2)
         if self.training:
             return self.decode(
                 encoded,

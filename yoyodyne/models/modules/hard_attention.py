@@ -22,6 +22,7 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         self.output_proj = nn.Sequential(
             nn.Linear(self.output_size, self.output_size), nn.Tanh()
         )
+        print("output_proj:", self.output_size, self.output_size)
         # Projects transition probabilities to depth of module.
         self.scale_encoded = nn.Linear(
             self.decoder_input_size, self.hidden_size

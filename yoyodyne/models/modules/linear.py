@@ -12,8 +12,7 @@ class LinearEncoder(base.BaseModule):
         """Encodes the input.
 
         Args:
-            source (data.PaddedTensor): source padded tensors and mask
-                for source, of shape B x seq_len x 1.
+            source (data.PaddedTensor): source padded tensors.
 
         Returns:
             torch.Tensor.

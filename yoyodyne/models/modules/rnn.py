@@ -53,8 +53,7 @@ class RNNState(nn.Module):
     """Represents the state of an RNN."""
 
     hidden: torch.Tensor
-    # For LSTMs only
-    cell: Optional[torch.Tensor]
+    cell: Optional[torch.Tensor]  # LSTMs only.
 
     def __init__(self, hidden, cell=None):
         super().__init__()
