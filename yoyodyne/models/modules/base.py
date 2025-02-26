@@ -1,33 +1,12 @@
 """Base module class with PL integration."""
 
 import abc
-import dataclasses
-from typing import Optional, Union, Tuple
 
 import lightning
 import torch
 from torch import nn
 
 from ... import defaults
-
-
-@dataclasses.dataclass
-class ModuleOutput:
-    """Output for forward passes."""
-
-    output: torch.Tensor
-    hiddens: Optional[
-        Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
-    ] = None
-    embeddings: Optional[torch.Tensor] = None
-
-    @property
-    def has_hiddens(self) -> bool:
-        return self.hiddens is not None
-
-    @property
-    def has_embeddings(self) -> bool:
-        return self.embeddings is not None
 
 
 class BaseModule(abc.ABC, lightning.LightningModule):

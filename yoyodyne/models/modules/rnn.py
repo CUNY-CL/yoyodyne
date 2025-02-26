@@ -264,11 +264,6 @@ class RNNDecoder(RNNModule):
         # -> B x 1 x encoder_dim.
         return encoded.gather(1, last_idx)
 
-    def start_symbol(self, batch_size: int) -> torch.Tensor:
-        return torch.tensor([special.START_IDX], device=self.device).repeat(
-            batch_size, 1
-        )
-
     @abc.abstractmethod
     def initial_state(self, batch_size: int) -> RNNState: ...
 

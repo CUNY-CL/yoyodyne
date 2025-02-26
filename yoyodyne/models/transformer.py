@@ -77,40 +77,35 @@ class TransformerModel(base.BaseModel):
                 batch.has_target
             ), "Teacher forcing requested but no target provided"
             # Initializes the start symbol for decoding.
-            starts = (
-                torch.tensor(
-                    [special.START_IDX],
-                    device=self.device,
-                )
-                .repeat(batch.target.padded.size(0))
-                .unsqueeze(1)
-            )
-            target_padded = torch.cat((starts, batch.target.padded), dim=1)
+            batch_size = batch.source.mask.size(0)
+            symbol = self.start_symbol(batch_size)
+            target_padded = torch.cat((symbol, batch.target.padded), dim=1)
             target_mask = torch.cat(
-                (starts == special.PAD_IDX, batch.target.mask), dim=1
+                (symbol == special.PAD_IDX, batch.target.mask), dim=1
             )
-            encoder_output = self.source_encoder(batch.source).output
-            decoder_output = self.decoder(
-                encoder_output,
+            encoded = self.source_encoder(batch.source)
+            decoded = self.decoder(
+                encoded,
                 batch.source.mask,
                 target_padded,
                 target_mask,
-            ).output
-            logits = self.classifier(decoder_output)
-            return logits[:, :-1, :]  # Ignores END.
+            )
+            logits = self.classifier(decoded)
+            logits = logits[:, :-1, :]  # Ignores END.
+            return logits
         else:
-            encoder_output = self.source_encoder(batch.source).output
+            encoded = self.source_encoder(batch.source)
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 return self.beam_decode(
-                    encoder_output,
+                    encoded,
                     batch.source.mask,
                     self.beam_width,
                 )
             else:
                 # -> B x seq_len x output_size.
                 return self.greedy_decode(
-                    encoder_output,
+                    encoded,
                     batch.source.mask,
                     batch.target.padded if batch.target else None,
                 )
@@ -130,65 +125,60 @@ class TransformerModel(base.BaseModel):
 
     def greedy_decode(
         self,
-        encoder_hidden: torch.Tensor,
+        encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        targets: Optional[torch.Tensor],
+        target: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
         Args:
-            encoder_hidden (torch.Tensor): hidden states from the encoder.
-            source_mask (torch.Tensor): mask for the encoded source tokens.
-            targets (torch.Tensor, optional): the optional target tokens,
-                which is only used for early stopping during validation
-                if the decoder has predicted END for every sequence in
-                the batch.
+            encoded (torch.Tensor): batch of encoded source symbols.
+            source_mask (torch.Tensor): mask.
+            target (torch.Tensor, optional): target symbols; if provided
+                decoding continues until this length is reached.
 
         Returns:
             torch.Tensor: predictions from the decoder.
         """
+        batch_size = source_mask.size(0)
         # The output distributions to be returned.
         outputs = []
-        batch_size = encoder_hidden.size(0)
         # The predicted symbols at each iteration.
         predictions = [
-            torch.tensor(
-                [special.START_IDX for _ in range(encoder_hidden.size(0))],
-                device=self.device,
+            torch.tensor([special.START_IDX], device=self.device).repeat(
+                batch_size
             )
         ]
-        # Tracking when each sequence has decoded an END.
-        finished = torch.zeros(batch_size, device=self.device)
-        for _ in range(self.max_target_length):
+        if target is None:
+            max_num_steps = self.max_target_length
+            # Tracks when each sequence has decoded an END.
+            final = torch.zeros(batch_size, device=self.device, dtype=bool)
+        else:
+            max_num_steps = target.size(1)
+        for _ in range(max_num_steps):
             target_tensor = torch.stack(predictions, dim=1)
-            # Uses a dummy mask of all ones.
-            target_mask = torch.ones_like(target_tensor, dtype=torch.float)
-            target_mask = target_mask == 0
-            decoder_output = self.decoder(
-                encoder_hidden,
+            # Uses a dummy mask of all zeros.
+            target_mask = torch.zeros_like(target_tensor, dtype=bool)
+            decoded = self.decoder(
+                encoded,
                 source_mask,
                 target_tensor,
                 target_mask,
-            ).output
-            logits = self.classifier(decoder_output)
-            last_output = logits[:, -1, :]  # Ignores END.
-            outputs.append(last_output)
-            # -> B x 1 x 1
-            pred = torch.argmax(last_output, dim=1)
-            predictions.append(pred)
-            # Updates to track which sequences have decoded an END.
-            finished = torch.logical_or(
-                finished, (predictions[-1] == special.END_IDX)
             )
-            # Breaks when all sequences have predicted an END symbol. If we
-            # have a target (and are thus computing loss), we only break when
-            # we have decoded at least the the same number of steps as the
-            # target length.
-            if finished.all():
-                if targets is None or len(outputs) >= targets.size(-1):
+            logits = self.classifier(decoded)
+            logits = logits[:, -1, :]  # Ignores END.
+            outputs.append(logits)
+            # -> B.
+            symbol = torch.argmax(logits, dim=1)
+            predictions.append(symbol)
+            if target is None:
+                # Updates which sequences have decoded an END.
+                final = torch.logical_or(final, (symbol == special.END_IDX))
+                if final.all():
                     break
         # -> B x seq_len x target_vocab_size.
-        return torch.stack(outputs).transpose(0, 1)
+        outputs = torch.stack(outputs, dim=1)
+        return outputs
 
     @property
     def name(self) -> str:

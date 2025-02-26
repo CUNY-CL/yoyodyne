@@ -131,7 +131,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 target_len x B x src_len x src_len.
         """
         batch_size = mask.size(0)
-        symbol = self.decoder.start_symbol(batch_size)
+        symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         emissions, transitions, state = self.decode_step(
             encoded, mask, symbol, state
@@ -174,8 +174,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             encoded, mask, symbol, state
         )
         logits = self.classifier(emissions)
-        # FIXME right dim?
-        scores = nn.functional.log_softmax(logits, dim=0)
+        scores = nn.functional.log_softmax(logits, dim=2)
         # Expands matrix for all time steps.
         if self.enforce_monotonic:
             transitions = self._apply_mono_mask(transitions)

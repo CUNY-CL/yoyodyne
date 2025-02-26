@@ -415,7 +415,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             torch.Tensor: predictions of B x seq_length x target_vocab_size.
         """
         batch_size = source_mask.size(0)
-        symbol = self.decoder.start_symbol(batch_size)
+        symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
         if target is None:

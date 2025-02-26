@@ -156,14 +156,14 @@ class RNNModel(base.BaseModel):
             mask (torch.Tensor): mask.
             teacher_forcing (bool, optional): whether or not to decode with
                 teacher forcing.
-            target (torch.Tensor, optional): target symbols; if provided this
+            target (torch.Tensor, optional): target symbols; if provided
                 decoding continues until this length is reached.
 
         Returns:
             torch.Tensor: predictions of B x seq_length x target_vocab_size.
         """
         batch_size = mask.size(0)
-        symbol = self.decoder.start_symbol(batch_size)
+        symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
         if target is None:
