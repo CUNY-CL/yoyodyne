@@ -46,7 +46,7 @@ class RNNModel(base.BaseModel):
         are still assumed to have a leading dimension representing batch size.
 
         Args:
-            encoded (torch.Tensor): batch of encoded source symbols.
+            encoded (torch.Tensor): encoded source symbols.
             mask (torch.Tensor): mask.
 
         Returns:
@@ -90,7 +90,7 @@ class RNNModel(base.BaseModel):
         """Performs a single decoding step.
 
         Args:
-            encoded (torch.Tensor): batch of encoded source symbols.
+            encoded (torch.Tensor): encoded source symbols.
             mask (torch.Tensor): mask.
             symbol (torch.Tensor): next symbol.
             state (modules.RNNState): RNN state.
@@ -152,7 +152,7 @@ class RNNModel(base.BaseModel):
         sequences have reached END.
 
         Args:
-            encoded (torch.Tensor): batch of encoded source symbols.
+            encoded (torch.Tensor): encoded source symbols.
             mask (torch.Tensor): mask.
             teacher_forcing (bool, optional): whether or not to decode with
                 teacher forcing.

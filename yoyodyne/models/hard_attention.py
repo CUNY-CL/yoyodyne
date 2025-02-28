@@ -119,7 +119,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         maximum length of the target, whichever comes first.
 
         Args:
-            encoded (torch.Tensor): batch of encoded source symbols
+            encoded (torch.Tensor): encoded source symbols
                 of shape B x src_len x (encoder_hidden * num_directions).
             mask (torch.Tensor): mask.
             target (torch.Tensor): target symbols.
@@ -160,8 +160,8 @@ class HardAttentionRNNModel(rnn.RNNModel):
         """Performs a single decoding step.
 
         Args:
-            encoded (torch.Tensor): batch of encoded source symbols
-                of shape B x src_len x (encoder_hidden * num_directions).
+            encoded (torch.Tensor): encoded source symbols of shape
+                B x src_len x (encoder_hidden * num_directions).
             mask (torch.Tensor): mask.
             symbol (torch.Tensor): target symbol for current state.
             state (modules.RNNState): RNN state.
@@ -200,8 +200,9 @@ class HardAttentionRNNModel(rnn.RNNModel):
         Decodes until all sequences in a batch have reached END up to a
         specified length depending on the `target` args.
 
-        Args: encoded (torch.Tensor): batch of encoded source symbols
-                of shape B x src_len x (encoder_hidden * num_directions).
+        Args:
+            encoded (torch.Tensor): encoded source symbols of shape
+                B x src_len x (encoder_hidden * num_directions).
             mask (torch.Tensor): mask.
 
         Returns:
@@ -316,10 +317,9 @@ class HardAttentionRNNModel(rnn.RNNModel):
         encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
-            # Averages to flatten embedding.
-            features_encoded = features_encoded.sum(dim=1, keepdim=True)
-            # Sums to flatten embedding; this is done as an alternative to the
-            # linear projection used in the original paper.
+            # Averages to flatten embedding; this is done as an alternative to
+            # the linear projection used in the original paper.
+            features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             # Concatenates with the encoded source.
             encoded = torch.cat((encoded, features_encoded), dim=2)

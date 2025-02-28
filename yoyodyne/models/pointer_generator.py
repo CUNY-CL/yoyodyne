@@ -197,9 +197,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 
     def beam_decode(
         self,
+        source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        source: torch.Tensor,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -209,12 +209,11 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         name in RNNModel except that features are passed separately.
 
         Args:
-            source_encoded (torch.Tensor): batch of encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
             source (torch.Tensor): source symbols, used to compute pointer
                 weights.
-            features_encoded (torch.Tensor, optional): batch of encoded feaure
-                symbols.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
+            features_encoded (torch.Tensor, optional): encoded feaure symbols.
             features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
@@ -238,9 +237,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 else:
                     symbol = torch.tensor([[cell.symbol]], device=self.device)
                     logits, state = self.decode_step(
+                        source,
                         source_encoded,
                         source_mask,
-                        source,
                         symbol,
                         cell.state,
                         features_encoded,
@@ -256,9 +255,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 
     def decode_step(
         self,
+        source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        source: torch.Tensor,
         symbol: torch.Tensor,
         state: modules.RNNState,
         features_encoded: Optional[torch.Tensor] = None,
@@ -269,14 +268,13 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         This predicts a distribution for one symbol.
 
         Args:
-            source_encoded (torch.Tensor): batch of encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
             source (torch.Tensor): source symbols, used to compute pointer
                 weights.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
             symbol (torch.Tensor): next symbol.
             state (modules.RNNState): RNN state.
-            features_encoded (torch.Tensor, optional): batch of encoded feaure
-                symbols.
+            features_encoded (torch.Tensor, optional): encoded feaure symbols.
             features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
@@ -342,17 +340,17 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             features_encoded = self.features_encoder(batch.features)
             if self.beam_width > 1:
                 return self.beam_decode(
+                    batch.source.padded,
                     source_encoded,
                     batch.source.mask,
-                    batch.source.padded,
                     features_encoded=features_encoded,
                     features_mask=batch.features.mask,
                 )
             else:
                 return self.greedy_decode(
+                    batch.source.padded,
                     source_encoded,
                     batch.source.mask,
-                    batch.source.padded,
                     teacher_forcing=(
                         self.teacher_forcing if self.training else False
                     ),
@@ -368,9 +366,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             )
         else:
             return self.greedy_decode(
+                batch.source.padded,
                 source_encoded,
                 batch.source.mask,
-                batch.source.padded,
                 teacher_forcing=(
                     self.teacher_forcing if self.training else False
                 ),
@@ -379,9 +377,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 
     def greedy_decode(
         self,
+        source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        source: torch.Tensor,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         target: Optional[torch.Tensor] = None,
         features_encoded: Optional[torch.Tensor] = None,
@@ -399,16 +397,15 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         name in RNNModel except that features are passed separately.
 
         Args:
-            source_encoded (torch.Tensor): batch of encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
             source (torch.Tensor): source symbols, used to compute pointer
                 weights.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
             teacher_forcing (bool, optional): whether or not to decode with
                 teacher forcing.
             target (torch.Tensor, optional): target symbols; if provided
                 decoding continues up until this length is reached.
-            features_encoded (torch.Tensor, optional): batch of encoded feaure
-                symbols.
+            features_encoded (torch.Tensor, optional): encoded feaure symbols.
             features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
@@ -426,9 +423,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
             logits, state = self.decode_step(
+                source,
                 source_encoded,
                 source_mask,
-                source,
                 symbol,
                 state,
                 features_encoded,
@@ -686,7 +683,7 @@ class PointerGeneratorTransformerModel(
                     source_encoded,
                     batch.source.mask,
                     batch.source.padded,
-                    batch.target.padded if batch.target else None,
+                    batch.target.padded if batch.has_target else None,
                     features_enc=features_encoded,
                 )
 

@@ -107,7 +107,7 @@ class TransformerModel(base.BaseModel):
                 return self.greedy_decode(
                     encoded,
                     batch.source.mask,
-                    batch.target.padded if batch.target else None,
+                    batch.target.padded if batch.has_target else None,
                 )
 
     def get_decoder(self) -> modules.transformer.TransformerDecoder:
