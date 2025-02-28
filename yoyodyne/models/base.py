@@ -249,6 +249,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def num_parameters(self) -> int:
         return sum(part.numel() for part in self.parameters())
 
+    def start_symbol(self, batch_size: int) -> torch.Tensor:
+        """Generates a tensor of start symbols for the batch."""
+        return torch.tensor([special.START_IDX], device=self.device).repeat(
+            batch_size, 1
+        )
+
     def training_step(
         self,
         batch: data.PaddedBatch,
