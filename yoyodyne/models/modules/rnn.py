@@ -95,7 +95,7 @@ class RNNEncoderModule:
 
 
 class GRUEncoderModule(nn.GRU, RNNEncoderModule):
-    """Patches GRU API to work with RNNState and packing."""
+    """Patches GRU API to work and packing."""
 
     def forward(
         self,
@@ -107,7 +107,7 @@ class GRUEncoderModule(nn.GRU, RNNEncoderModule):
 
 
 class LSTMEncoderModule(nn.LSTM, RNNEncoderModule):
-    """Patches LSTM API to work with RNNState and packing."""
+    """Patches LSTM API to work with packing."""
 
     def forward(
         self, sequence: torch.Tensor, lengths: torch.Tensor
