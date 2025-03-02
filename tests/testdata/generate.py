@@ -16,9 +16,8 @@ def main(args: argparse.Namespace) -> None:
     assert 0 < args.vocabulary <= 26
     vocabulary = list(string.ascii_lowercase[: args.vocabulary])
     for length in poisson.rvs(mu=args.length, size=args.size):
-        # Avoids length-zero strings.
-        length = max(length, 1)
-        print("".join(random.choice(vocabulary) for _ in range(length)))
+        # Add-one to avoids length-zero strings.
+        print("".join(random.choice(vocabulary) for _ in range(1 + length)))
 
 
 if __name__ == "__main__":
