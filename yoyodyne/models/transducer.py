@@ -572,22 +572,13 @@ class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        encoder_out = self.source_encoder(batch.source)
-        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
+        # Ignores start symbol.
+        encoded = self.source_encoder(batch.source).output[:, 1:, :]
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
         if self.has_features_encoder:
-            features_encoder_out = self.features_encoder(batch.features)
-            features_encoded = features_encoder_out.output
-            if features_encoder_out.has_hiddens:
-                h_features = features_encoder_out.hiddens
-                last_hiddens = h_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                last_hiddens = h_features
-            else:
-                last_hiddens = self.init_hiddens(source_mask.size(0))
+            features_encoded = self.features_encoder(batch.features).output
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
@@ -596,8 +587,7 @@ class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
                 ),
                 dim=2,
             )
-        else:
-            last_hiddens = self.init_hiddens(source_mask.size(0))
+        last_hiddens = self.init_hiddens(source_mask.size(0))
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(
@@ -661,25 +651,13 @@ class TransducerLSTMModel(TransducerRNNModel, rnn.LSTMModel):
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        encoder_out = self.source_encoder(batch.source)
-        encoded = encoder_out.output[:, 1:, :]  # Ignores start symbol.
+        # Ignores start symbol.
+        encoded = self.source_encoder(batch.source).output[:, 1:, :]
         source_padded = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         # Start of decoding.
         if self.has_features_encoder:
-            features_encoder_out = self.features_encoder(batch.features)
-            features_encoded = features_encoder_out.output
-            if features_encoder_out.has_hiddens:
-                h_features, c_features = features_encoder_out.hiddens
-                h_features = h_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                c_features = c_features.mean(dim=0, keepdim=True).expand(
-                    self.decoder_layers, -1, -1
-                )
-                last_hiddens = h_features, c_features
-            else:
-                last_hiddens = self.init_hiddens(source_mask.size(0))
+            features_encoded = self.features_encoder(batch.features).output
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             encoded = torch.cat(
                 (
@@ -688,8 +666,7 @@ class TransducerLSTMModel(TransducerRNNModel, rnn.LSTMModel):
                 ),
                 dim=2,
             )
-        else:
-            last_hiddens = self.init_hiddens(source_mask.size(0))
+        last_hiddens = self.init_hiddens(source_mask.size(0))
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(
