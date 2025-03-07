@@ -62,7 +62,7 @@ class RNNModel(base.BaseModel):
         batch_size = mask.size(0)
         if batch_size != 1:
             raise NotImplementedError(
-                "Beam search is not implemented for batch_size > 1"
+                "Beam search is not supported for batch_size > 1"
             )
         # The start input is not needed here because it's implicit in the beam.
         state = self.decoder.initial_state(batch_size)
@@ -133,7 +133,16 @@ class RNNModel(base.BaseModel):
                 log-probabilities) for each prediction; greedy search returns
                 a tensor of predictions of shape
                 B x seq_len x target_vocab_size.
+
+        Raises:
+            NotImplementedError: separate features encoders are not supported.
         """
+        # TODO(#313): add support for this.
+        if self.has_features_encoder:
+            raise NotImplementedError(
+                "Separate features encoders are not supported "
+                f"by {self.name} model"
+            )
         encoded = self.source_encoder(batch.source)
         if self.beam_width > 1:
             return self.beam_decode(encoded, batch.source.mask)

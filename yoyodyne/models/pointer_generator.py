@@ -179,7 +179,18 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         # Overrides inherited classifier.
         self.classifier = nn.Linear(
             self.hidden_size + self.decoder_input_size, self.target_vocab_size
-        )
+
+    def _check_layer_sizes(self) -> None:
+        """Checks that encoder and decoder layers are the same number.
+
+        Raises:
+            Error.
+        """
+        if self.encoder_layers != self.decoder_layers:
+            raise Error(
+                "The number of encoder and decoder layers must match "
+                f"({self.encoder_layers} != {self.decoder_layers})"
+            )
 
     def beam_decode(
         self,
