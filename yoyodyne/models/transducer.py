@@ -62,7 +62,7 @@ class TransducerRNNModel(rnn.RNNModel):
     def beam_decode(self, *args, **kwargs):
         """Overrides incompatible implementation inherited from RNNModel."""
         raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
+            f"Beam search not supported for {self.name} model"
         )
 
     @property
