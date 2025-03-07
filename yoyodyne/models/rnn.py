@@ -184,7 +184,7 @@ class RNNModel(base.BaseModel):
         if self.has_features_encoder:
             raise NotImplementedError(
                 "Separate features encoders are not supported "
-                f"for {self.name} model"
+                f"by {self.name} model"
             )
         encoder_out = self.source_encoder(batch.source).output
         # This function has a polymorphic return because beam search needs to

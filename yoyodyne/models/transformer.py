@@ -21,8 +21,7 @@ class TransformerModel(base.BaseModel):
     """
 
     # Model arguments.
-    source_attention_heads: int
-    # Constructed inside __init__.
+    source_attention_heads: int  # Constructed inside __init__.
     classifier: nn.Linear
 
     def __init__(
@@ -57,13 +56,10 @@ class TransformerModel(base.BaseModel):
 
     def beam_decode(self, *args, **kwargs):
         raise NotImplementedError(
-            f"Beam search is not supported for {self.name} model"
+            f"Beam search is not supported by {self.name} model"
         )
 
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> torch.Tensor:
+    def forward(self, batch: data.PaddedBatch) -> torch.Tensor:
         """Runs the encoder-decoder.
 
         Args:
@@ -78,7 +74,7 @@ class TransformerModel(base.BaseModel):
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoders are not supported for "
+                "Separate features encoders are not supported by "
                 "{self.name} model"
             )
         if self.training and self.teacher_forcing:
