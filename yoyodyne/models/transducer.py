@@ -79,7 +79,7 @@ class TransducerRNNModel(rnn.RNNModel):
         self,
         batch: data.PaddedBatch,
     ) -> Tuple[List[List[int]], torch.Tensor]:
-        """Runs the encoder-decoder model.
+        """Forward pass.
 
         Args:
             batch (data.PaddedBatch).
@@ -94,14 +94,11 @@ class TransducerRNNModel(rnn.RNNModel):
         encoded = encoded[:, 1:, :]
         source = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
-        # Start of decoding.
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
-            # Averages to flatten embedding.
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
-            # Concatenates with the encoded source.
-            encoded = torch.cat((encoded, features_encoded), dim=1)
+            encoded = torch.cat((encoded, features_encoded), dim=2)
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(

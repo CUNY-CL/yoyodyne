@@ -64,8 +64,9 @@ class RNNModel(base.BaseModel):
             raise NotImplementedError(
                 "Beam search is not supported for batch_size > 1"
             )
-        # The start input is not needed here because it's implicit in the beam.
         state = self.decoder.initial_state(batch_size)
+        # The start symbol is not needed here because the beam puts that in
+        # automatically.
         beam = beam_search.Beam(self.beam_width, state)
         for _ in range(self.max_target_length):
             for cell in beam.cells:
@@ -91,7 +92,7 @@ class RNNModel(base.BaseModel):
         symbol: torch.Tensor,
         state: modules.RNNState,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Performs a single decoding step.
+        """Single step of the decoder.
 
         Args:
             encoded (torch.Tensor): encoded source symbols.
@@ -120,7 +121,7 @@ class RNNModel(base.BaseModel):
         self,
         batch: data.PaddedBatch,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Runs the encoder-decoder model.
+        """Forward pass.
 
         Args:
             batch (data.PaddedBatch).
@@ -140,8 +141,8 @@ class RNNModel(base.BaseModel):
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoders are not supported "
-                f"by {self.name} model"
+                "Separate features encoders are not supported by the "
+                f"{self.name} model"
             )
         encoded = self.source_encoder(batch.source)
         if self.beam_width > 1:

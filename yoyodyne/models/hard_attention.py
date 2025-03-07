@@ -157,7 +157,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         symbol: torch.Tensor,
         state: modules.RNNState,
     ) -> Tuple[torch.Tensor, torch.Tensor, modules.RNNState]:
-        """Performs a single decoding step.
+        """Single decoder step.
 
         Args:
             encoded (torch.Tensor): encoded source symbols of shape
@@ -301,7 +301,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
         self,
         batch: data.PaddedBatch,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Runs the encoder-decoder model.
+        """Forward pass.
 
         Args:
             batch (data.PaddedBatch).

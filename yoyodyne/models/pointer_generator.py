@@ -225,8 +225,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             raise NotImplementedError(
                 "Beam search is not implemented for batch_size > 1"
             )
-        # The start input is not needed here because it's implicit in the beam.
         state = self.decoder.initial_state(batch_size)
+        # The start symbol is not needed here because the beam puts that in
+        # automatically.
         beam = beam_search.Beam(self.beam_width, state)
         for _ in range(self.max_target_length):
             for cell in beam.cells:
@@ -261,7 +262,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Runs a single step of the decoder.
+        """Single decoder step.
 
         This predicts a distribution for one symbol.
 
@@ -323,7 +324,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         self,
         batch: data.PaddedBatch,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Runs the encoder-decoder model.
+        """Forward pass.
 
         Args:
             batch (data.PaddedBatch).
@@ -424,12 +425,11 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         else:
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
-            logits, state = self.decode_step(
+            logits = self.decode_step(
                 source,
                 source_encoded,
                 source_mask,
                 symbol,
-                state,
                 features_encoded,
                 features_mask,
             )
@@ -526,15 +526,10 @@ class PointerGeneratorTransformerModel(
 
     def decode_step(
         self,
-        encoder_outs: torch.Tensor,
+        source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        source_indices: torch.Tensor,
-        target_tensor: torch.Tensor,
-        target_mask: torch.Tensor,
-        features_enc: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Runs the decoder in one step.
+        """Single decoder step.
 
         This will work on any sequence length, and returns output
         probabilities for all targets, meaning we can use this method for
@@ -543,40 +538,26 @@ class PointerGeneratorTransformerModel(
         parallel with a diagonal mask.
 
         Args:
-            encoder_outs (torch.Tensor): encoded output representations.
-            source_mask (torch.Tensor): mask for the encoded source tokens.
-            source_indices (torch.Tensor): source token vocabulary ids.
-            target_tensor (torch.Tensor): target token vocabulary ids.
-            target_mask (torch.Tensor): mask for the target tokens.
-            features_enc (Optional[torch.Tensor]): encoded features.
-            features_mask (Optional[torch.Tensor]): mask for encoded features.
+            source_encoded (torch.Tensor): encoded source_symbols.
+            source_mask (torch.Tensor): mask for the source.
+            symbol (torch.Tensor): next symbol.
 
         Returns:
-            torch.Tensor: output probabilities of the shape
-                B x target_seq_len x target_vocab_size, where
-                target_seq_len is inferred form the target_tensor.
+            torch.Tensor: predictions for that state.
         """
-        decoder_output = self.decoder(
-            encoder_outs,
-            source_mask,
-            target_tensor,
-            target_mask,
-            features_memory=features_enc,
-            features_memory_mask=features_mask,
-        )
-        target_embeddings = decoder_output.embeddings
-        decoder_output = decoder_output.output
+        # FIXME docs way out of date.
+        decoded = self.decoder(encoded, source_mask, target, target_mask)
         # Outputs from multi-headed attention from each decoder step to
         # the encoded inputs.
         # Values have been averaged over each attention head.
-        # -> B x tgt_seq_len x src_seq_len.
+        # -> B x target_seq_len x source_seq_len.
         mha_outputs = self.decoder.attention_output.outputs[0]
         # Clears the stored attention result.
         self.decoder.attention_output.clear()
-        logits = self.classifier(decoder_output)
+        logits = self.classifier(decoded)
         output_dist = nn.functional.softmax(logits, dim=2)
-        # -> B x target_seq_len x target_vocab_size.
-        ptr_dist = torch.zeros(
+        # -> B x target-seq_len x target_vocab_size.
+        pointer_dist = torch.zeros(
             mha_outputs.size(0),
             mha_outputs.size(1),
             self.target_vocab_size,
@@ -584,30 +565,29 @@ class PointerGeneratorTransformerModel(
             dtype=mha_outputs.dtype,
         )
         # Repeats the source indices for each target.
-        # -> B x tgt_seq_len x src_seq_len.
+        # -> B x target_seq_len x source_seq_len.
         repeated_source_indices = source_indices.unsqueeze(1).repeat(
             1, mha_outputs.size(1), 1
         )
-        # Scatters the attention weights onto the ptr_dist tensor at their
-        # vocab indices in order to get outputs that match the indexing of the
+        # Scatters the attention weights onto the pointer_dist at their vocab
+        # indices in order to get outputs that match the indexing of the
         # generation probability.
-        ptr_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
+        pointer_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
         # A matrix of context vectors from applying attention to the encoder
         # representations w.r.t. each decoder step.
         context = torch.bmm(mha_outputs, encoder_outs)
-        # Probability of generating (from output_dist).
-        gen_probs = self.generation_probability(
-            context, decoder_output, target_embeddings
-        )
-        scaled_ptr_dist = ptr_dist * (1 - gen_probs)
+        # FIXME this is good
+        # Probability of generating from output_dist.
+        gen_probs = self.generation_probability(context, hidden, embedded)
         scaled_output_dist = output_dist * gen_probs
-        return torch.log(scaled_output_dist + scaled_ptr_dist)
+        scaled_pointer_dist = pointer_dist * (1 - gen_probs)
+        return torch.log(scaled_output_dist + scaled_pointer_dist), state
 
     def forward(
         self,
         batch: data.PaddedBatch,
     ) -> torch.Tensor:
-        """Runs the encoder-decoder.
+        """Forward pass.
 
         Args:
             batch (data.PaddedBatch).
@@ -618,64 +598,22 @@ class PointerGeneratorTransformerModel(
         Raises:
             NotImplementedError: beam search not implemented.
         """
-        source_encoded = self.source_encoder(batch.source).output
-        if self.training and self.teacher_forcing:
-            assert (
-                batch.target.padded is not None
-            ), "Teacher forcing requested but no target provided"
-            # Initializes the start symbol for decoding.
-            starts = (
-                torch.tensor([special.START_IDX], device=self.device)
-                .repeat(batch.target.padded.size(0))
-                .unsqueeze(1)
+        # TODO(#313): add support for this.
+        if self.has_features_encoder:
+            raise NotImplementedError(
+                "Separate features encoders are not supported by the "
+                f"{self.name} model"
             )
-            target_padded = torch.cat((starts, batch.target.padded), dim=1)
-            target_mask = torch.cat(
-                (starts == special.PAD_IDX, batch.target.mask), dim=1
-            )
-            features_encoded = None
-            if self.has_features_encoder:
-                features_encoder_out = self.features_encoder(batch.features)
-                features_encoded = features_encoder_out.output
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    source_encoded,
-                    batch.source.mask,
-                    self.beam_width,
-                )
-            else:
-                output = self.decode_step(
-                    source_encoded,
-                    batch.source.mask,
-                    batch.source.padded,
-                    target_padded,
-                    target_mask,
-                    features_enc=features_encoded,
-                )
-                output = output[:, :-1, :]  # Ignores END.
-                return output
+        encoded = self.source_encoder(batch.source)
+        if self.beam_width > 1:
+            # Will raise a NotImplementedError.
+            return self.beam_decode(source_encoded, batch.source.mask)
         else:
-            features_encoded = None
-            if self.has_features_encoder:
-                features_encoder_out = self.features_encoder(batch.features)
-                features_encoded = features_encoder_out.output
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    source_encoded,
-                    batch.source.mask,
-                    self.beam_width,
-                )
-            else:
-                # -> B x seq_len x output_size.
-                return self.greedy_decode(
-                    source_encoded,
-                    batch.source.mask,
-                    batch.source.padded,
-                    batch.target.padded if batch.has_target else None,
-                    features_enc=features_encoded,
-                )
+            return self.greedy_decode(
+                source_encoded,
+                batch.source.mask,
+                batch.target.padded if batch.has_target else None,
+            )
 
     def get_decoder(
         self,
@@ -696,73 +634,62 @@ class PointerGeneratorTransformerModel(
 
     def greedy_decode(
         self,
-        encoder_hidden: torch.Tensor,
+        source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        source_indices: torch.Tensor,
         targets: Optional[torch.Tensor],
-        features_enc: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
+
         Args:
-            encoder_hidden (torch.Tensor): hidden states from the encoder.
-            source_mask (torch.Tensor): mask for the encoded source tokens.
-            source_indices (torch.Tensor): indices of the source symbols.
-            targets (torch.Tensor, optional): the optional target tokens,
-                which is only used for early stopping during validation
-                if the decoder has predicted END for every sequence in
-                the batch.
-            features_enc (Optional[torch.Tensor]): encoded features.
-            features_mask (Optional[torch.Tensor]): mask for encoded features.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
+            target (torch.Tensor, optional): target symbols; if provided
+                decoding continues until this length is reached.
 
         Returns:
             torch.Tensor: predictions from the decoder.
         """
+        batch_size = encoder_hidden.size(0)
         # The output distributions to be returned.
         outputs = []
-        batch_size = encoder_hidden.size(0)
         # The predicted symbols at each iteration.
         predictions = [
-            torch.tensor(
-                [special.START_IDX for _ in range(encoder_hidden.size(0))],
-                device=self.device,
-            )
+            torch.tensor([special.START_IDX], self.device).repeat(batch_size)
         ]
-        # Tracking when each sequence has decoded an END.
-        finished = torch.zeros(batch_size, device=self.device)
-        for _ in range(self.max_target_length):
+        if target is None:
+            max_num_steps = self.max_target_length
+            # Tracks when each sequence has decoded an END
+            final = torch.zeros(batch_size, device=self.device, dtype=bool)
+        else:
+            max_num_steps = target.size(1)
+        for _ in range(max_num_steps):
             target_tensor = torch.stack(predictions, dim=1)
-            # Uses a dummy mask of all ones.
-            target_mask = torch.ones_like(target_tensor, dtype=torch.float)
-            target_mask = target_mask == 0
-            scores = self.decode_step(
-                encoder_hidden,
+            # Uses a dummy mask of all zeros.
+            target_mask = torch.zeros_like(target_tensor, dtype=bool)
+            decoded = self.decode_step(
+                source_encoded,
                 source_mask,
-                source_indices,
+                source_indices,  # FIXME needed?
                 target_tensor,
                 target_mask,
-                features_enc=features_enc,
-                features_mask=features_mask,
             )
-            last_output = scores[:, -1, :]
-            outputs.append(last_output)
-            # -> B x 1 x 1.
-            pred = torch.argmax(last_output, dim=1)
-            predictions.append(pred)
-            # Updates to track which sequences have decoded an END.
-            finished = torch.logical_or(
-                finished, (predictions[-1] == special.END_IDX)
-            )
-            # Breaks when all sequences have predicted an END symbol. If we
-            # have a target (and are thus computing loss), we only break when
-            # we have decoded at least the the same number of steps as the
-            # target length.
-            if finished.all():
-                if targets is None or len(outputs) >= targets.size(-1):
+            logits = self.classifier(decoded)
+            logits = logits[:, -1, :]  # Ignores END.
+            outputs.append(logits)
+            # -> B.
+            symbol = torch.argmax(logits, dim=1)
+            predictions.append(symbol)
+            if target is None:
+                # Updates which sequences have decoded an END.
+                final = torch.logical_or(final, (symbol == special.END_IDX))
+                if final.all():
                     break
-        # -> B x seq_len x target_vocab_size.
-        return torch.stack(outputs).transpose(0, 1)
+            # -> B x seq_len x target_vocab_size.
+            outputs = torch.stack(outputs, dim=1)
+            return outputs
 
     @property
     def name(self) -> str:

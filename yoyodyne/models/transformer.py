@@ -59,8 +59,30 @@ class TransformerModel(base.BaseModel):
             f"Beam search is not supported by {self.name} model"
         )
 
+    def decode_step(
+        self,
+        encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        predictions: torch.Tensor,
+    ) -> torch.Tensor:
+        """Single decoder step.
+
+        This predicts a distribution for one symbol.
+
+        Args:
+            encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
+            predictions (torch.Tensor): tensor of predictions thus far.
+
+        Returns:
+            torch.Tensor: predictions for that state.
+        """
+        # Uses a dummy mask of all zeros.
+        target_mask = torch.zeros_like(predictions, dtype=bool)
+        return self.decoder(encoded, source_mask, predictions, target_mask)
+
     def forward(self, batch: data.PaddedBatch) -> torch.Tensor:
-        """Runs the encoder-decoder.
+        """Forward pass.
 
         Args:
             batch (data.PaddedBatch).
@@ -74,9 +96,10 @@ class TransformerModel(base.BaseModel):
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoders are not supported by "
-                "{self.name} model"
+                "Separate features encoders are not supported by the "
+                f"{self.name} model"
             )
+        # FIXME why is it like this? Why is there a special training-only loop?
         if self.training and self.teacher_forcing:
             assert (
                 batch.has_target
@@ -161,14 +184,8 @@ class TransformerModel(base.BaseModel):
         else:
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
-            target_tensor = torch.stack(predictions, dim=1)
-            # Uses a dummy mask of all zeros.
-            target_mask = torch.zeros_like(target_tensor, dtype=bool)
-            decoded = self.decoder(
-                encoded,
-                source_mask,
-                target_tensor,
-                target_mask,
+            decoded = self.decode_step(
+                encoded, source_mask, torch.stack(predictions, dim=1)
             )
             logits = self.classifier(decoded)
             logits = logits[:, -1, :]  # Ignores END.
@@ -176,6 +193,7 @@ class TransformerModel(base.BaseModel):
             # -> B.
             symbol = torch.argmax(logits, dim=1)
             predictions.append(symbol)
+            # FIXME teacher forcing could go here.
             if target is None:
                 # Updates which sequences have decoded an END.
                 final = torch.logical_or(final, (symbol == special.END_IDX))
