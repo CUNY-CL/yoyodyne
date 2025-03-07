@@ -57,7 +57,7 @@ class TransformerModel(base.BaseModel):
 
     def beam_decode(self, *args, **kwargs):
         raise NotImplementedError(
-            f"Beam search not supported for {self.name} model"
+            f"Beam search is not supported for {self.name} model"
         )
 
     def forward(
@@ -71,11 +71,15 @@ class TransformerModel(base.BaseModel):
 
         Returns:
             torch.Tensor.
+
+        Raises:
+            NotImplementedError: separate features encoders are not supported.
         """
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoder not supported for {self.name} model"
+                "Separate features encoders are not supported for "
+                "{self.name} model"
             )
         if self.training and self.teacher_forcing:
             assert (

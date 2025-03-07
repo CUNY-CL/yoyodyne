@@ -176,11 +176,15 @@ class RNNModel(base.BaseModel):
                 log-probabilities) for each prediction; greedy search returns
                 a tensor of predictions of shape
                 B x seq_len x target_vocab_size.
+
+        Raises:
+            NotImplementedError: separate features encoders are not supported.
         """
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoder not supported for {self.name} model"
+                "Separate features encoders are not supported "
+                f"for {self.name} model"
             )
         encoder_out = self.source_encoder(batch.source).output
         # This function has a polymorphic return because beam search needs to
