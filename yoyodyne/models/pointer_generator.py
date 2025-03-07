@@ -166,34 +166,20 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 "The number of encoder and decoder layers must match "
                 f"({self.encoder_layers} != {self.decoder_layers})"
             )
-        # We use the inherited defaults for the source embeddings/encoder.
-        # Overrides classifier to take larger input.
+        # Uses the inherited defaults for the source embeddings and encoder.
         if self.has_features_encoder:
             self.features_attention = modules.attention.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
-            self.classifier = nn.Linear(
-                self.hidden_size
-                + self.source_encoder.output_size
-                + self.features_encoder.output_size,
-                self.target_vocab_size,
-            )
-            self.generation_probability = GenerationProbability(
-                self.embedding_size,
-                self.hidden_size,
-                self.source_encoder.output_size
-                + self.features_encoder.output_size,
-            )
-        else:
-            self.classifier = nn.Linear(
-                self.hidden_size + self.source_encoder.output_size,
-                self.target_vocab_size,
-            )
-            self.generation_probability = GenerationProbability(
-                self.embedding_size,
-                self.hidden_size,
-                self.source_encoder.output_size,
-            )
+        self.generation_probability = GenerationProbability(
+            self.embedding_size,
+            self.hidden_size,
+            self.decoder_input_size,
+        )
+        # Overrides inherited classifier.
+        self.classifier = nn.Linear(
+            self.hidden_size + self.decoder_input_size, self.target_vocab_size
+        )
 
     def beam_decode(
         self,
@@ -285,11 +271,15 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         # Is there an obvious refactoring?
         embedded = self.decoder.embed(symbol)
         context, attention_weights = self.decoder.attention(
-            source_encoded, state.hidden.transpose(0, 1), source_mask
+            source_encoded,
+            state.hidden.transpose(0, 1),
+            source_mask,
         )
         if self.has_features_encoder:
             features_context, _ = self.features_attention(
-                features_encoded, state.hidden.transpose(0, 1), features_mask
+                features_encoded,
+                state.hidden.transpose(0, 1),
+                features_mask,
             )
             # -> B x 1 x 4*hidden_size.
             context = torch.cat((context, features_context), dim=2)
@@ -360,9 +350,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 )
         elif self.beam_width > 1:
             return self.beam_decode(
+                batch.source.padded,
                 source_encoded,
                 batch.source.mask,
-                batch.source.padded,
             )
         else:
             return self.greedy_decode(
@@ -455,13 +445,7 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
         return modules.AttentiveGRUDecoder(
             attention_input_size=self.source_encoder.output_size,
-            bidirectional=False,
-            decoder_input_size=(
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-                if self.has_features_encoder
-                else self.source_encoder.output_size
-            ),
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
@@ -481,13 +465,7 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
     def get_decoder(self) -> modules.AttentiveLSTMDecoder:
         return modules.AttentiveLSTMDecoder(
             attention_input_size=self.source_encoder.output_size,
-            bidirectional=False,
-            decoder_input_size=(
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-                if self.has_features_encoder
-                else self.source_encoder.output_size
-            ),
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,

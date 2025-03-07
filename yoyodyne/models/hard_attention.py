@@ -211,7 +211,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 B x 1 x src_len.
         """
         batch_size = mask.size(0)
-        symbol = self.decoder.start_symbol(batch_size)
+        symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         emissions, transitions, state = self.decode_step(
             encoded, mask, symbol, state
@@ -315,6 +315,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             NotImplementedError: beam search not implemented.
         """
         encoded = self.source_encoder(batch.source)
+        # FIXME this is repeated in a few places; combine.
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
             # Averages to flatten embedding; this is done as an alternative to
@@ -407,7 +408,6 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
         if self.attention_context > 0:
             return modules.ContextHardAttentionGRUDecoder(
                 attention_context=self.attention_context,
-                bidirectional=False,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embeddings=self.embeddings,
@@ -418,7 +418,6 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
             )
         else:
             return modules.HardAttentionGRUDecoder(
-                bidirectional=False,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embedding_size=self.embedding_size,
@@ -440,7 +439,6 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
         if self.attention_context > 0:
             return modules.ContextHardAttentionLSTMDecoder(
                 attention_context=self.attention_context,
-                bidirectional=False,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 hidden_size=self.hidden_size,
@@ -451,7 +449,6 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
             )
         else:
             return modules.HardAttentionLSTMDecoder(
-                bidirectional=False,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embeddings=self.embeddings,

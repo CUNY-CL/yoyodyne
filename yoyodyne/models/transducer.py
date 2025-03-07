@@ -101,7 +101,7 @@ class TransducerRNNModel(rnn.RNNModel):
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             # Concatenates with the encoded source.
-            encoded = torch.cat((encoded, features_encoded), dim=2)
+            encoded = torch.cat((encoded, features_encoded), dim=1)
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(

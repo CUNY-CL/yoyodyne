@@ -279,10 +279,10 @@ class GRUDecoder(RNNDecoder):
         return GRUDecoderModule(
             self.decoder_input_size + self.embedding_size,
             self.hidden_size,
-            num_layers=self.layers,
-            dropout=self.dropout,
             batch_first=True,
-            bidirectional=self.bidirectional,
+            bidirectional=False,
+            dropout=self.dropout,
+            num_layers=self.layers,
         )
 
     def initial_state(self, batch_size: int) -> RNNState:
@@ -309,10 +309,10 @@ class LSTMDecoder(RNNDecoder):
         return LSTMDecoderModule(
             self.decoder_input_size + self.embedding_size,
             self.hidden_size,
-            num_layers=self.layers,
-            dropout=self.dropout,
             batch_first=True,
-            bidirectional=self.bidirectional,
+            bidirectional=False,
+            dropout=self.dropout,
+            num_layers=self.layers,
         )
 
     def initial_state(self, batch_size: int) -> RNNState:

@@ -133,7 +133,7 @@ class HardAttentionGRUDecoder(HardAttentionRNNDecoder, rnn.GRUDecoder):
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
-            bidirectional=self.bidirectional,
+            bidirectional=False,
             dropout=self.dropout,
             num_layers=self.layers,
         )
@@ -151,7 +151,7 @@ class HardAttentionLSTMDecoder(HardAttentionRNNDecoder, rnn.LSTMDecoder):
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
-            bidirectional=self.bidirectional,
+            bidirectional=False,
             dropout=self.dropout,
             num_layers=self.layers,
         )

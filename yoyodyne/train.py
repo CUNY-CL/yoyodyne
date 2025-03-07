@@ -139,15 +139,6 @@ def get_datamodule_from_argparse_args(
     Returns:
         data.DataModule.
     """
-    separate_features = args.features_col != 0 and args.arch in [
-        "hard_attention_gru",
-        "hard_attention_lstm",
-        "pointer_generator_gru",
-        "pointer_generator_lstm",
-        "pointer_generator_transformer",
-        "transducer_grm",
-        "transducer_lstm",
-    ]
     # Please pass all arguments by keyword and keep in lexicographic order.
     datamodule = data.DataModule(
         batch_size=args.batch_size,
@@ -156,7 +147,9 @@ def get_datamodule_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
-        separate_features=separate_features,
+        separate_features=util.requires_separate_features(
+            args.features_col, args.arch, args.features_encoder_arch
+        ),
         source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,
@@ -199,6 +192,12 @@ def get_model_from_argparse_args(
         raise Error(
             f"--tie_embeddings disabled, but --arch {args.arch} requires "
             "it to be enabled"
+        )
+    # TODO(#156): add callback interface to check this.
+    if args.features_encoder_arch and not datamodule.has_separate_features:
+        raise Error(
+            "Separate features disabled but --features_encoder_arch "
+            f"{args.features_encoder_arch} requires it to be enabled"
         )
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch

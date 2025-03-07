@@ -180,6 +180,10 @@ class DataModule(lightning.LightningDataModule):
     def has_target(self) -> bool:
         return self.parser.has_target
 
+    @property
+    def has_separate_features(self) -> bool:
+        return self.collator.separate_features
+
     # Required API.
 
     def train_dataloader(self) -> data.DataLoader:

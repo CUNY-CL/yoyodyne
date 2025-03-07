@@ -29,6 +29,10 @@ class RNNModel(base.BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.has_features_encoder:
+            self.features_attention = modules.attention.Attention(
+                self.features_encoder.output_size, self.hidden_size
+            )
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
 
     def beam_decode(
@@ -47,7 +51,7 @@ class RNNModel(base.BaseModel):
 
         Args:
             encoded (torch.Tensor): encoded source symbols.
-            mask (torch.Tensor): mask.
+            mask (torch.Tensor): mask for the source.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
@@ -91,7 +95,7 @@ class RNNModel(base.BaseModel):
 
         Args:
             encoded (torch.Tensor): encoded source symbols.
-            mask (torch.Tensor): mask.
+            mask (torch.Tensor): mask for hte source.
             symbol (torch.Tensor): next symbol.
             state (modules.RNNState): RNN state.
 
@@ -101,6 +105,16 @@ class RNNModel(base.BaseModel):
         decoded, state = self.decoder(encoded, mask, symbol, state)
         logits = self.classifier(decoded)
         return logits, state
+
+    @property
+    def decoder_input_size(self) -> int:
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
 
     def forward(
         self,
@@ -121,8 +135,6 @@ class RNNModel(base.BaseModel):
                 B x seq_len x target_vocab_size.
         """
         encoded = self.source_encoder(batch.source)
-        # This function has a polymorphic return because beam search needs to
-        # return two tensors.
         if self.beam_width > 1:
             return self.beam_decode(encoded, batch.source.mask)
         else:
@@ -217,8 +229,7 @@ class GRUModel(RNNModel):
 
     def get_decoder(self) -> modules.GRUDecoder:
         return modules.GRUDecoder(
-            bidirectional=False,
-            decoder_input_size=self.source_encoder.output_size,
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
@@ -246,8 +257,7 @@ class LSTMModel(RNNModel):
 
     def get_decoder(self) -> modules.LSTMDecoder:
         return modules.LSTMDecoder(
-            bidirectional=False,
-            decoder_input_size=self.source_encoder.output_size,
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
@@ -277,8 +287,7 @@ class AttentiveGRUModel(GRUModel):
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
         return modules.AttentiveGRUDecoder(
             attention_input_size=self.source_encoder.output_size,
-            bidirectional=False,
-            decoder_input_size=self.source_encoder.output_size,
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
@@ -298,8 +307,7 @@ class AttentiveLSTMModel(LSTMModel):
     def get_decoder(self) -> modules.AttentiveLSTMDecoder:
         return modules.AttentiveLSTMDecoder(
             attention_input_size=self.source_encoder.output_size,
-            bidirectional=False,
-            decoder_input_size=self.source_encoder.output_size,
+            decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
