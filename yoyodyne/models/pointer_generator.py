@@ -211,7 +211,7 @@ class PointerGeneratorRNNModel(rnn.RNNModel, PointerGeneratorModel):
     def beam_decode(self, *args, **kwargs):
         """Overrides incompatible implementation inherited from RNNModel."""
         raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
+            f"Beam search is not supported by {self.name} model"
         )
 
     @abc.abstractmethod
