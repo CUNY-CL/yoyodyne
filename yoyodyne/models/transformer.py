@@ -101,7 +101,7 @@ class TransformerModel(base.BaseModel):
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoders are not supported by "
+                "Separate features encoders are not supported by the "
                 f"{self.name} model"
             )
         source_encoded = self.source_encoder(batch.source)
