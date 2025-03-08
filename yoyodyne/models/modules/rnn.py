@@ -65,7 +65,7 @@ class WrappedRNNEncoder:
     """Wraps RNN encoder modules to work with packing.
 
     The derived modules do not pass an initial hidden state (or cell state, in
-    the case of GRUs, so it is effectively zero.
+    the case of LSTMs), so it is effectively zero.
     """
 
     @staticmethod
@@ -91,7 +91,7 @@ class WrappedRNNEncoder:
     @abc.abstractmethod
     def forward(
         self, sequence: torch.Tensor, lengths: torch.Tensor
-    ) -> Tuple[torch.Tensor, RNNState]: ...
+    ) -> torch.Tensor: ...
 
 
 class WrappedGRUEncoder(nn.GRU, WrappedRNNEncoder):
@@ -101,9 +101,9 @@ class WrappedGRUEncoder(nn.GRU, WrappedRNNEncoder):
         self,
         sequence: torch.Tensor,
         lengths: torch.Tensor,
-    ) -> Tuple[torch.Tensor, RNNState]:
-        packed, hidden = super().forward(self._pack(sequence, lengths))
-        return self._pad(packed), RNNState(hidden)
+    ) -> torch.Tensor:
+        packed, _ = super().forward(self._pack(sequence, lengths))
+        return self._pad(packed)
 
 
 class WrappedLSTMEncoder(nn.LSTM, WrappedRNNEncoder):
@@ -111,9 +111,9 @@ class WrappedLSTMEncoder(nn.LSTM, WrappedRNNEncoder):
 
     def forward(
         self, sequence: torch.Tensor, lengths: torch.Tensor
-    ) -> Tuple[torch.Tensor, RNNState]:
-        packed, (hidden, cell) = super().forward(self._pack(sequence, lengths))
-        return self._pad(packed), RNNState(hidden, cell)
+    ) -> torch.Tensor:
+        packed, _ = super().forward(self._pack(sequence, lengths))
+        return self._pad(packed)
 
 
 class RNNEncoder(RNNModule):
@@ -132,8 +132,7 @@ class RNNEncoder(RNNModule):
         Returns:
             torch.Tensor.
         """
-        encoded, _ = self.module(self.embed(source.padded), source.lengths())
-        return encoded
+        return self.module(self.embed(source.padded), source.lengths())
 
     @property
     def output_size(self) -> int:
