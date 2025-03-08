@@ -30,15 +30,15 @@ class RNNModel(base.BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.has_features_encoder:
-            self.features_attention = modules.attention.Attention(
+            self.features_attention = modules.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
 
     def beam_decode(
         self,
-        encoded: torch.Tensor,
-        mask: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
@@ -50,8 +50,8 @@ class RNNModel(base.BaseModel):
         are still assumed to have a leading dimension representing batch size.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols.
-            mask (torch.Tensor): mask for the source.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
@@ -59,7 +59,7 @@ class RNNModel(base.BaseModel):
                 B x beam_width.
         """
         # TODO: modify to work with batches larger than 1.
-        batch_size = mask.size(0)
+        batch_size = source_mask.size(0)
         if batch_size != 1:
             raise NotImplementedError(
                 "Beam search is not supported for batch_size > 1"
@@ -75,7 +75,7 @@ class RNNModel(base.BaseModel):
                 else:
                     symbol = torch.tensor([[cell.symbol]], device=self.device)
                     logits, state = self.decode_step(
-                        encoded, mask, symbol, cell.state
+                        source_encoded, source_mask, symbol, cell.state
                     )
                     scores = nn.functional.log_softmax(logits.squeeze(), dim=0)
                     for new_cell in cell.extensions(state, scores):
@@ -87,23 +87,25 @@ class RNNModel(base.BaseModel):
 
     def decode_step(
         self,
-        encoded: torch.Tensor,
-        mask: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
         symbol: torch.Tensor,
         state: modules.RNNState,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Single step of the decoder.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols.
-            mask (torch.Tensor): mask for hte source.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for hte source.
             symbol (torch.Tensor): next symbol.
             state (modules.RNNState): RNN state.
 
         Returns:
             Tuple[torch.Tensor, modules.RNNState]: logits and the RNN state.
         """
-        decoded, state = self.decoder(encoded, mask, symbol, state)
+        decoded, state = self.decoder(
+            source_encoded, source_mask, symbol, state
+        )
         logits = self.classifier(decoded)
         return logits, state
 
@@ -144,12 +146,12 @@ class RNNModel(base.BaseModel):
                 "Separate features encoders are not supported by the "
                 f"{self.name} model"
             )
-        encoded = self.source_encoder(batch.source)
+        source_encoded = self.source_encoder(batch.source)
         if self.beam_width > 1:
-            return self.beam_decode(encoded, batch.source.mask)
+            return self.beam_decode(source_encoded, batch.source.mask)
         else:
             return self.greedy_decode(
-                encoded,
+                source_encoded,
                 batch.source.mask,
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.has_target else None,
@@ -160,8 +162,8 @@ class RNNModel(base.BaseModel):
 
     def greedy_decode(
         self,
-        encoded: torch.Tensor,
-        mask: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -174,8 +176,8 @@ class RNNModel(base.BaseModel):
         sequences have reached END.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols.
-            mask (torch.Tensor): mask.
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask.
             teacher_forcing (bool, optional): whether or not to decode with
                 teacher forcing.
             target (torch.Tensor, optional): target symbols; if provided
@@ -184,7 +186,7 @@ class RNNModel(base.BaseModel):
         Returns:
             torch.Tensor: predictions of B x seq_length x target_vocab_size.
         """
-        batch_size = mask.size(0)
+        batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
@@ -195,7 +197,9 @@ class RNNModel(base.BaseModel):
         else:
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
-            logits, state = self.decode_step(encoded, mask, symbol, state)
+            logits, state = self.decode_step(
+                source_encoded, source_mask, symbol, state
+            )
             predictions.append(logits.squeeze(1))
             # With teacher forcing the next input is the gold symbol for this
             # step; with student forcing, it's the top prediction.

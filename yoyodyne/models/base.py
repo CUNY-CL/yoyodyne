@@ -55,9 +55,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     embedding_size: int
     encoder_layers: int
     decoder_layers: int
-    features_encoder_cls: Optional[modules.base.BaseModule]
+    features_encoder_cls: Optional[modules.BaseModule]
     hidden_size: int
-    source_encoder_cls: modules.base.BaseModule
+    source_encoder_cls: modules.BaseModule
     # Other stuff.
     eval_metrics: Set[evaluators.Evaluator]
     loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]

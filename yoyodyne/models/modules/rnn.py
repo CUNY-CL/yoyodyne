@@ -5,9 +5,9 @@ RNNModule is the base class.
 We abstract away from the different formats used by GRUs and LSTMs; the latter
 also tracks "cell state" and stores it as part of a tuple of tensors along
 with the hidden state. RNNState hides this detail. For encoder modules,
-GRUEncoderModule and LSTMEncoderModule wrap nn.GRU and nn.LSTM, respectively,
-taking responsibility for packing and padding; GRUDecoderModule and
-LSTMDecoderModule are similar wrappers for decoder modules.
+WrappedGRUEncoderWrapped and WrappedLSTMEncoder wrap nn.GRU and nn.LSTM,
+respectively, taking responsibility for packing and padding; WrappedGRUDecoder
+and WrappedLSTMDecoder are similar wrappers for decoder modules.
 """
 
 import abc
@@ -61,8 +61,8 @@ class RNNState(nn.Module):
         self.register_buffer("cell", cell)
 
 
-class RNNEncoderModule:
-    """Patches RNN encoder modules to work with packing.
+class WrappedRNNEncoder:
+    """Wraps RNN encoder modules to work with packing.
 
     The derived modules do not pass an initial hidden state (or cell state, in
     the case of GRUs, so it is effectively zero.
@@ -94,8 +94,8 @@ class RNNEncoderModule:
     ) -> Tuple[torch.Tensor, RNNState]: ...
 
 
-class GRUEncoderModule(nn.GRU, RNNEncoderModule):
-    """Patches GRU API to work and packing."""
+class WrappedGRUEncoder(nn.GRU, WrappedRNNEncoder):
+    """Wraps GRU API to work with packing."""
 
     def forward(
         self,
@@ -106,8 +106,8 @@ class GRUEncoderModule(nn.GRU, RNNEncoderModule):
         return self._pad(packed), RNNState(hidden)
 
 
-class LSTMEncoderModule(nn.LSTM, RNNEncoderModule):
-    """Patches LSTM API to work with packing."""
+class WrappedLSTMEncoder(nn.LSTM, WrappedRNNEncoder):
+    """Wraps LSTM API to work with packing."""
 
     def forward(
         self, sequence: torch.Tensor, lengths: torch.Tensor
@@ -143,8 +143,8 @@ class RNNEncoder(RNNModule):
 class GRUEncoder(RNNEncoder):
     """GRU encoder."""
 
-    def get_module(self) -> nn.GRU:
-        return GRUEncoderModule(
+    def get_module(self) -> WrappedGRUEncoder:
+        return WrappedGRUEncoder(
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
@@ -161,8 +161,8 @@ class GRUEncoder(RNNEncoder):
 class LSTMEncoder(RNNEncoder):
     """LSTM encoder."""
 
-    def get_module(self) -> nn.LSTM:
-        return LSTMEncoderModule(
+    def get_module(self) -> WrappedLSTMEncoder:
+        return WrappedLSTMEncoder(
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
@@ -176,8 +176,8 @@ class LSTMEncoder(RNNEncoder):
         return "LSTM"
 
 
-class GRUDecoderModule(nn.GRU):
-    """Patches GRU API to work with RNNState."""
+class WrappedGRUDecoder(nn.GRU):
+    """Wraps GRU API to work with RNNState."""
 
     def forward(
         self, symbol: torch.Tensor, state: RNNState
@@ -186,8 +186,8 @@ class GRUDecoderModule(nn.GRU):
         return decoded, RNNState(hidden)
 
 
-class LSTMDecoderModule(nn.LSTM):
-    """Patches LSTM API to work with RNNState."""
+class WrappedLSTMDecoder(nn.LSTM):
+    """Wraps LSTM API to work with RNNState."""
 
     def forward(
         self, symbol: torch.Tensor, state: RNNState
@@ -275,8 +275,8 @@ class RNNDecoder(RNNModule):
 class GRUDecoder(RNNDecoder):
     """GRU decoder."""
 
-    def get_module(self) -> nn.GRU:
-        return GRUDecoderModule(
+    def get_module(self) -> WrappedGRUDecoder:
+        return WrappedGRUDecoder(
             self.decoder_input_size + self.embedding_size,
             self.hidden_size,
             batch_first=True,
@@ -305,8 +305,8 @@ class LSTMDecoder(RNNDecoder):
         super().__init__(*args, **kwargs)
         self.c0 = nn.Parameter(torch.rand(self.hidden_size))
 
-    def get_module(self) -> nn.LSTM:
-        return LSTMDecoderModule(
+    def get_module(self) -> WrappedLSTMDecoder:
+        return WrappedLSTMDecoder(
             self.decoder_input_size + self.embedding_size,
             self.hidden_size,
             batch_first=True,

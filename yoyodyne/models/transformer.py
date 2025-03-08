@@ -61,7 +61,7 @@ class TransformerModel(base.BaseModel):
 
     def decode_step(
         self,
-        encoded: torch.Tensor,
+        source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         predictions: torch.Tensor,
     ) -> torch.Tensor:
@@ -70,16 +70,21 @@ class TransformerModel(base.BaseModel):
         This predicts a distribution for one symbol.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols.
+            source_encoded (torch.Tensor): encoded source symbols.
             source_mask (torch.Tensor): mask for the source.
             predictions (torch.Tensor): tensor of predictions thus far.
 
         Returns:
-            torch.Tensor: predictions for that state.
+            torch.Tensor: logits.
         """
         # Uses a dummy mask of all zeros.
         target_mask = torch.zeros_like(predictions, dtype=bool)
-        return self.decoder(encoded, source_mask, predictions, target_mask)
+        decoded, _ = self.decoder(
+            source_encoded, source_mask, predictions, target_mask
+        )
+        logits = self.classifier(decoded)
+        logits = logits[:, -1, :]  # Ignores END.
+        return logits
 
     def forward(self, batch: data.PaddedBatch) -> torch.Tensor:
         """Forward pass.
@@ -96,50 +101,45 @@ class TransformerModel(base.BaseModel):
         # TODO(#313): add support for this.
         if self.has_features_encoder:
             raise NotImplementedError(
-                "Separate features encoders are not supported by the "
+                "Separate features encoders are not supported by "
                 f"{self.name} model"
             )
-        # FIXME why is it like this? Why is there a special training-only loop?
+        source_encoded = self.source_encoder(batch.source)
         if self.training and self.teacher_forcing:
             assert (
                 batch.has_target
             ), "Teacher forcing requested but no target provided"
-            # Initializes the start symbol for decoding.
-            batch_size = batch.source.mask.size(0)
+            batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
             target_padded = torch.cat((symbol, batch.target.padded), dim=1)
             target_mask = torch.cat(
-                (symbol == special.PAD_IDX, batch.target.mask), dim=1
+                (torch.ones_like(symbol, dtype=bool), batch.target.mask), dim=1
             )
-            encoded = self.source_encoder(batch.source)
-            decoded = self.decoder(
-                encoded,
+            decoded, _ = self.decoder(
+                source_encoded,
                 batch.source.mask,
                 target_padded,
                 target_mask,
             )
             logits = self.classifier(decoded)
-            logits = logits[:, :-1, :]  # Ignores END.
-            return logits
+            return logits[:, :-1, :]  # Ignores END.
         else:
-            encoded = self.source_encoder(batch.source)
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
                 return self.beam_decode(
-                    encoded,
+                    source_encoded,
                     batch.source.mask,
                     self.beam_width,
                 )
             else:
-                # -> B x seq_len x output_size.
                 return self.greedy_decode(
-                    encoded,
+                    source_encoded,
                     batch.source.mask,
                     batch.target.padded if batch.has_target else None,
                 )
 
-    def get_decoder(self) -> modules.transformer.TransformerDecoder:
-        return modules.transformer.TransformerDecoder(
+    def get_decoder(self) -> modules.TransformerDecoder:
+        return modules.TransformerDecoder(
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
@@ -153,20 +153,20 @@ class TransformerModel(base.BaseModel):
 
     def greedy_decode(
         self,
-        encoded: torch.Tensor,
+        source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
         Args:
-            encoded (torch.Tensor): batch of encoded source symbols.
+            source_encoded (torch.Tensor): batch of encoded source symbols.
             source_mask (torch.Tensor): mask.
             target (torch.Tensor, optional): target symbols; if provided
                 decoding continues until this length is reached.
 
         Returns:
-            torch.Tensor: predictions from the decoder.
+            torch.Tensor: logits from the decoder.
         """
         batch_size = source_mask.size(0)
         # The output distributions to be returned.
@@ -184,16 +184,12 @@ class TransformerModel(base.BaseModel):
         else:
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
-            decoded = self.decode_step(
-                encoded, source_mask, torch.stack(predictions, dim=1)
+            logits = self.decode_step(
+                source_encoded, source_mask, torch.stack(predictions, dim=1)
             )
-            logits = self.classifier(decoded)
-            logits = logits[:, -1, :]  # Ignores END.
             outputs.append(logits)
-            # -> B.
             symbol = torch.argmax(logits, dim=1)
             predictions.append(symbol)
-            # FIXME teacher forcing could go here.
             if target is None:
                 # Updates which sequences have decoded an END.
                 final = torch.logical_or(final, (symbol == special.END_IDX))

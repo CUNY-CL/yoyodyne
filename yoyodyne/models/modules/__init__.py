@@ -2,7 +2,9 @@
 
 import argparse
 
+from .attention import Attention  # noqa: F401
 from .base import BaseModule
+from .generation_probability import GenerationProbability  # noqa: F401
 from .hard_attention import ContextHardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import ContextHardAttentionLSTMDecoder  # noqa: F401
 from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
@@ -17,9 +19,10 @@ from .rnn import LSTMDecoder  # noqa: F401
 from .rnn import LSTMEncoder
 from .rnn import RNNDecoder  # noqa: F401
 from .rnn import RNNState  # noqa: F401
-from .transformer import TransformerDecoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder
+from .transformer import TransformerDecoder  # noqa: F401
 from .transformer import TransformerEncoder
+from .transformer import TransformerPointerDecoder  # noqa: F401
 
 
 class Error(Exception):

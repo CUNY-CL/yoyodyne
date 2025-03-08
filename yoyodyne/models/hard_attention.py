@@ -315,7 +315,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
             NotImplementedError: beam search not implemented.
         """
         encoded = self.source_encoder(batch.source)
-        # FIXME this is repeated in a few places; combine.
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
             # Averages to flatten embedding; this is done as an alternative to

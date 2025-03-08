@@ -128,8 +128,8 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
 class HardAttentionGRUDecoder(HardAttentionRNNDecoder, rnn.GRUDecoder):
     """Zeroth-order HMM hard attention GRU decoder."""
 
-    def get_module(self) -> nn.GRU:
-        return rnn.GRUDecoderModule(
+    def get_module(self) -> rnn.WrappedGRUDecoder:
+        return rnn.WrappedGRUDecoder(
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
@@ -146,8 +146,8 @@ class HardAttentionGRUDecoder(HardAttentionRNNDecoder, rnn.GRUDecoder):
 class HardAttentionLSTMDecoder(HardAttentionRNNDecoder, rnn.LSTMDecoder):
     """Zeroth-order HMM hard attention LSTM decoder."""
 
-    def get_module(self) -> nn.LSTM:
-        return rnn.LSTMDecoderModule(
+    def get_module(self) -> rnn.WrappedLSTMDecoder:
+        return rnn.WrappedLSTMDecoder(
             self.embedding_size,
             self.hidden_size,
             batch_first=True,

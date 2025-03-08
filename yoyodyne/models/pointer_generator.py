@@ -2,7 +2,6 @@
 
 from typing import Callable, Optional, Tuple, Union
 
-import numpy
 import torch
 from torch import nn
 
@@ -14,76 +13,11 @@ class Error(Exception):
     pass
 
 
-class GenerationProbability(nn.Module):
-    """Calculates the generation probability for a pointer generator.
-
-
-    Args:
-        embedding_size (int): embedding dimensions.
-        hidden_size (int): decoder hidden state dimensions.
-        attention_size (int): dimensions of combined encoder attentions.
-    """
-
-    stdev = 1 / numpy.sqrt(100)
-
-    W_attention: nn.Linear
-    W_hs: nn.Linear
-    W_emb: nn.Linear
-    bias: nn.Parameter
-
-    def __init__(
-        self,
-        embedding_size: int,
-        hidden_size: int,
-        attention_size: int,
-    ):
-        super().__init__()
-        self.W_emb = nn.Linear(embedding_size, 1, bias=False)
-        self.W_hs = nn.Linear(hidden_size, 1, bias=False)
-        self.W_attention = nn.Linear(attention_size, 1, bias=False)
-        self.bias = nn.Parameter(torch.Tensor(1))
-        self.bias.data.uniform_(-self.stdev, self.stdev)
-
-    def forward(
-        self,
-        attention_context: torch.Tensor,
-        decoder_hiddens: torch.Tensor,
-        target_embeddings: torch.Tensor,
-    ) -> torch.Tensor:
-        """Computes the generation probability
-
-        This is a function of the context vectors, decoder hidden states, and
-        target embeddings, where each is first mapped to a scalar value by a
-        learnable weight matrix.
-
-        Args:
-            attention_context (torch.Tensor): combined context vector over
-                source and features of shape
-                B x sequence_length x attention_size.
-            decoder_hiddens (torch.Tensor): decoder hidden state of shape
-                B x sequence_length x hidden_size.
-            target_embeddings (torch.Tensor): decoder input of shape
-                B x sequence_length x embedding_size.
-
-        Returns:
-            torch.Tensor: generation probability of shape B.
-        """
-        # -> B x sequence_length x 1.
-        p_gen = self.W_attention(attention_context) + self.W_hs(
-            decoder_hiddens
-        )
-        p_gen += self.W_emb(target_embeddings) + self.bias.expand(
-            attention_context.size(0), 1, -1
-        )
-        # -> B x 1 x sequence_length.
-        return torch.sigmoid(p_gen)
-
-
 class PointerGeneratorModel(base.BaseModel):
     """Abstract base class for pointer-generator models."""
 
     # Constructed inside __init__.
-    geneneration_probability: GenerationProbability
+    geneneration_probability: modules.GenerationProbability
 
     def _get_loss_func(
         self,
@@ -168,10 +102,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             )
         # Uses the inherited defaults for the source embeddings and encoder.
         if self.has_features_encoder:
-            self.features_attention = modules.attention.Attention(
+            self.features_attention = modules.Attention(
                 self.features_encoder.output_size, self.hidden_size
             )
-        self.generation_probability = GenerationProbability(
+        self.generation_probability = modules.GenerationProbability(
             self.embedding_size,
             self.hidden_size,
             self.decoder_input_size,
@@ -235,7 +169,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                     beam.push(cell)
                 else:
                     symbol = torch.tensor([[cell.symbol]], device=self.device)
-                    logits, state = self.decode_step(
+                    prediction, state = self.decode_step(
                         source,
                         source_encoded,
                         source_mask,
@@ -244,7 +178,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                         features_encoded,
                         features_mask,
                     )
-                    scores = nn.functional.log_softmax(logits.squeeze(), dim=0)
+                    scores = nn.functional.log_softmax(
+                        prediction.squeeze(), dim=0
+                    )
                     for new_cell in cell.extensions(state, scores):
                         beam.push(new_cell)
             beam.update()
@@ -273,15 +209,16 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             source_mask (torch.Tensor): mask for the source.
             symbol (torch.Tensor): next symbol.
             state (modules.RNNState): RNN state.
-            features_encoded (torch.Tensor, optional): encoded feaure symbols.
+            features_encoded (torch.Tensor, optional): encoded features
+                symbols.
             features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
             Tuple[torch.Tensor, modules.RNNState]: predictions for that state
                 and the RNN state.
         """
-        # TODO: there are a number of clear Law of Demeter violations here.
-        # Is there an obvious refactoring?
+        # TODO: there are a few Law of Demeter violations here. Is there an
+        # obvious refactoring?
         embedded = self.decoder.embed(symbol)
         context, attention_weights = self.decoder.attention(
             source_encoded,
@@ -296,7 +233,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             )
             # -> B x 1 x 4*hidden_size.
             context = torch.cat((context, features_context), dim=2)
-        decoded, state = self.decoder.module(
+        _, state = self.decoder.module(
             torch.cat((embedded, context), dim=2), state
         )
         # -> B x 1 x hidden_size.
@@ -390,7 +327,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        A hard upper bound on the length of the decoded strinsg is provided by
+        A hard upper bound on the length of the decoded strings is provided by
         the length of the target strings (more specifically, the length of the
         longest target string) if a target is provided, or `max_target_length`
         if not. Decoding will halt earlier if no target is provided and all
@@ -425,21 +362,22 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         else:
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
-            logits = self.decode_step(
+            prediction, state = self.decode_step(
                 source,
                 source_encoded,
                 source_mask,
                 symbol,
+                state,
                 features_encoded,
                 features_mask,
             )
-            predictions.append(logits.squeeze(1))
+            predictions.append(prediction.squeeze(1))
             # With teacher forcing the next input is the gold symbol for this
             # step; with student forcing, it's the top prediction.
             symbol = (
                 target[:, t].unsqueeze(1)
                 if teacher_forcing
-                else torch.argmax(logits, dim=2)
+                else torch.argmax(prediction, dim=2)
             )
             if target is None:
                 # Updates which sequences have decoded an END>
@@ -509,25 +447,25 @@ class PointerGeneratorTransformerModel(
     def __init__(self, *args, features_attention_heads, **kwargs):
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
-        if not self.has_features_encoder:
-            self.generation_probability = GenerationProbability(  # noqa: E501
+        if self.has_features_encoder:
+            self.generation_probability = modules.GenerationProbability(
+                self.embedding_size,
+                self.embedding_size,
+                self.embedding_size,
+            )
+        else:
+            self.generation_probability = modules.GenerationProbability(
                 self.embedding_size,
                 self.embedding_size,
                 self.source_encoder.output_size,
             )
-        else:
-            # Removes inherited features attention.
-            self.features_attention = None
-            self.generation_probability = GenerationProbability(  # noqa: E501
-                self.embedding_size,
-                self.embedding_size,
-                self.embedding_size,
-            )
 
     def decode_step(
         self,
+        source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
+        predictions: torch.Tensor,
     ) -> torch.Tensor:
         """Single decoder step.
 
@@ -538,20 +476,25 @@ class PointerGeneratorTransformerModel(
         parallel with a diagonal mask.
 
         Args:
+            source (torch.Tensor): source symbols, used to compute pointer
+                weights.
             source_encoded (torch.Tensor): encoded source_symbols.
             source_mask (torch.Tensor): mask for the source.
-            symbol (torch.Tensor): next symbol.
+            predictions (torch.Tensor): tensor of predictions thus far.
 
         Returns:
             torch.Tensor: predictions for that state.
         """
-        # FIXME docs way out of date.
-        decoded = self.decoder(encoded, source_mask, target, target_mask)
-        # Outputs from multi-headed attention from each decoder step to
-        # the encoded inputs.
-        # Values have been averaged over each attention head.
+        # Uses a dummy mask of all zeros.
+        target_mask = torch.zeros_like(predictions, dtype=bool)
+        decoded, target_embedded = self.decoder(
+            source_encoded, source_mask, predictions, target_mask
+        )
+        # Outputs from the multi-headed attention from each decoder step to
+        # the encoded source. Values have been averaged over each attention
+        # head.
         # -> B x target_seq_len x source_seq_len.
-        mha_outputs = self.decoder.attention_output.outputs[0]
+        mha_outputs = self.decoder.attention_output[0]
         # Clears the stored attention result.
         self.decoder.attention_output.clear()
         logits = self.classifier(decoded)
@@ -566,22 +509,21 @@ class PointerGeneratorTransformerModel(
         )
         # Repeats the source indices for each target.
         # -> B x target_seq_len x source_seq_len.
-        repeated_source_indices = source_indices.unsqueeze(1).repeat(
-            1, mha_outputs.size(1), 1
-        )
+        repeated_source = source.unsqueeze(1).repeat(1, mha_outputs.size(1), 1)
         # Scatters the attention weights onto the pointer_dist at their vocab
         # indices in order to get outputs that match the indexing of the
         # generation probability.
-        pointer_dist.scatter_add_(2, repeated_source_indices, mha_outputs)
+        pointer_dist.scatter_add_(2, repeated_source, mha_outputs)
         # A matrix of context vectors from applying attention to the encoder
         # representations w.r.t. each decoder step.
-        context = torch.bmm(mha_outputs, encoder_outs)
-        # FIXME this is good
+        context = torch.bmm(mha_outputs, source_encoded)
         # Probability of generating from output_dist.
-        gen_probs = self.generation_probability(context, hidden, embedded)
-        scaled_output_dist = output_dist * gen_probs
+        gen_probs = self.generation_probability(
+            context, decoded, target_embedded
+        )
         scaled_pointer_dist = pointer_dist * (1 - gen_probs)
-        return torch.log(scaled_output_dist + scaled_pointer_dist), state
+        scaled_output_dist = output_dist * gen_probs
+        return torch.log(scaled_output_dist + scaled_pointer_dist)
 
     def forward(
         self,
@@ -604,12 +546,13 @@ class PointerGeneratorTransformerModel(
                 "Separate features encoders are not supported by the "
                 f"{self.name} model"
             )
-        encoded = self.source_encoder(batch.source)
+        source_encoded = self.source_encoder(batch.source)
         if self.beam_width > 1:
             # Will raise a NotImplementedError.
             return self.beam_decode(source_encoded, batch.source.mask)
         else:
             return self.greedy_decode(
+                batch.source.padded,
                 source_encoded,
                 batch.source.mask,
                 batch.target.padded if batch.has_target else None,
@@ -617,8 +560,8 @@ class PointerGeneratorTransformerModel(
 
     def get_decoder(
         self,
-    ) -> modules.transformer.TransformerPointerDecoder:
-        return modules.transformer.TransformerPointerDecoder(
+    ) -> modules.TransformerPointerDecoder:
+        return modules.TransformerPointerDecoder(
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
@@ -634,16 +577,22 @@ class PointerGeneratorTransformerModel(
 
     def greedy_decode(
         self,
+        source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        targets: Optional[torch.Tensor],
+        target: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
+        A hard upper bound on the length of the decoded strings is provided by
+        the length of the target strings (more specifically, the length of the
+        longest target string) if a target is provided, or `max_target_length`
+        if not. Decoding will halt earlier if no target is provided and all
+        sequences have reached END.
 
         Args:
+            source (torch.Tensor): source symbols, used to compute pointer
+                weights.
             source_encoded (torch.Tensor): encoded source symbols.
             source_mask (torch.Tensor): mask for the source.
             target (torch.Tensor, optional): target symbols; if provided
@@ -652,12 +601,14 @@ class PointerGeneratorTransformerModel(
         Returns:
             torch.Tensor: predictions from the decoder.
         """
-        batch_size = encoder_hidden.size(0)
+        batch_size = source_encoded.size(0)
         # The output distributions to be returned.
         outputs = []
         # The predicted symbols at each iteration.
         predictions = [
-            torch.tensor([special.START_IDX], self.device).repeat(batch_size)
+            torch.tensor([special.START_IDX], device=self.device).repeat(
+                batch_size
+            )
         ]
         if target is None:
             max_num_steps = self.max_target_length
@@ -666,30 +617,24 @@ class PointerGeneratorTransformerModel(
         else:
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
-            target_tensor = torch.stack(predictions, dim=1)
-            # Uses a dummy mask of all zeros.
-            target_mask = torch.zeros_like(target_tensor, dtype=bool)
-            decoded = self.decode_step(
+            scores = self.decode_step(
+                source,
                 source_encoded,
                 source_mask,
-                source_indices,  # FIXME needed?
-                target_tensor,
-                target_mask,
+                torch.stack(predictions, dim=1),
             )
-            logits = self.classifier(decoded)
-            logits = logits[:, -1, :]  # Ignores END.
-            outputs.append(logits)
-            # -> B.
-            symbol = torch.argmax(logits, dim=1)
+            scores = scores[:, -1, :]
+            outputs.append(scores)
+            symbol = torch.argmax(scores, dim=1)
             predictions.append(symbol)
             if target is None:
                 # Updates which sequences have decoded an END.
                 final = torch.logical_or(final, (symbol == special.END_IDX))
                 if final.all():
                     break
-            # -> B x seq_len x target_vocab_size.
-            outputs = torch.stack(outputs, dim=1)
-            return outputs
+        # -> B x seq_len x target_vocab_size.
+        outputs = torch.stack(outputs, dim=1)
+        return outputs
 
     @property
     def name(self) -> str:
