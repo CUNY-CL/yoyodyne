@@ -34,15 +34,6 @@ def get_datamodule_from_argparse_args(
     Returns:
         data.DataModule.
     """
-    separate_features = args.features_col != 0 and args.arch in [
-        "hard_attention_gru",
-        "hard_attention_lstm",
-        "pointer_generator_gru",
-        "pointer_generator_lstm",
-        "pointer_generator_transformer",
-        "transducer_grm",
-        "transducer_lstm",
-    ]
     # Please pass all arguments by keyword and keep in lexicographic order.
     return data.DataModule(
         batch_size=args.batch_size,
@@ -52,7 +43,9 @@ def get_datamodule_from_argparse_args(
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
         predict=args.predict,
-        separate_features=separate_features,
+        separate_features=util.requires_separate_features(
+            args.features_col, args.arch, args.features_encoder_arch
+        ),
         source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,

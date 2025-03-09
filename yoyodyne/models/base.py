@@ -55,9 +55,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     embedding_size: int
     encoder_layers: int
     decoder_layers: int
-    features_encoder_cls: Optional[modules.base.BaseModule]
+    features_encoder_cls: Optional[modules.BaseModule]
     hidden_size: int
-    source_encoder_cls: modules.base.BaseModule
+    source_encoder_cls: modules.BaseModule
     # Other stuff.
     eval_metrics: Set[evaluators.Evaluator]
     loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -249,6 +249,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def num_parameters(self) -> int:
         return sum(part.numel() for part in self.parameters())
 
+    def start_symbol(self, batch_size: int) -> torch.Tensor:
+        """Generates a tensor of start symbols for the batch."""
+        return torch.tensor([special.START_IDX], device=self.device).repeat(
+            batch_size, 1
+        )
+
     def training_step(
         self,
         batch: data.PaddedBatch,
@@ -280,14 +286,16 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         )
         return loss
 
-    def validation_epoch_end(self, validation_step_outputs: Dict) -> Dict:
+    def validation_epoch_end(
+        self, validation_step_outputs: Dict
+    ) -> Dict[str, float]:
         """Computes average loss and average accuracy.
 
         Args:
             validation_step_outputs (Dict).
 
         Returns:
-            Dict: averaged metrics over all validation steps.
+            Dict[str, float]: averaged metrics over all validation steps.
         """
         avg_val_loss = torch.tensor(
             [v["val_loss"] for v in validation_step_outputs]
@@ -311,7 +319,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self,
         batch: data.PaddedBatch,
         batch_idx: int,
-    ) -> Dict:
+    ) -> Dict[str, float]:
         """Runs one validation step.
 
         This is called by the PL Trainer.
@@ -366,19 +374,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         if self.beam_width > 1:
             return self(batch)
         else:
-            return self._get_predicted(self(batch))
-
-    def _get_predicted(self, predictions: torch.Tensor) -> torch.Tensor:
-        """Picks the best index from the vocabulary.
-
-        Args:
-            predictions (torch.Tensor): B x seq_len x target_vocab_size.
-
-        Returns:
-            torch.Tensor: indices of the argmax at each timestep.
-        """
-        assert len(predictions.size()) == 3
-        return torch.argmax(predictions, dim=2)
+            return torch.argmax(self(batch), dim=2)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
