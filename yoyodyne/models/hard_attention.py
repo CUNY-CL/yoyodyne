@@ -216,9 +216,8 @@ class HardAttentionRNNModel(rnn.RNNModel):
         emissions, transitions, state = self.decode_step(
             encoded, mask, symbol, state
         )
-        symbol, likelihood = self._greedy_step(
-            emissions, transitions[:, 0].unsqueeze(1)
-        )
+        likelihood = transitions[:, 0].unsqueeze(1)
+        symbol = self._greedy_step(emissions, likelihood)
         predictions = [symbol]
         # Tracks when each sequence has decoded an END.
         final = torch.zeros(batch_size, device=self.device, dtype=bool)
@@ -233,7 +232,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             likelihood = likelihood.logsumexp(dim=2, keepdim=True).transpose(
                 1, 2
             )
-            symbol, likelihood = self._greedy_step(emissions, likelihood)
+            symbol = self._greedy_step(emissions, likelihood)
             predictions.append(symbol)
             final = torch.logical_or(final, symbol == special.END_IDX)
             if final.all():
@@ -257,15 +256,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 symbol sequence.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: greedily decoded symbol
-                for current timestep and the current likelihood of the
-                decoded symbol sequence.
+            torch.Tensor: greedily decoded symbol for the current timestep.
         """
         probabilities = likelihood + emissions.transpose(1, 2)
         probabilities = probabilities.logsumexp(dim=2)
         # -> B.
-        symbol = torch.argmax(probabilities, dim=1)
-        return symbol, likelihood
+        return torch.argmax(probabilities, dim=1)
 
     @staticmethod
     def _gather_at_idx(

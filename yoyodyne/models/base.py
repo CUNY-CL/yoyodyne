@@ -370,7 +370,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 using beam search, the predictions and scores as a tuple of
                 tensors; if using greedy search, the predictions as a tensor.
         """
-
         if self.beam_width > 1:
             return self(batch)
         else:
