@@ -29,8 +29,7 @@ keywords = [
 ]
 dependencies = [
     "maxwell >= 0.2.6",
-    # TODO: allow >= 2.0.0 once we we migrate to lightning >= 2.0.0".
-    "numpy >= 1.26.0, < 2.0.0", 
+    "numpy >= 2.2.3",
     "lightning >= 1.7.0, < 2.0.0",
     # TODO: checkpoint loading error with 2.6.0; see #305.
     "torch >= 2.5.1, < 2.6.0",
