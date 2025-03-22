@@ -55,7 +55,7 @@ class RNNModel(base.BaseModel):
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_length and log-likelihoods of shape
+                B x beam_width x seq_len and log-likelihoods of shape
                 B x beam_width.
         """
         # TODO: modify to work with batches larger than 1.
@@ -75,7 +75,10 @@ class RNNModel(base.BaseModel):
                 else:
                     symbol = torch.tensor([[cell.symbol]], device=self.device)
                     logits, state = self.decode_step(
-                        source_encoded, source_mask, symbol, cell.state
+                        source_encoded,
+                        source_mask,
+                        symbol,
+                        cell.state,
                     )
                     scores = nn.functional.log_softmax(logits.squeeze(), dim=0)
                     for new_cell in cell.extensions(state, scores):
@@ -184,7 +187,7 @@ class RNNModel(base.BaseModel):
                 decoding continues until this length is reached.
 
         Returns:
-            torch.Tensor: predictions of B x seq_length x target_vocab_size.
+            torch.Tensor: predictions of B x target_vocab_size x seq_len.
         """
         batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
@@ -213,8 +216,7 @@ class RNNModel(base.BaseModel):
                 final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():
                     break
-        # -> B x seq_len x target_vocab_size.
-        predictions = torch.stack(predictions, dim=1)
+        predictions = torch.stack(predictions, dim=2)
         return predictions
 
     def init_embeddings(

@@ -2,7 +2,7 @@
 
 import abc
 import argparse
-from typing import Callable, Dict, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 from torch import nn
@@ -192,8 +192,9 @@ class HardAttentionRNNModel(rnn.RNNModel):
 
     def greedy_decode(
         self,
-        encoded: torch.Tensor,
-        mask: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        target: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
@@ -201,30 +202,37 @@ class HardAttentionRNNModel(rnn.RNNModel):
         specified length depending on the `target` args.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols of shape
+            source_encoded (torch.Tensor): encoded source symbols of shape
                 B x src_len x (encoder_hidden * num_directions).
-            mask (torch.Tensor): mask.
+            source_mask (torch.Tensor): mask.
+            target (torch.Tensor, optional): target symbols; if provided
+                decoding continues until this length is reached.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
                 B x pred_seq_len and per-step likelihoods of shape
                 B x 1 x src_len.
         """
-        batch_size = mask.size(0)
+        batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         emissions, transitions, state = self.decode_step(
-            encoded, mask, symbol, state
+            source_encoded, source_mask, symbol, state
         )
         likelihood = transitions[:, 0].unsqueeze(1)
         symbol = self._greedy_step(emissions, likelihood)
         predictions = [symbol]
-        # Tracks when each sequence has decoded an END.
-        final = torch.zeros(batch_size, device=self.device, dtype=bool)
-        for _ in range(self.max_target_length):
+        if target is None:
+            max_num_steps = self.max_target_length
+            # Tracks when each sequence has decoded an END.
+            final = torch.zeros(batch_size, device=self.device, dtype=bool)
+        else:
+            max_num_steps = target.size(1)
+        # We already did one step.
+        for _ in range(max_num_steps - 1):
             emissions, transitions, state = self.decode_step(
-                encoded,
-                mask,
+                source_encoded,
+                source_mask,
                 symbol.unsqueeze(1),
                 state,
             )
@@ -234,12 +242,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
             )
             symbol = self._greedy_step(emissions, likelihood)
             predictions.append(symbol)
-            final = torch.logical_or(final, symbol == special.END_IDX)
-            if final.all():
-                break
-            # Updates likelihood emissions.
+            if target is None:
+                final = torch.logical_or(final, symbol == special.END_IDX)
+                if final.all():
+                    break
             likelihood = likelihood + self._gather_at_idx(emissions, symbol)
-        # -> B x seq_len x target_vocab_size.
+        # -> B x seq_len.
         predictions = torch.stack(predictions, dim=1)
         return predictions, likelihood
 
@@ -275,7 +283,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
 
         Args:
             emissions (torch.Tensor): log probabilities of emission states of
-                shape B x src_len x vocab_size.
+                shape B x src_len.
             symbol (torch.Tensor): target symbol to poll probabilities for
                 shape B.
 
@@ -329,22 +337,11 @@ class HardAttentionRNNModel(rnn.RNNModel):
             # Will raise a NotImplementedError.
             return self.beam_decode(encoded, batch.source.mask)
         else:
-            return self.greedy_decode(encoded, batch.source.mask)
-
-    def training_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
-        # Forward pass produces loss by default.
-        emissions, transitions = self(batch)
-        loss = self.loss_func(batch.target.padded, emissions, transitions)
-        self.log(
-            "train_loss",
-            loss,
-            batch_size=len(batch),
-            on_step=False,
-            on_epoch=True,
-        )
-        return loss
+            return self.greedy_decode(
+                encoded,
+                batch.source.mask,
+                batch.target.padded if batch.has_target else None,
+            )
 
     def predict_step(
         self, batch: data.PaddedBatch, batch_idx: int
@@ -352,18 +349,27 @@ class HardAttentionRNNModel(rnn.RNNModel):
         predictions, _ = self(batch)
         return predictions
 
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+        predictions, _ = self(batch)
+        self._update_metrics(predictions, batch.target.padded)
+
+    def training_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
+        emissions, transitions = self(batch)
+        return self.loss_func(batch.target.padded, emissions, transitions)
+
+    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
         predictions, likelihood = self(batch)
-        # Processes for accuracy calculation.
-        val_eval_items_dict = {}
-        for evaluator in self.evaluators:
-            final_predictions = evaluator.finalize_predictions(predictions)
-            final_golds = evaluator.finalize_golds(batch.target.padded)
-            val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
-                final_predictions, final_golds
-            )
-        val_eval_items_dict.update({"val_loss": -likelihood.mean()})
-        return val_eval_items_dict
+        self.log(
+            "val_loss",
+            -likelihood.mean(),
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        self._update_metrics(predictions, batch.target.padded)
 
     @staticmethod
     def _apply_mono_mask(transitions: torch.Tensor) -> torch.Tensor:

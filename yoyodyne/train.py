@@ -11,7 +11,6 @@ from lightning.pytorch import callbacks, loggers
 from . import (
     data,
     defaults,
-    evaluators,
     metrics,
     models,
     schedulers,
@@ -248,12 +247,6 @@ def get_model_from_argparse_args(
     features_vocab_size = (
         datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
-    # This makes sure we compute all metrics that'll be needed.
-    eval_metrics = args.eval_metric.copy()
-    if args.checkpoint_metric != "loss":
-        eval_metrics.add(args.checkpoint_metric)
-    if args.patience_metric != "loss":
-        eval_metrics.add(args.patience_metric)
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
@@ -261,12 +254,13 @@ def get_model_from_argparse_args(
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
+        compute_accuracy=metrics.compute_metric(args, "accuracy"),
+        compute_ser=metrics.compute_metric(args, "ser"),
         decoder_layers=args.decoder_layers,
         dropout=args.dropout,
         embedding_size=args.embedding_size,
         encoder_layers=args.encoder_layers,
         enforce_monotonic=args.enforce_monotonic,
-        eval_metrics=eval_metrics,
         expert=expert,
         features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
@@ -335,7 +329,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         argparse.ArgumentParser.
     """
     data.add_argparse_args(parser)
-    evaluators.add_argparse_args(parser)
     metrics.add_argparse_args(parser)
     models.add_argparse_args(parser)
     schedulers.add_argparse_args(parser)
