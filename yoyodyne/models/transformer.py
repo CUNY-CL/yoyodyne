@@ -113,7 +113,11 @@ class TransformerModel(base.BaseModel):
             symbol = self.start_symbol(batch_size)
             target_padded = torch.cat((symbol, batch.target.padded), dim=1)
             target_mask = torch.cat(
-                (torch.ones_like(symbol, dtype=bool), batch.target.mask), dim=1
+                (
+                    torch.ones_like(symbol, dtype=bool),
+                    batch.target.mask,
+                ),
+                dim=1,
             )
             decoded, _ = self.decoder(
                 source_encoded,
@@ -121,8 +125,9 @@ class TransformerModel(base.BaseModel):
                 target_padded,
                 target_mask,
             )
-            logits = self.classifier(decoded)
-            return logits[:, :-1, :]  # Ignores END.
+            # -> B x target_vocab_size x seq_len.
+            logits = self.classifier(decoded).transpose(1, 2)
+            return logits[:, :, :-1]  # Ignores END.
         else:
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
@@ -185,7 +190,9 @@ class TransformerModel(base.BaseModel):
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
             logits = self.decode_step(
-                source_encoded, source_mask, torch.stack(predictions, dim=1)
+                source_encoded,
+                source_mask,
+                torch.stack(predictions, dim=1),
             )
             outputs.append(logits)
             symbol = torch.argmax(logits, dim=1)
@@ -195,8 +202,8 @@ class TransformerModel(base.BaseModel):
                 final = torch.logical_or(final, (symbol == special.END_IDX))
                 if final.all():
                     break
-        # -> B x seq_len x target_vocab_size.
-        outputs = torch.stack(outputs, dim=1)
+        # -> B x target_vocab_size x seq_len.
+        outputs = torch.stack(outputs, dim=2)
         return outputs
 
     @property

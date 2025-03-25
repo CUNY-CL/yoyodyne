@@ -108,8 +108,8 @@ class TransducerRNNModel(rnn.RNNModel):
                 teacher_forcing=(
                     self.teacher_forcing if self.training else False
                 ),
-                target=batch.target.padded if batch.has_target else None,
-                target_mask=batch.target.mask if batch.has_target else None,
+                target=(batch.target.padded if batch.has_target else None),
+                target_mask=(batch.target.mask if batch.has_target else None),
             )
         else:
             return self.greedy_decode(
@@ -119,8 +119,8 @@ class TransducerRNNModel(rnn.RNNModel):
                 teacher_forcing=(
                     self.teacher_forcing if self.training else False
                 ),
-                target=batch.target.padded if batch.has_target else None,
-                target_mask=batch.target.mask if batch.has_target else None,
+                target=(batch.target.padded if batch.has_target else None),
+                target_mask=(batch.target.mask if batch.has_target else None),
             )
 
     def greedy_decode(
@@ -217,7 +217,7 @@ class TransducerRNNModel(rnn.RNNModel):
                 alignment,
                 lengths,
                 not_complete,
-                optim_actions=optim_actions if teacher_forcing else None,
+                optim_actions=(optim_actions if teacher_forcing else None),
             )
             alignment = self._update_prediction(
                 last_action, source, alignment, prediction
@@ -516,6 +516,20 @@ class TransducerRNNModel(rnn.RNNModel):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
+    def predict_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
+        predictions, _ = self(batch)
+        length = max(len(prediction) for prediction in predictions)
+        # Pads; truncation cannot occur by construction.
+        return self._convert_predictions(predictions, length)
+
+    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+        predictions, _ = self(batch)
+        self._update_metrics(
+            self._convert_predictions(predictions), batch.target.padded
+        )
+
     def on_train_epoch_start(self) -> None:
         self.expert.roll_in_schedule(self.current_epoch)
 
@@ -533,55 +547,84 @@ class TransducerRNNModel(rnn.RNNModel):
         Returns:
             torch.Tensor: loss.
         """
-        # Forward pass produces loss by default.
+        # Forward pass produces loss.
         _, loss = self(batch)
-        self.log(
-            "train_loss",
-            loss,
-            batch_size=len(batch),
-            on_step=False,
-            on_epoch=True,
-        )
         return loss
 
-    def predict_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
-        predictions, _ = self(batch)
-        # Evaluation requires prediction tensor.
-        return self._convert_predictions(predictions)
-
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
+    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
         predictions, loss = self(batch)
-        # Evaluation requires prediction as a tensor.
-        predictions = self._convert_predictions(predictions)
-        # Gets a dict of all eval metrics for this batch.
-        val_eval_items_dict = {
-            evaluator.name: evaluator.evaluate(
-                predictions,
-                batch.target.padded,
-                predictions_finalized=True,
-            )
-            for evaluator in self.evaluators
-        }
-        val_eval_items_dict.update({"val_loss": loss})
-        return val_eval_items_dict
+        self.log(
+            "val_loss",
+            loss,
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        # This needs to conform to target size for evaluation.
+        length = batch.target.padded.size(1)
+        self._update_metrics(
+            self._convert_predictions(predictions, length),
+            batch.target.padded,
+        )
 
     def _convert_predictions(
-        self, predictions: List[List[int]]
+        self, predictions: List[List[int]], length: int
     ) -> torch.Tensor:
-        """Converts prediction values to tensor for evaluator compatibility."""
-        # FIXME: the two steps below may be partially redundant.
-        # TODO: Clean this up and make it more efficient.
-        max_len = len(max(predictions, key=len))
-        for i, pred in enumerate(predictions):
-            pad = [self.actions.end_idx] * (max_len - len(pred))
-            pred.extend(pad)
-            predictions[i] = torch.tensor(pred, dtype=torch.int)
-        predictions = torch.stack(predictions)
-        # This turns all symbols after the first END into PAD so prediction
-        # tensors match gold tensors.
-        return util.pad_tensor_after_end(predictions)
+        """Converts a batch of predictions to the proper form.
+
+        This repeatedly calls `_resize_prediction`, stacks, and then converts
+        redundant END to PAD.
+
+        Args:
+            predictions (list[list[int][): lists of prediction indices.
+            length (int): desired length.
+
+        Returns:
+            torch.Tensor.
+        """
+        return util.pad_tensor_after_end(
+            torch.stack(
+                [
+                    self._resize_prediction(prediction, length)
+                    for prediction in predictions
+                ]
+            )
+        )
+
+    def _resize_prediction(
+        self, prediction: List[int], length: int
+    ) -> torch.Tensor:
+        """Resizes the prediction and converts to tensor.
+
+        If the prediction matches the desired length it is just converted to
+        tensor. If the prediction is longer than the desired length, it is
+        first truncated. If the prediction is shorter than the desired length,
+        it is padded using END.
+
+        Args:
+            predictions (list[int]): prediction indices.
+            length (int): desired length.
+
+        Returns:
+            torch.Tensor.
+        """
+        if len(prediction) == length:
+            # Just converts to tensor.
+            return torch.tensor(prediction, device=self.device)
+        elif len(prediction) < length:
+            # Pads.
+            padding = length - len(prediction)
+            return nn.functional.pad(
+                torch.tensor(prediction, device=self.device),
+                (0, padding),
+                "constant",
+                self.actions.end_idx,
+            )
+        else:
+            # Truncates; this is never used during the prediction step hence
+            # its late ordering.
+            return torch.tensor(prediction[:length], device=self.device)
 
     @property
     @abc.abstractmethod

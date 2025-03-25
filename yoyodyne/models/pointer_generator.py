@@ -610,7 +610,7 @@ class PointerGeneratorTransformerModel(
         ]
         if target is None:
             max_num_steps = self.max_target_length
-            # Tracks when each sequence has decoded an END
+            # Tracks when each sequence has decoded an END.
             final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
             max_num_steps = target.size(1)

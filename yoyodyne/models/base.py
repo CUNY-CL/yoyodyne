@@ -2,29 +2,13 @@
 
 import abc
 import argparse
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning
 import torch
 from torch import nn, optim
 
-from .. import (
-    data,
-    defaults,
-    metrics,
-    optimizers,
-    schedulers,
-    special,
-    util,
-)
+from .. import data, defaults, metrics, optimizers, schedulers, special, util
 from . import modules
 
 
@@ -34,14 +18,14 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     The following are defaults, but can be overriden by individual models:
 
     * The forward method returns a tensor of shape B x target_vocab_size x
-      seq_length for compatibility with loss and evaluation functions.
-    * The one exception is if beam_width > 1, in which case the return type
-      is B x seq_length.
+      seq_length for compatibility with loss and evaluation functions unless
+      beam search is enabled.
     * Cross-entropy loss is the loss function.
-    * Training loss is tracked during the training step.
-    * Validation loss and evaluation metrics are tracked during the validation
-      step.
-    * Evaluation metrics are tracked during the test step.
+    * One or more predictions tensor(s) are returned by predict_step.
+    * Loss is returned by training_step.
+    * Evaluation metrics are tracked by test_step; nothing is returned.
+    * Validation loss and evaluation metrics are tracked by validation_step;
+      nothing is returned.
     """
 
     #  TODO: clean up type checking here.
@@ -371,8 +355,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             on_epoch=True,
             prog_bar=True,
         )
-        print("predictions:", predictions.shape)
-        print("target:", batch.target.padded.shape)
         self._update_metrics(predictions, batch.target.padded)
 
     def on_validation_epoch_end(self) -> None:
