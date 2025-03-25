@@ -33,6 +33,7 @@ dependencies = [
     "lightning >= 1.7.0, < 2.0.0",
     # TODO: checkpoint loading error with 2.6.0; see #305.
     "torch >= 2.5.1, < 2.6.0",
+    "torchmetrics >= 1.6.0",
     "wandb >= 0.18.5, < 0.19.0",
 ]
 classifiers = [
