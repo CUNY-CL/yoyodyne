@@ -108,8 +108,8 @@ class TransducerRNNModel(rnn.RNNModel):
                 teacher_forcing=(
                     self.teacher_forcing if self.training else False
                 ),
-                target=(batch.target.padded if batch.has_target else None),
-                target_mask=(batch.target.mask if batch.has_target else None),
+                target=batch.target.padded if batch.has_target else None,
+                target_mask=batch.target.mask if batch.has_target else None,
             )
         else:
             return self.greedy_decode(
@@ -119,8 +119,8 @@ class TransducerRNNModel(rnn.RNNModel):
                 teacher_forcing=(
                     self.teacher_forcing if self.training else False
                 ),
-                target=(batch.target.padded if batch.has_target else None),
-                target_mask=(batch.target.mask if batch.has_target else None),
+                target=batch.target.padded if batch.has_target else None,
+                target_mask=batch.target.mask if batch.has_target else None,
             )
 
     def greedy_decode(
@@ -217,7 +217,7 @@ class TransducerRNNModel(rnn.RNNModel):
                 alignment,
                 lengths,
                 not_complete,
-                optim_actions=(optim_actions if teacher_forcing else None),
+                optim_actions=optim_actions if teacher_forcing else None,
             )
             alignment = self._update_prediction(
                 last_action, source, alignment, prediction
