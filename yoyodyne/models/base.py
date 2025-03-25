@@ -69,7 +69,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         source_encoder_cls,
         target_vocab_size,
         vocab_size,
-        # All of these have keyword defaults.
         beam_width=defaults.BEAM_WIDTH,
         compute_accuracy=True,
         compute_ser=False,
@@ -360,10 +359,15 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def on_validation_epoch_end(self) -> None:
         self._log_metrics_on_epoch_end("val")
 
-    # Helpers to make it run.
+    # Metric helpers.
+    # 
+    # * `_reset_metrics` is called at the end of a validation pass to reset 
+    #   the internal counters on all active metrics.
+    # * `_update_metrics` takes a batch of predictions and the target and
+    #   updates the counters on all active metrics
+    # * `_log_metrics_on_epoch_end` computes and logs the metrics.
 
     def _reset_metrics(self) -> None:
-        # TODO: update with new metrics as they become available.
         if self.has_accuracy:
             self.accuracy.reset()
         if self.has_ser:
@@ -372,14 +376,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def _update_metrics(
         self, predictions: torch.Tensor, target: torch.Tensor
     ) -> None:
-        # TODO: update with new metrics as they become available.
         if self.has_accuracy:
             self.accuracy.update(predictions, target)
         if self.has_ser:
             self.ser.update(predictions, target)
 
     def _log_metrics_on_epoch_end(self, subset: str) -> None:
-        # TODO: update with new metrics as they become available.
         if self.has_accuracy:
             self.log(
                 f"{subset}_accuracy",

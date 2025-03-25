@@ -135,12 +135,8 @@ class DataModule(lightning.LightningDataModule):
                 source_vocabulary.update(source)
         index = indexes.Index(
             source_vocabulary=source_vocabulary,
-            features_vocabulary=(
-                features_vocabulary if features_vocabulary else None
-            ),
-            target_vocabulary=(
-                target_vocabulary if target_vocabulary else None
-            ),
+            features_vocabulary=features_vocabulary if features_vocabulary else None,
+            target_vocabulary=target_vocabulary if target_vocabulary else None,
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
