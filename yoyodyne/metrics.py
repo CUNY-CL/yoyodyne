@@ -2,7 +2,50 @@
 
 The computation of loss is built into the models. A slight modification of
 a built-in class from torchmetrics is used to compute exact match accuracy. A
-novel symbol error rate (SER) implementation is also provided."""
+novel symbol error rate (SER) implementation is also provided.
+
+
+Adding additional metrics is relatively easy, though there are a lot of steps.
+Suppose one wants to add a metric called Wham. Then one must:
+
+* Implement `Wham(torchmetrics.Metric)` in this module.
+* Register `Wham` in `_metric_fac` in this module.
+* Add the following to `get_model_from_argparse_args` in `train.py`:
+
+    compute_wham=metrics.compute_metric(args, "wham")
+
+* Add the following to the `BaseModel` in `models/base.py`:
+    - add `wham: Optional[metrics.Wham]` to the member type declarations
+    - add `compute_wham=False` to the constructor's arguments
+    - add `self.wham = metric.Wham(...) if compute_wham else None` to the
+      body of the constructor
+    - add the following property:
+
+        @property
+        def has_wham(self) -> bool:
+            return self.wham is not None
+
+    - add the following to the body of `_reset_metrics`:
+
+        if self.has_wham:
+            self.wham.reset()
+
+    - add the following to the body of `_update_metrics`:
+
+        if self.has_wham:
+            self.wham.update(predictions, target)
+
+    - add the following to the body of `_log_metrics_on_epoch_end`:
+
+        if self.has_wham:
+            self.log(
+                f"{subset}_wham",
+                self.wham.compute(),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
+"""
 
 import argparse
 import collections
