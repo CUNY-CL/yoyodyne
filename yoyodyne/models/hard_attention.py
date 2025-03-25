@@ -1,7 +1,8 @@
 """Hard monotonic neural HMM classes."""
 
+import abc
 import argparse
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 from torch import nn
@@ -10,22 +11,27 @@ from .. import data, defaults, special
 from . import modules, rnn
 
 
+class Error(Exception):
+
+    pass
+
+
 class HardAttentionRNNModel(rnn.RNNModel):
-    """Base class for hard attention models.
+    """Abstract base class for hard attention models.
 
     Learns probability distribution of target string by modeling transduction
-    of source string to target string as Markov process. Assumes each character
-    produced is conditioned by state transitions over each source character.
+    of source string to target string as Markov process. Assumes each symbol
+    produced is conditioned by state transitions over each source symbol.
 
     Default model assumes independence between state and non-monotonic
     progression over source string. `enforce_monotonic` enforces monotonic
-    state transition (model progresses over each source character), and
-    `attention_context` allows conditioning of state transition over the
+    state transition (model progresses over each source symbol), and
+    attention context allows conditioning of state transition over the
     previous n states.
 
     After:
         Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
-        character-level transduction. In _Proceedings of the 57th Annual
+        symbol-level transduction. In _Proceedings of the 57th Annual
         Meeting of the Association for Computational Linguistics_, pages
         1530-1537.
 
@@ -55,317 +61,20 @@ class HardAttentionRNNModel(rnn.RNNModel):
         self.enforce_monotonic = enforce_monotonic
         self.attention_context = attention_context
         super().__init__(*args, **kwargs)
+        if not self.teacher_forcing:
+            raise Error(
+                "Architecture requires teacher forcing but it is disabled"
+            )
         self.classifier = nn.Linear(
             self.decoder.output_size, self.target_vocab_size
         )
-        assert (
-            self.teacher_forcing
-        ), "Teacher forcing disabled but required by this model"
-
-    def init_decoding(
-        self, encoder_out: torch.Tensor, encoder_mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Initializes hiddens and initial decoding output.
-
-        This feeds the BOS string to the decoder to provide an initial
-        probability.
-
-        Args:
-            encoder_out (torch.Tensor).
-            encoder_mask (torch.Tensor).
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
-                torch.Tensor]].
-        """
-        batch_size = encoder_mask.shape[0]
-        decoder_hiddens = self.init_hiddens(batch_size)
-        bos = (
-            torch.tensor([special.START_IDX], device=self.device)
-            .repeat(batch_size)
-            .unsqueeze(-1)
-        )
-        return self.decode_step(
-            bos, decoder_hiddens, encoder_out, encoder_mask
-        )
-
-    def decode(
-        self,
-        encoder_out: torch.Tensor,
-        encoder_mask: torch.Tensor,
-        target: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Decodes a sequence given the encoded input.
-
-        Decodes until all sequences in a batch have reached END up to length of
-        `target` args.
-
-        Args:
-            encoder_out (torch.Tensor): batch of encoded input symbols
-                of shape batch_size x src_len x (encoder_hidden *
-                num_directions).
-            encoder_mask (torch.Tensor): mask for the batch of encoded
-                input symbols of shape batch_size x src_len.
-            target (torch.Tensor): target symbols, decodes up to
-                `len(target)` symbols.
-
-        Returns:
-            Tuple[torch.Tensor,torch.Tensor]: emission probabilities
-                for each state (target symbol) of shape tgt_len x
-                batch_size x src_len x vocab_size, and transition
-                probabilities for each state (target symbol) of shape
-                tgt_len x batch_size x src_len x src_len.
-        """
-        log_probs, transition_probs, decoder_hiddens = self.init_decoding(
-            encoder_out, encoder_mask
-        )
-        all_log_probs = [log_probs]
-        all_transition_probs = [transition_probs]
-        for tgt_char_idx in range(target.size(1)):
-            tgt_symbol = target[:, tgt_char_idx]
-            log_probs, transition_probs, decoder_hiddens = self.decode_step(
-                tgt_symbol.unsqueeze(-1),
-                decoder_hiddens,
-                encoder_out,
-                encoder_mask,
-            )
-            all_log_probs.append(log_probs)
-            all_transition_probs.append(transition_probs)
-        return torch.stack(all_log_probs), torch.stack(all_transition_probs)
-
-    def beam_decode(self, *args, **kwargs):
-        """Overrides incompatible implementation inherited from RNNModel."""
-        raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
-        )
-
-    def greedy_decode(
-        self,
-        encoder_out: torch.Tensor,
-        encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Decodes a sequence given the encoded input.
-
-        Decodes until all sequences in a batch have reached END up to a
-        specified length depending on the `target` args.
-
-        Args:
-            encoder_out (torch.Tensor): batch of encoded input symbols
-                of shape batch_size x src_len x (encoder_hidden *
-                num_directions).
-            encoder_mask (torch.Tensor): mask for the batch of encoded
-                input symbols of shape batch_size x src_len.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: predictions of shape batch_size
-                x pred_seq_len, final likelihoods per prediction step of shape
-                batch_size x 1 x src_len.
-        """
-        batch_size = encoder_mask.shape[0]
-        log_probs, transition_prob, decoder_hiddens = self.init_decoding(
-            encoder_out, encoder_mask
-        )
-        predictions, likelihood = self.greedy_step(
-            log_probs, transition_prob[:, 0].unsqueeze(1)
-        )
-        finished = (
-            torch.zeros(batch_size, device=self.device).bool().unsqueeze(-1)
-        )
-        for tgt_char_idx in range(self.max_target_length):
-            symbol = predictions[:, tgt_char_idx]
-            log_probs, transition_prob, decoder_hiddens = self.decode_step(
-                symbol.unsqueeze(-1),
-                decoder_hiddens,
-                encoder_out,
-                encoder_mask,
-            )
-            likelihood = likelihood + transition_prob.transpose(1, 2)
-            likelihood = likelihood.logsumexp(dim=-1, keepdim=True).transpose(
-                1, 2
-            )
-            pred, likelihood = self.greedy_step(log_probs, likelihood)
-            finished = finished | (pred == special.END_IDX)
-            if finished.all().item():
-                break
-            # Pads if finished decoding.
-            pred = torch.where(
-                ~finished,
-                pred,
-                torch.tensor(special.END_IDX, device=self.device),
-            )
-            predictions = torch.cat((predictions, pred), dim=-1)
-            # Updates likelihood emissions.
-            likelihood = likelihood + self._gather_at_idx(log_probs, pred)
-        return predictions, likelihood
-
-    @staticmethod
-    def greedy_step(
-        log_probs: torch.Tensor, likelihood: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Greedy decoding of current timestep.
-
-        Args:
-            log_probs (torch.Tensor): vocabulary probabilities at current
-                time step.
-            likelihood (torch.Tensor): accumulative likelihood of decoded
-                character sequence.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: greedily decoded character
-                for current timestep and the current likelihood of the
-                decoded character sequence.
-        """
-        tgt_prob = likelihood + log_probs.transpose(1, 2)
-        tgt_prob = tgt_prob.logsumexp(dim=-1)
-        tgt_char = torch.max(tgt_prob, dim=-1)[1]
-        return tgt_char.unsqueeze(-1), likelihood
-
-    @staticmethod
-    def _gather_at_idx(prob: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
-        """Collects probability of tgt index across all states in prob.
-
-        To calculate the final emission probability, the pseudo-HMM
-        graph needs to aggregate the final emission probabilities of
-        tgt char across all potential hidden states in prob.
-
-        Args:
-            prob (torch.Tensor): log probabilities of emission states of shape
-                batch_size x src_len x vocab_size.
-            tgt (torch.Tensor): tgt symbol to poll probabilities for
-                shape batch_size.
-
-        Returns:
-            torch.Tensor: emission probabilities of tgt symbol for each hidden
-                state of size batch_size 1 x src_len.
-        """
-        batch_size, src_seq_len, _ = prob.shape
-        idx = tgt.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
-        output = torch.gather(prob, -1, idx).view(batch_size, 1, src_seq_len)
-        idx = idx.view(batch_size, 1, src_seq_len)
-        pad_mask = (idx != special.PAD_IDX).float()
-        return output * pad_mask
-
-    @staticmethod
-    def _apply_mono_mask(
-        transition_prob: torch.Tensor,
-    ) -> torch.Tensor:
-        """Applies monotonic attention mask to transition probabilities.
-
-        Enforces a 0 log-probability values for all non-monotonic relations
-        in the transition_prob tensor (i.e., all values i < j per row j).
-
-        Args:
-            transition_prob (torch.Tensor): transition probabilities between
-                all hidden states (source sequence) of shape batch_size x
-                src_len x src_len.
-
-        Returns:
-            torch.Tensor: masked transition probabilities of shape batch_size
-                x src_len x src_len.
-        """
-        mask = torch.ones_like(transition_prob[0]).triu().unsqueeze(0)
-        # Using 0 log-probability value for masking; this is borrowed from the
-        # original implementation.
-        mask = (mask - 1) * defaults.NEG_LOG_EPSILON
-        transition_prob = transition_prob + mask
-        transition_prob = transition_prob - transition_prob.logsumexp(
-            -1, keepdim=True
-        )
-        return transition_prob
-
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Runs the encoder-decoder model.
-
-        Args:
-            batch (data.PaddedBatch).
-
-        Returns:
-            Tuple[torch.Tensor,torch.Tensor]: emission probabilities for
-                each transition state of shape tgt_len x batch_size x src_len
-                x vocab_size, and transition probabilities for each transition
-
-        Raises:
-            NotImplementedError: beam search not implemented.
-                state of shape batch_size x src_len x src_len.
-        """
-        encoder_out = self.source_encoder(batch.source).output
-        if self.has_features_encoder:
-            encoder_features_out = self.features_encoder(batch.features).output
-            # Averages to flatten embedding.
-            encoder_features_out = encoder_features_out.sum(
-                dim=1, keepdim=True
-            )
-            # Sums to flatten embedding; this is done as an alternative to the
-            # linear projection used in the original paper.
-            encoder_features_out = encoder_features_out.expand(
-                -1, encoder_out.shape[1], -1
-            )
-            # Concatenates with the average.
-            encoder_out = torch.cat(
-                [encoder_out, encoder_features_out], dim=-1
-            )
-        if self.training:
-            return self.decode(
-                encoder_out,
-                batch.source.mask,
-                batch.target.padded,
-            )
-        elif self.beam_width > 1:
-            # Will raise a NotImplementedError.
-            return self.beam_decode(encoder_out, batch.source.mask)
-        else:
-            return self.greedy_decode(encoder_out, batch.source.mask)
-
-    def training_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
-        """Runs one step of training.
-
-        This is called by the PL Trainer.
-
-        Args:
-            batch (data.PaddedBatch)
-            batch_idx (int).
-
-        Returns:
-            torch.Tensor: loss.
-        """
-        # Forward pass produces loss by default.
-        log_probs, transition_probs = self(batch)
-        loss = self.loss_func(batch.target.padded, log_probs, transition_probs)
-        self.log(
-            "train_loss",
-            loss,
-            batch_size=len(batch),
-            on_step=False,
-            on_epoch=True,
-        )
-        return loss
-
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
-        predictions, likelihood = self(batch)
-        # Processes for accuracy calculation.
-        val_eval_items_dict = {}
-        for evaluator in self.evaluators:
-            final_predictions = evaluator.finalize_predictions(predictions)
-            final_golds = evaluator.finalize_golds(batch.target.padded)
-            val_eval_items_dict[evaluator.name] = evaluator.get_eval_item(
-                final_predictions, final_golds
-            )
-        val_eval_items_dict.update({"val_loss": -likelihood.mean()})
-        return val_eval_items_dict
-
-    def predict_step(self, batch: data.PaddedBatch, batch_idx: int) -> Dict:
-        predictions, _ = self(batch)
-        return predictions
 
     def _get_loss_func(
         self,
     ) -> Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
         """Returns the actual function used to compute loss.
+
+        This overrides the inherited loss function.
 
         Returns:
             Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
@@ -376,57 +85,321 @@ class HardAttentionRNNModel(rnn.RNNModel):
     def _loss(
         self,
         target: torch.Tensor,
-        log_probs: torch.Tensor,
-        transition_probs: torch.Tensor,
+        emissions: torch.Tensor,
+        transitions: torch.Tensor,
     ) -> torch.Tensor:
         # TODO: Currently we're storing a concatenation of loss tensors for
         # each time step. This is costly. Revisit this calculation and see if
         # we can use DP to simplify.
-        fwd = transition_probs[0, :, 0].unsqueeze(1) + self._gather_at_idx(
-            log_probs[0], target[:, 0]
+        fwd = transitions[0, :, 0].unsqueeze(1) + self._gather_at_idx(
+            emissions[0], target[:, 0]
         )
-        for tgt_char_idx in range(1, target.shape[1]):
-            fwd = fwd + transition_probs[tgt_char_idx].transpose(1, 2)
-            fwd = fwd.logsumexp(dim=-1, keepdim=True).transpose(1, 2)
-            fwd = fwd + self._gather_at_idx(
-                log_probs[tgt_char_idx], target[:, tgt_char_idx]
-            )
-        loss = -torch.logsumexp(fwd, dim=-1).mean() / target.shape[1]
+        for idx in range(1, target.size(1)):
+            fwd = fwd + transitions[idx].transpose(1, 2)
+            fwd = fwd.logsumexp(dim=2, keepdim=True).transpose(1, 2)
+            fwd = fwd + self._gather_at_idx(emissions[idx], target[:, idx])
+        loss = -torch.logsumexp(fwd, dim=2).mean() / target.size(1)
         return loss
 
-    def get_decoder(self):
-        raise NotImplementedError
+    def beam_decode(self, *args, **kwargs):
+        """Overrides incompatible implementation inherited from RNNModel."""
+        raise NotImplementedError(
+            f"Beam search is not supported by {self.name} model"
+        )
 
-    @property
-    def name(self) -> str:
-        raise NotImplementedError
+    def decode(
+        self,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
+        target: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Decodes a sequence given the encoded input.
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds HMM configuration options to the argument parser.
+        Decodes until all sequences in a batch have reached END or the
+        maximum length of the target, whichever comes first.
 
         Args:
-            parser (argparse.ArgumentParser).
+            encoded (torch.Tensor): encoded source symbols
+                of shape B x src_len x (encoder_hidden * num_directions).
+            mask (torch.Tensor): mask.
+            target (torch.Tensor): target symbols.
+
+        Returns:
+            Tuple[torch.Tensor,torch.Tensor]: emission probabilities
+                of shape target_len x B x src_len x vocab_size, and
+                transition probabilities of shape
+                target_len x B x src_len x src_len.
         """
-        parser.add_argument(
-            "--enforce_monotonic",
-            action="store_true",
-            default=defaults.ENFORCE_MONOTONIC,
-            help="Enforce monotonicity "
-            "(hard attention architectures only). Default: %(default)s.",
+        batch_size = mask.size(0)
+        symbol = self.start_symbol(batch_size)
+        state = self.decoder.initial_state(batch_size)
+        emissions, transitions, state = self.decode_step(
+            encoded, mask, symbol, state
         )
-        parser.add_argument(
-            "--no_enforce_monotonic",
-            action="store_false",
-            dest="enforce_monotonic",
+        all_emissions = [emissions]
+        all_transitions = [transitions]
+        for idx in range(target.size(1)):
+            symbol = target[:, idx].unsqueeze(1)
+            emissions, transitions, state = self.decode_step(
+                encoded,
+                mask,
+                symbol,
+                state,
+            )
+            all_emissions.append(emissions)
+            all_transitions.append(transitions)
+        return torch.stack(all_emissions), torch.stack(all_transitions)
+
+    def decode_step(
+        self,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
+        symbol: torch.Tensor,
+        state: modules.RNNState,
+    ) -> Tuple[torch.Tensor, torch.Tensor, modules.RNNState]:
+        """Single decoder step.
+
+        Args:
+            encoded (torch.Tensor): encoded source symbols of shape
+                B x src_len x (encoder_hidden * num_directions).
+            mask (torch.Tensor): mask.
+            symbol (torch.Tensor): target symbol for current state.
+            state (modules.RNNState): RNN state.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: emission
+                probabilities, transition probabilities, and the RNN state.
+        """
+        emissions, transitions, state = self.decoder(
+            encoded, mask, symbol, state
         )
-        parser.add_argument(
-            "--attention_context",
-            type=int,
-            default=defaults.ATTENTION_CONTEXT,
-            help="Width of attention context "
-            "(hard attention architectures only). Default: %(default)s.",
+        logits = self.classifier(emissions)
+        scores = nn.functional.log_softmax(logits, dim=2)
+        # Expands matrix for all time steps.
+        if self.enforce_monotonic:
+            transitions = self._apply_mono_mask(transitions)
+        return scores, transitions, state
+
+    @property
+    def decoder_input_size(self) -> int:
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
+
+    def greedy_decode(
+        self,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        target: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Decodes a sequence given the encoded input.
+
+        Decodes until all sequences in a batch have reached END up to a
+        specified length depending on the `target` args.
+
+        Args:
+            source_encoded (torch.Tensor): encoded source symbols of shape
+                B x src_len x (encoder_hidden * num_directions).
+            source_mask (torch.Tensor): mask.
+            target (torch.Tensor, optional): target symbols; if provided
+                decoding continues until this length is reached.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: predictions of shape
+                B x pred_seq_len and per-step likelihoods of shape
+                B x 1 x src_len.
+        """
+        batch_size = source_mask.size(0)
+        symbol = self.start_symbol(batch_size)
+        state = self.decoder.initial_state(batch_size)
+        emissions, transitions, state = self.decode_step(
+            source_encoded, source_mask, symbol, state
         )
+        likelihood = transitions[:, 0].unsqueeze(1)
+        symbol = self._greedy_step(emissions, likelihood)
+        predictions = [symbol]
+        if target is None:
+            max_num_steps = self.max_target_length
+            # Tracks when each sequence has decoded an END.
+            final = torch.zeros(batch_size, device=self.device, dtype=bool)
+        else:
+            max_num_steps = target.size(1)
+        # We already did one step.
+        for _ in range(max_num_steps - 1):
+            emissions, transitions, state = self.decode_step(
+                source_encoded,
+                source_mask,
+                symbol.unsqueeze(1),
+                state,
+            )
+            likelihood = likelihood + transitions.transpose(1, 2)
+            likelihood = likelihood.logsumexp(dim=2, keepdim=True).transpose(
+                1, 2
+            )
+            symbol = self._greedy_step(emissions, likelihood)
+            predictions.append(symbol)
+            if target is None:
+                final = torch.logical_or(final, symbol == special.END_IDX)
+                if final.all():
+                    break
+            likelihood = likelihood + self._gather_at_idx(emissions, symbol)
+        # -> B x seq_len.
+        predictions = torch.stack(predictions, dim=1)
+        return predictions, likelihood
+
+    @staticmethod
+    def _greedy_step(
+        emissions: torch.Tensor, likelihood: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Greedy decoding of current timestep.
+
+        Args:
+            emissions (torch.Tensor): emission probabilities at current
+                time step.
+            likelihood (torch.Tensor): accumulative likelihood of decoded
+                symbol sequence.
+
+        Returns:
+            torch.Tensor: greedily decoded symbol for the current timestep.
+        """
+        probabilities = likelihood + emissions.transpose(1, 2)
+        probabilities = probabilities.logsumexp(dim=2)
+        # -> B.
+        return torch.argmax(probabilities, dim=1)
+
+    @staticmethod
+    def _gather_at_idx(
+        emissions: torch.Tensor, symbol: torch.Tensor
+    ) -> torch.Tensor:
+        """Collects probability of the symbol across all states.
+
+        To calculate the final emission probability, the pseudo-HMM
+        graph needs to aggregate the final emission probabilities of
+        target symbols across all potential hidden states in the emissions.
+
+        Args:
+            emissions (torch.Tensor): log probabilities of emission states of
+                shape B x src_len.
+            symbol (torch.Tensor): target symbol to poll probabilities for
+                shape B.
+
+        Returns:
+            torch.Tensor: emission probabilities of the symbol for each hidden
+                state, of size B 1 x src_len.
+        """
+        batch_size = emissions.size(0)
+        src_seq_len = emissions.size(1)
+        idx = symbol.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
+        output = torch.gather(emissions, -1, idx).view(
+            batch_size, 1, src_seq_len
+        )
+        idx = idx.view(batch_size, 1, src_seq_len)
+        pad_mask = (idx != special.PAD_IDX).float()
+        return output * pad_mask
+
+    def forward(
+        self,
+        batch: data.PaddedBatch,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            Tuple[torch.Tensor,torch.Tensor]: emission probabilities for
+                each transition state of shape target_len x B x src_len
+                x vocab_size, and transition probabilities for each transition
+
+        Raises:
+            NotImplementedError: beam search not implemented.
+        """
+        encoded = self.source_encoder(batch.source)
+        if self.has_features_encoder:
+            features_encoded = self.features_encoder(batch.features)
+            # Averages to flatten embedding; this is done as an alternative to
+            # the linear projection used in the original paper.
+            features_encoded = features_encoded.mean(dim=1, keepdim=True)
+            features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
+            # Concatenates with the encoded source.
+            encoded = torch.cat((encoded, features_encoded), dim=2)
+        if self.training:
+            return self.decode(
+                encoded,
+                batch.source.mask,
+                batch.target.padded,
+            )
+        elif self.beam_width > 1:
+            # Will raise a NotImplementedError.
+            return self.beam_decode(encoded, batch.source.mask)
+        else:
+            return self.greedy_decode(
+                encoded,
+                batch.source.mask,
+                batch.target.padded if batch.has_target else None,
+            )
+
+    def predict_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
+        predictions, _ = self(batch)
+        return predictions
+
+    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+        predictions, _ = self(batch)
+        self._update_metrics(predictions, batch.target.padded)
+
+    def training_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
+        emissions, transitions = self(batch)
+        return self.loss_func(batch.target.padded, emissions, transitions)
+
+    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+        predictions, likelihood = self(batch)
+        self.log(
+            "val_loss",
+            -likelihood.mean(),
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        self._update_metrics(predictions, batch.target.padded)
+
+    @staticmethod
+    def _apply_mono_mask(transitions: torch.Tensor) -> torch.Tensor:
+        """Applies monotonic attention mask to transition probabilities.
+
+        Enforces zero log-probability values for all non-monotonic relations
+        in the transition tensor (i.e., all values i < j per row j).
+
+        Args:
+            transitions (torch.Tensor): transition probabilities between
+                all hidden states of shape B x src_len x src_len.
+
+        Returns:
+            torch.Tensor: masked transition probabilities of shape
+                B x src_len x src_len.
+        """
+        mask = torch.ones_like(transitions[0]).triu().unsqueeze(0)
+        # Using 0 log-probability value for masking; this is borrowed from the
+        # original implementation.
+        mask = (mask - 1) * defaults.NEG_LOG_EPSILON
+        transitions = transitions + mask
+        transitions = transitions - transitions.logsumexp(dim=2, keepdim=True)
+        return transitions
+
+    @abc.abstractmethod
+    def get_decoder(self) -> modules.HardAttentionRNNDecoder: ...
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str: ...
 
 
 class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
@@ -436,13 +409,7 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
         if self.attention_context > 0:
             return modules.ContextHardAttentionGRUDecoder(
                 attention_context=self.attention_context,
-                bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
@@ -452,13 +419,7 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
             )
         else:
             return modules.HardAttentionGRUDecoder(
-                bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embedding_size=self.embedding_size,
                 embeddings=self.embeddings,
@@ -466,49 +427,6 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
             )
-
-    def decode_step(
-        self,
-        tgt_symbol: torch.Tensor,
-        decoder_hiddens: torch.Tensor,
-        encoder_out: torch.Tensor,
-        encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Performs a single decoding step for current state of decoder.
-
-        Args:
-            tgt_symbol (torch.Tensor): tgt symbol for current state.
-            decoder_hiddens (torch.Tensor): the last
-                hidden states from the decoder of shape 1 x B x decoder_dim.
-            encoder_out (torch.Tensor): batch of encoded input symbols
-                of shape batch_size x src_len x (encoder_hidden *
-                num_directions).
-            encoder_mask (torch.Tensor): mask for the batch of encoded
-                input symbols of shape batch_size x src_len.
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: emission
-                probabilities for each transition state (target symbol),
-                transition probabilities for each transition state (target
-                symbol), and the last hidden states from the decoder of
-                shape (1 x B x decoder_dim, 1 x B x decoder_dim).
-        """
-        decoded = self.decoder(
-            tgt_symbol,
-            decoder_hiddens,
-            encoder_out,
-            encoder_mask,
-        )
-        output, transition_prob, decoder_hiddens = (
-            decoded.output,
-            decoded.embeddings,
-            decoded.hiddens,
-        )
-        logits = self.classifier(output)
-        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-        # Expands matrix for all time steps.
-        if self.enforce_monotonic:
-            transition_prob = self._apply_mono_mask(transition_prob)
-        return log_probs, transition_prob, decoder_hiddens
 
     @property
     def name(self) -> str:
@@ -522,13 +440,7 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
         if self.attention_context > 0:
             return modules.ContextHardAttentionLSTMDecoder(
                 attention_context=self.attention_context,
-                bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 hidden_size=self.hidden_size,
                 embeddings=self.embeddings,
@@ -538,13 +450,7 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
             )
         else:
             return modules.HardAttentionLSTMDecoder(
-                bidirectional=False,
-                decoder_input_size=(
-                    self.source_encoder.output_size
-                    + self.features_encoder.output_size
-                    if self.has_features_encoder
-                    else self.source_encoder.output_size
-                ),
+                decoder_input_size=self.decoder_input_size,
                 dropout=self.dropout,
                 embeddings=self.embeddings,
                 embedding_size=self.embedding_size,
@@ -553,51 +459,33 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
                 num_embeddings=self.target_vocab_size,
             )
 
-    def decode_step(
-        self,
-        tgt_symbol: torch.Tensor,
-        decoder_hiddens: Tuple[torch.Tensor, torch.Tensor],
-        encoder_out: torch.Tensor,
-        encoder_mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        """Performs a single decoding step for current state of decoder.
-
-        Args:
-            tgt_symbol (torch.Tensor): tgt symbol for current state.
-            decoder_hiddens (Tuple[torch.Tensor, torch.Tensor]): the last
-                hidden states from the decoder of shapes 1 x B x decoder_dim
-                and 1 x B x decoder_dim.
-            encoder_out (torch.Tensor): batch of encoded input symbols
-                of shape batch_size x src_len x (encoder_hidden *
-                num_directions).
-            encoder_mask (torch.Tensor): mask for the batch of encoded
-                input symbols of shape batch_size x src_len.
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor, Tuple[torch.Tensor,
-                torch.Tensor]: emission probabilities for each transition
-                state (target symbol), transition probabilities for each
-                transition state (target symbol), and the last hidden states
-                from the decoder, of shape (1 x B x decoder_dim, 1 x B x
-                decoder_dim).
-        """
-        decoded = self.decoder(
-            tgt_symbol,
-            decoder_hiddens,
-            encoder_out,
-            encoder_mask,
-        )
-        output, transition_prob, decoder_hiddens = (
-            decoded.output,
-            decoded.embeddings,
-            decoded.hiddens,
-        )
-        logits = self.classifier(output)
-        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-        # Expands matrix for all time steps.
-        if self.enforce_monotonic:
-            transition_prob = self._apply_mono_mask(transition_prob)
-        return log_probs, transition_prob, decoder_hiddens
-
     @property
     def name(self) -> str:
         return "hard attention LSTM"
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds HMM configuration options to the argument parser.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--enforce_monotonic",
+        action="store_true",
+        default=defaults.ENFORCE_MONOTONIC,
+        help="Enforce monotonicity "
+        "(hard attention architectures only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--no_enforce_monotonic",
+        action="store_false",
+        dest="enforce_monotonic",
+    )
+    parser.add_argument(
+        "--attention_context",
+        type=int,
+        default=defaults.ATTENTION_CONTEXT,
+        help="Width of attention context "
+        "(hard attention architectures only). Default: %(default)s.",
+    )

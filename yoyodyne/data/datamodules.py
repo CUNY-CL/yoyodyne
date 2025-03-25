@@ -138,7 +138,9 @@ class DataModule(lightning.LightningDataModule):
             features_vocabulary=(
                 features_vocabulary if features_vocabulary else None
             ),
-            target_vocabulary=target_vocabulary if target_vocabulary else None,
+            target_vocabulary=(
+                target_vocabulary if target_vocabulary else None
+            ),
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
@@ -177,6 +179,10 @@ class DataModule(lightning.LightningDataModule):
     @property
     def has_target(self) -> bool:
         return self.parser.has_target
+
+    @property
+    def has_separate_features(self) -> bool:
+        return self.collator.separate_features
 
     # Required API.
 

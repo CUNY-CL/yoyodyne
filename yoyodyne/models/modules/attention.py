@@ -34,8 +34,8 @@ class Attention(nn.Module):
 
     def forward(
         self,
+        encoded: torch.Tensor,
         hidden: torch.Tensor,
-        encoder_outputs: torch.Tensor,
         mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Computes the attention distribution.
@@ -44,10 +44,10 @@ class Attention(nn.Module):
         decoder hidden state.
 
         Args:
+            encoded (torch.Tensor): outputs from the encoder
+                of shape B x seq_len x encoder_dim.
             hidden (torch.Tensor): hidden states from decode of shape
                 B x decoder_dim.
-            encoder_outputs (torch.Tensor): outputs from the encoder
-                of shape B x seq_len x encoder_dim.
             mask (torch.Tensor): encoder mask of shape B x seq_len.
 
         Returns:
@@ -58,38 +58,36 @@ class Attention(nn.Module):
         hidden = hidden[:, -1, :].unsqueeze(1)
         # Repeats hidden to be copied for each encoder output of shape
         # B  x seq_len x decoder_dim.
-        hidden = hidden.repeat(1, encoder_outputs.size(1), 1)
+        hidden = hidden.repeat(1, encoded.size(1), 1)
         # Gets the scores of each time step in the output.
-        attention_scores = self.score(hidden, encoder_outputs)
+        attention_scores = self._score(encoded, hidden)
         # Masks the scores with -inf at each padded character so that softmax
         # computes a 0 towards the distribution for that cell.
         attention_scores.data.masked_fill_(mask, defaults.NEG_INF)
         # -> B x 1 x seq_len
         weights = nn.functional.softmax(attention_scores, dim=1).unsqueeze(1)
         # -> B x 1 x decoder_dim
-        weighted = torch.bmm(weights, encoder_outputs)
+        weighted = torch.bmm(weights, encoded)
         return weighted, weights
 
-    def score(
-        self, hidden: torch.Tensor, encoder_outputs: torch.Tensor
+    def _score(
+        self, encoded: torch.Tensor, hidden: torch.Tensor
     ) -> torch.Tensor:
         """Computes the scores with concat attention.
 
         Args:
+            encoded (torch.Tensor): encoded timesteps from the encoder.
             hidden (torch.Tensor): decoder hidden state repeated to match
                 encoder dim.
-            encoder_outputs (torch.Tensor): encoded timesteps from the encoder.
 
         Returns:
             scores torch.Tensor: weight for each encoded representation of
                 shape B x seq_len.
         """
         # -> B x seq_len x encoder_dim + hidden_dim.
-        concat = torch.cat([encoder_outputs, hidden], 2)
-        # V * feed forward with tanh.
-        # -> B x seq_len x hidden_size
+        concat = torch.cat((encoded, hidden), dim=2)
+        # V * feed-forward with tanh.
+        # -> B x seq_len x hidden_size.
         m = self.M(concat)
-        # -> B x seq_len x 1.
-        scores = self.V(torch.tanh(m))
         # -> B x seq_len.
-        return scores.squeeze(2)
+        return self.V(torch.tanh(m)).squeeze(2)

@@ -1,5 +1,6 @@
 """Base model class, with PL integration."""
 
+import abc
 import argparse
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -7,20 +8,25 @@ import lightning
 import torch
 from torch import nn, optim
 
-from .. import (
-    data,
-    defaults,
-    metrics,
-    optimizers,
-    schedulers,
-    special,
-    util,
-)
+from .. import data, defaults, metrics, optimizers, schedulers, special, util
 from . import modules
 
 
-class BaseModel(lightning.LightningModule):
-    """Base class, handling Lightning integration."""
+class BaseModel(abc.ABC, lightning.LightningModule):
+    """Abstract base class for models handling Lightning integration.
+
+    The following are defaults, but can be overriden by individual models:
+
+    * The forward method returns a tensor of shape B x target_vocab_size x
+      seq_length for compatibility with loss and evaluation functions unless
+      beam search is enabled.
+    * Cross-entropy loss is the loss function.
+    * One or more predictions tensor(s) are returned by predict_step.
+    * Loss is returned by training_step.
+    * Evaluation metrics are tracked by test_step; nothing is returned.
+    * Validation loss and evaluation metrics are tracked by validation_step;
+      nothing is returned.
+    """
 
     #  TODO: clean up type checking here.
     # Sizes.
@@ -45,15 +51,14 @@ class BaseModel(lightning.LightningModule):
     embedding_size: int
     encoder_layers: int
     decoder_layers: int
-    features_encoder_cls: Optional[modules.base.BaseModule]
+    features_encoder_cls: Optional[modules.BaseModule]
     hidden_size: int
-    source_encoder_cls: modules.base.BaseModule
-    # Evaluation objects.
+    source_encoder_cls: modules.BaseModule
+    # Loss and evaluation objects.
+    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    # TODO: update with new metrics as they become available.
     accuracy: Optional[metrics.Accuracy]
-    ser: Optional[metrics.SymbolErrorRate]
-    # Model parameters.
-    dropout_layer: nn.Dropout
-    loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    ser: Optional[metrics.SER]
 
     def __init__(
         self,
@@ -66,7 +71,7 @@ class BaseModel(lightning.LightningModule):
         vocab_size,
         # All of these have keyword defaults.
         beam_width=defaults.BEAM_WIDTH,
-        compute_accuracy=False,
+        compute_accuracy=True,
         compute_ser=False,
         decoder_layers=defaults.DECODER_LAYERS,
         dropout=defaults.DROPOUT,
@@ -85,42 +90,47 @@ class BaseModel(lightning.LightningModule):
         **kwargs,
     ):
         super().__init__()
-        # Symbol processing.
-        self.vocab_size = vocab_size
-        self.features_vocab_size = features_vocab_size
-        self.target_vocab_size = target_vocab_size
         self.beta1 = beta1
         self.beta2 = beta2
-        self.label_smoothing = label_smoothing
-        self.learning_rate = learning_rate
-        self.loss_func = self._get_loss_func()
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.scheduler_kwargs = scheduler_kwargs
-        self.dropout = dropout
-        self.label_smoothing = label_smoothing
-        self.teacher_forcing = teacher_forcing
+        self.features_vocab_size = features_vocab_size
+        self.target_vocab_size = target_vocab_size
+        self.vocab_size = vocab_size
         self.beam_width = beam_width
-        self.max_source_length = max_source_length
-        self.max_target_length = max_target_length
         self.decoder_layers = decoder_layers
+        self.dropout = dropout
         self.embedding_size = embedding_size
         self.encoder_layers = encoder_layers
         self.hidden_size = hidden_size
+        self.label_smoothing = label_smoothing
+        self.learning_rate = learning_rate
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.scheduler_kwargs = scheduler_kwargs
+        self.teacher_forcing = teacher_forcing
         self.embeddings = self.init_embeddings(
             self.vocab_size, self.embedding_size
         )
-        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
         # Checks compatibility with feature encoder and dataloader.
         modules.check_encoder_compatibility(
             source_encoder_cls, features_encoder_cls
         )
+        # Instantiates loss and evaluation objects.
+        self.loss_func = self._get_loss_func()
+        # TODO: update with new metrics as they become available.
+        self.accuracy = (
+            metrics.Accuracy(self.target_vocab_size)
+            if compute_accuracy
+            else None
+        )
+        self.ser = metrics.SER() if compute_ser else None
         # Instantiates encoder(s).
         self.source_encoder = source_encoder_cls(
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
-            features_vocab_size=self.features_vocab_size,
+            features_vocab_size=features_vocab_size,
             hidden_size=self.hidden_size,
             layers=self.encoder_layers,
             max_source_length=max_source_length,
@@ -143,6 +153,10 @@ class BaseModel(lightning.LightningModule):
         )
         # Instantiates decoder.
         self.decoder = self.get_decoder()
+        # Saves hyperparameters for PL checkpointing.
+        self.save_hyperparameters(
+            ignore=["source_encoder", "decoder", "features_encoder"],
+        )
         # Logs the module names.
         util.log_info(f"Model: {self.name}")
         if self.features_encoder is not None:
@@ -151,223 +165,31 @@ class BaseModel(lightning.LightningModule):
         else:
             util.log_info(f"Encoder: {self.source_encoder.name}")
         util.log_info(f"Decoder: {self.decoder.name}")
-        # Instantiates metrics objects.
-        self.accuracy = (
-            metrics.Accuracy(self.target_vocab_size)
-            if compute_accuracy
-            else None
-        )
-        self.ser = metrics.SymbolErrorRate() if compute_ser else None
-        # Saves hyperparameters for PL checkpointing.
-        self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "features_encoder"],
-        )
 
-    @staticmethod
-    def init_embeddings(num_embed: int, embed_size: int) -> nn.Embedding:
-        """Method interface for initializing the embedding layer.
+    def _get_loss_func(
+        self,
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Returns the actual function used to compute loss.
 
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-
-        Raises:
-            NotImplementedError: This method needs to be overridden.
+        This is overridden by certain classes which compute loss as a side
+        effect of training and/or inference.
 
         Returns:
-            nn.Embedding: embedding layer.
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
+                loss function.
         """
-        raise NotImplementedError
-
-    def get_decoder(self):
-        raise NotImplementedError
-
-    # Properties.
-
-    @property
-    def compute_accuracy(self) -> bool:
-        return self.accuracy is not None
-
-    @property
-    def compute_ser(self) -> bool:
-        return self.ser is not None
-
-    @property
-    def has_features_encoder(self) -> bool:
-        return self.features_encoder is not None
-
-    @property
-    def num_parameters(self) -> int:
-        return sum(part.numel() for part in self.parameters())
-
-    # Implemented Lightning interface.
-
-    def training_step(
-        self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> torch.Tensor:
-        """Runs one step of training.
-
-        This tracks training loss but no other metric.
-
-        Args:
-            batch (data.PaddedBatch).
-            batch_idx (int): ignored.
-
-        Returns:
-            torch.Tensor: loss.
-        """
-        # -> B x seq_len x target_vocab_size.
-        predictions = self(batch)
-        return self._log_loss(predictions, batch.target.padded, "train")
-
-    def on_validation_epoch_start(self) -> None:
-        self._reset_metrics()
-
-    def validation_step(
-        self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> None:
-        """Runs one validation step.
-
-        This tracks validation loss and any other metrics enabled.
-
-        Args:
-            batch (data.PaddedBatch).
-            batch_idx (int).
-        """
-        predictions = self(batch)
-        self._log_loss(predictions, batch.target.padded, "val")
-        self._update_metrics(
-            self._get_predicted(predictions), batch.target.padded
+        return nn.CrossEntropyLoss(
+            ignore_index=special.PAD_IDX,
+            label_smoothing=self.label_smoothing,
         )
-
-    def on_validation_epoch_end(self) -> None:
-        self._log_metrics_on_epoch_end("val")
-
-    def on_test_epoch_start(self) -> None:
-        self._reset_metrics()
-
-    def test_step(
-        self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> None:
-        """Runs one test step.
-
-        This tracks test loss and any other metrics enabled.
-
-        Args:
-            batch (data.PaddedBatch).
-            batch_idx (int).
-        """
-        predictions = self(batch)
-        self._log_loss(predictions, batch.target.padded, "test")
-        self._update_metrics(
-            self._get_predicted(predictions), batch.target.padded
-        )
-
-    def on_test_epoch_end(self) -> None:
-        self._log_metrics_on_epoch_end("test")
-
-    def _log_loss(
-        self, predictions: torch.Tensor, target: torch.Tensor, subset: str
-    ) -> torch.Tensor:
-        predictions = predictions.transpose(1, 2)
-        # Truncates predictions to the size of the target for loss computation.
-        predictions = torch.narrow(predictions, 2, 0, target.size(1))
-        loss = self.loss_func(predictions, target)
-        self.log(
-            f"{subset}_loss",
-            loss,
-            batch_size=len(target),
-            on_step=False,
-            on_epoch=True,
-        )
-        return loss
-
-    def _reset_metrics(self) -> None:
-        # Loss is automatically reset between batches.
-        if self.compute_accuracy:
-            self.accuracy.reset()
-        if self.compute_ser:
-            self.ser.reset()
-
-    def _update_metrics(
-        self, predictions: torch.Tensor, target: torch.Tensor
-    ) -> None:
-        if self.compute_accuracy:
-            self.accuracy.update(predictions, target)
-        if self.compute_ser:
-            self.ser.update(predictions, target)
-
-    def _log_metrics_on_epoch_end(self, subset: str) -> None:
-        if self.compute_accuracy:
-            self.log(
-                f"{subset}_accuracy",
-                self.accuracy.compute(),
-                on_epoch=True,
-                logger=True,
-                prog_bar=True,
-            )
-        if self.compute_ser:
-            self.log(
-                f"{subset}_ser",
-                self.ser.compute(),
-                on_epoch=True,
-                logger=True,
-                prog_bar=True,
-            )
-
-    def predict_step(
-        self,
-        batch: data.PaddedBatch,
-        batch_idx: int,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Runs one predict step.
-
-        This doesn't track any metrics.
-
-        Args:
-            batch (data.PaddedBatch).
-            batch_idx (int).
-
-        Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: if
-                using beam search, the predictions and scores as a tuple of
-                tensors; if using greedy search, the predictions as a tensor.
-        """
-        if self.beam_width > 1:
-            predictions, scores = self(batch)
-            # Calling `_get_predicted` is not necessary as it is called
-            # inside the beam search.
-            return predictions, scores
-        else:
-            return self._get_predicted(self(batch))
-
-    @staticmethod
-    def _get_predicted(predictions: torch.Tensor) -> torch.Tensor:
-        """Picks the best index from the vocabulary.
-
-        Args:
-            predictions (torch.Tensor): B x seq_len x target_vocab_size.
-
-        Returns:
-            torch.Tensor: indices of the argmax at each timestep.
-        """
-        assert predictions.ndim == 3
-        return torch.argmax(predictions, dim=2)
 
     def configure_optimizers(
         self,
     ) -> Union[
-        optim.Optimizer, Tuple[List[optim.Optimizer], List[Dict[str, Any]]]
+        optim.Optimizer,
+        Tuple[List[optim.Optimizer], List[Dict[str, Any]]],
     ]:
         """Gets the configured torch optimizer and scheduler.
-
-        This is called by the PL Trainer.
 
         Returns:
             Union[optim.Optimizer,
@@ -412,115 +234,243 @@ class BaseModel(lightning.LightningModule):
             self.scheduler, optimizer, **dict(self.scheduler_kwargs)
         )
 
-    def _get_loss_func(
-        self,
-    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """Returns the actual function used to compute loss.
+    @abc.abstractmethod
+    def get_decoder(self): ...
 
-        This is overriden by certain classes which compute loss as a side
-        effect of training or inference.
+    @staticmethod
+    @abc.abstractmethod
+    def init_embeddings(
+        num_embeddings: int, embedding_size: int
+    ) -> nn.Embedding: ...
+
+    # TODO: update with new metrics as they become available.
+
+    @property
+    def has_accuracy(self) -> bool:
+        return self.accuracy is not None
+
+    @property
+    def has_ser(self) -> bool:
+        return self.ser is not None
+
+    @property
+    def has_features_encoder(self) -> bool:
+        return self.features_encoder is not None
+
+    @property
+    def num_parameters(self) -> int:
+        return sum(part.numel() for part in self.parameters())
+
+    def start_symbol(self, batch_size: int) -> torch.Tensor:
+        """Generates a tensor of start symbols for the batch."""
+        return torch.tensor([special.START_IDX], device=self.device).repeat(
+            batch_size, 1
+        )
+
+    def predict_step(
+        self,
+        batch: data.PaddedBatch,
+        batch_idx: int,
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        """Runs one predict step.
+
+        If beam_width > 1 this invokes the forward method directly and returns
+        the predictions and scores; otherwise it returns the predictions.
+
+        No metrics are tracked.
+
+        Args:
+            batch (data.PaddedBatch).
+            batch_idx (int).
 
         Returns:
-            Callable[[torch.Tensor, torch.Tensor], torch.Tensor]: configured
-                loss function.
+            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor].
         """
-        return nn.CrossEntropyLoss(
-            ignore_index=special.PAD_IDX,
-            label_smoothing=self.label_smoothing,
-        )
+        if self.beam_width > 1:
+            return self(batch)
+        else:
+            return torch.argmax(self(batch), dim=1)
 
-    @staticmethod
-    def add_predict_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds shared configuration options to the argument parser.
+    def training_step(
+        self, batch: data.PaddedBatch, batch_idx: int
+    ) -> torch.Tensor:
+        """Runs one step of training.
 
-        These are only needed at prediction time.
+        Training loss is tracked.
 
         Args:
-            parser (argparse.ArgumentParser).
+            batch (data.PaddedBatch)
+            batch_idx (int).
+
+        Returns:
+            torch.Tensor: training loss.
         """
-        # Beam search arguments.
-        parser.add_argument(
-            "--beam_width",
-            type=int,
-            required=False,
-            help="Size of the beam for beam search. Default: %(default)s.",
-        )
+        predictions = self(batch)
+        return self.loss_func(predictions, batch.target.padded)
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds shared configuration options to the argument parser.
+    def on_test_epoch_start(self) -> None:
+        self._reset_metrics()
 
-        These are only needed at training time.
+    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+        """Runs one test step.
+
+        Evaluation metrics are tracked.
 
         Args:
-            parser (argparse.ArgumentParser).
+            batch (data.PaddedBatch).
+            batch_idx (int).
         """
-        # Optimizer arguments.
-        parser.add_argument(
-            "--beta1",
-            type=float,
-            default=defaults.BETA1,
-            help="beta_1 (Adam optimizer only). Default: %(default)s.",
+        if self.beam_width > 1:
+            predictions, _ = self(batch)
+        else:
+            predictions = torch.argmax(self(batch), dim=1)
+        self._update_metrics(predictions, batch.target.padded)
+
+    def on_test_epoch_end(self) -> None:
+        self._log_metrics_on_epoch_end("test")
+
+    def on_validation_epoch_start(self) -> None:
+        self._reset_metrics()
+
+    def validation_step(
+        self,
+        batch: data.PaddedBatch,
+        batch_idx: int,
+    ) -> None:
+        """Runs one validation step.
+
+        Validation loss and evaluation metrics are tracked.
+
+        Args:
+            batch (data.PaddedBatch).
+            batch_idx (int).
+        """
+        predictions = self(batch)
+        loss = self.loss_func(predictions, batch.target.padded)
+        self.log(
+            "val_loss",
+            loss,
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            prog_bar=True,
         )
-        parser.add_argument(
-            "--beta2",
-            type=float,
-            default=defaults.BETA2,
-            help="beta_2 (Adam optimizer only). Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--learning_rate",
-            type=float,
-            default=defaults.LEARNING_RATE,
-            help="Learning rate. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--optimizer",
-            choices=optimizers.OPTIMIZERS,
-            default=defaults.OPTIMIZER,
-            help="Optimizer. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--scheduler",
-            choices=schedulers.SCHEDULERS,
-            help="Learning rate scheduler.",
-        )
-        # Regularization arguments.
-        parser.add_argument(
-            "--dropout",
-            type=float,
-            default=defaults.DROPOUT,
-            help="Dropout probability. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--label_smoothing",
-            type=float,
-            default=defaults.LABEL_SMOOTHING,
-            help="Coefficient for label smoothing. Default: %(default)s.",
-        )
-        # Model arguments.
-        parser.add_argument(
-            "--decoder_layers",
-            type=int,
-            default=defaults.DECODER_LAYERS,
-            help="Number of decoder layers. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--encoder_layers",
-            type=int,
-            default=defaults.ENCODER_LAYERS,
-            help="Number of encoder layers. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--embedding_size",
-            type=int,
-            default=defaults.EMBEDDING_SIZE,
-            help="Dimensionality of embeddings. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--hidden_size",
-            type=int,
-            default=defaults.HIDDEN_SIZE,
-            help="Dimensionality of the hidden layer(s). "
-            "Default: %(default)s.",
-        )
+        self._update_metrics(predictions, batch.target.padded)
+
+    def on_validation_epoch_end(self) -> None:
+        self._log_metrics_on_epoch_end("val")
+
+    # Helpers to make it run.
+
+    def _reset_metrics(self) -> None:
+        # TODO: update with new metrics as they become available.
+        if self.has_accuracy:
+            self.accuracy.reset()
+        if self.has_ser:
+            self.ser.reset()
+
+    def _update_metrics(
+        self, predictions: torch.Tensor, target: torch.Tensor
+    ) -> None:
+        # TODO: update with new metrics as they become available.
+        if self.has_accuracy:
+            self.accuracy.update(predictions, target)
+        if self.has_ser:
+            self.ser.update(predictions, target)
+
+    def _log_metrics_on_epoch_end(self, subset: str) -> None:
+        # TODO: update with new metrics as they become available.
+        if self.has_accuracy:
+            self.log(
+                f"{subset}_accuracy",
+                self.accuracy.compute(),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
+        if self.has_ser:
+            self.log(
+                f"{subset}_ser",
+                self.ser.compute(),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
+
+
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds shared configuration options to the argument parser.
+
+    These are only needed at training time.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    # Optimizer arguments.
+    parser.add_argument(
+        "--beta1",
+        type=float,
+        default=defaults.BETA1,
+        help="beta_1 (Adam optimizer only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--beta2",
+        type=float,
+        default=defaults.BETA2,
+        help="beta_2 (Adam optimizer only). Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=defaults.LEARNING_RATE,
+        help="Learning rate. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--optimizer",
+        choices=optimizers.OPTIMIZERS,
+        default=defaults.OPTIMIZER,
+        help="Optimizer. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--scheduler",
+        choices=schedulers.SCHEDULERS,
+        help="Learning rate scheduler.",
+    )
+    # Regularization arguments.
+    parser.add_argument(
+        "--dropout",
+        type=float,
+        default=defaults.DROPOUT,
+        help="Dropout probability. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--label_smoothing",
+        type=float,
+        default=defaults.LABEL_SMOOTHING,
+        help="Coefficient for label smoothing. Default: %(default)s.",
+    )
+    # Model arguments.
+    parser.add_argument(
+        "--decoder_layers",
+        type=int,
+        default=defaults.DECODER_LAYERS,
+        help="Number of decoder layers. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--encoder_layers",
+        type=int,
+        default=defaults.ENCODER_LAYERS,
+        help="Number of encoder layers. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--embedding_size",
+        type=int,
+        default=defaults.EMBEDDING_SIZE,
+        help="Dimensionality of embeddings. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--hidden_size",
+        type=int,
+        default=defaults.HIDDEN_SIZE,
+        help="Dimensionality of the hidden layer(s). " "Default: %(default)s.",
+    )

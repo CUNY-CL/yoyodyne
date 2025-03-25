@@ -64,7 +64,7 @@ class Accuracy(torchmetrics.classification.MulticlassExactMatch):
         super().__init__(*args, ignore_index=special.PAD_IDX, **kwargs)
 
 
-class SymbolErrorRate(torchmetrics.Metric):
+class SER(torchmetrics.Metric):
     r"""Defines a symbol error rate metric.
 
     Symbol error rate is essentially minimum edit distance, in "symbols" (not
@@ -77,7 +77,7 @@ class SymbolErrorRate(torchmetrics.Metric):
     We assume tensors of shape B x seq_len as input. For reasons documented
     below, seq_len must be $< 2^16$.
 
-    This is inteded to be a corpus-level statistic, so the number of edits and
+    This is intended to be a corpus-level statistic, so the number of edits and
     the lengths of strings are stored separately and are only combined as
     needed.
 
@@ -101,24 +101,22 @@ class SymbolErrorRate(torchmetrics.Metric):
 
         This also performs all the necessary data validation work:
 
-        * The first (batch size) dimension of the two tensors must match.
-        * The second (sequence length) dimensions of the two tensors need not
-          much, but neither can exceed $2^16$ for precision reasons.
-
         Args:
             hypo (torch.Tensor): a tensor of hypothesis data of shape
-                B x seq_len.
+                B x target_vocab_size x seq_len or B x seq_len.
             gold (torch.Tensor): a tensor of gold data of shape B x seq_len.
 
         Raises:
-            Error: Hypothesis tensor is not 2d.
+            Error: Hypothesis tensor is not 2d or 3d.
             Error: Gold tensor is not 2d.
             Error: Hypothesis and gold batch sizes do not match.
             Error: Hypothesis string lengths exceeds precision.
             Error: Gold string lengths exceeds precision.
         """
-        if hypo.ndim != 2:
-            raise Error(f"Hypothesis tensor is not 2d ({hypo.ndim})")
+        if hypo.ndim < 2 or hypo.ndim > 3:
+            raise Error(f"Hypothesis tensor is not 2d or 3d ({hypo.ndim})")
+        if hypo.ndim == 3:
+            hypo = torch.argmax(hypo, dim=1)
         if gold.ndim != 2:
             raise Error(f"Gold tensor is not 2d ({gold.ndim})")
         if hypo.size(0) != gold.size(0):
@@ -133,16 +131,17 @@ class SymbolErrorRate(torchmetrics.Metric):
         # anyways. This checks the length of the second dimension to ensure it
         # does not exceed this length.
         max_size = numpy.iinfo(numpy.uint16).max
-        if hypo.size(1) > max_size:
+        if hypo.size(-1) > max_size:
             raise Error(
                 "Hypothesis string lengths exceeds precision "
-                f"({hypo.size(1)} > {max_size})"
+                f"({hypo.size(-1)} > {max_size})"
             )
-        if gold.size(1) > max_size:
+        if gold.size(-1) > max_size:
             raise Error(
                 "Gold string lengths exceeds precision "
-                f"({gold.size(1)} > {max_size})"
+                f"({gold.size(-1)} > {max_size})"
             )
+        # Iterates over every element in batch.
         for hypo_row, gold_row in zip(hypo, gold):
             self._row_edit_distance(hypo_row, gold_row)
 
@@ -166,11 +165,13 @@ class SymbolErrorRate(torchmetrics.Metric):
         """
         # The - 1 term reflects that `END_IDX` is not part of the string
         # with respect to edit distance. This also cannot fail.
-        gold_length = torch.where(gold == special.END_IDX)[0].item() - 1
+        gold_length = torch.nonzero(gold == special.END_IDX)[0].item() - 1
         self.length += gold_length
         try:
-            hypo_length = torch.where(hypo == special.END_IDX)[0].item()
-        except RuntimeError:
+            hypo_length = torch.nonzero(hypo == special.END_IDX)[0].item() - 1
+        except IndexError:
+            hypo_length = -1
+        if hypo_length < 0:
             # If END_IDX isn't present, we'll consider this is a "total loss"
             # with an edit distance equivalent to the gold length. One can
             # imagine more elaborate strategies but this oughta do.
@@ -186,10 +187,13 @@ class SymbolErrorRate(torchmetrics.Metric):
                 if hypo[i - 1] == gold[j - 1]:
                     table[i, j] = table[i - 1, j - 1]
                 else:
-                    table[i, j] = min(
-                        table[i - 1, j],
-                        table[i, j - 1],
-                        table[i - 1, j - 1],
+                    table[i, j] = (
+                        min(
+                            table[i - 1, j],
+                            table[i, j - 1],
+                            table[i - 1, j - 1],
+                        )
+                        + 1
                     )
         self.edits += table[-1, -1]
 
@@ -210,11 +214,12 @@ def compute_metric(args: argparse.Namespace, metric: str) -> bool:
     Return:
         True iff the metric needs to be tracked.
     """
-    if args.checkpoint_metric == metric:
-        return True
-    if args.patience_metric == metric:
-        return True
-    return metric in args.eval_metric
+    return (
+        metric == args.checkpoint_metric
+        or metric == args.reduceonplateau_metric
+        or metric == args.patience_metric
+        or metric in args.eval_metric
+    )
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:

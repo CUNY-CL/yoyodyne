@@ -1,7 +1,6 @@
 """Base module class with PL integration."""
 
-import dataclasses
-from typing import Optional, Union, Tuple
+import abc
 
 import lightning
 import torch
@@ -10,26 +9,9 @@ from torch import nn
 from ... import defaults
 
 
-@dataclasses.dataclass
-class ModuleOutput:
-    """Output for forward passes."""
+class BaseModule(abc.ABC, lightning.LightningModule):
+    """Abstract base class for encoder and decoder modules."""
 
-    output: torch.Tensor
-    hiddens: Optional[
-        Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
-    ] = None
-    embeddings: Optional[torch.Tensor] = None
-
-    @property
-    def has_hiddens(self) -> bool:
-        return self.hiddens is not None
-
-    @property
-    def has_embeddings(self) -> bool:
-        return self.embeddings is not None
-
-
-class BaseModule(lightning.LightningModule):
     # Sizes.
     num_embeddings: int
     # Regularization arguments.
@@ -60,7 +42,7 @@ class BaseModule(lightning.LightningModule):
         self.num_embeddings = num_embeddings
         self.layers = layers
         self.hidden_size = hidden_size
-        self.dropout_layer = nn.Dropout(p=self.dropout, inplace=False)
+        self.dropout_layer = nn.Dropout(p=self.dropout)
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
         """Embeds the source symbols and adds positional encodings.
@@ -72,9 +54,12 @@ class BaseModule(lightning.LightningModule):
         Returns:
             torch.Tensor: embedded tensor of shape B x seq_len x embed_dim.
         """
-        embedded = self.embeddings(symbols)
-        return self.dropout_layer(embedded)
+        return self.dropout_layer(self.embeddings(symbols))
 
     @property
-    def output_size(self) -> int:
-        raise NotImplementedError
+    @abc.abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abc.abstractmethod
+    def output_size(self) -> int: ...

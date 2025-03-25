@@ -34,15 +34,6 @@ def get_datamodule_from_argparse_args(
     Returns:
         data.DataModule.
     """
-    separate_features = args.features_col != 0 and args.arch in [
-        "hard_attention_gru",
-        "hard_attention_lstm",
-        "pointer_generator_gru",
-        "pointer_generator_lstm",
-        "pointer_generator_transformer",
-        "transducer_grm",
-        "transducer_lstm",
-    ]
     # Please pass all arguments by keyword and keep in lexicographic order.
     return data.DataModule(
         batch_size=args.batch_size,
@@ -52,7 +43,9 @@ def get_datamodule_from_argparse_args(
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
         predict=args.predict,
-        separate_features=separate_features,
+        separate_features=util.requires_separate_features(
+            args.features_col, args.arch, args.features_encoder_arch
+        ),
         source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,
@@ -102,26 +95,28 @@ def predict(
         if model.beam_width > 1:
             # Beam search.
             tsv_writer = csv.writer(sink, delimiter="\t")
-            for predictions, scores in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_end(predictions)
-                # TODO: beam search requires singleton batches and this
-                # assumes that. Revise if that restriction is ever lifted.
-                targets = [
-                    parser.target_string(mapper.decode_target(target))
-                    for target in predictions
-                ]
-                # Collates target strings and their scores.
-                row = itertools.chain.from_iterable(
-                    zip(targets, scores.tolist())
-                )
-                tsv_writer.writerow(row)
+            for batch_predictions, batch_scores in trainer.predict(
+                model, loader
+            ):
+                # Even though beam search currently assumes batch size of 1,
+                # this assumption is not baked-in here and should generalize
+                # if this restriction is lifted.
+                for beam, beam_scores in zip(batch_predictions, batch_scores):
+                    beam_strings = [
+                        parser.target_string(mapper.decode_target(prediction))
+                        for prediction in beam
+                    ]
+                    # Collates target strings and their scores.
+                    row = itertools.chain.from_iterable(
+                        zip(beam_strings, beam_scores.tolist())
+                    )
+                    tsv_writer.writerow(row)
         else:
             # Greedy search.
-            for predictions in trainer.predict(model, loader):
-                predictions = util.pad_tensor_after_end(predictions)
-                for target in predictions:
+            for batch in trainer.predict(model, loader):
+                for prediction in batch:
                     print(
-                        parser.target_string(mapper.decode_target(target)),
+                        parser.target_string(mapper.decode_target(prediction)),
                         file=sink,
                     )
 
@@ -132,6 +127,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (argparse.ArgumentParser).
     """
+    data.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
+    models.add_argparse_args(parser)
     # Path arguments.
     parser.add_argument(
         "--checkpoint",
@@ -153,15 +151,13 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to prediction output data TSV.",
     )
-    # Data arguments.
-    data.add_argparse_args(parser)
-    # Architecture arguments; the architecture-specific ones are not needed.
-    models.add_argparse_args(parser)
-    models.BaseModel.add_predict_argparse_args(parser)
-    # Among the things this adds, the following are likely to be useful:
-    # --accelerator ("gpu" for GPU)
-    # --devices (for multiple device support)
-    lightning.Trainer.add_argparse_args(parser)
+    # Other prediction arguments.
+    parser.add_argument(
+        "--beam_width",
+        type=int,
+        required=False,
+        help="Size of the beam for beam search. Default: %(default)s.",
+    )
 
 
 def main() -> None:

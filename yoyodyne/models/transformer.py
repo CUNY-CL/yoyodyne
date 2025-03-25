@@ -11,17 +11,17 @@ from . import base, embeddings, modules
 
 
 class TransformerModel(base.BaseModel):
-    """Base class for transformer models.
+    """Vanilla transformer model.
 
     Args:
         source_attention_heads (int).
+        *args: passed to superclass.
         max_source_length (int).
         **kwargs: passed to superclass.
     """
 
     # Model arguments.
-    source_attention_heads: int
-    # Constructed inside __init__.
+    source_attention_heads: int  # Constructed inside __init__.
     classifier: nn.Linear
 
     def __init__(
@@ -54,8 +54,97 @@ class TransformerModel(base.BaseModel):
         """
         return embeddings.xavier_embedding(num_embeddings, embedding_size)
 
-    def get_decoder(self) -> modules.transformer.TransformerDecoder:
-        return modules.transformer.TransformerDecoder(
+    def beam_decode(self, *args, **kwargs):
+        raise NotImplementedError(
+            f"Beam search is not supported by {self.name} model"
+        )
+
+    def decode_step(
+        self,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        predictions: torch.Tensor,
+    ) -> torch.Tensor:
+        """Single decoder step.
+
+        This predicts a distribution for one symbol.
+
+        Args:
+            source_encoded (torch.Tensor): encoded source symbols.
+            source_mask (torch.Tensor): mask for the source.
+            predictions (torch.Tensor): tensor of predictions thus far.
+
+        Returns:
+            torch.Tensor: logits.
+        """
+        # Uses a dummy mask of all zeros.
+        target_mask = torch.zeros_like(predictions, dtype=bool)
+        decoded, _ = self.decoder(
+            source_encoded, source_mask, predictions, target_mask
+        )
+        logits = self.classifier(decoded)
+        logits = logits[:, -1, :]  # Ignores END.
+        return logits
+
+    def forward(self, batch: data.PaddedBatch) -> torch.Tensor:
+        """Forward pass.
+
+        Args:
+            batch (data.PaddedBatch).
+
+        Returns:
+            torch.Tensor.
+
+        Raises:
+            NotImplementedError: separate features encoders are not supported.
+        """
+        # TODO(#313): add support for this.
+        if self.has_features_encoder:
+            raise NotImplementedError(
+                "Separate features encoders are not supported by the "
+                f"{self.name} model"
+            )
+        source_encoded = self.source_encoder(batch.source)
+        if self.training and self.teacher_forcing:
+            assert (
+                batch.has_target
+            ), "Teacher forcing requested but no target provided"
+            batch_size = len(batch)
+            symbol = self.start_symbol(batch_size)
+            target_padded = torch.cat((symbol, batch.target.padded), dim=1)
+            target_mask = torch.cat(
+                (
+                    torch.ones_like(symbol, dtype=bool),
+                    batch.target.mask,
+                ),
+                dim=1,
+            )
+            decoded, _ = self.decoder(
+                source_encoded,
+                batch.source.mask,
+                target_padded,
+                target_mask,
+            )
+            # -> B x target_vocab_size x seq_len.
+            logits = self.classifier(decoded).transpose(1, 2)
+            return logits[:, :, :-1]  # Ignores END.
+        else:
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    self.beam_width,
+                )
+            else:
+                return self.greedy_decode(
+                    source_encoded,
+                    batch.source.mask,
+                    batch.target.padded if batch.has_target else None,
+                )
+
+    def get_decoder(self) -> modules.TransformerDecoder:
+        return modules.TransformerDecoder(
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
@@ -67,153 +156,81 @@ class TransformerModel(base.BaseModel):
             source_attention_heads=self.source_attention_heads,
         )
 
-    def beam_decode(self, *args, **kwargs):
-        raise NotImplementedError(
-            f"Beam search not implemented for {self.name} model"
-        )
-
     def greedy_decode(
         self,
-        encoder_hidden: torch.Tensor,
+        source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        targets: Optional[torch.Tensor],
+        target: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
         Args:
-            encoder_hidden (torch.Tensor): hidden states from the encoder.
-            source_mask (torch.Tensor): mask for the encoded source tokens.
-            targets (torch.Tensor, optional): the optional target tokens,
-                which is only used for early stopping during validation
-                if the decoder has predicted END for every sequence in
-                the batch.
+            source_encoded (torch.Tensor): batch of encoded source symbols.
+            source_mask (torch.Tensor): mask.
+            target (torch.Tensor, optional): target symbols; if provided
+                decoding continues until this length is reached.
 
         Returns:
-            torch.Tensor: predictions from the decoder.
+            torch.Tensor: logits from the decoder.
         """
+        batch_size = source_mask.size(0)
         # The output distributions to be returned.
         outputs = []
-        batch_size = encoder_hidden.size(0)
         # The predicted symbols at each iteration.
         predictions = [
-            torch.tensor(
-                [special.START_IDX for _ in range(encoder_hidden.size(0))],
-                device=self.device,
+            torch.tensor([special.START_IDX], device=self.device).repeat(
+                batch_size
             )
         ]
-        # Tracking when each sequence has decoded an END.
-        finished = torch.zeros(batch_size, device=self.device)
-        for _ in range(self.max_target_length):
-            target_tensor = torch.stack(predictions, dim=1)
-            # Uses a dummy mask of all ones.
-            target_mask = torch.ones_like(target_tensor, dtype=torch.float)
-            target_mask = target_mask == 0
-            decoder_output = self.decoder(
-                encoder_hidden,
-                source_mask,
-                target_tensor,
-                target_mask,
-            ).output
-            logits = self.classifier(decoder_output)
-            last_output = logits[:, -1, :]  # Ignores END.
-            outputs.append(last_output)
-            # -> B x 1 x 1
-            _, pred = torch.max(last_output, dim=1)
-            predictions.append(pred)
-            # Updates to track which sequences have decoded an END.
-            finished = torch.logical_or(
-                finished, (predictions[-1] == special.END_IDX)
-            )
-            # Breaks when all sequences have predicted an END symbol. If we
-            # have a target (and are thus computing loss), we only break when
-            # we have decoded at least the the same number of steps as the
-            # target length.
-            if finished.all():
-                if targets is None or len(outputs) >= targets.size(-1):
-                    break
-        # -> B x seq_len x target_vocab_size.
-        return torch.stack(outputs).transpose(0, 1)
-
-    def forward(
-        self,
-        batch: data.PaddedBatch,
-    ) -> torch.Tensor:
-        """Runs the encoder-decoder.
-
-        Args:
-            batch (data.PaddedBatch).
-
-        Returns:
-            torch.Tensor.
-        """
-        if self.training and self.teacher_forcing:
-            assert (
-                batch.target.padded is not None
-            ), "Teacher forcing requested but no target provided"
-            # Initializes the start symbol for decoding.
-            starts = (
-                torch.tensor(
-                    [special.START_IDX],
-                    device=self.device,
-                )
-                .repeat(batch.target.padded.size(0))
-                .unsqueeze(1)
-            )
-            target_padded = torch.cat((starts, batch.target.padded), dim=1)
-            target_mask = torch.cat(
-                (starts == special.PAD_IDX, batch.target.mask), dim=1
-            )
-            encoder_output = self.source_encoder(batch.source).output
-            decoder_output = self.decoder(
-                encoder_output,
-                batch.source.mask,
-                target_padded,
-                target_mask,
-            ).output
-            logits = self.classifier(decoder_output)
-            return logits[:, :-1, :]  # Ignores END.
+        if target is None:
+            max_num_steps = self.max_target_length
+            # Tracks when each sequence has decoded an END.
+            final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
-            encoder_output = self.source_encoder(batch.source).output
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    encoder_output,
-                    batch.source.mask,
-                    self.beam_width,
-                )
-            else:
-                # -> B x seq_len x output_size.
-                return self.greedy_decode(
-                    encoder_output,
-                    batch.source.mask,
-                    batch.target.padded if batch.target else None,
-                )
+            max_num_steps = target.size(1)
+        for _ in range(max_num_steps):
+            logits = self.decode_step(
+                source_encoded,
+                source_mask,
+                torch.stack(predictions, dim=1),
+            )
+            outputs.append(logits)
+            symbol = torch.argmax(logits, dim=1)
+            predictions.append(symbol)
+            if target is None:
+                # Updates which sequences have decoded an END.
+                final = torch.logical_or(final, (symbol == special.END_IDX))
+                if final.all():
+                    break
+        # -> B x target_vocab_size x seq_len.
+        outputs = torch.stack(outputs, dim=2)
+        return outputs
 
     @property
     def name(self) -> str:
         return "transformer"
 
-    @staticmethod
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds transformer configuration options to the argument parser.
 
-        These are only needed at training time.
+def add_argparse_args(parser: argparse.ArgumentParser) -> None:
+    """Adds transformer configuration options to the argument parser.
 
-        Args:
-            parser (argparse.ArgumentParser).
-        """
-        parser.add_argument(
-            "--source_attention_heads",
-            type=int,
-            default=defaults.SOURCE_ATTENTION_HEADS,
-            help="Number of attention heads "
-            "(transformer-backed architectures only. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--features_attention_heads",
-            type=int,
-            default=defaults.FEATURES_ATTENTION_HEADS,
-            help="Number of features attention heads "
-            "(transformer-backed pointer-generator only). "
-            "Default: %(default)s.",
-        )
+    These are only needed at training time.
+
+    Args:
+        parser (argparse.ArgumentParser).
+    """
+    parser.add_argument(
+        "--source_attention_heads",
+        type=int,
+        default=defaults.SOURCE_ATTENTION_HEADS,
+        help="Number of attention heads "
+        "(transformer-backed architectures only. Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--features_attention_heads",
+        type=int,
+        default=defaults.FEATURES_ATTENTION_HEADS,
+        help="Number of features attention heads "
+        "(transformer-backed pointer-generator only). "
+        "Default: %(default)s.",
+    )

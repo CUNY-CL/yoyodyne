@@ -59,6 +59,44 @@ def mkpath(path: str) -> None:
     os.makedirs(dirname, exist_ok=True)
 
 
+_REQUIRES_SEPARATE_FEATURES_ARCH = frozenset(
+    [
+        "hard_attention_gru",
+        "hard_attention_lstm",
+        "pointer_generator_gru",
+        "pointer_generator_lstm",
+        "pointer_generator_transformer",
+        "transducer_grm",
+        "transducer_lstm",
+    ]
+)
+
+
+def requires_separate_features(
+    features_col: int, arch: str, features_encoder_arch: Optional[str] = None
+) -> bool:
+    """Determines whether features should be kept separate in the collator.
+
+    This works directly from command-line arguments since we have to determine
+    this very early in the process.
+
+    Args:
+        features_col (int).
+        arch (str).
+        features_encoder_arch (str, optional).
+
+    Returns:
+        bool.
+    """
+    # TODO(kbg,#60): This helper should be made obsolete by the lazy variable
+    # assignment in LightningCLI.
+    if features_col == 0:
+        return False
+    if arch in _REQUIRES_SEPARATE_FEATURES_ARCH:
+        return True
+    return features_encoder_arch is not None
+
+
 def pad_tensor_after_end(
     predictions: torch.Tensor,
 ) -> torch.Tensor:

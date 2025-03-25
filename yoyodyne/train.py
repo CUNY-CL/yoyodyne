@@ -138,15 +138,6 @@ def get_datamodule_from_argparse_args(
     Returns:
         data.DataModule.
     """
-    separate_features = args.features_col != 0 and args.arch in [
-        "hard_attention_gru",
-        "hard_attention_lstm",
-        "pointer_generator_gru",
-        "pointer_generator_lstm",
-        "pointer_generator_transformer",
-        "transducer_grm",
-        "transducer_lstm",
-    ]
     # Please pass all arguments by keyword and keep in lexicographic order.
     datamodule = data.DataModule(
         batch_size=args.batch_size,
@@ -155,7 +146,10 @@ def get_datamodule_from_argparse_args(
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
-        separate_features=separate_features,
+        separate_features=util.requires_separate_features(
+            args.features_col, args.arch, args.features_encoder_arch
+        ),
+        source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,
         target_sep=args.target_sep,
@@ -197,6 +191,12 @@ def get_model_from_argparse_args(
         raise Error(
             f"--tie_embeddings disabled, but --arch {args.arch} requires "
             "it to be enabled"
+        )
+    # TODO(#156): add callback interface to check this.
+    if args.features_encoder_arch and not datamodule.has_separate_features:
+        raise Error(
+            "Separate features disabled but --features_encoder_arch "
+            f"{args.features_encoder_arch} requires it to be enabled"
         )
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
@@ -328,6 +328,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         argparse.ArgumentParser.
     """
+    data.add_argparse_args(parser)
+    metrics.add_argparse_args(parser)
+    models.add_argparse_args(parser)
+    schedulers.add_argparse_args(parser)
+    sizing.add_argparse_args(parser)
+    lightning.Trainer.add_argparse_args(parser)
     # Path arguments.
     parser.add_argument(
         "--model_dir",
@@ -375,29 +381,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         dest="log_wandb",
     )
-    data.add_argparse_args(parser)
-    metrics.add_argparse_args(parser)
-    models.add_argparse_args(parser)
-    models.expert.add_argparse_args(parser)
-    models.modules.add_argparse_args(parser)
-    models.BaseModel.add_argparse_args(parser)
-    models.HardAttentionRNNModel.add_argparse_args(parser)
-    models.RNNModel.add_argparse_args(parser)
-    models.TransformerModel.add_argparse_args(parser)
-    schedulers.add_argparse_args(parser)
-    sizing.add_argparse_args(parser)
-    # Trainer arguments.
-    # Among the things this adds, the following are likely to be useful:
-    # --accelerator ("gpu" for GPU)
-    # --check_val_every_n_epoch
-    # --devices (for multiple device support)
-    # --gradient_clip_val
-    # --max_epochs
-    # --min_epochs
-    # --max_steps
-    # --min_steps
-    # --max_time
-    lightning.Trainer.add_argparse_args(parser)
 
 
 def main() -> None:
