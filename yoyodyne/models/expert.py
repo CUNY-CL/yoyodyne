@@ -8,16 +8,7 @@ dictionary. This class stores valid edit actions for given dataset."""
 
 import argparse
 import dataclasses
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
 
 import numpy
 from maxwell import actions, sed

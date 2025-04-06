@@ -112,7 +112,8 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         )
         # Overrides inherited classifier.
         self.classifier = nn.Linear(
-            self.hidden_size + self.decoder_input_size, self.target_vocab_size
+            self.hidden_size + self.decoder_input_size,
+            self.target_vocab_size,
         )
 
     def _check_layer_sizes(self) -> None:
@@ -273,7 +274,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 with the likelihood (the unnormalized sum of sequence
                 log-probabilities) for each prediction; greedy search returns
                 a tensor of predictions of shape
-                B x seq_len x target_vocab_size.
+                B x target_vocab_size x seq_len.
         """
         source_encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
@@ -300,9 +301,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 )
         elif self.beam_width > 1:
             return self.beam_decode(
-                batch.source.padded,
-                source_encoded,
-                batch.source.mask,
+                batch.source.padded, source_encoded, batch.source.mask
             )
         else:
             return self.greedy_decode(
@@ -349,7 +348,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
-            torch.Tensor: predictions of B x seq_length x target_vocab_size.
+            torch.Tensor: predictions of B x target_vocab_size x seq_len.
         """
         batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
@@ -380,12 +379,11 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 else torch.argmax(prediction, dim=2)
             )
             if target is None:
-                # Updates which sequences have decoded an END>
+                # Updates which sequences have decoded an END.
                 final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():
                     break
-        # -> B x seq_length x target_vocab_size.
-        predictions = torch.stack(predictions, dim=1)
+        predictions = torch.stack(predictions, dim=2)
         return predictions
 
 
@@ -599,7 +597,7 @@ class PointerGeneratorTransformerModel(
                 decoding continues until this length is reached.
 
         Returns:
-            torch.Tensor: predictions from the decoder.
+            torch.Tensor: predictions of B x target_vocab_size x seq_len.
         """
         batch_size = source_encoded.size(0)
         # The output distributions to be returned.
@@ -612,7 +610,7 @@ class PointerGeneratorTransformerModel(
         ]
         if target is None:
             max_num_steps = self.max_target_length
-            # Tracks when each sequence has decoded an END
+            # Tracks when each sequence has decoded an END.
             final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
             max_num_steps = target.size(1)
@@ -632,8 +630,7 @@ class PointerGeneratorTransformerModel(
                 final = torch.logical_or(final, (symbol == special.END_IDX))
                 if final.all():
                     break
-        # -> B x seq_len x target_vocab_size.
-        outputs = torch.stack(outputs, dim=1)
+        outputs = torch.stack(outputs, dim=2)
         return outputs
 
     @property
