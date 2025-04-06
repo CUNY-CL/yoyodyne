@@ -111,7 +111,7 @@ class RNNModel(base.BaseModel):
                 + self.features_encoder.output_size
             )
         else:
-            return self.source_encoder.out
+            return self.source_encoder.output_size
 
     def forward(
         self,
