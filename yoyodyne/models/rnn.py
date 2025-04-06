@@ -29,10 +29,6 @@ class RNNModel(base.BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.has_features_encoder:
-            self.features_attention = modules.Attention(
-                self.features_encoder.output_size, self.hidden_size
-            )
         self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
 
     def beam_decode(
@@ -143,18 +139,19 @@ class RNNModel(base.BaseModel):
         Raises:
             NotImplementedError: separate features encoders are not supported.
         """
-        # TODO(#313): add support for this.
+        encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
-            raise NotImplementedError(
-                "Separate features encoders are not supported by the "
-                f"{self.name} model"
-            )
-        source_encoded = self.source_encoder(batch.source)
+            features_encoded = self.features_encoder(batch.features)
+            # Averages to flatten, then expands across the interior dimension
+            # to match encoder output.
+            features_encoded = features_encoded.mean(dim=1, keepdim=True)
+            features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
+            encoded = torch.cat((encoded, features_encoded), dim=2)
         if self.beam_width > 1:
-            return self.beam_decode(source_encoded, batch.source.mask)
+            return self.beam_decode(encoded, batch.source.mask)
         else:
             return self.greedy_decode(
-                source_encoded,
+                encoded,
                 batch.source.mask,
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.has_target else None,
@@ -302,7 +299,7 @@ class AttentiveGRUModel(GRUModel):
 
     def get_decoder(self) -> modules.AttentiveGRUDecoder:
         return modules.AttentiveGRUDecoder(
-            attention_input_size=self.source_encoder.output_size,
+            attention_input_size=self.decoder_input_size,
             decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
@@ -322,7 +319,7 @@ class AttentiveLSTMModel(LSTMModel):
 
     def get_decoder(self) -> modules.AttentiveLSTMDecoder:
         return modules.AttentiveLSTMDecoder(
-            attention_input_size=self.source_encoder.output_size,
+            attention_input_size=self.decoder_input_size,
             decoder_input_size=self.decoder_input_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
