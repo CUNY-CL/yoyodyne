@@ -180,6 +180,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
             transitions = self._apply_mono_mask(transitions)
         return scores, transitions, state
 
+    # FIXME remove me
     @property
     def decoder_input_size(self) -> int:
         if self.has_features_encoder:
@@ -321,8 +322,9 @@ class HardAttentionRNNModel(rnn.RNNModel):
         encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
-            # Averages to flatten, then expands across the interior dimension
-            # to match encoder output.
+            # Feature information is averaged across all positions, broadcast
+            # across the length of the source, and then concatenated with the
+            # source encoding along the encoding dimension.
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             encoded = torch.cat((encoded, features_encoded), dim=2)

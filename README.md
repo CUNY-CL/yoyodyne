@@ -244,7 +244,7 @@ present, the `--features_encoder_arch` flag. Valid values are:
     the transformer encoder used with features; it concatenates source and
     features and uses a learned embedding to distinguish between source and
     features symbols.
--   `linear`: a linear encoder.
+-   `embedding`: a non-contextual embedding encoder.
 -   `gru`: a GRU encoder.
 -   `lstm`: a LSTM encoder.
 -   `transformer`: a transformer encoder.

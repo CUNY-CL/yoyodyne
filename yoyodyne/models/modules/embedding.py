@@ -1,4 +1,4 @@
-"""Linear module class."""
+"""Embedding module class."""
 
 from ... import data
 from . import base
@@ -6,7 +6,12 @@ from . import base
 import torch
 
 
-class LinearEncoder(base.BaseModule):
+class EmbeddingEncoder(base.BaseModule):
+    """Embeds the input tensor.
+
+    This encoder produces non-contextual encoding of the input tensor simply
+    by embedding it. No other work is done.
+    """
 
     def forward(self, source: data.PaddedTensor) -> torch.Tensor:
         """Encodes the input.
@@ -21,7 +26,7 @@ class LinearEncoder(base.BaseModule):
 
     @property
     def name(self) -> str:
-        return "linear"
+        return "embedding"
 
     @property
     def output_size(self) -> int:
