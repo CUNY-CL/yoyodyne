@@ -180,16 +180,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
             transitions = self._apply_mono_mask(transitions)
         return scores, transitions, state
 
-    @property
-    def decoder_input_size(self) -> int:
-        if self.has_features_encoder:
-            return (
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-            )
-        else:
-            return self.source_encoder.output_size
-
     def greedy_decode(
         self,
         source_encoded: torch.Tensor,
@@ -321,11 +311,11 @@ class HardAttentionRNNModel(rnn.RNNModel):
         encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
-            # Averages to flatten embedding; this is done as an alternative to
-            # the linear projection used in the original paper.
+            # Feature information is averaged across all positions, broadcast
+            # across the length of the source, and then concatenated with the
+            # source encoding along the encoding dimension.
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
-            # Concatenates with the encoded source.
             encoded = torch.cat((encoded, features_encoded), dim=2)
         if self.training:
             return self.decode(
