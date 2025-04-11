@@ -180,17 +180,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
             transitions = self._apply_mono_mask(transitions)
         return scores, transitions, state
 
-    # FIXME remove me
-    @property
-    def decoder_input_size(self) -> int:
-        if self.has_features_encoder:
-            return (
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-            )
-        else:
-            return self.source_encoder.output_size
-
     def greedy_decode(
         self,
         source_encoded: torch.Tensor,
