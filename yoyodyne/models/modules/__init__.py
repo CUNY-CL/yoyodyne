@@ -10,7 +10,7 @@ from .hard_attention import ContextHardAttentionLSTMDecoder  # noqa: F401
 from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
 from .hard_attention import HardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import HardAttentionLSTMDecoder  # noqa: F401
-from .linear import LinearEncoder
+from .embedding import EmbeddingEncoder
 from .rnn import AttentiveGRUDecoder  # noqa: F401
 from .rnn import AttentiveLSTMDecoder  # noqa: F401
 from .rnn import GRUDecoder  # noqa: F401
@@ -36,7 +36,7 @@ class EncoderMismatchError(Error):
 _encoder_fac = {
     "feature_invariant_transformer": FeatureInvariantTransformerEncoder,
     "gru": GRUEncoder,
-    "linear": LinearEncoder,
+    "embedding": EmbeddingEncoder,
     "lstm": LSTMEncoder,
     "transformer": TransformerEncoder,
 }
@@ -108,7 +108,7 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=["gru", "linear", "lstm", "transformer"],
+        choices=["embedding", "gru", "lstm", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
 
