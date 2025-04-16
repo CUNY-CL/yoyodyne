@@ -11,12 +11,11 @@ This directory contains example scripts for running a hyperparameter sweep with
     [here](https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#configuration-keys)
     for more information.
 -   When running [`sweep.py`](sweep.py) you must provide the `--entity`,
-    `--project` and `--sweep_id`. It can otherwise be called with the same
-    arguments as `yoyodyne-train` where any hyperparameters in the sweep config
-    will override command-line hyperparameter arguments.
--   By default `random` and `bayes` search run indefinitely, until they are
-    killed. To specify a fixed number of samples, provide the `--count` argument
-    to [`sweep.py`](sweep.py).
+    `--project` and `--sweep_id`. A W&B entity is usually your W&B username or
+    W&B team; the project is just a unique identifier under which various runs
+    or sweeps can be stored. It can otherwise be called with the same
+    arguments as `yoyodyne-train`, but note any hyperparameters specified in
+    the sweep config will override command-line arguments.
 
 For more information about W&B sweeps, [read
 here](https://docs.wandb.ai/guides/sweeps).
