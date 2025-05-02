@@ -5,7 +5,7 @@ from typing import Callable, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import data, special
+from .. import data, special, util
 from . import base, beam_search, defaults, modules, rnn, transformer
 
 
@@ -99,8 +99,8 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             self.decoder_layers = self.encoder_layers
             util.log_info(
                 "The number of encoder and decoder layers must match "
-                f"({self.encoder_layers} != {self.decoder_layers})."
-                "Setting both to {self.encoder_layers}".
+                f"({self.encoder_layers} != {self.decoder_layers}). "
+                f"Setting both to {self.encoder_layers}."
             )
         # Uses the inherited defaults for the source embeddings and encoder.
         if self.has_features_encoder:
