@@ -10,14 +10,15 @@ from yoyodyne import defaults
 
 # Expand as needed.
 FLAGS_TO_IGNORE = frozenset(
-    ["eval_metrics", "local_run_dir", "n_model_params"]
+    ["eval_metrics", "local_run_dir", "num_parameters"]
 )
 
 
 def main(args: argparse.Namespace) -> None:
     api = wandb.Api()
     sweep = api.sweep(f"{args.entity}/{args.project}/{args.sweep_id}")
-    best_run = sweep.best_run()
+    best_run = sweep.best_run("-summary_metrics.val_accuracy")
+    print(type(best_run))
     logging.info("Best run URL: %s", best_run.url)
     # Sorting for stability.
     args = []
