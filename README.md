@@ -47,8 +47,6 @@ yourself.
 
 ### Local installation
 
-Yoyodyne currently supports Python 3.9 through 3.12.
-
 First install dependencies:
 
     pip install -r requirements.txt
