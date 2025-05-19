@@ -4,7 +4,6 @@ The computation of loss is built into the models. A slight modification of
 a built-in class from torchmetrics is used to compute exact match accuracy. A
 novel symbol error rate (SER) implementation is also provided.
 
-
 Adding additional metrics is relatively easy, though there are a lot of steps.
 Suppose one wants to add a metric called Wham. Then one must:
 
