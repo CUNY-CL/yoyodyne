@@ -70,7 +70,7 @@ class Error(Exception):
 #   in the template.
 # * `mode` is either "max" or "min" and indicates whether we want to
 #   maximize or minimize the metric.
-# * `monitor` is the name of the metric with a with `val_` prefix.
+# * `monitor` is the name of the metric with a `val_` prefix.
 
 
 Metric = collections.namedtuple("Metric", ["filename", "mode", "monitor"])
