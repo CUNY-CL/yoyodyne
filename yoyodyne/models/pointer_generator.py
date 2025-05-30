@@ -5,7 +5,7 @@ from typing import Callable, Optional, Tuple, Union
 import torch
 from torch import nn
 
-from .. import data, special
+from .. import data, special, util
 from . import base, beam_search, defaults, modules, rnn, transformer
 
 
@@ -96,9 +96,11 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.encoder_layers != self.decoder_layers:
-            raise Error(
+            self.decoder_layers = self.encoder_layers
+            util.log_info(
                 "The number of encoder and decoder layers must match "
-                f"({self.encoder_layers} != {self.decoder_layers})"
+                f"({self.encoder_layers} != {self.decoder_layers}). "
+                f"Setting both to {self.encoder_layers}."
             )
         # Uses the inherited defaults for the source embeddings and encoder.
         if self.has_features_encoder:
@@ -115,18 +117,6 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             self.hidden_size + self.decoder_input_size,
             self.target_vocab_size,
         )
-
-    def _check_layer_sizes(self) -> None:
-        """Checks that encoder and decoder layers are the same number.
-
-        Raises:
-            Error.
-        """
-        if self.encoder_layers != self.decoder_layers:
-            raise Error(
-                "The number of encoder and decoder layers must match "
-                f"({self.encoder_layers} != {self.decoder_layers})"
-            )
 
     def beam_decode(
         self,
