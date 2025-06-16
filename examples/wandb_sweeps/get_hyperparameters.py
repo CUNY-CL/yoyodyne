@@ -8,8 +8,6 @@ import wandb
 
 from yoyodyne import defaults
 
-from yoyodyne import defaults
-
 # Expand as needed.
 FLAGS_TO_IGNORE = frozenset(
     ["eval_metrics", "local_run_dir", "num_parameters"]
