@@ -43,8 +43,6 @@ Then, one can retrieve the results as follows:
 3.  Click on the downward arrow link, select "CSV Export", then click "Save as
     CSV".
 
-Alternatively, one can use [`best_hyperparameters.py`](best_hyperparamaters.py)
-to retrieve the hyperparameters of the best run, formatted as CLI flags:
+Or, to get the hyperparameters from a particular run, copy the "Run path" from the run's "Overview" on W&B, and then run:
 
-    ./best_hyperparameters.py --entity "${ENTITY}" --project "${PROJECT}" \
-         --sweep_id "${SWEEP_ID}"
+    ./get_hyperparameters.py "${RUN_PATH}"

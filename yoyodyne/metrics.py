@@ -4,7 +4,6 @@ The computation of loss is built into the models. A slight modification of
 a built-in class from torchmetrics is used to compute exact match accuracy. A
 novel symbol error rate (SER) implementation is also provided.
 
-
 Adding additional metrics is relatively easy, though there are a lot of steps.
 Suppose one wants to add a metric called Wham. Then one must:
 
@@ -70,7 +69,7 @@ class Error(Exception):
 #   in the template.
 # * `mode` is either "max" or "min" and indicates whether we want to
 #   maximize or minimize the metric.
-# * `monitor` is the name of the metric with a with `val_` prefix.
+# * `monitor` is the name of the metric with a `val_` prefix.
 
 
 Metric = collections.namedtuple("Metric", ["filename", "mode", "monitor"])
