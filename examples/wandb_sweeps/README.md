@@ -43,6 +43,7 @@ Then, one can retrieve the results as follows:
 3.  Click on the downward arrow link, select "CSV Export", then click "Save as
     CSV".
 
-Or, to get the hyperparameters from a particular run, copy the "Run path" from the run's "Overview" on W&B, and then run:
+Or, to get the hyperparameters from a particular run, copy the "Run path" from
+the run's "Overview" on W&B, and then run:
 
     ./get_hyperparameters.py "${RUN_PATH}"

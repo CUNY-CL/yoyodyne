@@ -2,7 +2,6 @@
 
 import argparse
 import os
-from typing import List, Optional
 
 import lightning
 import wandb
@@ -23,84 +22,6 @@ class Error(Exception):
     pass
 
 
-def _get_loggers(model_dir: str, log_wandb: bool) -> List:
-    """Creates the logger(s).
-
-    Args:
-        model_dir (str).
-        log_wandb (bool).
-
-    Returns:
-        List: logger.
-    """
-    trainer_loggers = [loggers.CSVLogger(model_dir)]
-    if log_wandb:
-        trainer_loggers.append(loggers.WandbLogger())
-        # Logs the path to local artifacts made by PTL.
-        wandb.config["local_run_dir"] = trainer_loggers[0].log_dir
-    return trainer_loggers
-
-
-def _get_callbacks(
-    num_checkpoints: int = defaults.NUM_CHECKPOINTS,
-    checkpoint_metric: str = defaults.CHECKPOINT_METRIC,
-    patience: Optional[int] = None,
-    patience_metric: str = defaults.PATIENCE_METRIC,
-    log_wandb: bool = False,
-) -> List[callbacks.Callback]:
-    """Creates the callbacks.
-
-    We will reach into the callback metrics list to picks ckp_callback to find
-    the best checkpoint path.
-
-    Args:
-        num_checkpoints (int, optional): number of checkpoints to save. To
-            save one checkpoint per epoch, use `-1`.
-        checkpoint_metric (string, optional): validation metric used to
-            select checkpoints.
-        patience (int, optional): number of epochs with no
-            progress (according to `patience_metric`) before triggering
-            early stopping.
-        patience_metric (string, optional): validation metric used to
-            trigger early stopping.
-        log_wandb (bool).
-
-    Returns:
-        List[callbacks.Callback]: callbacks.
-    """
-    trainer_callbacks = [
-        callbacks.LearningRateMonitor(logging_interval="epoch"),
-        callbacks.TQDMProgressBar(),
-    ]
-    # Patience callback if requested.
-    if patience is not None:
-        metric = metrics.get_metric(patience_metric)
-        trainer_callbacks.append(
-            callbacks.early_stopping.EarlyStopping(
-                mode=metric.mode,
-                monitor=metric.monitor,
-                patience=patience,
-                min_delta=1e-4,
-                verbose=True,
-            )
-        )
-    # Checkpointing callback. Ensure that this is the last checkpoint,
-    # as the API assumes that.
-    metric = metrics.get_metric(checkpoint_metric)
-    trainer_callbacks.append(
-        callbacks.ModelCheckpoint(
-            filename=metric.filename,
-            mode=metric.mode,
-            monitor=metric.monitor,
-            save_top_k=num_checkpoints,
-        )
-    )
-    # Logs the best value for the checkpointing metric.
-    if log_wandb:
-        wandb.define_metric(metric.monitor, summary=metric.mode)
-    return trainer_callbacks
-
-
 def get_trainer_from_argparse_args(
     args: argparse.Namespace,
 ) -> lightning.Trainer:
@@ -112,18 +33,47 @@ def get_trainer_from_argparse_args(
     Returns:
         lightning.Trainer.
     """
+    trainer_callbacks = [
+        callbacks.LearningRateMonitor(logging_interval="epoch"),
+        callbacks.TQDMProgressBar(),
+    ]
+    # Patience callback if requested.
+    if args.patience is not None:
+        metric = metrics.get_metric(args.patience_metric)
+        trainer_callbacks.append(
+            callbacks.early_stopping.EarlyStopping(
+                mode=metric.mode,
+                monitor=metric.monitor,
+                patience=args.patience,
+                min_delta=1e-4,
+                verbose=True,
+            )
+        )
+    # Checkpointing callback. Ensure that this is the last checkpoint,
+    # as the API assumes that.
+    metric = metrics.get_metric(args.checkpoint_metric)
+    trainer_callbacks.append(
+        callbacks.ModelCheckpoint(
+            filename=metric.filename,
+            mode=metric.mode,
+            monitor=metric.monitor,
+            save_top_k=args.num_checkpoints,
+        )
+    )
+    trainer_loggers = [loggers.CSVLogger(args.model_dir)]
+    # Logs the best value for the checkpointing metric.
+    if args.log_wandb:
+        trainer_loggers.append(
+            loggers.WandbLogger(
+                metric.filename, monitor=metric.monitor, mode=metric.mode
+            )
+        )
     return lightning.Trainer.from_argparse_args(
         args,
-        callbacks=_get_callbacks(
-            args.num_checkpoints,
-            args.checkpoint_metric,
-            args.patience,
-            args.patience_metric,
-            args.log_wandb,
-        ),
         default_root_dir=args.model_dir,
         enable_checkpointing=True,
-        logger=_get_loggers(args.model_dir, args.log_wandb),
+        callbacks=trainer_callbacks,
+        logger=trainer_loggers,
     )
 
 
