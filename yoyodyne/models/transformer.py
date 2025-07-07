@@ -13,27 +13,30 @@ from . import base, embeddings, modules
 class TransformerModel(base.BaseModel):
     """Vanilla transformer model.
 
+    If features are provided, the encodings are fused by concatenation of the
+    features encoding with the source encoding on the sequence length
+    dimension.
+
     Args:
-        source_attention_heads (int).
+        attention_heads (int).
         *args: passed to superclass.
-        max_source_length (int).
         **kwargs: passed to superclass.
     """
 
     # Model arguments.
-    source_attention_heads: int  # Constructed inside __init__.
+    attention_heads: int
     classifier: nn.Linear
 
     def __init__(
         self,
         *args,
-        source_attention_heads=defaults.SOURCE_ATTENTION_HEADS,
+        attention_heads=defaults.ATTENTION_HEADS,
         **kwargs,
     ):
-        self.source_attention_heads = source_attention_heads
+        self.attention_heads = attention_heads
         super().__init__(
             *args,
-            source_attention_heads=source_attention_heads,
+            attention_heads=attention_heads,
             **kwargs,
         )
         self.classifier = nn.Linear(
@@ -61,8 +64,8 @@ class TransformerModel(base.BaseModel):
 
     def decode_step(
         self,
-        source_encoded: torch.Tensor,
-        source_mask: torch.Tensor,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
         predictions: torch.Tensor,
     ) -> torch.Tensor:
         """Single decoder step.
@@ -79,9 +82,7 @@ class TransformerModel(base.BaseModel):
         """
         # Uses a dummy mask of all zeros.
         target_mask = torch.zeros_like(predictions, dtype=bool)
-        decoded, _ = self.decoder(
-            source_encoded, source_mask, predictions, target_mask
-        )
+        decoded, _ = self.decoder(encoded, mask, predictions, target_mask)
         logits = self.classifier(decoded)
         logits = logits[:, -1, :]  # Ignores END.
         return logits
@@ -98,20 +99,19 @@ class TransformerModel(base.BaseModel):
         Raises:
             NotImplementedError: separate features encoders are not supported.
         """
-        # TODO(#313): add support for this.
+        encoded = self.source_encoder(batch.source)
+        mask = batch.source.mask
         if self.has_features_encoder:
-            raise NotImplementedError(
-                "Separate features encoders are not supported by the "
-                f"{self.name} model"
-            )
-        source_encoded = self.source_encoder(batch.source)
+            features_encoded = self.features_encoder(batch.features)
+            encoded = torch.cat((encoded, features_encoded), dim=1)
+            mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.training and self.teacher_forcing:
             assert (
                 batch.has_target
             ), "Teacher forcing requested but no target provided"
             batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
-            target_padded = torch.cat((symbol, batch.target.padded), dim=1)
+            target = torch.cat((symbol, batch.target.padded), dim=1)
             target_mask = torch.cat(
                 (
                     torch.ones_like(symbol, dtype=bool),
@@ -120,9 +120,9 @@ class TransformerModel(base.BaseModel):
                 dim=1,
             )
             decoded, _ = self.decoder(
-                source_encoded,
-                batch.source.mask,
-                target_padded,
+                encoded,
+                mask,
+                target,
                 target_mask,
             )
             # -> B x target_vocab_size x seq_len.
@@ -131,15 +131,11 @@ class TransformerModel(base.BaseModel):
         else:
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    source_encoded,
-                    batch.source.mask,
-                    self.beam_width,
-                )
+                return self.beam_decode(encoded, mask, self.beam_width)
             else:
                 return self.greedy_decode(
-                    source_encoded,
-                    batch.source.mask,
+                    encoded,
+                    mask,
                     batch.target.padded if batch.has_target else None,
                 )
 
@@ -151,29 +147,29 @@ class TransformerModel(base.BaseModel):
             embedding_size=self.embedding_size,
             hidden_size=self.hidden_size,
             layers=self.decoder_layers,
-            max_source_length=self.max_source_length,
+            max_length=self.max_length,
             num_embeddings=self.vocab_size,
-            source_attention_heads=self.source_attention_heads,
+            attention_heads=self.attention_heads,
         )
 
     def greedy_decode(
         self,
-        source_encoded: torch.Tensor,
-        source_mask: torch.Tensor,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
         target: Optional[torch.Tensor],
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
         Args:
-            source_encoded (torch.Tensor): batch of encoded source symbols.
-            source_mask (torch.Tensor): mask.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
             target (torch.Tensor, optional): target symbols; if provided
                 decoding continues until this length is reached.
 
         Returns:
             torch.Tensor: logits from the decoder.
         """
-        batch_size = source_mask.size(0)
+        batch_size = mask.size(0)
         # The output distributions to be returned.
         outputs = []
         # The predicted symbols at each iteration.
@@ -190,8 +186,8 @@ class TransformerModel(base.BaseModel):
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
             logits = self.decode_step(
-                source_encoded,
-                source_mask,
+                encoded,
+                mask,
                 torch.stack(predictions, dim=1),
             )
             outputs.append(logits)
@@ -207,6 +203,13 @@ class TransformerModel(base.BaseModel):
         return outputs
 
     @property
+    def max_length(self) -> int:
+        if self.has_features_encoder:
+            return self.max_source_length + self.max_features_length
+        else:
+            return self.max_source_length
+
+    @property
     def name(self) -> str:
         return "transformer"
 
@@ -220,17 +223,9 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         parser (argparse.ArgumentParser).
     """
     parser.add_argument(
-        "--source_attention_heads",
+        "--attention_heads",
         type=int,
-        default=defaults.SOURCE_ATTENTION_HEADS,
+        default=defaults.ATTENTION_HEADS,
         help="Number of attention heads "
-        "(transformer-backed architectures only. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--features_attention_heads",
-        type=int,
-        default=defaults.FEATURES_ATTENTION_HEADS,
-        help="Number of features attention heads "
-        "(transformer-backed pointer-generator only). "
-        "Default: %(default)s.",
+        "(transformer-backed architectures only). Default: %(default)s.",
     )

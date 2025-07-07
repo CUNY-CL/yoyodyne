@@ -21,7 +21,15 @@ class RNNModel(base.BaseModel):
 
     The implementation of `get_decoder` in the subclasses determines what kind
     of RNN is used (i.e., GRU or LSTM), and this determines whether the model
-    is "inattative" or attentive.
+    is "inattentive" or attentive.
+
+    If features are provided, the encodings are fused by concatenation of the
+    features encoding with the source encoding on the sequence length
+    dimension.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     # Constructed inside __init__.
@@ -105,13 +113,8 @@ class RNNModel(base.BaseModel):
 
     @property
     def decoder_input_size(self) -> int:
-        if self.has_features_encoder:
-            return (
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-            )
-        else:
-            return self.source_encoder.output_size
+        # Features concatenation does not change this.
+        return self.source_encoder.output_size
 
     def forward(
         self,
@@ -132,21 +135,17 @@ class RNNModel(base.BaseModel):
                 B x seq_len x target_vocab_size.
         """
         encoded = self.source_encoder(batch.source)
+        mask = batch.source.mask
         if self.has_features_encoder:
-            # FIXME: this is not how we want to be doing it.
             features_encoded = self.features_encoder(batch.features)
-            # Feature information is averaged across all positions, broadcast
-            # across the length of the source, and then concatenated with the
-            # source encoding along the encoding dimension.
-            features_encoded = features_encoded.mean(dim=1, keepdim=True)
-            features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
-            encoded = torch.cat((encoded, features_encoded), dim=2)
+            encoded = torch.cat((encoded, features_encoded), dim=1)
+            mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.beam_width > 1:
             return self.beam_decode(encoded, batch.source.mask)
         else:
             return self.greedy_decode(
                 encoded,
-                batch.source.mask,
+                mask,
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.has_target else None,
             )

@@ -8,16 +8,21 @@ from torch import nn
 
 
 class LinearEncoder(base.BaseModule):
-    """Embeds the input tensor, and then applies a linear projection.
+    """Embeds the input tensor, and then applies a affine projection.
 
     This produces a simple non-contextual encoding of the input tensor.
+
+    Args:
+        bidirectional (bool).
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     linear: nn.Linear
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, output_size: int, **kwargs):
         super().__init__(*args, **kwargs)
-        self.linear = nn.Linear(self.embedding_size, self.hidden_size)
+        self.linear = nn.Linear(self.embedding_size, output_size)
 
     def forward(self, symbols: data.PaddedTensor) -> torch.Tensor:
         """Encodes the input.
@@ -28,10 +33,7 @@ class LinearEncoder(base.BaseModule):
         Returns:
             torch.Tensor.
         """
-        # TODO: averaging across length is a particular interpretation
-        # and it's not clear it's the "right" thing to do here; test.
-        embedded = self.embed(symbols.padded).mean(dim=1, keepdim=True)
-        return self.linear(embedded)
+        return self.linear(self.embed(symbols.padded))
 
     @property
     def name(self) -> str:
@@ -39,4 +41,4 @@ class LinearEncoder(base.BaseModule):
 
     @property
     def output_size(self) -> int:
-        return self.hidden_size
+        return self.linear.out_features

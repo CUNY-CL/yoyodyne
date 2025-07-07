@@ -228,7 +228,7 @@ additional flags. Supported values for `--arch` are:
 -   `transformer`: This is a transformer decoder with transformer encoders (by
     default). Sinusodial positional encodings and layer normalization are used.
     The user may wish to specify the number of attention heads (with
-    `--source_attention_heads`; default: `4`).
+    `--attention_heads`; default: `4`).
 
 The `--arch` flag specifies the decoder type; the user can override default
 encoder types using the `--source_encoder_arch` flag and, when features are
@@ -238,8 +238,8 @@ present, the `--features_encoder_arch` flag. Valid values are:
     the transformer encoder used with features; it concatenates source and
     features and uses a learned embedding to distinguish between source and
     features symbols.
--   `linear`: a non-contextual encoder with with a linear transformation applied
-    to the averaged embedding.
+-   `linear`: a non-contextual encoder with a affine transformation applied to
+    embeddings.
 -   `gru`: a GRU encoder.
 -   `lstm`: a LSTM encoder.
 -   `transformer`: a transformer encoder.
@@ -441,7 +441,7 @@ or cell state to return.
 When features are present, models are responsible for fusing encoded source and
 features and do so in a model-specific fashion. For example, ordinary RNNs and
 transformers concatenate source and features encodings on the length dimension
-whereas hard attention and pointer-generator models average across the features
+whereas hard attention and transducer models average across the features
 encoding across the length dimension and the concatenate the resulting tensor
 with the source encoding on the encoding dimension; by doing so they preserve
 the source length and make it impossible to attend directly to features symbols.

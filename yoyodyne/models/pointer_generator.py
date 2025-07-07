@@ -86,11 +86,19 @@ class PointerGeneratorModel(base.BaseModel):
 class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
+    If features are provided, a separate features attention module computes
+    the feature encodings which are then concatenated with the source attention
+    output on the encoding dimension.
+
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
         summarization with pointer-generator networks. In Proceedings of the
         55th Annual Meeting of the Association for Computational Linguistics
         (Volume 1: Long Papers), pages 1073-1083.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     def __init__(self, *args, **kwargs):
@@ -154,7 +162,6 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 B x beam_width x seq_length and log-likelihoods of shape
                 B x beam_width.
         """
-        # FIXME: can we use the inherited version from the RNNModel?
         # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
         if batch_size != 1:
@@ -351,7 +358,6 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.
         """
-        # FIXME: can we use the inherited version from the RNNModel?
         batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
@@ -387,6 +393,17 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                     break
         predictions = torch.stack(predictions, dim=2)
         return predictions
+
+    @property
+    def decoder_input_size(self) -> int:
+        # We concatenate along the encoding dimension.
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
 
 
 class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
@@ -439,13 +456,18 @@ class PointerGeneratorTransformerModel(
         SIGMORPHON 2020 Task 0 and Task 2. In Proceedings of the 17th
         SIGMORPHON Workshop on Computational Research in Phonetics, Phonology,
         and Morphology, pages 90–98.
+
+    Args:
+        attention_heads (int).
+        *args: passed to the superclass.
+        **kwargs: passed to the superclass.
     """
 
     # Model arguments.
-    features_attention_heads: int
+    attention_heads: int
 
-    def __init__(self, *args, features_attention_heads, **kwargs):
-        self.features_attention_heads = features_attention_heads
+    def __init__(self, *args, attention_heads, **kwargs):
+        self.attention_heads = attention_heads
         super().__init__(*args, **kwargs)
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
@@ -562,16 +584,15 @@ class PointerGeneratorTransformerModel(
         self,
     ) -> modules.TransformerPointerDecoder:
         return modules.TransformerPointerDecoder(
+            attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
             hidden_size=self.hidden_size,
-            features_attention_heads=self.features_attention_heads,
             layers=self.decoder_layers,
             max_source_length=self.max_source_length,
             num_embeddings=self.vocab_size,
-            source_attention_heads=self.source_attention_heads,
         )
 
     def greedy_decode(

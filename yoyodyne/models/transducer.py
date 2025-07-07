@@ -18,6 +18,11 @@ class TransducerRNNModel(rnn.RNNModel):
     Transducer models are essentially inattentive RNN models which
     predict edits trained using a learned oracle.
 
+    If features are provided, the encodings are fused by concatenation of the
+    source encoding with the features encoding, averaged across the length
+    dimension and then scattered along the source length dimension, on the
+    encoding dimension.
+
     After:
         Makarov, P., and Clematide, S. 2018. Imitation learning for neural
         morphological string transduction. In Proceedings of the 2018
