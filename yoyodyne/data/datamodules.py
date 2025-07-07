@@ -31,17 +31,16 @@ class DataModule(lightning.LightningDataModule):
             symbol.
         target_sep: String used to split target string into symbols; an empty
             string indicates that each Unicode codepoint is its own symbol.
-        separate_features: Whether or not a separate encoder should be used
-            for features.
         tie_embeddings: Whether or not source and target embeddings are tied.
             If not, then source symbols are wrapped in {...}.
         batch_size: Desired batch size.
-        max_source_length: The maximum length of a source string; this includes
-            concatenated feature strings if not using separate features. An
-            error will be raised if any source exceeds this limit.
+        max_source_length: The maximum length of a source string. An error will
+            be raised if any source string exceeds this limit.
+        max_features_length: The maximum length of a features string. An error
+            will be raised if any features string exceeds this limit.
         max_target_length: The maximum length of a target string. A warning
-            will be raised and the target strings will be truncated if any
-            target exceeds this limit.
+            will be raised and the strings will be truncated if any target
+            exceeds this limit.
     """
 
     train: Optional[str]
@@ -70,11 +69,11 @@ class DataModule(lightning.LightningDataModule):
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
         # Modeling options.
-        separate_features: bool = False,
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
         # Other.
         batch_size: int = defaults.BATCH_SIZE,
         max_source_length: int = defaults.MAX_SOURCE_LENGTH,
+        max_features_length: int = defaults.MAX_FEATURES_LENGTH,
         max_target_length: int = defaults.MAX_TARGET_LENGTH,
     ):
         super().__init__()
@@ -102,8 +101,8 @@ class DataModule(lightning.LightningDataModule):
         self.collator = collators.Collator(
             has_features=self.has_features,
             has_target=self.has_target,
-            separate_features=separate_features,
             max_source_length=max_source_length,
+            max_features_length=max_features_length,
             max_target_length=max_target_length,
         )
 
@@ -172,6 +171,8 @@ class DataModule(lightning.LightningDataModule):
 
     # Properties.
 
+    # has_source is always true.
+
     @property
     def has_features(self) -> bool:
         return self.parser.has_features
@@ -179,10 +180,6 @@ class DataModule(lightning.LightningDataModule):
     @property
     def has_target(self) -> bool:
         return self.parser.has_target
-
-    @property
-    def has_separate_features(self) -> bool:
-        return self.collator.separate_features
 
     # Required API.
 

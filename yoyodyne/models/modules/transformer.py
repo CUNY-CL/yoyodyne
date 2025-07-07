@@ -571,11 +571,9 @@ class TransformerPointerDecoder(TransformerDecoder):
     def __init__(
         self,
         *args,
-        separate_features,
         features_attention_heads,
         **kwargs,
     ):
-        self.separate_features = separate_features
         self.features_attention_heads = features_attention_heads
         super().__init__(*args, **kwargs)
         # Call this to get the actual cross attentions.
@@ -618,59 +616,34 @@ class TransformerPointerDecoder(TransformerDecoder):
             dtype=bool,
         )
         # -> B x seq_len x d_model.
-        if self.separate_features:
-            # TODO: Clean up the naming and ordering here.
-            decoded = self.module(
-                target_embedded,
-                source_encoded,
-                features_memory=features_encoded,
-                target_mask=causal_mask,
-                memory_key_padding_mask=source_mask,
-                features_memory_mask=features_mask,
-                target_key_padding_mask=target_mask,
-            )
-        else:
-            decoded = self.module(
-                source_encoded,
-                source_mask,
-                target_embedded,
-                target_mask,
-                causal_mask,
-            )
+        # TODO: Clean up the naming and ordering here.
+        decoded = self.module(
+            target_embedded,
+            source_encoded,
+            features_memory=features_encoded,
+            target_mask=causal_mask,
+            memory_key_padding_mask=source_mask,
+            features_memory_mask=features_mask,
+            target_key_padding_mask=target_mask,
+        )
         return decoded, target_embedded
 
     def get_module(self) -> nn.TransformerDecoder:
-        if self.separate_features:
-            decoder_layer = SeparateFeaturesTransformerDecoderLayer(
-                d_model=self.decoder_input_size,
-                dim_feedforward=self.hidden_size,
-                nhead=self.source_attention_heads,
-                nfeature_heads=self.features_attention_heads,
-                dropout=self.dropout,
-                activation="relu",
-                norm_first=True,
-                batch_first=True,
-            )
-            return SeparateFeaturesTransformerDecoder(
-                decoder_layer=decoder_layer,
-                num_layers=self.layers,
-                norm=nn.LayerNorm(self.embedding_size),
-            )
-        else:
-            decoder_layer = nn.TransformerDecoderLayer(
-                d_model=self.decoder_input_size,
-                dim_feedforward=self.hidden_size,
-                nhead=self.source_attention_heads,
-                dropout=self.dropout,
-                activation="relu",
-                norm_first=True,
-                batch_first=True,
-            )
-            return WrappedTransformerDecoder(
-                decoder_layer=decoder_layer,
-                num_layers=self.layers,
-                norm=nn.LayerNorm(self.embedding_size),
-            )
+        decoder_layer = SeparateFeaturesTransformerDecoderLayer(
+            d_model=self.decoder_input_size,
+            dim_feedforward=self.hidden_size,
+            nhead=self.source_attention_heads,
+            nfeature_heads=self.features_attention_heads,
+            dropout=self.dropout,
+            activation="relu",
+            norm_first=True,
+            batch_first=True,
+        )
+        return SeparateFeaturesTransformerDecoder(
+            decoder_layer=decoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
+        )
 
     def patch_attention(self, attention_module: torch.nn.Module) -> None:
         """Wraps a module's forward pass such that `need_weights` is True.

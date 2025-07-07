@@ -111,13 +111,3 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         choices=["embedding", "gru", "lstm", "transformer"],
         help="Model architecture to use for the features encoder.",
     )
-
-
-def check_encoder_compatibility(source_encoder_cls, features_encoder_cls):
-    if features_encoder_cls is not None and isinstance(
-        source_encoder_cls, FeatureInvariantTransformerEncoder
-    ):
-        raise EncoderMismatchError(
-            "The specified encoder type is not compatible with a separate "
-            "feature encoder"
-        )

@@ -139,7 +139,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         """Decodes with beam search.
 
         Implementationally this is almost identical to the method of the same
-        name in RNNModel except that features are passed separately.
+        name in RNNModel.
 
         Args:
             source (torch.Tensor): source symbols, used to compute pointer
@@ -154,6 +154,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 B x beam_width x seq_length and log-likelihoods of shape
                 B x beam_width.
         """
+        # FIXME: can we use the inherited version from the RNNModel?
         # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
         if batch_size != 1:
@@ -333,7 +334,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         sequences have reached END.
 
         Implementationally this is almost identical to the method of the same
-        name in RNNModel except that features are passed separately.
+        name in RNNModel.
 
         Args:
             source (torch.Tensor): source symbols, used to compute pointer
@@ -350,6 +351,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.
         """
+        # FIXME: can we use the inherited version from the RNNModel?
         batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
@@ -570,7 +572,6 @@ class PointerGeneratorTransformerModel(
             max_source_length=self.max_source_length,
             num_embeddings=self.vocab_size,
             source_attention_heads=self.source_attention_heads,
-            separate_features=self.has_features_encoder,
         )
 
     def greedy_decode(

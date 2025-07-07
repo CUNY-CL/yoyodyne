@@ -112,10 +112,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.embeddings = self.init_embeddings(
             self.vocab_size, self.embedding_size
         )
-        # Checks compatibility with feature encoder and dataloader.
-        modules.check_encoder_compatibility(
-            source_encoder_cls, features_encoder_cls
-        )
         # Instantiates loss and evaluation objects.
         self.loss_func = self._get_loss_func()
         # TODO: update with new metrics as they become available.
