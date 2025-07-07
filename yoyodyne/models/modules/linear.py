@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 
-class EmbeddingEncoder(base.BaseModule):
+class LinearEncoder(base.BaseModule):
     """Embeds the input tensor, and then applies a linear projection.
 
     This produces a simple non-contextual encoding of the input tensor.
