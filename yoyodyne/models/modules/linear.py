@@ -15,9 +15,9 @@ class LinearEncoder(base.BaseModule):
 
     linear: nn.Linear
 
-    def __init__(self):
-        super().__init__()
-        self.linear = nn.Linear(self.embeddings_size, self.hidden_size)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.linear = nn.Linear(self.embedding_size, self.hidden_size)
 
     def forward(self, symbols: data.PaddedTensor) -> torch.Tensor:
         """Encodes the input.
