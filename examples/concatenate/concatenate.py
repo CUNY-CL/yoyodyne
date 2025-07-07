@@ -30,7 +30,9 @@ def main(args: argparse.Namespace) -> None:
     assert parser.has_features
     # This is really just a one-column TSV but we want to make sure
     # escaping is handled properly.
-    tsv_writer = csv.writer(sys.stdout, delimiter="\t", lineterminator=os.linesep)
+    tsv_writer = csv.writer(
+        sys.stdout, delimiter="\t", lineterminator=os.linesep
+    )
     for source, features in parser.samples(args.input_tsv):
         source.extend(features)
         tsv_writer.writerow([" ".join(source)])
@@ -43,13 +45,15 @@ if __name__ == "__main__":
         "--source_col",
         type=int,
         default=defaults.SOURCE_COL,
-        help="1-indexed column for the input/output source column. Default: %(default)s.",
+        help="1-indexed column for the input/output source column. "
+        "Default: %(default)s.",
     )
     parser.add_argument(
         "--features_col",
         type=int,
         default=defaults.TARGET_COL,
-        help="1-indexed column for the input features column. Default: %(default)s.",
+        help="1-indexed column for the input features column. "
+        "Default: %(default)s.",
     )
     parser.add_argument(
         "--source_sep",
