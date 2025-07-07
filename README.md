@@ -438,11 +438,7 @@ output of the various modules, and it is this which is essential to, e.g.,
 abstracting between different kinds of encoders which may or may not have hidden
 or cell state to return.
 
-<<<<<<< HEAD
-When features are present, models are responsible for merging encoded source and
-=======
 When features are present, models are responsible for fusing encoded source and
->>>>>>> a61bfb0 ([merging features] Stage three)
 features and do so in a model-specific fashion. For example, ordinary RNNs and
 transformers concatenate source and features encodings on the length dimension
 whereas hard attention and pointer-generator models average across the features
