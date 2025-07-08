@@ -16,6 +16,10 @@ from .. import data, defaults, special
 from . import base, beam_search, embeddings, modules
 
 
+class Error(Exception):
+    pass
+
+
 class RNNModel(base.BaseModel):
     """Abstract base class for RNN models.
 
@@ -133,10 +137,22 @@ class RNNModel(base.BaseModel):
                 log-probabilities) for each prediction; greedy search returns
                 a tensor of predictions of shape
                 B x seq_len x target_vocab_size.
+
+        Raises:
+            Error: Cannot concatenate source encoding with features encoding.
         """
         encoded = self.source_encoder(batch.source)
         mask = batch.source.mask
         if self.has_features_encoder:
+            if (
+                self.source_encoder.output_size
+                != self.features_encoder.output_size
+            ):
+                raise Error(
+                    "Cannot concatenate source and features encoding "
+                    f"({self.source_encoder.output_size} != "
+                    f"{self.features_encoder.output_size})"
+                )
             features_encoded = self.features_encoder(batch.features)
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)

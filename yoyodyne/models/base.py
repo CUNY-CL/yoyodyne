@@ -31,7 +31,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     #  TODO: clean up type checking here.
     # Sizes.
     vocab_size: int
-    features_vocab_size: int
     target_vocab_size: int
     # Optimizer arguments.
     beta1: float
@@ -66,7 +65,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         *,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
-        features_vocab_size,
         source_encoder_cls,
         target_vocab_size,
         vocab_size,
@@ -94,7 +92,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         super().__init__()
         self.beta1 = beta1
         self.beta2 = beta2
-        self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
         self.vocab_size = vocab_size
         self.beam_width = beam_width
@@ -129,7 +126,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
-            features_vocab_size=features_vocab_size,
             hidden_size=self.hidden_size,
             layers=self.encoder_layers,
             max_length=self.max_source_length,

@@ -10,6 +10,10 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
+class Error(Exception):
+    pass
+
+
 class TransformerModel(base.BaseModel):
     """Vanilla transformer model.
 
@@ -95,13 +99,19 @@ class TransformerModel(base.BaseModel):
 
         Returns:
             torch.Tensor.
-
-        Raises:
-            NotImplementedError: separate features encoders are not supported.
         """
         encoded = self.source_encoder(batch.source)
         mask = batch.source.mask
         if self.has_features_encoder:
+            if (
+                self.source_encoder.output_size
+                != self.features_encoder.output_size
+            ):
+                raise Error(
+                    "Cannot concatenate source and features encoding "
+                    f"({self.source_encoder.output_size} != "
+                    f"{self.features_encoder.output_size})"
+                )
             features_encoded = self.features_encoder(batch.features)
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)

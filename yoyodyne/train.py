@@ -166,9 +166,6 @@ def get_model_from_argparse_args(
         if datamodule.has_features
         else None
     )
-    features_vocab_size = (
-        datamodule.index.features_vocab_size if datamodule.has_features else 0
-    )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
@@ -186,7 +183,6 @@ def get_model_from_argparse_args(
         enforce_monotonic=args.enforce_monotonic,
         expert=expert,
         features_encoder_cls=features_encoder_cls,
-        features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
         label_smoothing=args.label_smoothing,
         learning_rate=args.learning_rate,

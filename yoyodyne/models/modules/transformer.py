@@ -8,7 +8,7 @@ import numpy
 import torch
 from torch import nn
 
-from ... import data
+from ... import data, special
 from .. import embeddings
 from . import base, position
 
@@ -66,8 +66,8 @@ class TransformerModule(base.BaseModule):
     def __init__(
         self,
         *args,
-        attention_heads,
-        max_length,
+        attention_heads: int,
+        max_length: int,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -155,6 +155,9 @@ class TransformerEncoder(TransformerModule):
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
     """Transformer encoder with feature invariance.
 
+    The internal embedding is of size 1 because this is either source
+    or features.
+
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
         character-level transductions. In Proceedings of the 16th Conference of
@@ -162,15 +165,11 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         Main Volume, pages 1901-1907.
     """
 
-    features_vocab_size: int
     # Constructed inside __init__.
     type_embedding: nn.Embedding
 
-    def __init__(self, *args, features_vocab_size, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Distinguishes features vs. character.
-        self.features_vocab_size = features_vocab_size
-        # Uses Xavier initialization.
         self.type_embedding = embeddings.xavier_embedding(
             2,
             self.embedding_size,
@@ -189,11 +188,8 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             embedded (torch.Tensor): embedded tensor of shape
                 B x seq_len x embed_dim.
         """
-        # Distinguishes features and chars; 1 or 0; embedding layer requires
-        # this to be integral.
-        char_mask = (
-            symbols < (self.num_embeddings - self.features_vocab_size)
-        ).long()
+        # "0" is whatever type we're using here; "1" is reserved for PAD.
+        char_mask = (symbols == special.PAD_IDX).long()
         word_embedded = self.esq * self.embeddings(symbols)
         type_embedded = self.esq * self.type_embedding(char_mask)
         positional_embedded = self.positional_encoding(symbols, mask=char_mask)
@@ -322,7 +318,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         *kwargs: passed to superclass.
     """
 
-    def __init__(self, *args, attention_heads, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         factory_kwargs = {
             "device": kwargs.get("device"),
@@ -331,7 +327,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         d_model = kwargs["d_model"]
         self.features_multihead_attn = nn.MultiheadAttention(
             d_model,  # TODO: Separate feature embedding size?
-            attention_heads,
+            kwargs["nhead"],
             dropout=kwargs["dropout"],
             batch_first=kwargs["batch_first"],
             **factory_kwargs,
@@ -420,6 +416,10 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
+            print("x:", x.shape)
+            print("features_memory:", features_memory.shape)
+            print("features_memory_mask:", features_memory_mask.shape)
+            print("memory_is_causal:", memory_is_causal)
             features_attention = self._features_mha_block(
                 x,
                 features_memory,
@@ -429,7 +429,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             features_attention = self.features_linear(features_attention)
-            x = torch.cat((symbol_attention, features_attention), dim=2)
+            x = torch.cat([symbol_attention, features_attention], dim=2)
             x = x + self._ff_block(self.norm3(x))
         else:
             x = self.norm1(
@@ -459,7 +459,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             features_attention = self.features_linear(features_attention)
-            x = x + torch.cat([symbol_attention, features_attention], dim=2)
+            x = x + torch.cat((symbol_attention, features_attention), dim=2)
             x = self.norm2(x)
             x = self.norm3(x + self._ff_block(x))
         return x
@@ -585,7 +585,7 @@ class TransformerPointerDecoder(TransformerDecoder):
         attention_heads,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, attention_heads=attention_heads, **kwargs)
         # Call this to get the actual cross attentions.
         self.attention_output = AttentionOutput()
         # multihead_attn refers to the attention from decoder to encoder.
@@ -643,7 +643,6 @@ class TransformerPointerDecoder(TransformerDecoder):
             d_model=self.decoder_input_size,
             dim_feedforward=self.hidden_size,
             nhead=self.attention_heads,
-            nfeature_heads=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,

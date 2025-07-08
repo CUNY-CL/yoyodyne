@@ -234,12 +234,12 @@ The `--arch` flag specifies the decoder type; the user can override default
 encoder types using the `--source_encoder_arch` flag and, when features are
 present, the `--features_encoder_arch` flag. Valid values are:
 
--   `feature_invariant_transformer` (`--source_encoder_arch` only): a variant of
-    the transformer encoder used with features; it concatenates source and
-    features and uses a learned embedding to distinguish between source and
-    features symbols.
--   `linear`: a non-contextual encoder with a affine transformation applied to
-    embeddings.
+-   `feature_invariant_transformer` (usually used with
+    `--features_encoder_arch`): a variant of the transformer encoder used with
+    features; it concatenates source and features and uses a learned embedding
+    to distinguish between source and features symbols.
+-   `linear` (usually used with `--features_encoder_arch`): a non-contextual
+    encoder with a affine transformation applied to embeddings
 -   `gru`: a GRU encoder.
 -   `lstm`: a LSTM encoder.
 -   `transformer`: a transformer encoder.

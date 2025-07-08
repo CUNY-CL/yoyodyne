@@ -311,7 +311,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 x vocab_size, and transition probabilities for each transition
 
         Raises:
-            NotImplementedError: beam search not implemented.
+            NotImplementedError: Beam search not implemented.
         """
         encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:

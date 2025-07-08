@@ -43,7 +43,6 @@ _encoder_fac = {
 _model_to_encoder_fac = {
     "attentive_gru": GRUEncoder,
     "attentive_lstm": LSTMEncoder,
-    "gru": GRUEncoder,
     "hard_attention_gru": GRUEncoder,
     "hard_attention_lstm": LSTMEncoder,
     "lstm": LSTMEncoder,
@@ -108,6 +107,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--features_encoder_arch",
-        choices=["gru", "linear", "lstm", "transformer"],
+        choices=_encoder_fac.keys(),
         help="Architecture to use for the features encoder.",
     )
