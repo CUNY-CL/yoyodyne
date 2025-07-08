@@ -23,11 +23,16 @@ class HardAttentionRNNModel(rnn.RNNModel):
     of source string to target string as Markov process. Assumes each symbol
     produced is conditioned by state transitions over each source symbol.
 
-    Default model assumes independence between state and non-monotonic
+    The default model assumes independence between state and non-monotonic
     progression over source string. `enforce_monotonic` enforces monotonic
     state transition (model progresses over each source symbol), and
     attention context allows conditioning of state transition over the
     previous n states.
+
+    If features are provided, the encodings are fused by concatenation of the
+    source encoding with the features encoding, averaged across the length
+    dimension and then scattered along the source length dimension, on the
+    encoding dimension.
 
     After:
         Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
@@ -39,12 +44,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
         https://github.com/shijie-wu/neural-transducer
 
      Args:
-        *args: passed to superclass.
         enforce_monotonic (bool, optional): enforces monotonic state
             transition in decoding.
         attention_context (int, optional): size of context window for
         conditioning state transition; if 0, state transitions are
             independent.
+        *args: passed to superclass.
         **kwargs: passed to superclass.
     """
 
@@ -306,14 +311,11 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 x vocab_size, and transition probabilities for each transition
 
         Raises:
-            NotImplementedError: beam search not implemented.
+            NotImplementedError: Beam search not implemented.
         """
         encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
             features_encoded = self.features_encoder(batch.features)
-            # Feature information is averaged across all positions, broadcast
-            # across the length of the source, and then concatenated with the
-            # source encoding along the encoding dimension.
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             encoded = torch.cat((encoded, features_encoded), dim=2)
@@ -383,6 +385,17 @@ class HardAttentionRNNModel(rnn.RNNModel):
         transitions = transitions + mask
         transitions = transitions - transitions.logsumexp(dim=2, keepdim=True)
         return transitions
+
+    @property
+    def decoder_input_size(self) -> int:
+        # We concatenate along the encoding dimension.
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
 
     @abc.abstractmethod
     def get_decoder(self) -> modules.HardAttentionRNNDecoder: ...

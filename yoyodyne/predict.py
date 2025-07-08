@@ -43,9 +43,6 @@ def get_datamodule_from_argparse_args(
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
         predict=args.predict,
-        separate_features=util.requires_separate_features(
-            args.features_col, args.arch, args.features_encoder_arch
-        ),
         source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,

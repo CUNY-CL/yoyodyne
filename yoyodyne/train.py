@@ -93,12 +93,10 @@ def get_datamodule_from_argparse_args(
         batch_size=args.batch_size,
         features_col=args.features_col,
         features_sep=args.features_sep,
+        max_features_length=args.max_features_length,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         model_dir=args.model_dir,
-        separate_features=util.requires_separate_features(
-            args.features_col, args.arch, args.features_encoder_arch
-        ),
         source_col=args.source_col,
         source_sep=args.source_sep,
         target_col=args.target_col,
@@ -142,12 +140,6 @@ def get_model_from_argparse_args(
             f"--tie_embeddings disabled, but --arch {args.arch} requires "
             "it to be enabled"
         )
-    # TODO(#156): add callback interface to check this.
-    if args.features_encoder_arch and not datamodule.has_separate_features:
-        raise Error(
-            "Separate features disabled but --features_encoder_arch "
-            f"{args.features_encoder_arch} requires it to be enabled"
-        )
     source_encoder_cls = models.modules.get_encoder_cls(
         encoder_arch=args.source_encoder_arch, model_arch=args.arch
     )
@@ -166,41 +158,19 @@ def get_model_from_argparse_args(
             read_from_file=os.path.isfile(sed_params_paths),
         )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
-    # We use a separate features encoder if the datamodule has features, and
-    # either:
-    # - a specific features encoder module is requested (in which case we use
-    #   the requested module), or
-    # - no specific features encoder module is requested, but the model
-    #   requires that we use a separate features encoder (in which case we use
-    #   the same type of module as the source encoder).
     features_encoder_cls = (
         models.modules.get_encoder_cls(
             encoder_arch=args.features_encoder_arch,
             model_arch=args.arch,
         )
         if datamodule.has_features
-        and (
-            args.features_encoder_arch
-            or args.arch
-            in [
-                "hard_attention_gru",
-                "hard_attention_lstm",
-                "pointer_generator_gru",
-                "pointer_generator_lstm",
-                "pointer_generator_transformer",
-                "transducer_gru",
-                "transducer_lstm",
-            ]
-        )
         else None
-    )
-    features_vocab_size = (
-        datamodule.index.features_vocab_size if datamodule.has_features else 0
     )
     # Please pass all arguments by keyword and keep in lexicographic order.
     return model_cls(
         arch=args.arch,
         attention_context=args.attention_context,
+        attention_heads=args.attention_heads,
         beta1=args.beta1,
         beta2=args.beta2,
         bidirectional=args.bidirectional,
@@ -212,18 +182,16 @@ def get_model_from_argparse_args(
         encoder_layers=args.encoder_layers,
         enforce_monotonic=args.enforce_monotonic,
         expert=expert,
-        features_attention_heads=args.features_attention_heads,
         features_encoder_cls=features_encoder_cls,
-        features_vocab_size=features_vocab_size,
         hidden_size=args.hidden_size,
         label_smoothing=args.label_smoothing,
         learning_rate=args.learning_rate,
+        max_features_length=args.max_features_length,
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         optimizer=args.optimizer,
         scheduler=args.scheduler,
         scheduler_kwargs=scheduler_kwargs,
-        source_attention_heads=args.source_attention_heads,
         source_encoder_cls=source_encoder_cls,
         target_vocab_size=(
             len(expert.actions)

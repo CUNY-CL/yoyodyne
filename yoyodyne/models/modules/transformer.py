@@ -8,7 +8,7 @@ import numpy
 import torch
 from torch import nn
 
-from ... import data
+from ... import data, special
 from .. import embeddings
 from . import base, position
 
@@ -51,14 +51,13 @@ class TransformerModule(base.BaseModule):
     """Abstract base module for transformers.
 
     Args:
+        attention_heads (int).
+        max_length (int).
         *args: passed to superclass.
-        source_attention_heads (int).
-        max_source_length (int).
         **kwargs: passed to superclass.
     """
 
-    # Model arguments.
-    source_attention_heads: int
+    attention_heads: int
     # Constructed inside __init__.
     esq: float
     module: nn.TransformerEncoder
@@ -67,21 +66,16 @@ class TransformerModule(base.BaseModule):
     def __init__(
         self,
         *args,
-        source_attention_heads,
-        max_source_length: int,
+        attention_heads: int,
+        max_length: int,
         **kwargs,
     ):
-        super().__init__(
-            *args,
-            source_attention_heads=source_attention_heads,
-            max_source_length=max_source_length,
-            **kwargs,
-        )
-        self.source_attention_heads = source_attention_heads
+        super().__init__(*args, **kwargs)
+        self.attention_heads = attention_heads
         self.esq = numpy.sqrt(self.embedding_size)
         self.module = self.get_module()
         self.positional_encoding = position.PositionalEncoding(
-            self.embedding_size, max_source_length
+            self.embedding_size, max_length
         )
 
     def embed(self, symbols: torch.Tensor) -> torch.Tensor:
@@ -132,7 +126,7 @@ class TransformerEncoder(TransformerModule):
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=self.embedding_size,
             dim_feedforward=self.hidden_size,
-            nhead=self.source_attention_heads,
+            nhead=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
@@ -161,6 +155,9 @@ class TransformerEncoder(TransformerModule):
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
     """Transformer encoder with feature invariance.
 
+    The internal embedding is of size 1 because this is either source
+    or features.
+
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
         character-level transductions. In Proceedings of the 16th Conference of
@@ -168,15 +165,11 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         Main Volume, pages 1901-1907.
     """
 
-    features_vocab_size: int
     # Constructed inside __init__.
     type_embedding: nn.Embedding
 
-    def __init__(self, *args, features_vocab_size, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Distinguishes features vs. character.
-        self.features_vocab_size = features_vocab_size
-        # Uses Xavier initialization.
         self.type_embedding = embeddings.xavier_embedding(
             2,
             self.embedding_size,
@@ -195,11 +188,8 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             embedded (torch.Tensor): embedded tensor of shape
                 B x seq_len x embed_dim.
         """
-        # Distinguishes features and chars; 1 or 0; embedding layer requires
-        # this to be integral.
-        char_mask = (
-            symbols < (self.num_embeddings - self.features_vocab_size)
-        ).long()
+        # "0" is whatever type we're using here; "1" is reserved for PAD.
+        char_mask = (symbols == special.PAD_IDX).long()
         word_embedded = self.esq * self.embeddings(symbols)
         type_embedded = self.esq * self.type_embedding(char_mask)
         positional_embedded = self.positional_encoding(symbols, mask=char_mask)
@@ -234,9 +224,14 @@ class WrappedTransformerDecoder(nn.TransformerDecoder):
 
 
 class TransformerDecoder(TransformerModule):
-    """Transformer decoder."""
+    """Transformer decoder.
 
-    # Output arg.
+    Args:
+        decoder_input_size (int).
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
     decoder_input_size: int
     # Constructed inside __init__.
     module: nn.TransformerDecoder
@@ -286,7 +281,7 @@ class TransformerDecoder(TransformerModule):
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=self.decoder_input_size,
             dim_feedforward=self.hidden_size,
-            nhead=self.source_attention_heads,
+            nhead=self.attention_heads,
             dropout=self.dropout,
             activation="relu",
             norm_first=True,
@@ -316,18 +311,23 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
     linear layer and finally concatenated.
 
     The implementation is otherwise identical to nn.TransformerDecoderLayer.
+
+    Args:
+        attention_heads (int).
+        *args: passed to superclass.
+        *kwargs: passed to superclass.
     """
 
-    def __init__(self, *args, nfeature_heads, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         factory_kwargs = {
             "device": kwargs.get("device"),
             "dtype": kwargs.get("dtype"),
         }
         d_model = kwargs["d_model"]
-        self.feature_multihead_attn = nn.MultiheadAttention(
+        self.features_multihead_attn = nn.MultiheadAttention(
             d_model,  # TODO: Separate feature embedding size?
-            nfeature_heads,
+            kwargs["nhead"],
             dropout=kwargs["dropout"],
             batch_first=kwargs["batch_first"],
             **factory_kwargs,
@@ -416,7 +416,11 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
-            feature_attention = self._features_mha_block(
+            print("x:", x.shape)
+            print("features_memory:", features_memory.shape)
+            print("features_memory_mask:", features_memory_mask.shape)
+            print("memory_is_causal:", memory_is_causal)
+            features_attention = self._features_mha_block(
                 x,
                 features_memory,
                 features_memory_mask,
@@ -424,8 +428,8 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
                 memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
-            feature_attention = self.features_linear(feature_attention)
-            x = torch.cat([symbol_attention, feature_attention], dim=2)
+            features_attention = self.features_linear(features_attention)
+            x = torch.cat([symbol_attention, features_attention], dim=2)
             x = x + self._ff_block(self.norm3(x))
         else:
             x = self.norm1(
@@ -446,7 +450,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
-            feature_attention = self._features_mha_block(
+            features_attention = self._features_mha_block(
                 x,
                 features_memory,
                 features_memory_mask,
@@ -454,8 +458,8 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
                 memory_is_causal,
             )
             # TODO: Do we want a nonlinear activation?
-            feature_attention = self.features_linear(feature_attention)
-            x = x + torch.cat([symbol_attention, feature_attention], dim=2)
+            features_attention = self.features_linear(features_attention)
+            x = x + torch.cat((symbol_attention, features_attention), dim=2)
             x = self.norm2(x)
             x = self.norm3(x + self._ff_block(x))
         return x
@@ -484,7 +488,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         Returns:
             torch.Tensor: concatenated attention head tensors.
         """
-        x = self.feature_multihead_attn(
+        x = self.features_multihead_attn(
             x,
             mem,
             mem,
@@ -561,23 +565,27 @@ class TransformerPointerDecoder(TransformerDecoder):
     `attention_output` tracks the output of multiheaded attention from each
     decoder step w.r.t. the encoded input. This is achieved with a hook into
     the forward pass. We additionally expect separately decoded features, which
-    are passed through `features_attention_heads` multiheaded attentions from
-    each decoder step w.r.t. the encoded features.
+    are passed through multiheaded attentions from each decoder step w.r.t.
+    the encoded features.
 
     After:
         https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91
+
+    Args:
+        attention_heads (int).
+        *args: passed to superclass.
+        *kwargs: passed to superclass.
     """
+
+    attention_heads: int
 
     def __init__(
         self,
         *args,
-        separate_features,
-        features_attention_heads,
+        attention_heads,
         **kwargs,
     ):
-        self.separate_features = separate_features
-        self.features_attention_heads = features_attention_heads
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, attention_heads=attention_heads, **kwargs)
         # Call this to get the actual cross attentions.
         self.attention_output = AttentionOutput()
         # multihead_attn refers to the attention from decoder to encoder.
@@ -618,59 +626,33 @@ class TransformerPointerDecoder(TransformerDecoder):
             dtype=bool,
         )
         # -> B x seq_len x d_model.
-        if self.separate_features:
-            # TODO: Clean up the naming and ordering here.
-            decoded = self.module(
-                target_embedded,
-                source_encoded,
-                features_memory=features_encoded,
-                target_mask=causal_mask,
-                memory_key_padding_mask=source_mask,
-                features_memory_mask=features_mask,
-                target_key_padding_mask=target_mask,
-            )
-        else:
-            decoded = self.module(
-                source_encoded,
-                source_mask,
-                target_embedded,
-                target_mask,
-                causal_mask,
-            )
+        # TODO: Clean up the naming and ordering here.
+        decoded = self.module(
+            target_embedded,
+            source_encoded,
+            features_memory=features_encoded,
+            target_mask=causal_mask,
+            memory_key_padding_mask=source_mask,
+            features_memory_mask=features_mask,
+            target_key_padding_mask=target_mask,
+        )
         return decoded, target_embedded
 
     def get_module(self) -> nn.TransformerDecoder:
-        if self.separate_features:
-            decoder_layer = SeparateFeaturesTransformerDecoderLayer(
-                d_model=self.decoder_input_size,
-                dim_feedforward=self.hidden_size,
-                nhead=self.source_attention_heads,
-                nfeature_heads=self.features_attention_heads,
-                dropout=self.dropout,
-                activation="relu",
-                norm_first=True,
-                batch_first=True,
-            )
-            return SeparateFeaturesTransformerDecoder(
-                decoder_layer=decoder_layer,
-                num_layers=self.layers,
-                norm=nn.LayerNorm(self.embedding_size),
-            )
-        else:
-            decoder_layer = nn.TransformerDecoderLayer(
-                d_model=self.decoder_input_size,
-                dim_feedforward=self.hidden_size,
-                nhead=self.source_attention_heads,
-                dropout=self.dropout,
-                activation="relu",
-                norm_first=True,
-                batch_first=True,
-            )
-            return WrappedTransformerDecoder(
-                decoder_layer=decoder_layer,
-                num_layers=self.layers,
-                norm=nn.LayerNorm(self.embedding_size),
-            )
+        decoder_layer = SeparateFeaturesTransformerDecoderLayer(
+            d_model=self.decoder_input_size,
+            dim_feedforward=self.hidden_size,
+            nhead=self.attention_heads,
+            dropout=self.dropout,
+            activation="relu",
+            norm_first=True,
+            batch_first=True,
+        )
+        return SeparateFeaturesTransformerDecoder(
+            decoder_layer=decoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
+        )
 
     def patch_attention(self, attention_module: torch.nn.Module) -> None:
         """Wraps a module's forward pass such that `need_weights` is True.

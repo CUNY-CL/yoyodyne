@@ -253,6 +253,7 @@ class RNNDecoder(RNNModule):
         Returns:
             torch.Tensor: indices of shape B x 1 x encoder_dim.
         """
+        # FIXME: is this affected by encoded feature concatenation at all?
         # Gets the index of the last unmasked tensor.
         # -> B.
         last_idx = (~mask).sum(dim=1) - 1

@@ -31,7 +31,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     #  TODO: clean up type checking here.
     # Sizes.
     vocab_size: int
-    features_vocab_size: int
     target_vocab_size: int
     # Optimizer arguments.
     beta1: float
@@ -45,6 +44,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     teacher_forcing: bool
     # Decoding arguments.
     beam_width: int
+    max_features_length: int
     max_source_length: int
     max_target_length: int
     # Model arguments.
@@ -65,7 +65,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         *,
         beta1=defaults.BETA1,
         beta2=defaults.BETA2,
-        features_vocab_size,
         source_encoder_cls,
         target_vocab_size,
         vocab_size,
@@ -81,6 +80,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         hidden_size=defaults.HIDDEN_SIZE,
         label_smoothing=defaults.LABEL_SMOOTHING,
         learning_rate=defaults.LEARNING_RATE,
+        max_features_length=defaults.MAX_FEATURES_LENGTH,
         max_source_length=defaults.MAX_SOURCE_LENGTH,
         max_target_length=defaults.MAX_TARGET_LENGTH,
         optimizer=defaults.OPTIMIZER,
@@ -92,7 +92,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         super().__init__()
         self.beta1 = beta1
         self.beta2 = beta2
-        self.features_vocab_size = features_vocab_size
         self.target_vocab_size = target_vocab_size
         self.vocab_size = vocab_size
         self.beam_width = beam_width
@@ -103,6 +102,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.hidden_size = hidden_size
         self.label_smoothing = label_smoothing
         self.learning_rate = learning_rate
+        self.max_features_length = max_features_length
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
         self.optimizer = optimizer
@@ -111,10 +111,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.teacher_forcing = teacher_forcing
         self.embeddings = self.init_embeddings(
             self.vocab_size, self.embedding_size
-        )
-        # Checks compatibility with feature encoder and dataloader.
-        modules.check_encoder_compatibility(
-            source_encoder_cls, features_encoder_cls
         )
         # Instantiates loss and evaluation objects.
         self.loss_func = self._get_loss_func()
@@ -130,10 +126,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             dropout=self.dropout,
             embedding_size=self.embedding_size,
             embeddings=self.embeddings,
-            features_vocab_size=features_vocab_size,
             hidden_size=self.hidden_size,
             layers=self.encoder_layers,
-            max_source_length=max_source_length,
+            max_length=self.max_source_length,
             num_embeddings=self.vocab_size,
             **kwargs,
         )
@@ -144,8 +139,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 embeddings=self.embeddings,
                 hidden_size=self.hidden_size,
                 layers=self.encoder_layers,
-                max_source_length=max_source_length,
+                max_length=self.max_features_length,
                 num_embeddings=self.vocab_size,
+                output_size=self.source_encoder.output_size,
                 **kwargs,
             )
             if features_encoder_cls is not None
