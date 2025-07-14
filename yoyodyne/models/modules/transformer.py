@@ -305,15 +305,14 @@ class TransformerDecoder(TransformerModule):
 class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
     """Transformer decoder layer with separate features.
 
-    Each decode step gets a second multihead attention representation
-    wrt the encoded features. This and the original multihead attention
+    Each decoding step gets a second multihead attention representation
+    w.r.t. the encoded features. This and the original multihead attention
     representation w.r.t. the encoded symbols are then compressed in a
     linear layer and finally concatenated.
 
     The implementation is otherwise identical to nn.TransformerDecoderLayer.
 
     Args:
-        attention_heads (int).
         *args: passed to superclass.
         *kwargs: passed to superclass.
     """
@@ -416,10 +415,6 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             symbol_attention = self.symbols_linear(symbol_attention)
-            print("x:", x.shape)
-            print("features_memory:", features_memory.shape)
-            print("features_memory_mask:", features_memory_mask.shape)
-            print("memory_is_causal:", memory_is_causal)
             features_attention = self._features_mha_block(
                 x,
                 features_memory,
@@ -429,7 +424,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             )
             # TODO: Do we want a nonlinear activation?
             features_attention = self.features_linear(features_attention)
-            x = torch.cat([symbol_attention, features_attention], dim=2)
+            x = torch.cat((symbol_attention, features_attention), dim=2)
             x = x + self._ff_block(self.norm3(x))
         else:
             x = self.norm1(
@@ -585,6 +580,7 @@ class TransformerPointerDecoder(TransformerDecoder):
         attention_heads,
         **kwargs,
     ):
+        # FIXME: do I need this attention_heads= thing?
         super().__init__(*args, attention_heads=attention_heads, **kwargs)
         # Call this to get the actual cross attentions.
         self.attention_output = AttentionOutput()
