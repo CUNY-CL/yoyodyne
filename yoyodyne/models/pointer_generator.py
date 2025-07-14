@@ -495,7 +495,7 @@ class PointerGeneratorTransformerModel(
         source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.Tensor,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -512,7 +512,7 @@ class PointerGeneratorTransformerModel(
                 weights.
             source_encoded (torch.Tensor): encoded source_symbols.
             source_mask (torch.Tensor): mask for the source.
-            predictions (torch.Tensor): tensor of predictions thus far.
+            target (torch.Tensor): tensor of predictions thus far.
             features_encoded (torch.Tensor, optional): encoded features
                 symbols.
             features_mask (torch.Tensor, optional): mask for the features.
@@ -521,11 +521,11 @@ class PointerGeneratorTransformerModel(
             torch.Tensor: predictions for that state.
         """
         # Uses a dummy mask of all zeros.
-        target_mask = torch.zeros_like(predictions, dtype=bool)
+        target_mask = torch.zeros_like(target, dtype=bool)
         decoded, target_embedded = self.decoder(
             source_encoded,
             source_mask,
-            predictions,
+            target,
             target_mask,
             features_encoded,
             features_mask,
@@ -579,15 +579,9 @@ class PointerGeneratorTransformerModel(
 
         Raises:
             NotImplementedError: Beam search not implemented.
-            NotImplementedError: Feature encoders are not supported.
         """
         source_encoded = self.source_encoder(batch.source)
         if self.has_features_encoder:
-            raise NotImplementedError(
-                "Feature encoders are not supported by the "
-                f"{self.name} model"
-            )
-            # TODO: incomplete implementation below.
             features_encoded = self.features_encoder(batch.features)
             if self.beam_width > 1:
                 # Will raise a NotImplementedError.
@@ -631,6 +625,7 @@ class PointerGeneratorTransformerModel(
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
+            has_features_encoder=self.has_features_encoder,
             hidden_size=self.hidden_size,
             layers=self.decoder_layers,
             max_length=self.max_length,
