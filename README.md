@@ -198,7 +198,7 @@ additional flags. Supported values for `--arch` are:
     `--attention_context` (default: `0`) widens the context window for
     conditioning state transitions to include one or more previous states.
 -   `hard_attention_lstm`: This is similar to the `hard_attention_gru` but
-    instead uses an LSTM decoder and encoder (by deafult). `--attention_context`
+    instead uses an LSTM decoder and encoder (by default). `--attention_context`
     (default: `0`) widens the context window for conditioning state transitions
     to include one or more previous states.
 -   `lstm`: This is similar to the `gru` but instead uses an LSTM decoder and
