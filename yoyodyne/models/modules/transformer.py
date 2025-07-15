@@ -209,14 +209,14 @@ class WrappedTransformerDecoder(nn.TransformerDecoder):
         self,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        target_embedded: torch.Tensor,
+        target: torch.Tensor,
         target_mask: torch.Tensor,
         causal_mask: torch.Tensor,
     ) -> torch.Tensor:
         return super().forward(
             memory=source_encoded,
             memory_key_padding_mask=source_mask,
-            tgt=target_embedded,
+            tgt=target,
             tgt_key_padding_mask=target_mask,
             tgt_is_causal=True,
             tgt_mask=causal_mask,
@@ -261,9 +261,9 @@ class TransformerDecoder(TransformerModule):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        target_embedded = self.embed(target)
+        embedded = self.embed(target)
         causal_mask = nn.Transformer.generate_square_subsequent_mask(
-            target_embedded.size(1),
+            embedded.size(1),
             device=self.device,
             dtype=bool,
         )
@@ -271,11 +271,11 @@ class TransformerDecoder(TransformerModule):
         decoded = self.module(
             source_encoded,
             source_mask,
-            target_embedded,
+            embedded,
             target_mask,
             causal_mask,
         )
-        return decoded, target_embedded
+        return decoded, embedded
 
     def get_module(self) -> WrappedTransformerDecoder:
         decoder_layer = nn.TransformerDecoderLayer(
@@ -357,7 +357,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         self,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        target_embedded: torch.Tensor,
+        target: torch.Tensor,
         target_mask: torch.Tensor,
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
@@ -371,7 +371,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         Args:
             source_encoded (torch.Tensor): encoded source sequence.
             source_mask (torch.Tensor): mask for source.
-            target_embedded (torch.Tensor): current embedded target, which
+            target (torch.Tensor): current embedded target, which
                 may be the full target or previous decoded, of shape
                 B x seq_len x hidden_size.
             target_mask (torch.Tensor): mask for target.
@@ -383,9 +383,9 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
             torch.Tensor.
         """
         output = self.norm2(
-            target_embedded
+            target
             + self._sa_block(
-                self.norm1(target_embedded),
+                self.norm1(target),
                 causal_mask,
                 target_mask,
                 is_causal=True,
@@ -458,7 +458,7 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
         Args:
             source_encoded (torch.Tensor): encoded source sequence.
             source_mask (torch.Tensor): mask for source.
-            target_embedded (torch.Tensor): current embedded targets, which
+            target (torch.Tensor): current embedded targets, which
                 may be the full target or previous decoded, of shape
                 B x seq_len x hidden_size.
             target_mask (torch.Tensor): causal mask for target.
@@ -540,9 +540,9 @@ class TransformerPointerDecoder(TransformerDecoder):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        target_embedded = self.embed(target)
+        embedded = self.embed(target)
         causal_mask = nn.Transformer.generate_square_subsequent_mask(
-            target_embedded.size(1),
+            embedded.size(1),
             device=self.device,
             dtype=bool,
         )
@@ -551,7 +551,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             decoded = self.module(
                 source_encoded,
                 source_mask,
-                target_embedded,
+                embedded,
                 target_mask,
                 features_encoded,
                 features_mask,
@@ -561,11 +561,11 @@ class TransformerPointerDecoder(TransformerDecoder):
             decoded = self.module(
                 source_encoded,
                 source_mask,
-                target_embedded,
+                embedded,
                 target_mask,
                 causal_mask,
             )
-        return decoded, target_embedded
+        return decoded, embedded
 
     def get_module(self) -> nn.TransformerDecoder:
         if self.has_features_encoder:

@@ -175,11 +175,11 @@ class TransducerRNNModel(rnn.RNNModel):
         if target is not None:
             # Target and source need to be integers for SED values.
             # Clips EOW (idx = -1) for source and target.
-            source = [
+            source_list = [
                 s[~smask].tolist()[:-1]
                 for s, smask in zip(source, source_mask)
             ]
-            target = [
+            target_list = [
                 t[~tmask].tolist()[:-1]
                 for t, tmask in zip(target, target_mask)
             ]
@@ -198,6 +198,7 @@ class TransducerRNNModel(rnn.RNNModel):
             # We offset the action idx by the symbol vocab size so that we
             # can index into the shared embeddings matrix.
             decoded, state = self.decoder(
+                source,
                 encoded,
                 # Accomodates RNNDecoder; see encoder_mask behavior.
                 ~(alignment.unsqueeze(1) + 1),
@@ -208,8 +209,8 @@ class TransducerRNNModel(rnn.RNNModel):
             # If given targets, asks expert for optimal actions.
             optim_actions = (
                 self._batch_expert_rollout(
-                    source,
-                    target,
+                    source_list,
+                    target_list,
                     alignment,
                     prediction,
                     not_complete,
@@ -225,7 +226,7 @@ class TransducerRNNModel(rnn.RNNModel):
                 optim_actions=optim_actions if teacher_forcing else None,
             )
             alignment = self._update_prediction(
-                last_action, source, alignment, prediction
+                last_action, source_list, alignment, prediction
             )
             # If target, validation or training step loss required.
             if target is not None:
