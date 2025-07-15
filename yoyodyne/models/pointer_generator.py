@@ -86,11 +86,19 @@ class PointerGeneratorModel(base.BaseModel):
 class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
+    If features are provided, a separate features attention module computes
+    the feature encodings which are then concatenated with the source attention
+    output on the encoding dimension.
+
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
         summarization with pointer-generator networks. In Proceedings of the
         55th Annual Meeting of the Association for Computational Linguistics
         (Volume 1: Long Papers), pages 1073-1083.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     def __init__(self, *args, **kwargs):
@@ -139,7 +147,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         """Decodes with beam search.
 
         Implementationally this is almost identical to the method of the same
-        name in RNNModel except that features are passed separately.
+        name in RNNModel.
 
         Args:
             source (torch.Tensor): source symbols, used to compute pointer
@@ -333,7 +341,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         sequences have reached END.
 
         Implementationally this is almost identical to the method of the same
-        name in RNNModel except that features are passed separately.
+        name in RNNModel.
 
         Args:
             source (torch.Tensor): source symbols, used to compute pointer
@@ -386,6 +394,17 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         predictions = torch.stack(predictions, dim=2)
         return predictions
 
+    @property
+    def decoder_input_size(self) -> int:
+        # We concatenate along the encoding dimension.
+        if self.has_features_encoder:
+            return (
+                self.source_encoder.output_size
+                + self.features_encoder.output_size
+            )
+        else:
+            return self.source_encoder.output_size
+
 
 class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
     """Pointer-generator model with an GRU backend."""
@@ -437,14 +456,27 @@ class PointerGeneratorTransformerModel(
         SIGMORPHON 2020 Task 0 and Task 2. In Proceedings of the 17th
         SIGMORPHON Workshop on Computational Research in Phonetics, Phonology,
         and Morphology, pages 90–98.
+
+    Args:
+        attention_heads (int).
+        *args: passed to the superclass.
+        **kwargs: passed to the superclass.
     """
 
     # Model arguments.
-    features_attention_heads: int
+    attention_heads: int
 
-    def __init__(self, *args, features_attention_heads, **kwargs):
-        self.features_attention_heads = features_attention_heads
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        *args,
+        attention_heads=defaults.ATTENTION_HEADS,
+        **kwargs,
+    ):
+        self.attention_heads = attention_heads
+        super().__init__(
+            *args,
+            **kwargs,
+        )
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
                 self.embedding_size,
@@ -463,7 +495,9 @@ class PointerGeneratorTransformerModel(
         source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        predictions: torch.Tensor,
+        target: torch.Tensor,
+        features_encoded: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Single decoder step.
 
@@ -478,15 +512,23 @@ class PointerGeneratorTransformerModel(
                 weights.
             source_encoded (torch.Tensor): encoded source_symbols.
             source_mask (torch.Tensor): mask for the source.
-            predictions (torch.Tensor): tensor of predictions thus far.
+            target (torch.Tensor): tensor of predictions thus far.
+            features_encoded (torch.Tensor, optional): encoded features
+                symbols.
+            features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
             torch.Tensor: predictions for that state.
         """
         # Uses a dummy mask of all zeros.
-        target_mask = torch.zeros_like(predictions, dtype=bool)
+        target_mask = torch.zeros_like(target, dtype=bool)
         decoded, target_embedded = self.decoder(
-            source_encoded, source_mask, predictions, target_mask
+            source_encoded,
+            source_mask,
+            target,
+            target_mask,
+            features_encoded,
+            features_mask,
         )
         # Outputs from the multi-headed attention from each decoder step to
         # the encoded source. Values have been averaged over each attention
@@ -536,41 +578,58 @@ class PointerGeneratorTransformerModel(
             torch.Tensor.
 
         Raises:
-            NotImplementedError: beam search not implemented.
+            NotImplementedError: Beam search not implemented.
         """
-        # TODO(#313): add support for this.
-        if self.has_features_encoder:
-            raise NotImplementedError(
-                "Separate features encoders are not supported by the "
-                f"{self.name} model"
-            )
         source_encoded = self.source_encoder(batch.source)
-        if self.beam_width > 1:
+        if self.has_features_encoder:
+            features_encoded = self.features_encoder(batch.features)
+            if self.beam_width > 1:
+                # Will raise a NotImplementedError.
+                return self.beam_decode(
+                    batch.source.padded,
+                    source_encoded,
+                    batch.source.mask,
+                    features_encoded=features_encoded,
+                    features_mask=batch.features.mask,
+                )
+            else:
+                return self.greedy_decode(
+                    batch.source.padded,
+                    source_encoded,
+                    batch.source.mask,
+                    target=batch.target.padded if batch.has_target else None,
+                    features_encoded=features_encoded,
+                    features_mask=batch.features.mask,
+                )
+        elif self.beam_width > 1:
             # Will raise a NotImplementedError.
-            return self.beam_decode(source_encoded, batch.source.mask)
+            return self.beam_decode(
+                batch.source.padded,
+                source_encoded,
+                batch.source.mask,
+            )
         else:
             return self.greedy_decode(
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
-                batch.target.padded if batch.has_target else None,
+                target=batch.target.padded if batch.has_target else None,
             )
 
     def get_decoder(
         self,
     ) -> modules.TransformerPointerDecoder:
         return modules.TransformerPointerDecoder(
+            attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
+            has_features_encoder=self.has_features_encoder,
             hidden_size=self.hidden_size,
-            features_attention_heads=self.features_attention_heads,
             layers=self.decoder_layers,
-            max_source_length=self.max_source_length,
+            max_length=self.max_length,
             num_embeddings=self.vocab_size,
-            source_attention_heads=self.source_attention_heads,
-            separate_features=self.has_features_encoder,
         )
 
     def greedy_decode(
@@ -578,7 +637,9 @@ class PointerGeneratorTransformerModel(
         source: torch.Tensor,
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        target: Optional[torch.Tensor],
+        target: Optional[torch.Tensor] = None,
+        features_encoded: Optional[torch.Tensor] = None,
+        features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes the output sequence greedily.
 
@@ -595,6 +656,8 @@ class PointerGeneratorTransformerModel(
             source_mask (torch.Tensor): mask for the source.
             target (torch.Tensor, optional): target symbols; if provided
                 decoding continues until this length is reached.
+            features_encoded (torch.Tensor, optional): encoded feaure symbols.
+            features_mask (torch.Tensor, optional): mask for the features.
 
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.
@@ -620,6 +683,8 @@ class PointerGeneratorTransformerModel(
                 source_encoded,
                 source_mask,
                 torch.stack(predictions, dim=1),
+                features_encoded,
+                features_mask,
             )
             scores = scores[:, -1, :]
             outputs.append(scores)

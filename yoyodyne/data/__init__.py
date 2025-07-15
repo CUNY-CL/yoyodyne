@@ -74,6 +74,12 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
         help="Maximum source string length. Default: %(default)s.",
     )
     parser.add_argument(
+        "--max_features_length",
+        type=int,
+        default=defaults.MAX_FEATURES_LENGTH,
+        help="Maximum features string length. Default: %(default)s.",
+    )
+    parser.add_argument(
         "--max_target_length",
         type=int,
         default=defaults.MAX_TARGET_LENGTH,

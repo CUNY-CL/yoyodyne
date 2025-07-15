@@ -55,12 +55,6 @@ Then install:
 
     pip install .
 
-It can then be imported like a regular Python module:
-
-``` python
-import yoyodyne
-```
-
 ### Google Colab
 
 Yoyodyne is compatible with [Google Colab](https://colab.research.google.com/)
@@ -125,22 +119,24 @@ the source string and the second the target string.
 
     source   target
 
-To enable the use of a feature column, one specifies a (non-zero) argument to
-`--features_col`. For instance in the [SIGMORPHON 2017 shared
-task](https://sigmorphon.github.io/sharedtasks/2017/), the first column is the
-source (a lemma), the second is the target (the inflection), and the third
-contains semi-colon delimited feature strings:
-
-    source   target    feat1;feat2;...
-
-this format is specified by `--features_col 3`.
-
-Alternatively, for the [SIGMORPHON 2016 shared
-task](https://sigmorphon.github.io/sharedtasks/2016/) data:
+To enable the use of a features column, one specifies a (non-zero) argument to
+`--features_col`, and optionally a `--features_sep`. For instance, for the
+[SIGMORPHON 2016 shared task](https://sigmorphon.github.io/sharedtasks/2016/)
+data:
 
     source   feat1,feat2,...    target
 
 this format is specified by `--features_col 2 --features_sep , --target_col 3`.
+
+Alternatively, for the [CoNLL-SIGMORPHON 2017 shared
+task](https://sigmorphon.github.io/sharedtasks/2017/), the first column is the
+source (a lemma), the second is the target (the inflection), and the third
+contains semi-colon delimited features strings:
+
+    source   target    feat1;feat2;...
+
+this format is specified by `--features_col 3` because `;` is the default
+separator for features.
 
 In order to ensure that targets are ignored during prediction, one can specify
 `--target_col 0`.
@@ -148,9 +144,9 @@ In order to ensure that targets are ignored during prediction, one can specify
 ## Reserved symbols
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
-Feature-conditioned models also use `[...]` to avoid clashes between feature
+Feature-conditioned models also use `[...]` to avoid clashes between features
 symbols and source and target symbols, and `--no_tie_embeddings` uses `{...}` to
-avoid clashes between source and t arget symbols. Therefore, users should not
+avoid clashes between source and target symbols. Therefore, users should not
 provide any symbols of the form `<...>`, `[...]`, or `{...}`.
 
 ## Model checkpointing
@@ -232,17 +228,18 @@ additional flags. Supported values for `--arch` are:
 -   `transformer`: This is a transformer decoder with transformer encoders (by
     default). Sinusodial positional encodings and layer normalization are used.
     The user may wish to specify the number of attention heads (with
-    `--source_attention_heads`; default: `4`).
+    `--attention_heads`; default: `4`).
 
 The `--arch` flag specifies the decoder type; the user can override default
 encoder types using the `--source_encoder_arch` flag and, when features are
 present, the `--features_encoder_arch` flag. Valid values are:
 
--   `feature_invariant_transformer` (`--source_encoder_arch` only): a variant of
-    the transformer encoder used with features; it concatenates source and
-    features and uses a learned embedding to distinguish between source and
-    features symbols.
--   `embedding`: a non-contextual embedding encoder.
+-   `feature_invariant_transformer` (usually used with
+    `--features_encoder_arch`): a variant of the transformer encoder used with
+    features; it concatenates source and features and uses a learned embedding
+    to distinguish between source and features symbols.
+-   `linear` (usually used with `--features_encoder_arch`): a non-contextual
+    encoder with a affine transformation applied to embeddings
 -   `gru`: a GRU encoder.
 -   `lstm`: a LSTM encoder.
 -   `transformer`: a transformer encoder.
@@ -389,6 +386,8 @@ is expected to work with CPU training.
 
 The [`examples`](examples) directory contains interesting examples, including:
 
+-   [`concatenate`](examples/concatenate) provides sample code for concatenating
+    source and features symbols à la Kann & Schütze (2016).
 -   [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
     Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
@@ -396,7 +395,7 @@ The [`examples`](examples) directory contains interesting examples, including:
 
 -   [Maxwell](https://github.com/CUNY-CL/maxwell) is used to learn a stochastic
     edit distance model for the neural transducer.
--   [Yoyodyne Pre-trained](https://github.com/CUNY-CL/yoyodyne-pretrained)
+-   [Yoyodyne Pretrained](https://github.com/CUNY-CL/yoyodyne-pretrained)
     provides a similar interface but uses large pre-trained models to initialize
     the encoder and decoder modules.
 
@@ -423,11 +422,11 @@ consistency decisions made thus far:
 #### Models and modules
 
 A *model* in Yoyodyne is a sequence-to-sequence architecture and inherits from
-`yoyodyne.models.BaseModel`. These models in turn consist of ("have-a") a
-*encoder* responsible for building a numerical representation of the source (and
-features, where appropriate) and a *decoder* responsible for predicting the
-target sequence using the representation generated by the encoder. The encoders
-and decoders are themselves Torch modules inheriting from `torch.nn.Module`.
+`yoyodyne.models.BaseModel`. These models in turn consist of ("have-a") one or
+more *encoders* responsible for building a numerical representation of the
+source (and features, where appropriate) and a *decoder* responsible for
+predicting the target sequence using the representation generated by the
+encoders. The encoders and decoder are themselves Torch modules.
 
 The model is responsible for constructing the encoders and decoders. The model
 dictates the type of decoder; each model has a preferred encoder type as well,
@@ -438,6 +437,14 @@ methods of its modules. The `base.ModuleOutput` class is used to capture the
 output of the various modules, and it is this which is essential to, e.g.,
 abstracting between different kinds of encoders which may or may not have hidden
 or cell state to return.
+
+When features are present, models are responsible for fusing encoded source and
+features and do so in a model-specific fashion. For example, ordinary RNNs and
+transformers concatenate source and features encodings on the length dimension
+whereas hard attention and transducer models average across the features
+encoding across the length dimension and the concatenate the resulting tensor
+with the source encoding on the encoding dimension; by doing so they preserve
+the source length and make it impossible to attend directly to features symbols.
 
 #### Decoding strategies
 
@@ -468,6 +475,12 @@ student or teacher forcing.
 10. Upload the result to PyPI: `twine upload dist/*`
 
 ## References
+
+Kann, K. and Schütze, H. 2016. [Single-model encoder-decoder with explicit
+morphological representation for
+reinflection](https://aclanthology.org/P16-2090/). In *Proceedings of the 54th
+Annual Meeting of the Association for Computational Linguistics (Volume 2: Short
+Papers)*, pages 555-560.
 
 Ott, M., Edunov, S., Baevski, A., Fan, A., Gross, S., Ng, N., Grangier, D., and
 Auli, M. 2019. [fairseq: a fast, extensible toolkit for sequence

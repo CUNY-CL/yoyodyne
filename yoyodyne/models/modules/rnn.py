@@ -201,8 +201,8 @@ class WrappedLSTMDecoder(nn.LSTM):
 class RNNDecoder(RNNModule):
     """Abstract base class for RNN decoders.
 
-    This implementation is inattentive; it uses the last (non-padding) hidden
-    state of the encoder as the input to the decoder.
+    This implementation is inattentive; it uses the encodings of the
+    sequence-final hidden states as the input to the decoder.
 
     The initial decoder hidden state is a learned parameter.
     """
@@ -216,6 +216,7 @@ class RNNDecoder(RNNModule):
 
     def forward(
         self,
+        sequence: torch.Tensor,
         encoded: torch.Tensor,
         mask: torch.Tensor,
         symbol: torch.Tensor,
@@ -224,9 +225,10 @@ class RNNDecoder(RNNModule):
         """Single decode pass.
 
         Args:
+            sequence (torch.Tensor): sequence of shape B x seq_len.
             encoded (torch.Tensor): encoded source sequence of shape
                 B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask of shape B x seq_len.
+            mask (torch.Tensor): ignored.
             symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
             state (RNNState).
 
@@ -234,34 +236,15 @@ class RNNDecoder(RNNModule):
             Tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol)
-        last = self._last_encoded(encoded, mask)
-        decoded, state = self.module(torch.cat((embedded, last), dim=2), state)
+        end_mask = (
+            (sequence == special.END_IDX)
+            .unsqueeze(2)
+            .expand(-1, -1, encoded.size(2))
+        )
+        ends = torch.sum(encoded * end_mask, dim=1, keepdim=True)
+        decoded, state = self.module(torch.cat((embedded, ends), dim=2), state)
         decoded = self.dropout_layer(decoded)
         return decoded, state
-
-    @staticmethod
-    def _last_encoded(
-        encoded: torch.Tensor, mask: torch.Tensor
-    ) -> torch.Tensor:
-        """Gets the encoding at the first END for each tensor.
-
-        Args:
-            encoded (torch.Tensor): encoded input sequence of shape
-                B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask of shape B x seq_len.
-
-        Returns:
-            torch.Tensor: indices of shape B x 1 x encoder_dim.
-        """
-        # Gets the index of the last unmasked tensor.
-        # -> B.
-        last_idx = (~mask).sum(dim=1) - 1
-        # -> B x 1 x encoder_dim.
-        last_idx = last_idx.view(encoded.size(0), 1, 1).expand(
-            -1, -1, encoded.size(2)
-        )
-        # -> B x 1 x encoder_dim.
-        return encoded.gather(1, last_idx)
 
     @abc.abstractmethod
     def initial_state(self, batch_size: int) -> RNNState: ...
@@ -328,8 +311,8 @@ class LSTMDecoder(RNNDecoder):
 class AttentiveRNNDecoder(RNNDecoder):
     """Abstract base class for attentive RNN decoders.
 
-    The attention module differentially attends to different parts of the
-    encoder output.
+    The attention module learns to differentially attend to different symbols
+    in the encoder output.
     """
 
     def __init__(self, attention_input_size, *args, **kwargs):
@@ -340,6 +323,7 @@ class AttentiveRNNDecoder(RNNDecoder):
 
     def forward(
         self,
+        sequence: torch.Tensor,
         encoded: torch.Tensor,
         mask: torch.Tensor,
         symbol: torch.Tensor,
@@ -348,6 +332,7 @@ class AttentiveRNNDecoder(RNNDecoder):
         """Single decode pass.
 
         Args:
+            sequence (torch.Tensor): ignored.
             encoded (torch.Tensor): encoded source sequence of shape
                 B x seq_len x encoder_dim.
             mask (torch.Tensor): mask of shape B x seq_len.

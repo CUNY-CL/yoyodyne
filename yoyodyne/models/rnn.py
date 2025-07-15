@@ -16,12 +16,24 @@ from .. import data, defaults, special
 from . import base, beam_search, embeddings, modules
 
 
+class Error(Exception):
+    pass
+
+
 class RNNModel(base.BaseModel):
     """Abstract base class for RNN models.
 
     The implementation of `get_decoder` in the subclasses determines what kind
     of RNN is used (i.e., GRU or LSTM), and this determines whether the model
-    is "inattative" or attentive.
+    is "inattentive" or attentive.
+
+    If features are provided, the encodings are fused by concatenation of the
+    features encoding with the source encoding on the sequence length
+    dimension.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     # Constructed inside __init__.
@@ -33,6 +45,7 @@ class RNNModel(base.BaseModel):
 
     def beam_decode(
         self,
+        sequence: torch.Tensor,
         encoded: torch.Tensor,
         mask: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -46,6 +59,7 @@ class RNNModel(base.BaseModel):
         are still assumed to have a leading dimension representing batch size.
 
         Args:
+            sequence (torch.Tensor).
             encoded (torch.Tensor).
             mask (torch.Tensor).
 
@@ -55,7 +69,7 @@ class RNNModel(base.BaseModel):
                 B x beam_width.
         """
         # TODO: modify to work with batches larger than 1.
-        batch_size = mask.size(0)
+        batch_size = sequence.size(0)
         if batch_size != 1:
             raise NotImplementedError(
                 "Beam search is not supported for batch_size > 1"
@@ -71,7 +85,7 @@ class RNNModel(base.BaseModel):
                 else:
                     symbol = torch.tensor([[cell.symbol]], device=self.device)
                     logits, state = self.decode_step(
-                        encoded, mask, symbol, cell.state
+                        sequence, encoded, mask, symbol, cell.state
                     )
                     scores = nn.functional.log_softmax(logits.squeeze(), dim=0)
                     for new_cell in cell.extensions(state, scores):
@@ -83,6 +97,7 @@ class RNNModel(base.BaseModel):
 
     def decode_step(
         self,
+        sequence: torch.Tensor,
         encoded: torch.Tensor,
         mask: torch.Tensor,
         symbol: torch.Tensor,
@@ -91,6 +106,7 @@ class RNNModel(base.BaseModel):
         """Single step of the decoder.
 
         Args:
+            sequence (torch.Tensor).
             encoded (torch.Tensor).
             mask (torch.Tensor).
             symbol (torch.Tensor): next symbol.
@@ -99,19 +115,14 @@ class RNNModel(base.BaseModel):
         Returns:
             Tuple[torch.Tensor, modules.RNNState]: logits and the RNN state.
         """
-        decoded, state = self.decoder(encoded, mask, symbol, state)
+        decoded, state = self.decoder(sequence, encoded, mask, symbol, state)
         logits = self.classifier(decoded)
         return logits, state
 
     @property
     def decoder_input_size(self) -> int:
-        if self.has_features_encoder:
-            return (
-                self.source_encoder.output_size
-                + self.features_encoder.output_size
-            )
-        else:
-            return self.source_encoder.output_size
+        # Features concatenation does not change this.
+        return self.source_encoder.output_size
 
     def forward(
         self,
@@ -132,23 +143,32 @@ class RNNModel(base.BaseModel):
                 B x seq_len x target_vocab_size.
 
         Raises:
-            NotImplementedError: separate features encoders are not supported.
+            Error: Cannot concatenate source encoding with features encoding.
         """
+        sequence = batch.source.padded
         encoded = self.source_encoder(batch.source)
+        mask = batch.source.mask
         if self.has_features_encoder:
+            if (
+                self.source_encoder.output_size
+                != self.features_encoder.output_size
+            ):
+                raise Error(
+                    "Cannot concatenate source and features encoding "
+                    f"({self.source_encoder.output_size} != "
+                    f"{self.features_encoder.output_size})"
+                )
+            sequence = torch.cat((sequence, batch.features.padded), dim=1)
             features_encoded = self.features_encoder(batch.features)
-            # Feature information is averaged across all positions, broadcast
-            # across the length of the source, and then concatenated with the
-            # source encoding along the encoding dimension.
-            features_encoded = features_encoded.mean(dim=1, keepdim=True)
-            features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
-            encoded = torch.cat((encoded, features_encoded), dim=2)
+            encoded = torch.cat((encoded, features_encoded), dim=1)
+            mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.beam_width > 1:
-            return self.beam_decode(encoded, batch.source.mask)
+            return self.beam_decode(sequence, encoded, mask)
         else:
             return self.greedy_decode(
+                sequence,
                 encoded,
-                batch.source.mask,
+                mask,
                 self.teacher_forcing if self.training else False,
                 batch.target.padded if batch.has_target else None,
             )
@@ -158,6 +178,7 @@ class RNNModel(base.BaseModel):
 
     def greedy_decode(
         self,
+        sequence: torch.Tensor,
         encoded: torch.Tensor,
         mask: torch.Tensor,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
@@ -172,6 +193,7 @@ class RNNModel(base.BaseModel):
         sequences have reached END.
 
         Args:
+            sequence (torch.Tensor).
             encoded (torch.Tensor).
             mask (torch.Tensor).
             teacher_forcing (bool, optional): whether or not to decode with
@@ -182,7 +204,7 @@ class RNNModel(base.BaseModel):
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.
         """
-        batch_size = mask.size(0)
+        batch_size = sequence.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
@@ -193,7 +215,9 @@ class RNNModel(base.BaseModel):
         else:
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
-            logits, state = self.decode_step(encoded, mask, symbol, state)
+            logits, state = self.decode_step(
+                sequence, encoded, mask, symbol, state
+            )
             predictions.append(logits.squeeze(1))
             # With teacher forcing the next input is the gold symbol for this
             # step; with student forcing, it's the top prediction.
