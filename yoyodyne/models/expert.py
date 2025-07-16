@@ -8,7 +8,7 @@ dictionary. This class stores valid edit actions for given dataset."""
 
 import argparse
 import dataclasses
-from typing import Any, Dict, Iterable, Iterator, List, Sequence, Set, Tuple
+from typing import Any, Dict, Iterable, List, Sequence, Set, Tuple
 
 import numpy
 from maxwell import actions, sed
@@ -422,66 +422,22 @@ class Expert:
 
 
 def get_expert(
-    dataset: data.Dataset,
-    index: data.Index,
-    epochs: int = defaults.ORACLE_EM_EPOCHS,
-    oracle_factor: int = defaults.ORACLE_FACTOR,
-    sed_params_path: str = None,
-    read_from_file: bool = False,
+    index: data.Index, path: str, oracle_factor: int = defaults.ORACLE_FACTOR
 ) -> Expert:
     """Generates expert object for training transducer.
 
     Args:
-        dataset (data.Dataset): dataset for generating expert vocabulary.
         index (data.Index): index for mapping symbols to indices.
-        epochs (int): number of EM epochs.
-        oracle_factor (float): scaling factor to determine rate of
-            expert rollout sampling.
-        sed_params_path (str): path to read/write location of sed parameters.
-        read_from_file (bool): bool for whether to use existing parameters.
-            If True, reads from sed_params_path. If False, writes to
-            sed_params_path.
+        path (str): path to SED parameter .pkl file.
+        oracle_factor (int): scaling factor to determine rate of expert
+            rollout sampling.
 
     Returns:
         expert.Expert.
     """
-
-    def _generate_data(
-        dataset: data.Dataset,
-        index: data.Index,
-    ) -> Iterator[Tuple[List[int], List[int]]]:
-        """Helper function to manage data encoding for SED.
-
-        We want encodings without padding. This encodes only raw source-target
-        text for the Maxwell library.
-
-        Args:
-            dataset (data.Dataset): dataset for generating expert vocabulary.
-            index (data.Index): index for mapping symbols to indices.
-
-        Yields:
-            Tuple[List[int, List[int]]]: lists of source and target entries.
-        """
-        if not dataset.has_target:
-            raise Error("Dataset has no target")
-        for sample in dataset.samples:
-            source, *_, target = sample
-            yield (
-                [index(symbol) for symbol in source],
-                [index(symbol) for symbol in target],
-            )
-
     actions = ActionVocabulary(index)
-    if read_from_file:
-        sed_params = sed.ParamDict.read_params(sed_params_path)
-        sed_aligner = sed.StochasticEditDistance(sed_params)
-    else:
-        sed_aligner = sed.StochasticEditDistance.fit_from_data(
-            _generate_data(dataset, index),
-            epochs=epochs,
-        )
-        sed_aligner.params.write_params(sed_params_path)
-    return Expert(actions, aligner=sed_aligner, oracle_factor=oracle_factor)
+    aligner = sed.StochasticEditDistance(sed.ParamDict.read_params(path))
+    return Expert(actions, aligner, oracle_factor)
 
 
 def add_argparse_args(parser: argparse.ArgumentParser) -> None:
@@ -492,13 +448,6 @@ def add_argparse_args(parser: argparse.ArgumentParser) -> None:
     Args:
         parser (argparse.ArgumentParser).
     """
-    parser.add_argument(
-        "--oracle_em_epochs",
-        type=int,
-        default=defaults.ORACLE_EM_EPOCHS,
-        help="Number of EM epochs "
-        "(transducer architecture only). Default: %(default)s.",
-    )
     parser.add_argument(
         "--oracle_factor",
         type=int,

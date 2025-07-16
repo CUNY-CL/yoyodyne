@@ -1,7 +1,6 @@
 """Trains a sequence-to-sequence neural network."""
 
 import argparse
-import os
 
 import lightning
 import wandb
@@ -146,16 +145,8 @@ def get_model_from_argparse_args(
     # Instantiates expert, if needed.
     expert = None
     if args.arch in ["transducer_gru", "transducer_lstm"]:
-        sed_params_paths = (
-            args.sed_params if args.sed_params else f"{args.model_dir}/sed.pkl"
-        )
         expert = models.expert.get_expert(
-            datamodule.train_dataloader().dataset,
-            datamodule.index,
-            epochs=args.oracle_em_epochs,
-            oracle_factor=args.oracle_factor,
-            sed_params_path=sed_params_paths,
-            read_from_file=os.path.isfile(sed_params_paths),
+            datamodule.index, args.sed_params, args.oracle_factor
         )
     scheduler_kwargs = schedulers.get_scheduler_kwargs_from_argparse_args(args)
     features_encoder_cls = (
