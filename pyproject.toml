@@ -1,40 +1,24 @@
 [build-system]
-requires = ["setuptools >= 75.3.0", "wheel"]
+requires = ["setuptools >= 72.1.0", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-include-package-data = false
-
-[tool.setuptools.packages.find]
-include = ["yoyodyne*"]
-exclude = ["examples*"]
 
 [project]
 name = "yoyodyne"
-version = "0.3.3"
+version = "0.4.0"
 description = "Small-vocabulary neural sequence-to-sequence models"
-readme = "README.md"
-requires-python = ">= 3.10"
 license = { text = "Apache 2.0" }
+readme = "README.md"
+requires-python = ">= 3.10,<3.141"
 authors = [
-    {name = "Adam Wiemerslage"},
-    {name = "Kyle Gorman"},
-    {name = "Travis Bartley"},
+    { name = "Adam Wiemerslage" },
+    { name = "Kyle Gorman", email = "kylebgorman@gmail.com" },
+    { name = "Travis Bartley" },
 ]
 keywords = [
     "computational linguistics",
     "morphology",
     "natural language processing",
     "language",
-]
-dependencies = [
-    "maxwell >= 0.2.6",
-    "numpy >= 2.2.3",
-    "lightning >= 1.7.0, < 2.0.0",
-    # TODO: checkpoint loading error with 2.6.0; see #305.
-    "torch >= 2.5.1, < 2.6.0",
-    "torchmetrics >= 1.6.0",
-    "wandb >= 0.18.5, < 0.19.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3.10",
@@ -47,6 +31,16 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Text Processing :: Linguistic",
 ]
+dependencies = [
+    "accelerate>=1.6.0,<2.0.0",
+    "jsonargparse[signatures]>=4.28.0,<5.0.0",
+    "lightning>=2.4.0,<3.0.0",
+    "maxwell>=0.2.6",
+    "pyyaml>=6.0,<7.0",
+    "torch>=2.4.0,<3.0.0",
+    "torchmetrics>=1.4.0post0,<2.0.0",
+    "wandb>=0.18.0,< 0.19.0",
+]
 
 [project.scripts]
 yoyodyne-predict = "yoyodyne.predict:main"
@@ -54,3 +48,10 @@ yoyodyne-train = "yoyodyne.train:main"
 
 [project.urls]
 homepage = "https://github.com/CUNY-CL/yoyodyne"
+
+[tool.setuptools.packages.find]
+include = ["yoyodyne*"]
+exclude = ["configs*", "examples*"]
+
+[tool.setuptools]
+include-package-data = false
