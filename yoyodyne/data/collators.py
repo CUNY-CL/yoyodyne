@@ -1,11 +1,11 @@
 """Collators and related utilities."""
 
-import argparse
 import dataclasses
+import logging
 
 from typing import List
 
-from .. import defaults, util
+from .. import defaults
 from . import batches, datasets
 
 
@@ -19,9 +19,9 @@ class Collator:
 
     has_features: bool
     has_target: bool
-    max_source_length: int = defaults.MAX_SOURCE_LENGTH
-    max_features_length: int = defaults.MAX_FEATURES_LENGTH
-    max_target_length: int = defaults.MAX_TARGET_LENGTH
+    max_source_length: int = defaults.MAX_LENGTH
+    max_features_length: int = defaults.MAX_LENGTH
+    max_target_length: int = defaults.MAX_LENGTH
 
     def _source_length_error(self, padded_length: int) -> None:
         """Callback function for excessive source length.
@@ -65,11 +65,13 @@ class Collator:
             padded_length (int): The length of the the padded tensor.
         """
         if padded_length > self.max_target_length:
-            util.log_info(
-                f"The length of a batch ({padded_length}) is greater than the "
-                f"`--max_target_length` specified ({self.max_target_length}); "
-                f"decoding at inference time will likely be truncated. "
-                f"Consider increasing `--max_target_length`."
+            logging.info(
+                "The length of a batch (%d}) is greater than the "
+                "max_target_length specified (%d). Sequences may be "
+                "truncated during decoding. Consider increasing "
+                "max_target_length.",
+                padded_length,
+                self.max_target_length,
             )
 
     def pad_source(
@@ -131,29 +133,4 @@ class Collator:
             self.pad_source(itemlist),
             self.pad_features(itemlist) if self.has_features else None,
             self.pad_target(itemlist) if self.has_target else None,
-        )
-
-    def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-        """Adds collator options to the argument parser.
-
-        Args:
-            parser (argparse.ArgumentParser).
-        """
-        parser.add_argument(
-            "--max_source_length",
-            type=int,
-            default=defaults.MAX_SOURCE_LENGTH,
-            help="Maximum source string length. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--max_features_length",
-            type=int,
-            default=defaults.MAX_FEATURES_LENGTH,
-            help="Maximum features string length. Default: %(default)s.",
-        )
-        parser.add_argument(
-            "--max_target_length",
-            type=int,
-            default=defaults.MAX_TARGET_LENGTH,
-            help="Maximum target string length. Default: %(default)s.",
         )

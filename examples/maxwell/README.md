@@ -1,6 +1,6 @@
 # Maxwell edit distance learning
 
-The `transducer` model uses imitation learning to learn to implement a policy based on stochastic edit distance (SED) learned via expectation maximization. The [`maxwell`](https://github.com/CUNY-CL/maxwell) library uses the algorithm of Ristad & Yianilos (1998) to learn this policy from source/target pairs. 
+The `transducer` model uses imitation learning to learn to implement a policy based on stochastic edit distance (SED) learned via expectation maximization. The [`maxwell`](https://github.com/CUNY-CL/maxwell) library uses the algorithm of Ristad & Yianilos (1998) to learn this policy from source/target pairs.
 
 ## Usage
 
@@ -24,8 +24,8 @@ the following would have a similar effect:
 
 Other flags include:
 
-* `--epochs`
-* `--source_col`
+* `--epochs` (default: 10)
+* `--source_col` (default: 1)
 * `--source_sep`
 * `--target_sep`
 

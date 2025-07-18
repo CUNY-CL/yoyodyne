@@ -1,7 +1,6 @@
 """Hard monotonic neural HMM classes."""
 
 import abc
-import argparse
 from typing import Callable, Optional, Tuple
 
 import torch
@@ -465,30 +464,3 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
     @property
     def name(self) -> str:
         return "hard attention LSTM"
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds HMM configuration options to the argument parser.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--enforce_monotonic",
-        action="store_true",
-        default=defaults.ENFORCE_MONOTONIC,
-        help="Enforce monotonicity "
-        "(hard attention architectures only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--no_enforce_monotonic",
-        action="store_false",
-        dest="enforce_monotonic",
-    )
-    parser.add_argument(
-        "--attention_context",
-        type=int,
-        default=defaults.ATTENTION_CONTEXT,
-        help="Width of attention context "
-        "(hard attention architectures only). Default: %(default)s.",
-    )

@@ -1,15 +1,21 @@
 """Base model class, with PL integration."""
 
 import abc
-import argparse
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import logging
+from typing import Callable, Optional, Tuple, Union
 
 import lightning
+from lightning.pytorch import cli
+
 import torch
 from torch import nn, optim
 
-from .. import data, defaults, metrics, optimizers, schedulers, special, util
+from .. import data, defaults, metrics, special
 from . import modules
+
+
+class Error(Exception):
+    pass
 
 
 class BaseModel(abc.ABC, lightning.LightningModule):
@@ -26,141 +32,98 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     * Evaluation metrics are tracked by test_step; nothing is returned.
     * Validation loss and evaluation metrics are tracked by validation_step;
       nothing is returned.
+    * If features_encoder is True, the source encoder will be reused as the
+      features encoder and if False (the default), no features encoder will be
+      used.
+
+    Unknown positional or keyword args from the superclass are ignored.
+
+    Args:
+        source_encoder (modules.BaseModule).
+        features_encoder (modules.BaseModule, optional).
+        decoder_hidden_size (int, optional): dimensionality of decoder layers.
+        decoder_layers (int, optional): number of decoder layers.
+        decoder_dropout (float, optional): dropout probability.
+        embedding_size (int, optional): dimensionality of embedding.
+        label_smoothing (float, optional): label smoothing coefficient.
     """
 
-    #  TODO: clean up type checking here.
-    # Sizes.
-    vocab_size: int
-    target_vocab_size: int
-    # Optimizer arguments.
-    beta1: float
-    beta2: float
-    optimizer: str
-    scheduler: Optional[str]
-    scheduler_kwargs: Optional[Dict]
-    # Regularization arguments.
-    dropout: float
-    label_smoothing: float
-    teacher_forcing: bool
-    # Decoding arguments.
-    beam_width: int
-    max_features_length: int
-    max_source_length: int
-    max_target_length: int
-    # Model arguments.
-    embedding_size: int
-    encoder_layers: int
     decoder_layers: int
-    features_encoder_cls: Optional[modules.BaseModule]
-    hidden_size: int
-    source_encoder_cls: modules.BaseModule
-    # Loss and evaluation objects.
-    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-    # TODO: update with new metrics as they become available.
+    decoder_hidden_size: int
+    decoder_dropout: float
+    label_smoothing: float
+    optimizer: optim.Optimizer
+    scheduler: optim.lr_scheduler.LRScheduler
+    source_encoder: modules.BaseModule
+    features_encoder: Optional[modules.BaseModule]
     accuracy: Optional[metrics.Accuracy]
     ser: Optional[metrics.SER]
+    decoder: modules.BaseModule
+    embedding: nn.Embedding
+    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
     def __init__(
         self,
-        *,
-        beta1=defaults.BETA1,
-        beta2=defaults.BETA2,
-        source_encoder_cls,
-        target_vocab_size,
-        vocab_size,
-        # All of these have keyword defaults.
-        beam_width=defaults.BEAM_WIDTH,
-        compute_accuracy=True,
-        compute_ser=False,
-        decoder_layers=defaults.DECODER_LAYERS,
-        dropout=defaults.DROPOUT,
-        embedding_size=defaults.EMBEDDING_SIZE,
-        encoder_layers=defaults.ENCODER_LAYERS,
-        features_encoder_cls=None,
-        hidden_size=defaults.HIDDEN_SIZE,
-        label_smoothing=defaults.LABEL_SMOOTHING,
-        learning_rate=defaults.LEARNING_RATE,
-        max_features_length=defaults.MAX_FEATURES_LENGTH,
-        max_source_length=defaults.MAX_SOURCE_LENGTH,
-        max_target_length=defaults.MAX_TARGET_LENGTH,
-        optimizer=defaults.OPTIMIZER,
-        scheduler=None,
-        scheduler_kwargs=None,
-        teacher_forcing=defaults.TEACHER_FORCING,
-        **kwargs,
+        source_encoder: modules.BaseModule,
+        *args,  # Ignored here.
+        compute_accuracy: bool = True,
+        compute_ser: bool = False,
+        features_encoder: Union[modules.BaseModule, bool] = False,
+        decoder_hidden_size: int = defaults.HIDDEN_SIZE,
+        decoder_layers: int = defaults.LAYERS,
+        decoder_dropout: float = defaults.DROPOUT,
+        embedding_size: int = defaults.EMBEDDING_SIZE,
+        label_smoothing: float = defaults.LABEL_SMOOTHING,
+        optimizer: cli.OptimizerCallable = defaults.OPTIMIZER,
+        scheduler: cli.LRSchedulerCallable = defaults.SCHEDULER,
+        has_features: bool = False,  # Dummy value filled in via link.
+        target_vocab_size: int = -1,  # Dummy value filled in via link.
+        vocab_size: int = -1,  # Dummy value filled in via link.
+        **kwargs,  # Ignored here.
     ):
         super().__init__()
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.target_vocab_size = target_vocab_size
-        self.vocab_size = vocab_size
-        self.beam_width = beam_width
+        self.decoder_hidden_size = decoder_hidden_size
         self.decoder_layers = decoder_layers
-        self.dropout = dropout
+        self.decoder_dropout = decoder_dropout
         self.embedding_size = embedding_size
-        self.encoder_layers = encoder_layers
-        self.hidden_size = hidden_size
         self.label_smoothing = label_smoothing
-        self.learning_rate = learning_rate
-        self.max_features_length = max_features_length
-        self.max_source_length = max_source_length
-        self.max_target_length = max_target_length
+        self.num_embeddings = vocab_size
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.scheduler_kwargs = scheduler_kwargs
-        self.teacher_forcing = teacher_forcing
-        self.embeddings = self.init_embeddings(
-            self.vocab_size, self.embedding_size
-        )
-        # Instantiates loss and evaluation objects.
-        self.loss_func = self._get_loss_func()
-        # TODO: update with new metrics as they become available.
+        self.target_vocab_size = target_vocab_size
         self.accuracy = (
             metrics.Accuracy(self.target_vocab_size)
             if compute_accuracy
             else None
         )
         self.ser = metrics.SER() if compute_ser else None
-        # Instantiates encoder(s).
-        self.source_encoder = source_encoder_cls(
-            dropout=self.dropout,
-            embedding_size=self.embedding_size,
-            embeddings=self.embeddings,
-            hidden_size=self.hidden_size,
-            layers=self.encoder_layers,
-            max_length=self.max_source_length,
-            num_embeddings=self.vocab_size,
-            **kwargs,
+        self.embeddings = self.init_embeddings(
+            self.num_embeddings, self.embedding_size
         )
-        self.features_encoder = (
-            features_encoder_cls(
-                dropout=self.dropout,
-                embedding_size=self.embedding_size,
-                embeddings=self.embeddings,
-                hidden_size=self.hidden_size,
-                layers=self.encoder_layers,
-                max_length=self.max_features_length,
-                num_embeddings=self.vocab_size,
-                output_size=self.source_encoder.output_size,
-                **kwargs,
+        if source_encoder.embedding_size != self.embedding_size:
+            raise Error(
+                "Source embedding size "
+                f"({self.source_encoder.embedding_size}) != "
+                "model embedding size "
+                f"({self.embedding_size})"
             )
-            if features_encoder_cls is not None
-            else None
-        )
-        # Instantiates decoder.
-        self.decoder = self.get_decoder()
-        # Saves hyperparameters for PL checkpointing.
-        self.save_hyperparameters(
-            ignore=["source_encoder", "decoder", "features_encoder"],
-        )
-        # Logs the module names.
-        util.log_info(f"Model: {self.name}")
-        if self.features_encoder is not None:
-            util.log_info(f"Source encoder: {self.source_encoder.name}")
-            util.log_info(f"Features encoder: {self.features_encoder.name}")
+        self.source_encoder = source_encoder
+        if features_encoder is True:
+            self.features_encoder = self.source_encoder
+        elif features_encoder is False:
+            self.feature_encoder = None
         else:
-            util.log_info(f"Encoder: {self.source_encoder.name}")
-        util.log_info(f"Decoder: {self.decoder.name}")
+            self.features_encoder = features_encoder
+        self.decoder = self.get_decoder()
+        self.loss_func = self._get_loss_func()
+        self.save_hyperparameters(
+            ignore=[
+                "source_encoder",
+                "features_encoder",
+                "decoder",
+            ]
+        )
+        self._log_model()
 
     def _get_loss_func(
         self,
@@ -179,59 +142,32 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             label_smoothing=self.label_smoothing,
         )
 
+    def _log_model(self) -> None:
+        logging.info("Model: %s", self.name)
+        if self.has_features_encoder:
+            if self.source_encoder == self.features_encoder:
+                logging.info(
+                    "Source/features encoder: %s", self.source_encoder.name
+                )
+            else:
+                logging.info("Source encoder: %s", self.source_encoder.name)
+                logging.info(
+                    "Features encoder: %s", self.features_encoder.name
+                )
+        else:
+            logging.info("Encoder: %s", self.source_encoder.name)
+        logging.info("Decoder: %s", self.decoder.name)
+        logging.info("# of parameters: %s", f"{self.num_parameters:,}")
+
     def configure_optimizers(
         self,
-    ) -> Union[
-        optim.Optimizer,
-        Tuple[List[optim.Optimizer], List[Dict[str, Any]]],
-    ]:
-        """Gets the configured torch optimizer and scheduler.
-
-        Returns:
-            Union[optim.Optimizer,
-                  Tuple[List[optim.Optimizer], List[Dict[str, Any]]].
-        """
-        optimizer = self._get_optimizer()
-        scheduler_cfg = self._get_lr_scheduler(optimizer)
-        if scheduler_cfg:
-            return [optimizer], [scheduler_cfg]
-        else:
-            return optimizer
-
-    def _get_optimizer(self) -> optim.Optimizer:
-        """Factory for selecting the optimizer.
-
-        Returns:
-            optim.Optimizer: optimizer for training.
-
-        Raises:
-            NotImplementedError: Optimizer not found.
-        """
-        return optimizers.get_optimizer_cfg(
-            self.optimizer,
-            self.parameters(),
-            self.learning_rate,
-            self.beta1,
-            self.beta2,
-        )
-
-    def _get_lr_scheduler(self, optimizer: optim.Optimizer) -> Dict[str, Any]:
-        """Factory for selecting the scheduler.
-
-        Args:
-            optimizer (optim.Optimizer): optimizer.
-
-        Returns:
-            Dict: LR scheduler configuration dictionary.
-        """
-        if not self.scheduler:
-            return {}
-        return schedulers.get_scheduler_cfg(
-            self.scheduler, optimizer, **dict(self.scheduler_kwargs)
-        )
+    ) -> tuple[list[optim.Optimizer], list[optim.lr_scheduler.LRScheduler]]:
+        optimizer = self.optimizer(self.parameters())
+        scheduler = self.scheduler(optimizer)
+        return [optimizer], [scheduler]
 
     @abc.abstractmethod
-    def get_decoder(self): ...
+    def get_decoder(self) -> modules.BaseModule: ...
 
     @staticmethod
     @abc.abstractmethod
@@ -302,7 +238,17 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             torch.Tensor: training loss.
         """
         predictions = self(batch)
-        return self.loss_func(predictions, batch.target.padded)
+        loss = self.loss_func(predictions, batch.target.padded)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            on_step=False,
+            prog_bar=True,
+        )
+        return loss
 
     def on_test_epoch_start(self) -> None:
         self._reset_metrics()
@@ -392,81 +338,3 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 on_epoch=True,
                 prog_bar=True,
             )
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds shared configuration options to the argument parser.
-
-    These are only needed at training time.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    # Optimizer arguments.
-    parser.add_argument(
-        "--beta1",
-        type=float,
-        default=defaults.BETA1,
-        help="beta_1 (Adam optimizer only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--beta2",
-        type=float,
-        default=defaults.BETA2,
-        help="beta_2 (Adam optimizer only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--learning_rate",
-        type=float,
-        default=defaults.LEARNING_RATE,
-        help="Learning rate. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--optimizer",
-        choices=optimizers.OPTIMIZERS,
-        default=defaults.OPTIMIZER,
-        help="Optimizer. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--scheduler",
-        choices=schedulers.SCHEDULERS,
-        help="Learning rate scheduler.",
-    )
-    # Regularization arguments.
-    parser.add_argument(
-        "--dropout",
-        type=float,
-        default=defaults.DROPOUT,
-        help="Dropout probability. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--label_smoothing",
-        type=float,
-        default=defaults.LABEL_SMOOTHING,
-        help="Coefficient for label smoothing. Default: %(default)s.",
-    )
-    # Model arguments.
-    parser.add_argument(
-        "--decoder_layers",
-        type=int,
-        default=defaults.DECODER_LAYERS,
-        help="Number of decoder layers. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--encoder_layers",
-        type=int,
-        default=defaults.ENCODER_LAYERS,
-        help="Number of encoder layers. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--embedding_size",
-        type=int,
-        default=defaults.EMBEDDING_SIZE,
-        help="Dimensionality of embeddings. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--hidden_size",
-        type=int,
-        default=defaults.HIDDEN_SIZE,
-        help="Dimensionality of the hidden layer(s). " "Default: %(default)s.",
-    )

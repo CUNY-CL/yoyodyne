@@ -6,7 +6,6 @@ decoding. Subclassing is used to inject the concrete decoder modules.
 """
 
 import abc
-import argparse
 from typing import Optional, Tuple, Union
 
 import torch
@@ -36,12 +35,34 @@ class RNNModel(base.BaseModel):
         **kwargs: passed to superclass.
     """
 
-    # Constructed inside __init__.
+    beam_width: int
+    teacher_forcing: bool
     classifier: nn.Linear
 
-    def __init__(self, *args, **kwargs):
+    # should be property in superclass:
+
+    def __init__(
+        self,
+        *args,
+        beam_width: int = defaults.BEAM_WIDTH,
+        teacher_forcing: bool = defaults.TEACHER_FORCING,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        self.classifier = nn.Linear(self.hidden_size, self.target_vocab_size)
+        if (
+            self.source_encoder.output_size
+            != self.features_encoder.output_size
+        ):
+            raise Error(
+                "Cannot concatenate source encoding "
+                f"({self.source_encoder.output_size}) and features encoding"
+                f"{self.features_encoder.output_size})"
+            )
+        self.beam_width = beam_width
+        self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.decoder_hidden_size, self.target_vocab_size
+        )
 
     def beam_decode(
         self,
@@ -115,7 +136,9 @@ class RNNModel(base.BaseModel):
         Returns:
             Tuple[torch.Tensor, modules.RNNState]: logits and the RNN state.
         """
-        decoded, state = self.decoder(sequence, encoded, mask, symbol, state)
+        decoded, state = self.decoder(
+            sequence, encoded, mask, symbol, state, self.embeddings
+        )
         logits = self.classifier(decoded)
         return logits, state
 
@@ -146,20 +169,13 @@ class RNNModel(base.BaseModel):
             Error: Cannot concatenate source encoding with features encoding.
         """
         sequence = batch.source.padded
-        encoded = self.source_encoder(batch.source)
+        encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
-            if (
-                self.source_encoder.output_size
-                != self.features_encoder.output_size
-            ):
-                raise Error(
-                    "Cannot concatenate source and features encoding "
-                    f"({self.source_encoder.output_size} != "
-                    f"{self.features_encoder.output_size})"
-                )
             sequence = torch.cat((sequence, batch.features.padded), dim=1)
-            features_encoded = self.features_encoder(batch.features)
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.beam_width > 1:
@@ -261,12 +277,11 @@ class GRUModel(RNNModel):
     def get_decoder(self) -> modules.GRUDecoder:
         return modules.GRUDecoder(
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            embeddings=self.embeddings,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -284,17 +299,16 @@ class LSTMModel(RNNModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.c0 = nn.Parameter(torch.rand(self.hidden_size))
+        self.c0 = nn.Parameter(torch.rand(self.decoder_hidden_size))
 
     def get_decoder(self) -> modules.LSTMDecoder:
         return modules.LSTMDecoder(
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            embeddings=self.embeddings,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.num_embeddings,
         )
 
     def init_state(self, batch_size: int) -> modules.RNNState:
@@ -319,12 +333,11 @@ class AttentiveGRUModel(GRUModel):
         return modules.AttentiveGRUDecoder(
             attention_input_size=self.decoder_input_size,
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -339,34 +352,13 @@ class AttentiveLSTMModel(LSTMModel):
         return modules.AttentiveLSTMDecoder(
             attention_input_size=self.decoder_input_size,
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property
     def name(self) -> str:
         return "attentive LSTM"
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds RNN configuration options to the argument parser.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--bidirectional",
-        action="store_true",
-        default=defaults.BIDIRECTIONAL,
-        help="Uses a bidirectional encoder (RNN-backed architectures "
-        "only. Default: enabled.",
-    )
-    parser.add_argument(
-        "--no_bidirectional",
-        action="store_false",
-        dest="bidirectional",
-    )

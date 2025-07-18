@@ -6,7 +6,6 @@ prediction y, it returns optimal cost-to-go for all valid edit actions.
 Also includes ActionVocabulary class for compatibility with the `maxwell`
 dictionary. This class stores valid edit actions for given dataset."""
 
-import argparse
 import dataclasses
 from typing import Any, Dict, Iterable, List, Sequence, Set, Tuple
 
@@ -438,25 +437,3 @@ def get_expert(
     actions = ActionVocabulary(index)
     aligner = sed.StochasticEditDistance(sed.ParamDict.read_params(path))
     return Expert(actions, aligner, oracle_factor)
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds expert configuration options to the argument parser.
-
-    These are only needed at training time.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--oracle_factor",
-        type=int,
-        default=defaults.ORACLE_FACTOR,
-        help="Roll-in schedule parameter "
-        "(transducer architecture only). Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--sed_params",
-        type=str,
-        help="Path to input SED parameters (transducer architecture only).",
-    )

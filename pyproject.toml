@@ -43,8 +43,7 @@ dependencies = [
 ]
 
 [project.scripts]
-yoyodyne-predict = "yoyodyne.predict:main"
-yoyodyne-train = "yoyodyne.train:main"
+yoyodyne = "yoyodyne.cli:main"
 
 [project.urls]
 homepage = "https://github.com/CUNY-CL/yoyodyne"

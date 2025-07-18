@@ -1,6 +1,5 @@
 """Transformer model classes."""
 
-import argparse
 from typing import Optional
 
 import torch
@@ -222,20 +221,3 @@ class TransformerModel(base.BaseModel):
     @property
     def name(self) -> str:
         return "transformer"
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds transformer configuration options to the argument parser.
-
-    These are only needed at training time.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--attention_heads",
-        type=int,
-        default=defaults.ATTENTION_HEADS,
-        help="Number of attention heads "
-        "(transformer-backed architectures only). Default: %(default)s.",
-    )
