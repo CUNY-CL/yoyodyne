@@ -31,6 +31,12 @@ class YoyodyneCLI(cli.LightningCLI):
             "model.init_args.target_vocab_size",
             apply_on="instantiate",
         )
+        # Just needed for the transducer to create the expert.
+        parser.link_arguments(
+            "data.index",
+            "model.init_args.index",
+            apply_on="instantiate",
+        )
         parser.link_arguments(
             "data.vocab_size",
             "model.init_args.vocab_size",
