@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from .. import data, defaults, special
-from . import modules, rnn
+from . import base, embeddings, modules
 
 
 class Error(Exception):
@@ -15,7 +15,7 @@ class Error(Exception):
     pass
 
 
-class HardAttentionRNNModel(rnn.RNNModel):
+class HardAttentionRNNModel(base.BaseModel):
     """Abstract base class for hard attention models.
 
     Learns probability distribution of target string by modeling transduction
@@ -43,12 +43,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
         https://github.com/shijie-wu/neural-transducer
 
      Args:
+        *args: passed to superclass.
+        attention_context (int, optional): size of context window for
+            conditioning state transition; if 0, state transitions are
+            independent.
         enforce_monotonic (bool, optional): enforces monotonic state
             transition in decoding.
-        attention_context (int, optional): size of context window for
-        conditioning state transition; if 0, state transitions are
-            independent.
-        *args: passed to superclass.
         **kwargs: passed to superclass.
     """
 
@@ -58,17 +58,13 @@ class HardAttentionRNNModel(rnn.RNNModel):
     def __init__(
         self,
         *args,
-        enforce_monotonic=defaults.ENFORCE_MONOTONIC,
-        attention_context=defaults.ATTENTION_CONTEXT,
+        attention_context: int = defaults.ATTENTION_CONTEXT,
+        enforce_monotonic: bool = defaults.ENFORCE_MONOTONIC,
         **kwargs,
     ):
-        self.enforce_monotonic = enforce_monotonic
         self.attention_context = attention_context
+        self.enforce_monotonic = enforce_monotonic
         super().__init__(*args, **kwargs)
-        if not self.teacher_forcing:
-            raise Error(
-                "Architecture requires teacher forcing but it is disabled"
-            )
         self.classifier = nn.Linear(
             self.decoder.output_size, self.target_vocab_size
         )
@@ -104,12 +100,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
             fwd = fwd + self._gather_at_idx(emissions[idx], target[:, idx])
         loss = -torch.logsumexp(fwd, dim=2).mean() / target.size(1)
         return loss
-
-    def beam_decode(self, *args, **kwargs):
-        """Overrides incompatible implementation inherited from RNNModel."""
-        raise NotImplementedError(
-            f"Beam search is not supported by {self.name} model"
-        )
 
     def decode(
         self,
@@ -175,7 +165,11 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 probabilities, transition probabilities, and the RNN state.
         """
         emissions, transitions, state = self.decoder(
-            encoded, mask, symbol, state
+            encoded,
+            mask,
+            symbol,
+            state,
+            self.embeddings,
         )
         logits = self.classifier(emissions)
         scores = nn.functional.log_softmax(logits, dim=2)
@@ -297,12 +291,12 @@ class HardAttentionRNNModel(rnn.RNNModel):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             Tuple[torch.Tensor,torch.Tensor]: emission probabilities for
@@ -312,9 +306,11 @@ class HardAttentionRNNModel(rnn.RNNModel):
         Raises:
             NotImplementedError: Beam search not implemented.
         """
-        encoded = self.source_encoder(batch.source)
+        encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
-            features_encoded = self.features_encoder(batch.features)
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             encoded = torch.cat((encoded, features_encoded), dim=2)
@@ -324,9 +320,6 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 batch.source.mask,
                 batch.target.padded,
             )
-        elif self.beam_width > 1:
-            # Will raise a NotImplementedError.
-            return self.beam_decode(encoded, batch.source.mask)
         else:
             return self.greedy_decode(
                 encoded,
@@ -334,23 +327,46 @@ class HardAttentionRNNModel(rnn.RNNModel):
                 batch.target.padded if batch.has_target else None,
             )
 
-    def predict_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def init_embeddings(
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
+
+    def predict_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         predictions, _ = self(batch)
         return predictions
 
-    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, _ = self(batch)
         self._update_metrics(predictions, batch.target.padded)
 
-    def training_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         emissions, transitions = self(batch)
-        return self.loss_func(batch.target.padded, emissions, transitions)
+        loss = self.loss_func(batch.target.padded, emissions, transitions)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            on_step=False,
+            prog_bar=True,
+        )
+        return loss
 
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
+        # TODO(#317): This is not compatible with training loss.
         predictions, likelihood = self(batch)
         self.log(
             "val_loss",
@@ -404,7 +420,7 @@ class HardAttentionRNNModel(rnn.RNNModel):
     def name(self) -> str: ...
 
 
-class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
+class HardAttentionGRUModel(HardAttentionRNNModel):
     """Hard attention with GRU backend."""
 
     def get_decoder(self):
@@ -412,20 +428,18 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
             return modules.ContextHardAttentionGRUDecoder(
                 attention_context=self.attention_context,
                 decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                embeddings=self.embeddings,
+                dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
-                hidden_size=self.hidden_size,
+                hidden_size=self.decoder_hidden_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
             )
         else:
             return modules.HardAttentionGRUDecoder(
                 decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
+                dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
-                embeddings=self.embeddings,
-                hidden_size=self.hidden_size,
+                hidden_size=self.decoder_hidden_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
             )
@@ -435,7 +449,7 @@ class HardAttentionGRUModel(HardAttentionRNNModel, rnn.GRUModel):
         return "hard attention GRU"
 
 
-class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
+class HardAttentionLSTMModel(HardAttentionRNNModel):
     """Hard attention with LSTM backend."""
 
     def get_decoder(self):
@@ -443,9 +457,8 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
             return modules.ContextHardAttentionLSTMDecoder(
                 attention_context=self.attention_context,
                 decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                hidden_size=self.hidden_size,
-                embeddings=self.embeddings,
+                dropout=self.decoder_dropout,
+                hidden_size=self.decoder_hidden_size,
                 embedding_size=self.embedding_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
@@ -453,10 +466,9 @@ class HardAttentionLSTMModel(HardAttentionRNNModel, rnn.LSTMModel):
         else:
             return modules.HardAttentionLSTMDecoder(
                 decoder_input_size=self.decoder_input_size,
-                dropout=self.dropout,
-                embeddings=self.embeddings,
+                dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
-                hidden_size=self.hidden_size,
+                hidden_size=self.decoder_hidden_size,
                 layers=self.decoder_layers,
                 num_embeddings=self.target_vocab_size,
             )

@@ -87,7 +87,7 @@ class PaddedTensor(nn.Module):
         return (~self.mask).sum(dim=1).cpu()
 
 
-class PaddedBatch(nn.Module):
+class Batch(nn.Module):
     """Padded source tensor, with optional padded features and target tensors.
 
     This represents a padded batch. It is produced by the collator and fed to

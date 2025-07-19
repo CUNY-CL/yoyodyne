@@ -120,16 +120,16 @@ class Collator:
             self._target_length_warning,
         )
 
-    def __call__(self, itemlist: List[datasets.Item]) -> batches.PaddedBatch:
+    def __call__(self, itemlist: List[datasets.Item]) -> batches.Batch:
         """Pads all elements of an itemlist.
 
         Args:
             itemlist (List[datasets.Item]).
 
         Returns:
-            batches.PaddedBatch.
+            batches.Batch.
         """
-        return batches.PaddedBatch(
+        return batches.Batch(
             self.pad_source(itemlist),
             self.pad_features(itemlist) if self.has_features else None,
             self.pad_target(itemlist) if self.has_target else None,

@@ -90,11 +90,11 @@ class TransformerModel(base.BaseModel):
         logits = logits[:, -1, :]  # Ignores END.
         return logits
 
-    def forward(self, batch: data.PaddedBatch) -> torch.Tensor:
+    def forward(self, batch: data.Batch) -> torch.Tensor:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             torch.Tensor.

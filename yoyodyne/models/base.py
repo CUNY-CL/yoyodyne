@@ -46,6 +46,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         decoder_dropout (float, optional): dropout probability.
         embedding_size (int, optional): dimensionality of embedding.
         label_smoothing (float, optional): label smoothing coefficient.
+        max_target_length (int, optional): maximum target length.
     """
 
     decoder_layers: int
@@ -74,6 +75,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         decoder_dropout: float = defaults.DROPOUT,
         embedding_size: int = defaults.EMBEDDING_SIZE,
         label_smoothing: float = defaults.LABEL_SMOOTHING,
+        max_target_length: int = defaults.MAX_LENGTH,
         optimizer: cli.OptimizerCallable = defaults.OPTIMIZER,
         scheduler: cli.LRSchedulerCallable = defaults.SCHEDULER,
         has_features: bool = False,  # Dummy value filled in via link.
@@ -87,6 +89,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.decoder_dropout = decoder_dropout
         self.embedding_size = embedding_size
         self.label_smoothing = label_smoothing
+        self.max_target_length = max_target_length
         self.num_embeddings = vocab_size
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -201,7 +204,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     def predict_step(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
         batch_idx: int,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Runs one predict step.
@@ -212,7 +215,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         No metrics are tracked.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
             batch_idx (int).
 
         Returns:
@@ -223,15 +226,13 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         else:
             return torch.argmax(self(batch), dim=1)
 
-    def training_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         """Runs one step of training.
 
         Training loss is tracked.
 
         Args:
-            batch (data.PaddedBatch)
+            batch (data.Batch)
             batch_idx (int).
 
         Returns:
@@ -253,16 +254,17 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def on_test_epoch_start(self) -> None:
         self._reset_metrics()
 
-    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         """Runs one test step.
 
         Evaluation metrics are tracked.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
             batch_idx (int).
         """
         if self.beam_width > 1:
+            # TODO: make this workable with `yoyodyne test`.
             predictions, _ = self(batch)
         else:
             predictions = torch.argmax(self(batch), dim=1)
@@ -276,7 +278,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     def validation_step(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
         batch_idx: int,
     ) -> None:
         """Runs one validation step.
@@ -284,7 +286,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         Validation loss and evaluation metrics are tracked.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
             batch_idx (int).
         """
         predictions = self(batch)

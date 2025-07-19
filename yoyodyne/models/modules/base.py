@@ -3,8 +3,6 @@
 import abc
 
 import lightning
-import torch
-from torch import nn
 
 from ... import defaults
 
@@ -40,11 +38,6 @@ class BaseModule(abc.ABC, lightning.LightningModule):
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
         self.layers = layers
-
-    @abc.abstractmethod
-    def embed(
-        self, symbols: torch.Tensor, embeddings: nn.Embedding
-    ) -> torch.Tensor: ...
 
     @property
     @abc.abstractmethod

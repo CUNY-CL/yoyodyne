@@ -268,12 +268,12 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam search
@@ -567,12 +567,12 @@ class PointerGeneratorTransformerModel(
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> torch.Tensor:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             torch.Tensor.

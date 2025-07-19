@@ -2,12 +2,9 @@
 
 import logging
 
-
 from lightning.pytorch import callbacks as pytorch_callbacks, cli
 
-# FIXME callbacks
-# from . import callbacks, data, models, trainers
-from . import data, models, trainers
+from . import callbacks, data, models, trainers
 
 
 class YoyodyneCLI(cli.LightningCLI):
@@ -24,13 +21,11 @@ class YoyodyneCLI(cli.LightningCLI):
             "checkpoint",
             required=False,
         )
-        # FIXME add prediction writer callback.
-        # parser.add_lightning_class_args(
-        #    callbacks.PredictionWriter,
-        #    "prediction",
-        #    required=False,
-        # )
-        # FIXME add argument links.
+        parser.add_lightning_class_args(
+            callbacks.PredictionWriter,
+            "prediction",
+            required=False,
+        )
         parser.link_arguments(
             "data.target_vocab_size",
             "model.init_args.target_vocab_size",
@@ -39,11 +34,6 @@ class YoyodyneCLI(cli.LightningCLI):
         parser.link_arguments(
             "data.vocab_size",
             "model.init_args.vocab_size",
-            apply_on="instantiate",
-        )
-        parser.link_arguments(
-            "data.has_features",
-            "model.init_args.has_features",
             apply_on="instantiate",
         )
 

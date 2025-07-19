@@ -82,12 +82,12 @@ class TransducerRNNModel(rnn.RNNModel):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
@@ -522,15 +522,13 @@ class TransducerRNNModel(rnn.RNNModel):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
-    def predict_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def predict_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         predictions, _ = self(batch)
         length = max(len(prediction) for prediction in predictions)
         # Pads; truncation cannot occur by construction.
         return self._convert_predictions(predictions, length)
 
-    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, _ = self(batch)
         self._update_metrics(
             self._convert_predictions(predictions), batch.target.padded
@@ -539,15 +537,13 @@ class TransducerRNNModel(rnn.RNNModel):
     def on_train_epoch_start(self) -> None:
         self.expert.roll_in_schedule(self.current_epoch)
 
-    def training_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         """Runs one step of training.
 
         This is called by the PL Trainer.
 
         Args:
-            batch (data.PaddedBatch)
+            batch (data.Batch)
             batch_idx (int).
 
         Returns:
@@ -557,7 +553,7 @@ class TransducerRNNModel(rnn.RNNModel):
         _, loss = self(batch)
         return loss
 
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, loss = self(batch)
         self.log(
             "val_loss",

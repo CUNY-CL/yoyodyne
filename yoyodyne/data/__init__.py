@@ -1,6 +1,6 @@
 """Data classes."""
 
-from .batches import PaddedBatch, PaddedTensor  # noqa: F401
+from .batches import Batch, PaddedTensor  # noqa: F401
 from .datamodules import DataModule  # noqa: F401
 from .datasets import Dataset  # noqa: F401
 from .indexes import Index  # noqa: F401

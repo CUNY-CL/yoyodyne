@@ -32,14 +32,15 @@ class RNNModel(base.BaseModel):
 
     Args:
         *args: passed to superclass.
+        beam_width (int, optional): width of beam for beam decoding.
+        teacher_forcing (bool, optional): should teacher (rather than student)
+            forcing be used?
         **kwargs: passed to superclass.
     """
 
     beam_width: int
     teacher_forcing: bool
     classifier: nn.Linear
-
-    # should be property in superclass:
 
     def __init__(
         self,
@@ -55,7 +56,7 @@ class RNNModel(base.BaseModel):
         ):
             raise Error(
                 "Cannot concatenate source encoding "
-                f"({self.source_encoder.output_size}) and features encoding"
+                f"({self.source_encoder.output_size}) and features encoding "
                 f"{self.features_encoder.output_size})"
             )
         self.beam_width = beam_width
@@ -149,12 +150,12 @@ class RNNModel(base.BaseModel):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam search
@@ -190,7 +191,7 @@ class RNNModel(base.BaseModel):
             )
 
     @abc.abstractmethod
-    def get_decoder(self) -> modules.BaseModule: ...
+    def get_decoder(self) -> modules.RNNDecoder: ...
 
     def greedy_decode(
         self,
