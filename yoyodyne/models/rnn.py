@@ -50,6 +50,15 @@ class RNNModel(base.BaseModel):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.beam_width = beam_width
+        self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.decoder_hidden_size, self.target_vocab_size
+        )
+        self._check_compatibility()
+
+    def _check_compatibility(self) -> None:
+        """Allows subclasses to have their own checks."""
         if (
             self.source_encoder.output_size
             != self.features_encoder.output_size
@@ -59,11 +68,6 @@ class RNNModel(base.BaseModel):
                 f"({self.source_encoder.output_size}) and features encoding "
                 f"{self.features_encoder.output_size})"
             )
-        self.beam_width = beam_width
-        self.teacher_forcing = teacher_forcing
-        self.classifier = nn.Linear(
-            self.decoder_hidden_size, self.target_vocab_size
-        )
 
     def beam_decode(
         self,

@@ -41,6 +41,7 @@ class TransducerRNNModel(base.BaseModel):
     """
 
     expert: expert.Expert
+    teacher_forcing: bool
     classifer: nn.Linear
 
     def __init__(
@@ -533,17 +534,26 @@ class TransducerRNNModel(base.BaseModel):
     def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         """Runs one step of training.
 
-        This is called by the PL Trainer.
+        Training loss is tracked.
 
         Args:
             batch (data.Batch)
             batch_idx (int).
 
         Returns:
-            torch.Tensor: loss.
+            torch.Tensor: training loss.
         """
         # Forward pass produces loss.
         _, loss = self(batch)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            on_step=False,
+            prog_bar=True,
+        )
         return loss
 
     def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
