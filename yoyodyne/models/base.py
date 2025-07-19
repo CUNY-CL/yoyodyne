@@ -127,6 +127,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             ]
         )
         self._log_model()
+        self._check_compatibility()
+
+    # Override to add a compatibility check.
+
+    def _check_compatibility(self) -> None:
+        pass
 
     def _get_loss_func(
         self,

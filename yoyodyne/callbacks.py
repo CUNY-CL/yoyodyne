@@ -8,7 +8,7 @@ import lightning
 from lightning.pytorch import callbacks, trainer
 import torch
 
-from . import data, defaults, models
+from . import data, defaults, models, util
 
 
 class PredictionWriter(callbacks.BasePredictionWriter):
@@ -45,6 +45,7 @@ class PredictionWriter(callbacks.BasePredictionWriter):
         # Placing this here prevents the creation of an empty file in the case
         # where a prediction callback was specified but this is not running
         # in predict mode.
+        util.mkpath(self.path)
         self.sink = open(self.path, "w")
 
     def write_on_batch_end(

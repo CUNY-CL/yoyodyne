@@ -1,12 +1,13 @@
 """Finds the best batch size given constraints."""
 
+import logging
 from typing import Tuple
 
 import lightning
 import numpy
 from lightning.pytorch.tuner import tuning
 
-from . import data, defaults, models, util
+from . import data, defaults, models
 
 
 class Error(Exception):
@@ -106,12 +107,12 @@ def find_batch_size(
             desired_batch_size, max_batch_size
         )
         datamodule.batch_size = batch_size
-        util.log_info(f"Using optimal batch size: {datamodule.batch_size}")
+        logging.info("Using optimal batch size: %d", datamodule.batch_size)
         if steps != 1:
             trainer.accumulate_grad_batches = steps
-            util.log_info(
-                "Using gradient accumulation steps: "
-                f"{trainer.accumulate_grad_batches}"
+            logging.info(
+                "Using gradient accumulation steps: %d",
+                trainer.accumulate_grad_batches,
             )
     else:
         raise Error(f"Unknown batch sizing method: {method}")

@@ -517,6 +517,7 @@ class PointerGeneratorTransformerModel(
             source_mask,
             target,
             target_mask,
+            self.embeddings,
             features_encoded,
             features_mask,
         )
@@ -570,40 +571,25 @@ class PointerGeneratorTransformerModel(
         Raises:
             NotImplementedError: Beam search not implemented.
         """
-        source_encoded = self.source_encoder(batch.source)
+        source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
-            features_encoded = self.features_encoder(batch.features)
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    batch.source.padded,
-                    source_encoded,
-                    batch.source.mask,
-                    features_encoded=features_encoded,
-                    features_mask=batch.features.mask,
-                )
-            else:
-                return self.greedy_decode(
-                    batch.source.padded,
-                    source_encoded,
-                    batch.source.mask,
-                    target=batch.target.padded if batch.has_target else None,
-                    features_encoded=features_encoded,
-                    features_mask=batch.features.mask,
-                )
-        elif self.beam_width > 1:
-            # Will raise a NotImplementedError.
-            return self.beam_decode(
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
+            return self.greedy_decode(
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
+                batch.target.padded if batch.has_target else None,
+                features_encoded=features_encoded,
+                features_mask=batch.features.mask,
             )
         else:
             return self.greedy_decode(
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
-                target=batch.target.padded if batch.has_target else None,
+                batch.target.padded if batch.has_target else None,
             )
 
     def get_decoder(
@@ -612,14 +598,13 @@ class PointerGeneratorTransformerModel(
         return modules.TransformerPointerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
             has_features_encoder=self.has_features_encoder,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.max_length,
-            num_embeddings=self.vocab_size,
+            max_length=self.decoder_max_length,
+            num_embeddings=self.num_embeddings,
         )
 
     def greedy_decode(

@@ -55,12 +55,11 @@ class RNNModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
-        self._check_compatibility()
 
     def _check_compatibility(self) -> None:
-        """Allows subclasses to have their own checks."""
         if (
-            self.source_encoder.output_size
+            self.has_features_encoder
+            and self.source_encoder.output_size
             != self.features_encoder.output_size
         ):
             raise Error(
