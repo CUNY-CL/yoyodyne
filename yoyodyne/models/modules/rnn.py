@@ -24,12 +24,14 @@ class RNNModule(base.BaseModule):
     """Abstract base class for RNN modules.
 
     Args:
-        bidirectional (bool).
         *args: passed to superclass.
+        bidirectional (bool, optional): should the RNN be bidirectional?
         **kwargs: passed to superclass.
     """
 
     bidirectional: bool
+    dropout_layer: nn.Dropout
+    module: nn.RNNBase
 
     def __init__(
         self,
@@ -39,6 +41,7 @@ class RNNModule(base.BaseModule):
     ):
         super().__init__(*args, **kwargs)
         self.bidirectional = bidirectional
+        self.dropout_layer = nn.Dropout(self.dropout)
         self.module = self.get_module()
 
     @abc.abstractmethod
@@ -47,6 +50,11 @@ class RNNModule(base.BaseModule):
     @property
     def num_directions(self) -> int:
         return 2 if self.bidirectional else 1
+
+    def embed(
+        self, symbols: torch.Tensor, embeddings: nn.Embedding
+    ) -> torch.Tensor:
+        return self.dropout_layer(embeddings(symbols))
 
 
 class RNNState(nn.Module):
@@ -119,7 +127,9 @@ class WrappedLSTMEncoder(nn.LSTM, WrappedRNNEncoder):
 class RNNEncoder(RNNModule):
     """Abstract base class for RNN encoders."""
 
-    def forward(self, source: data.PaddedTensor) -> torch.Tensor:
+    def forward(
+        self, source: data.PaddedTensor, embeddings: nn.Embedding
+    ) -> torch.Tensor:
         """Encodes the source.
 
         Subsequent operations don't use the encoder's final hidden state for
@@ -128,11 +138,14 @@ class RNNEncoder(RNNModule):
         Args:
             source (data.PaddedTensor): source padded tensors of shape
                 B x seq_len x 1.
+            embeddings (nn.Embedding): embeddings.
 
         Returns:
             torch.Tensor.
         """
-        return self.module(self.embed(source.padded), source.lengths())
+        return self.module(
+            self.embed(source.padded, embeddings), source.lengths()
+        )
 
     @property
     def output_size(self) -> int:
@@ -221,6 +234,7 @@ class RNNDecoder(RNNModule):
         mask: torch.Tensor,
         symbol: torch.Tensor,
         state: RNNState,
+        embeddings: nn.Embedding,
     ) -> Tuple[torch.Tensor, RNNState]:
         """Single decode pass.
 
@@ -230,12 +244,13 @@ class RNNDecoder(RNNModule):
                 B x seq_len x encoder_dim.
             mask (torch.Tensor): ignored.
             symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
-            state (RNNState).
+            state (RNNState): RNN state.
+            embeddings (nn.Embedding): embeddings.
 
         Returns:
             Tuple[torch.Tensor, RNNState].
         """
-        embedded = self.embed(symbol)
+        embedded = self.embed(symbol, embeddings)
         end_mask = (
             (sequence == special.END_IDX)
             .unsqueeze(2)
@@ -243,8 +258,7 @@ class RNNDecoder(RNNModule):
         )
         ends = torch.sum(encoded * end_mask, dim=1, keepdim=True)
         decoded, state = self.module(torch.cat((embedded, ends), dim=2), state)
-        decoded = self.dropout_layer(decoded)
-        return decoded, state
+        return self.dropout_layer(decoded), state
 
     @abc.abstractmethod
     def initial_state(self, batch_size: int) -> RNNState: ...
@@ -328,6 +342,7 @@ class AttentiveRNNDecoder(RNNDecoder):
         mask: torch.Tensor,
         symbol: torch.Tensor,
         state: RNNState,
+        embeddings: nn.Embedding,
     ) -> Tuple[torch.Tensor, RNNState]:
         """Single decode pass.
 
@@ -339,19 +354,19 @@ class AttentiveRNNDecoder(RNNDecoder):
             symbol (torch.Tensor): previously decoded symbol(s) of shape
                 B x 1.
             state (RNNState): RNN state.
+            embeddings (nn.Embedding): embeddings.
 
         Returns:
             Tuple[torch.Tensor, RNNState].
         """
-        embedded = self.embed(symbol)
+        embedded = self.embed(symbol, embeddings)
         context, _ = self.attention(
             encoded, state.hidden.transpose(0, 1), mask
         )
         decoded, state = self.module(
             torch.cat((embedded, context), dim=2), state
         )
-        decoded = self.dropout_layer(decoded)
-        return decoded, state
+        return self.dropout_layer(decoded), state
 
 
 class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):

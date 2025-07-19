@@ -1,6 +1,5 @@
 """Transformer model classes."""
 
-import argparse
 from typing import Optional
 
 import torch
@@ -22,49 +21,44 @@ class TransformerModel(base.BaseModel):
     dimension.
 
     Args:
-        attention_heads (int).
         *args: passed to superclass.
+        attention_heads (int, optional).
+        decoder_max_length (int, optional): maximum length for decoder strings.
+        teacher_forcing (bool, optional): should teacher (rather than student)
+            forcing be used?
         **kwargs: passed to superclass.
     """
 
     # Model arguments.
     attention_heads: int
+    teacher_forcing: bool
     classifier: nn.Linear
 
     def __init__(
         self,
         *args,
-        attention_heads=defaults.ATTENTION_HEADS,
+        attention_heads: int = defaults.ATTENTION_HEADS,
+        decoder_max_length: int = defaults.MAX_LENGTH,
+        teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
         self.attention_heads = attention_heads
-        super().__init__(
-            *args,
-            attention_heads=attention_heads,
-            **kwargs,
-        )
+        self.decoder_max_length = decoder_max_length
+        super().__init__(*args, **kwargs)
+        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-
-    def init_embeddings(
-        self, num_embeddings: int, embedding_size: int
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return embeddings.xavier_embedding(num_embeddings, embedding_size)
-
-    def beam_decode(self, *args, **kwargs):
-        raise NotImplementedError(
-            f"Beam search is not supported by {self.name} model"
-        )
+        if (
+            self.has_features_encoder
+            and self.source_encoder.output_size
+            != self.features_encoder.output_size
+        ):
+            raise Error(
+                "Cannot concatenate source encoding "
+                f"({self.source_encoder.output_size}) and features "
+                f"encoding {self.features_encoder.output_size})"
+            )
 
     def decode_step(
         self,
@@ -86,33 +80,28 @@ class TransformerModel(base.BaseModel):
         """
         # Uses a dummy mask of all zeros.
         target_mask = torch.zeros_like(predictions, dtype=bool)
-        decoded, _ = self.decoder(encoded, mask, predictions, target_mask)
+        decoded, _ = self.decoder(
+            encoded, mask, predictions, target_mask, self.embeddings
+        )
         logits = self.classifier(decoded)
         logits = logits[:, -1, :]  # Ignores END.
         return logits
 
-    def forward(self, batch: data.PaddedBatch) -> torch.Tensor:
+    def forward(self, batch: data.Batch) -> torch.Tensor:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             torch.Tensor.
         """
-        encoded = self.source_encoder(batch.source)
+        encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
-            if (
-                self.source_encoder.output_size
-                != self.features_encoder.output_size
-            ):
-                raise Error(
-                    "Cannot concatenate source and features encoding "
-                    f"({self.source_encoder.output_size} != "
-                    f"{self.features_encoder.output_size})"
-                )
-            features_encoded = self.features_encoder(batch.features)
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.training and self.teacher_forcing:
@@ -130,35 +119,27 @@ class TransformerModel(base.BaseModel):
                 dim=1,
             )
             decoded, _ = self.decoder(
-                encoded,
-                mask,
-                target,
-                target_mask,
+                encoded, mask, target, target_mask, self.embeddings
             )
             # -> B x target_vocab_size x seq_len.
             logits = self.classifier(decoded).transpose(1, 2)
             return logits[:, :, :-1]  # Ignores END.
         else:
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(encoded, mask, self.beam_width)
-            else:
-                return self.greedy_decode(
-                    encoded,
-                    mask,
-                    batch.target.padded if batch.has_target else None,
-                )
+            return self.greedy_decode(
+                encoded,
+                mask,
+                batch.target.padded if batch.has_target else None,
+            )
 
     def get_decoder(self) -> modules.TransformerDecoder:
         return modules.TransformerDecoder(
             decoder_input_size=self.source_encoder.output_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.max_length,
-            num_embeddings=self.vocab_size,
+            max_length=self.decoder_max_length,
+            num_embeddings=self.num_embeddings,
             attention_heads=self.attention_heads,
         )
 
@@ -212,6 +193,20 @@ class TransformerModel(base.BaseModel):
         outputs = torch.stack(outputs, dim=2)
         return outputs
 
+    def init_embeddings(
+        self, num_embeddings: int, embedding_size: int
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return embeddings.xavier_embedding(num_embeddings, embedding_size)
+
     @property
     def max_length(self) -> int:
         if self.has_features_encoder:
@@ -222,20 +217,3 @@ class TransformerModel(base.BaseModel):
     @property
     def name(self) -> str:
         return "transformer"
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds transformer configuration options to the argument parser.
-
-    These are only needed at training time.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--attention_heads",
-        type=int,
-        default=defaults.ATTENTION_HEADS,
-        help="Number of attention heads "
-        "(transformer-backed architectures only). Default: %(default)s.",
-    )
