@@ -464,7 +464,7 @@ The [`examples`](examples) directory contains interesting examples, including:
 ## Related projects
 
 -   [Maxwell](https://github.com/CUNY-CL/maxwell) is used to learn a stochastic
-    edit distance model for the neural transducer.
+    edit distance model for the transducer models.
 -   [Yoyodyne Pretrained](https://github.com/CUNY-CL/yoyodyne-pretrained)
     provides a similar interface but uses large pre-trained models to initialize
     the encoder and decoder modules.

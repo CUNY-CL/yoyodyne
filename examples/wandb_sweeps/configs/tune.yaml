@@ -1,0 +1,27 @@
+seed_everything: 1995
+trainer:
+  gradient_clip_val: 3
+  max_epochs: 100
+  max_time: 00:06:00:00
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: epoch
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val_loss
+        patience: 20
+        verbose: true
+  logger:
+    - class_path: lightning.pytorch.loggers.CSVLogger
+      init_args:
+        save_dir: /Users/Shinji/attentive_lstm/models
+    - class_path: lightning.pytorch.loggers.WandbLogger
+      init_args:
+        project: unit1
+        save_dir: /Users/Shinji/attentive_lstm/models
+data:
+  features_col: 3
+  model_dir: /Users/Shinji/attentive_lstm/models
+  train: /Users/Shinji/conll2017/english-train-high
+  val: /Users/Shinji/conll2017/english-dev

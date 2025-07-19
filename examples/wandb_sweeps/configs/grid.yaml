@@ -1,0 +1,49 @@
+method: random
+metric:
+  name: val_accuracy
+  goal: maximize
+parameters:
+  model.class_path:
+    value: yoyodyne.models.AttentiveLSTMModel
+  model.init_args.decoder_dropout:
+    distribution: uniform
+    min: 0
+    max: 0.5
+  model.init_args.decoder_hidden_size:
+    value: 512
+  model.init_args.embedding_size:
+    value: 128
+  model.init_args.label_smoothing:
+    distribution: uniform
+    min: 0
+    max: 0.2
+  model.init_args.source_encoder.class_path:
+    value: yoyodyne.models.modules.LSTMEncoder
+  model.init_args.source_encoder.init_args.dropout:
+    distribution: uniform
+    min: 0
+    max: 0.5
+  model.init_args.source_encoder.init_args.embedding_size:
+    value: 128
+  model.init_args.source_encoder.init_args.hidden_size:
+    value: 512
+  model.init_args.features_encoder:
+    value: true
+  model.init_args.optimizer.class_path:
+    value: torch.optim.Adam
+  model.init_args.optimizer.init_args.lr:
+    distribution: log_uniform_values
+    min: 1.0e-06
+    max: 0.001
+  model.init_args.scheduler.class_path:
+    value: yoyodyne.schedulers.WarmupInverseSquareRoot
+  model.init_args.scheduler.init_args.warmup_epochs:
+    distribution: q_uniform
+    q: 1
+    min: 1
+    max: 10
+  data.batch_size:
+    distribution: q_uniform
+    q: 16
+    min: 16
+    max: 1024

@@ -1,72 +1,98 @@
 #!/usr/bin/env python
-"""Runs a W&B sweep, training a model each run."""
+"""Runs a W&B sweep.
+
+Adapted from UDTube:
+
+    https://github.com/CUNY-CL/udtube/blob/master/examples/wandb_sweeps/sweep.py
+"""
 
 import argparse
 import functools
 import logging
 import subprocess
+import sys
+import tempfile
 import traceback
 import warnings
-
-from typing import List
+from typing import TextIO
 
 import wandb
+import yaml
 
+import util
 
 warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
 
 
-def run(argv: List[str]) -> None:
-    """A single training run.
+def train_sweep(
+    config: dict[str, ...], temp_config: TextIO, argv: list[str]
+) -> None:
+    """Runs a single training run.
 
     Args:
-        argv (List[str]): partial command-line arguments (the command name
-            plus CLI arguments passed to this script but not declared below).
+        config: path to Yoyodyne YAML config file.
+        temp_config: temporary configuration file handle.
+        argv: command-line arguments.
     """
-    argv = populate_argv(argv)
+    populate_config(config, temp_config)
+    run_sweep(argv)
+
+
+def run_sweep(argv: list[str]) -> None:
+    """Actually runs the sweep.
+
+    Args:
+        argv: command-line arguments.
+
+    We encapsulate each run by using a separate subprocess, which ought to
+    ensure that memory is returned (etc.).
+    """
     process = subprocess.Popen(argv, stderr=subprocess.PIPE, text=True)
     for line in process.stderr:
         logging.info(line.rstrip())
     wandb.finish(exit_code=process.wait())
 
 
-def populate_argv(argv: List[str]) -> List[str]:
-    """Populates argv with W&B arguments.
+def populate_config(
+    config: dict[str, ...], temp_config_handle: TextIO
+) -> None:
+    """Populates temporary configuration file.
 
-    This copies and mutates to prevent side effects persisting beyond the
-    individual run.
+    The wandb config data used here comes from the environment.
 
     Args:
-        argv (List[str]): partial command-line arguments (the command name
-            plus CLI arguments passed to this script but not declared below).
-
-    Returns:
-        List[str]: complete command-line arguments populated with W&B run
-            hyperparameters.
+        config: path to Yoyodyne YAML config file.
+        temp_config_handle: temporary configuration file handle.
     """
     wandb.init()
-    result = argv.copy()
     for key, value in wandb.config.items():
-        if value is None:
-            continue
-        result.append(f"--{key}")
-        result.append(f"{value}")
-    return result
+        util.recursive_insert(config, key, value)
+    yaml.safe_dump(config, temp_config_handle)
 
 
-def main(args: argparse.Namespace, argv: List[str]) -> None:
-    # W&B support must be enabled.
-    argv = ["yoyodyne-train", "--log_wandb", *argv]
+def main(args: argparse.Namespace) -> None:
+    with open(args.config, "r") as source:
+        config = yaml.safe_load(source)
+    # TODO: Consider enabling the W&B logger; we are not sure if things will
+    # unless this is configured.
+    temp_config = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml")
+    argv = [
+        "yoyodyne",
+        "fit",
+        "--config",
+        temp_config.name,
+        *sys.argv[1:],
+    ]
     try:
         wandb.agent(
             sweep_id=args.sweep_id,
             entity=args.entity,
             project=args.project,
-            function=functools.partial(run, argv),
+            function=functools.partial(train_sweep, config, temp_config, argv),
             count=args.count,
         )
     except Exception:
-        # Exits gracefully, so wandb logs the error.
+        # Exits gracefully, so W&B logs the error.
         logging.fatal(traceback.format_exc())
         wandb.finish(exit_code=1)
         exit(1)
@@ -86,13 +112,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--project", required=True, help="The project of the sweep."
     )
-    parser.add_argument(
-        "--count",
-        required=True,
-        type=int,
-        help="Number of runs to perform.",
-    )
-    # We separate out the args declared above, which control the sweep itself,
-    # and all others, which are passed to the subprocess as is.
-    args, argv = parser.parse_known_args()
-    main(args, argv)
+    parser.add_argument("--count", type=int, help="Number of runs to perform.")
+    parser.add_argument("--config", required=True)
+    # We pass the known args to main but remove them from ARGV.
+    # See: https://docs.python.org/3/library/argparse.html#partial-parsing
+    # This allows the user to override config arguments with CLI arguments.
+    args, sys.argv[1:] = parser.parse_known_args()
+    main(args)
