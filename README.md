@@ -150,6 +150,84 @@ reproducible experiment (modulo hardware non-determism).
 
 #### Model architecture
 
+A specification for a model includes specification of the overall architecture
+and the source encoder; one may also specify a separate features encoder or use
+`model: features_encoder: true` to indicate that the source encoder should also
+be used for features.
+
+Each model exposes its own hyperparameters; consult the [example configuration
+files](configs) and model docstrings for more information.
+
+The following are general-purpose models.
+
+-   `yoyodyne.models.AttentiveGRUModel`: a GRU decoder with an attention
+    mechanism; the initial hidden state is treated as a learned parameter. This
+    is most commonly used with `yoyodyne.models.modules.GRUEncoder`s.
+-   `yoyodyne.models.AttentiveLSTMModel`: an LSTM decoder with an attention
+    mechanism; the initial hidden and cell state are treated as learned
+    parameters. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.TransformerModel`: a transformer decoder; sinusodial
+    positional encodings and layer normalization are used. This is most commonly
+    used with `yoyodyne.models.modules.TransformerEncoder`s.
+
+The following models are appropriate for when source and target share symbols.
+
+-   `yoyodyne.models.PointerGeneratorGRUModel`: a GRU decoder with a
+    pointer-generator mechanism; the initial hidden state is treated as a
+    learned parameter. This is most commonly used with
+    `yoyodyne.models.modules.GRUEncoder`s.
+-   `yoyodyne.models.PointerGeneratorLSTMModel`: an LSTM decoder with a
+    pointer-generator mechanism; the initial hidden and cell state are treated
+    as learned parameters. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.PointerGeneratorTransformerModel`: a transformer decoder
+    with a pointer-generator mechanism. This is most commonly used with
+    `yoyodyne.models.modules.TransformerEncoder`s.
+
+The following models are appropriate for transductions which are largely
+monotonic.
+
+-   `yoyodyne.models.HardAttentionGRUModel`: an GRU decoder which models
+    generation as a Markov process. By default it assumes a non-monotonic
+    progression over the source, but with `model: enforce_monotonic: true` the
+    model is made to progress over each source character in linear order. By
+    specifying `model: attention_context: 1` (or larger values) one can widen
+    the context window for state transitions. This is most commonly used with
+    `yoyodyne.models.modules.GRUEncoder`s.
+-   `yoyodyne.models.HardAttentionLSTMModel`: an LSTM decoder which models
+    generation as a Markov process. By default it assumes a non-monotonic
+    progression over the source, but with `model: enforce_monotonic: true` the
+    model is made to progress over each source character in linear order. By
+    specifying `model: attention_context: 1` (or larger values) one can widen
+    the context window for state transitions. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+
+The following models are also appropriate for transductions which are largely
+monotonic, but require additional precomputation with the
+[`maxwell`](https://github.com/CUNY-CL/maxwell/tree/main) library. With these,
+one is recommended to use `trainer: accelerator: cpu` as they are not optimized
+for GPU (etc.) acceleration.
+
+-   `yoyodyne.models.TransducerGRU`: an LSTM decoder with a neural transducer
+    mechanism trained with imitation learning. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.TransducerLSTM`: an LSTM decoder with a neural transducer
+    mechanism trained with imitation learning. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+
+The following models are not recommended for most users. They generally perform
+poorly and are present only for historical reasons.
+
+-   `yoyodyne.models.GRUModel`: a GRU decoder which uses the last non-padding
+    hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
+    state is treated as a learned parameter. This is most commonly used with
+    `yoyodyne.models.modules.GRUEncoder`s.
+-   `yoyodyne.models.LSTMModel`: a LSTM decoder which uses the last non-padding
+    hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
+    state is treated as a learned parameter. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+
 #### Optimization
 
 Yoyodyne requires an optimizer and an learning rate scheduler. The default
@@ -373,87 +451,6 @@ prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
 The resulting prediction files will be a 10-column TSV file consisting of the
 top 5 target hypotheses and their log-likelihoods (collated together), rather
 than single-file text files just containing the top hypothesis.
-
-## Models
-
-The user specifies the overall architecture for the model using the `--arch`
-flag. The value of this flag specifies the decoder's architecture and whether or
-not an attention mechanism is present. This flag also specifies a default
-architecture for the encoder(s), but it is possible to override this with
-additional flags. Supported values for `--arch` are:
-
--   `attentive_gru`: This is an GRU decoder with GRU encoders (by default) and
-    an attention mechanism. The initial hidden state is treated as a learned
-    parameter.
--   `attentive_lstm`: This is similar to the `attentive_gru` but instead uses an
-    LSTM decoder and encoder (by default).
--   `gru`: This is an GRU decoder with GRU encoders (by default); in lieu of an
-    attention mechanism, the last non-padding hidden state of the encoder is
-    concatenated with the decoder hidden state.
--   `hard_attention_gru`: This is an GRU encoder/decoder modeling generation as
-    a Markov process. By default, it assumes a non-monotonic progression over
-    the source string, but with `--enforce_monotonic` the model must progress
-    over each source character in order. A non-zero value of
-    `--attention_context` (default: `0`) widens the context window for
-    conditioning state transitions to include one or more previous states.
--   `hard_attention_lstm`: This is similar to the `hard_attention_gru` but
-    instead uses an LSTM decoder and encoder (by default). `--attention_context`
-    (default: `0`) widens the context window for conditioning state transitions
-    to include one or more previous states.
--   `lstm`: This is similar to the `gru` but instead uses an LSTM decoder and
-    encoder (by default).
--   `pointer_generator_gru`: This is an GRU decoder with GRU encoders (by
-    default) and a pointer-generator mechanism. Since this model contains a copy
-    mechanism, it may be superior to an ordinary attentive GRU when the source
-    and target vocabularies overlap significantly. Note that this model requires
-    that the number of `--encoder_layers` and `--decoder_layers` match.
--   `pointer_generator_lstm`: This is similar to the `pointer_generator_gru` but
-    instead uses an LSTM decoder and encoder (by default).
--   `pointer_generator_transformer`: This is similar to the
-    `pointer_generator_gru` and `pointer_generator_lstm` but instead uses a
-    transformer decoder and encoder (by default). When using features, the user
-    may wish to specify the number of features attention heads (with
-    `--features_attention_heads`).
--   `transducer_gru`: This is an GRU decoder with GRU encoders (by default) and
-    a neural transducer mechanism. One must pass an edit distance transducer
-    learned using expectation using the
-    [`maxwell`](https://github.com/CUNY-CL/maxwell) library; see [the example
-    here](examples/maxwell) for more information. Imitation learning is used to
-    train the model to to implement the oracle policy, with roll-in controlled
-    by the `--oracle_factor` flag (default: `1`). Since this model assumes
-    monotonic alignment, it may be superior to attentive models when the
-    alignment between input and output is roughly monotonic and when input and
-    output vocabularies overlap significantly.
--   `transducer_lstm`: This is similar to the `transducer_gru` but instead uses
-    an LSTM decoder and encoder (by default).
--   `transformer`: This is a transformer decoder with transformer encoders (by
-    default). Sinusodial positional encodings and layer normalization are used.
-    The user may wish to specify the number of attention heads (with
-    `--attention_heads`; default: `4`).
-
-The `--arch` flag specifies the decoder type; the user can override default
-encoder types using the `--source_encoder_arch` flag and, when features are
-present, the `--features_encoder_arch` flag. Valid values are:
-
--   `feature_invariant_transformer` (usually used with
-    `--features_encoder_arch`): a variant of the transformer encoder used with
-    features; it concatenates source and features and uses a learned embedding
-    to distinguish between source and features symbols.
--   `linear` (usually used with `--features_encoder_arch`): a non-contextual
-    encoder with a affine transformation applied to embeddings
--   `gru`: a GRU encoder.
--   `lstm`: a LSTM encoder.
--   `transformer`: a transformer encoder.
-
-For all models, the user may also wish to specify:
-
--   `--decoder_layers` (default: `1`): number of decoder layers
--   `--embedding` (default: `128`): embedding size
--   `--encoder_layers` (default: `1`): number of encoder layers
--   `--hidden_size` (default: `512`): hidden layer size
-
-By default, RNN-backed (i.e., GRU and LSTM) encoders are bidirectional. One can
-disable this with the `--no_bidirectional` flag.
 
 ## Examples
 
