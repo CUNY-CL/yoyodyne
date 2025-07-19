@@ -55,8 +55,6 @@ class RNNModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
-
-    def _check_compatibility(self) -> None:
         if (
             self.has_features_encoder
             and self.source_encoder.output_size
@@ -64,8 +62,8 @@ class RNNModel(base.BaseModel):
         ):
             raise Error(
                 "Cannot concatenate source encoding "
-                f"({self.source_encoder.output_size}) and features encoding "
-                f"{self.features_encoder.output_size})"
+                f"({self.source_encoder.output_size}) and features "
+                f"encoding ({self.features_encoder.output_size})"
             )
 
     def beam_decode(

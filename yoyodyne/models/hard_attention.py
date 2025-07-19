@@ -10,11 +10,6 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
-class Error(Exception):
-
-    pass
-
-
 class HardAttentionRNNModel(base.BaseModel):
     """Abstract base class for hard attention models.
 

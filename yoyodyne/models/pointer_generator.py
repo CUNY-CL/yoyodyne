@@ -14,7 +14,7 @@ class Error(Exception):
 
 
 class PointerGeneratorModel(base.BaseModel):
-    """Abstract base class for pointer-generator models."""
+    """Base class for pointer-generator models."""
 
     # Constructed inside __init__.
     geneneration_probability: modules.GenerationProbability
@@ -113,13 +113,11 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             self.decoder_hidden_size,
             self.decoder_input_size,
         )
-        # Overrides inherited classifier.
         self.classifier = nn.Linear(
             self.decoder_hidden_size + self.decoder_input_size,
             self.target_vocab_size,
         )
-
-    def _check_compatibility(self) -> None:
+        # Compatibility check.
         if self.source_encoder.layers != self.decoder_layers:
             raise Error(
                 f"Number of encoder layers ({self.source_encoder.layers}) and "

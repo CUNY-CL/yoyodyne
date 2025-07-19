@@ -6,17 +6,11 @@ version](https://badge.fury.io/py/yoyodyne.svg)](https://pypi.org/project/yoyody
 versions](https://img.shields.io/pypi/pyversions/yoyodyne.svg)](https://pypi.org/project/yoyodyne)
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/CUNY-CL/yoyodyne/tree/master.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/CUNY-CL/yoyodyne/tree/master)
 
-Yoyodyne provides neural models for small-vocabulary sequence-to-sequence
-generation with and without feature conditioning.
+Yoyodyne provides small-vocabulary sequence-to-sequence generation with and
+without feature conditioning.
 
 These models are implemented using [PyTorch](https://pytorch.org/) and
 [Lightning](https://www.pytorchlightning.ai/).
-
-While we provide classic LSTM and transformer models, some of the provided
-models are particularly well-suited for problems where the source-target
-alignments are roughly monotonic (e.g., `transducer` and `hard_attention_lstm`)
-and/or where source and target vocabularies have substantial overlap (e.g.,
-`pointer_generator_lstm`).
 
 ## Philosophy
 
@@ -32,7 +26,8 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
     architecture-specific code for handling feature information.
 -   It supports the use of validation accuracy (not loss) for model selection
     and early stopping.
--   Releases are made regularly.
+-   Models are specified using YAML configuration files.
+-   Releases are made regularly and bugs addressed.
 -   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 
@@ -47,86 +42,55 @@ yourself.
 
 ### Local installation
 
-First install dependencies:
-
-    pip install -r requirements.txt
-
-Then install:
+To install Yoyodyne and its dependencies, run the following command:
 
     pip install .
 
+Then, optionally install additional dependencies for developers and testers:
+
+    pip install -r requirements.txt
+
 ### Google Colab
 
-Yoyodyne is compatible with [Google Colab](https://colab.research.google.com/)
-GPU runtimes. [This
-notebook](https://colab.research.google.com/drive/1O4VWvpqLrCxxUvyYMbGH9HOyXQSoh5bP?usp=sharing)
-provides a worked example. Colab also provides access to TPU runtimes, but this
-is not yet compatible with Yoyodyne to our knowledge.
+Yoyodyne is also compatible with [Google
+Colab](https://colab.research.google.com/) GPU runtimes.
 
-## Usage
+1.  Click "Runtime" \> "Change Runtime Type".
+2.  In the dialogue box, under the "Hardware accelerator" dropdown box, select
+    "GPU", then click "Save".
+3.  You may be prompted to delete the old runtime. Do so if you wish.
+4.  Then install and run using the `!` as a prefix to shell commands.
 
-### Training
+## File formats
 
-Training is performed by the [`yoyodyne-train`](yoyodyne/train.py) script. One
-must specify the following required arguments:
+Other than YAML configuration files, Yoyodyne operates on basic tab-separated
+values (TSV) data files. The user can specify source, features, and target
+columns, and separators used to parse them.
 
--   `--model_dir`: path for model metadata and checkpoints
--   `--train`: path to TSV file containing training data
--   `--val`: path to TSV file containing validation data
-
-The user can also specify various optional training and architectural arguments.
-See below or run [`yoyodyne-train --help`](yoyodyne/train.py) for more
-information.
-
-### Validation
-
-Validation is run at intervals requested by the user. See `--val_check_interval`
-and `--check_val_every_n_epoch`
-[here](https://lightning.ai/docs/pytorch/stable/common/trainer.html#trainer-class-api).
-Additional evaluation metrics can also be requested with `--eval_metric`. For
-example
-
-    yoyodyne-train --eval_metric ser ...
-
-will additionally compute symbol error rate (SER) each time validation is
-performed. Additional metrics can be added to
-[`evaluators.py`](yoyodyne/evaluators.py).
-
-### Prediction
-
-Prediction is performed by the [`yoyodyne-predict`](yoyodyne/predict.py) script.
-One must specify the following required arguments:
-
--   `--arch`: architecture, matching the one used for training
--   `--model_dir`: path for model metadata
--   `--checkpoint`: path to checkpoint
--   `--predict`: path to file containing data to be predicted
--   `--output`: path for predictions
-
-The `--predict` file can either be a TSV file or an ordinary TXT file with one
-source string per line; in the latter case, specify `--target_col 0`. Run
-[`yoyodyne-predict --help`](yoyodyne/predict.py) for more information.
-
-Beam search is implemented (currently only for LSTM-based models) and can be
-enabled by setting `--beam_width` \> 1. When using beam search, the
-log-likelihood for each hypothesis is always returned. The outputs are pairs of
-hypotheses and the associated log-likelihoods.
-
-## Data format
+### Data format
 
 The default data format is a two-column TSV file in which the first column is
 the source string and the second the target string.
 
     source   target
 
-To enable the use of a features column, one specifies a (non-zero) argument to
-`--features_col`, and optionally a `--features_sep`. For instance, for the
+To enable the use of a features column, one specifies a (non-zero)
+`data: features_col:` argument, and optionally also a `data: features_sep:`
+argument (the default features separator is ";"). For instance, for the
 [SIGMORPHON 2016 shared task](https://sigmorphon.github.io/sharedtasks/2016/)
 data:
 
     source   feat1,feat2,...    target
 
-this format is specified by `--features_col 2 --features_sep , --target_col 3`.
+the format is specified as:
+
+    ...
+    data:
+        ...
+        features_col: 2
+        features_sep: ,
+        target_col: 3
+        ...
 
 Alternatively, for the [CoNLL-SIGMORPHON 2017 shared
 task](https://sigmorphon.github.io/sharedtasks/2017/), the first column is the
@@ -135,45 +99,280 @@ contains semi-colon delimited features strings:
 
     source   target    feat1;feat2;...
 
-this format is specified by `--features_col 3` because `;` is the default
-separator for features.
+the format is specified as simply:
 
-In order to ensure that targets are ignored during prediction, one can specify
-`--target_col 0`.
+    ...
+    data:
+        ...
+        features_col: 3
 
-## Reserved symbols
+### Reserved symbols
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between features
-symbols and source and target symbols, and `--no_tie_embeddings` uses `{...}` to
-avoid clashes between source and target symbols. Therefore, users should not
-provide any symbols of the form `<...>`, `[...]`, or `{...}`.
+symbols and source and target symbols, and in some cases, `{...}` to avoid
+clashes between source and target symbols. Therefore, users should not provide
+any symbols of the form `<...>`, `[...]`, or `{...}`.
 
-## Model checkpointing
+## Usage
 
-Checkpointing is handled by
-[Lightning](https://pytorch-lightning.readthedocs.io/en/stable/common/checkpointing_basic.html).
-The path for model information, including checkpoints, is specified by
-`--model_dir` such that we build the path `model_dir/version_n`, where each run
-of an experiment with the same `model_dir` is namespaced with a new version
-number. A version stores all of the following:
+The `yoyodyne` command-line tool uses a subcommand interface, with four
+different modes. To see a full set of options available for each subcommand, use
+the `--print_config` flag. For example:
 
--   the index (`model_dir/index.pkl`),
--   the hyperparameters (`model_dir/lightning_logs/version_n/hparams.yaml`),
--   the metrics (`model_dir/lightning_logs/version_n/metrics.csv`), and
--   the checkpoints (`model_dir/lightning_logs/version_n/checkpoints`).
+    yoyodyne fit --print_config
 
-By default, each run initializes a new model from scratch, unless the
-`--train_from` argument is specified. To continue training from a specific
-checkpoint, the **full path to the checkpoint** should be specified with for the
-`--train_from` argument. This creates a new version, but starts training from
-the provided model checkpoint.
+will show all configuration options (and their default values) for the `fit`
+subcommand.
 
-By default 1 checkpoint is saved. To save more than one checkpoint, use the
-`--num_checkpoints` flag. To save a checkpoint every epoch, set
-`--num_checkpoints -1`. By default, the checkpoints saved are those which
-maximize validation accuracy. To instead select checkpoints which minimize
-validation loss, set `--checkpoint_metric loss`.
+For more detailed examples, see the [`configs`](configs) directory.
+
+### Training (`fit`)
+
+In `fit` mode, one trains a Yoyodyne model, either from scratch or, optionally,
+resuming for a prexisting checkpoint. Naturally, most configuration options need
+to be set at training time. E.g., it is not possible to switch modules after
+training a model.
+
+This mode is invoked using the `fit` subcommand, like so.
+
+    yoyodyne fit --config path/to/config.yaml
+
+Alternatively, one can resume training from a pre-existing checkpoint so long as
+it matches the specification of the configuration file.
+
+    yoyodyne fit --config path/to/config.yaml --ckpt path/to/checkpoint.ckpt
+
+#### Seeding
+
+Setting the `seed_everything:` argument to some fixed value ensures a
+reproducible experiment (modulo hardware non-determism).
+
+#### Model architecture
+
+#### Optimization
+
+Yoyodyne requires an optimizer and an learning rate scheduler. The default
+optimizer is
+[`torch.optim.Adam`](https://docs.pytorch.org/docs/stable/generated/torch.optim.Adam.html),
+and the default scheduler is `yoyodyne.schedulers.Dummy`, which keeps learning
+rate fixed at its initial value and takes no explicit configuration arguments.
+
+The following YAML snippet shows the use of the Adam optimizer with a
+non-default initial learning rate and the
+`yoyodyne.schedulers.WarmupInverseSquareRoot` LR scheduler:
+
+    ...
+    model:
+        ...
+        optimizer:
+          class_path: torch.optim.Adam
+          init_args:
+            lr: 1.0e-5 
+        scheduler:
+          class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
+          init_args:
+            warmup_epochs: 10   
+        ...
+
+#### Checkpointing
+
+The
+[`ModelCheckpoint`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelCheckpoint.html)
+is used to control the generation of checkpoint files. A sample YAML snippet is
+given below.
+
+    ...
+    checkpoint:
+      filename: "model-{epoch:03d}-{val_accuracy:.4f}"
+      mode: max
+      monitor: val_accuracy
+      verbose: true
+      ...
+
+Alternatively, one can specify a checkpointing that minimizes validation loss,
+as follows.
+
+    ...
+    checkpoint:
+      filename: "model-{epoch:03d}-{val_loss:.4f}"
+      mode: min
+      monitor: val_loss
+      verbose: true
+      ...
+
+A checkpoint config must be specified or Yoyodyne will not generate any
+checkpoints.
+
+#### Callbacks
+
+The user will likely want to configure additional callbacks. Some useful
+examples are given below.
+
+The
+[`LearningRateMonitor`](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.LearningRateMonitor.html)
+callback records learning rates:
+
+    ...
+    trainer:
+      callbacks:
+      - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+        init_args:
+          logging_interval: epoch
+      ...
+
+The
+[`EarlyStopping`](https://lightning.ai/docs/pytorch/stable/common/early_stopping.html)
+callback enables early stopping based on a monitored quantity and a fixed
+`patience`:
+
+    ...
+    trainer:
+      callbacks:
+      - class_path: lightning.pytorch.callbacks.EarlyStopping
+        init_args:
+          monitor: val_loss
+          patience: 10
+          verbose: true
+      ...
+
+#### Logging
+
+By default, Yoyodyne performs some minimal logging to standard error and uses
+progress bars to keep track of progress during each epoch. However, one can
+enable additional logging faculties during training, using a similar syntax to
+the one we saw above for callbacks.
+
+The
+[`CSVLogger`](https://lightning.ai/docs/pytorch/stable/extensions/generated/lightning.pytorch.loggers.CSVLogger.html)
+logs all monitored quantities to a CSV file:
+
+    ...
+    trainer:
+      logger:
+        - class_path: lightning.pytorch.loggers.CSVLogger
+          init_args:
+            save_dir: /Users/Shinji/models
+      ...
+       
+
+The
+[`WandbLogger`](https://lightning.ai/docs/pytorch/stable/extensions/generated/lightning.pytorch.loggers.WandbLogger.html)
+works similarly to the `CSVLogger`, but sends the data to the third-party
+website [Weights & Biases](https://wandb.ai/site), where it can be used to
+generate charts or share artifacts:
+
+    ...
+    trainer:
+      logger:
+      - class_path: lightning.pytorch.loggers.WandbLogger
+        init_args:
+          project: unit1
+          save_dir: /Users/Shinji/models
+      ...
+
+Note that this functionality requires a working account with Weights & Biases.
+
+#### Other options
+
+Dropout probability and/or label smoothing are specified as arguments to the
+`model` and its encoders:
+
+    ...
+    model:
+      source_encoder:
+        class_path: ...
+        init_args: ...
+          dropout: 0.5
+      decoder_dropout: 0.5
+      label_smoothing: 0.1
+      ...
+
+Batch size is specified using `data: batch_size: ...` and defaults to 32.
+
+By default, the source and target vocabularies share embeddings so identical
+source and target symbols will have the same embedding. This can be disabled
+with `data: tie_embeddings: false`.
+
+By default, training uses 32-bit precision. However, the `trainer.: precision:`
+flag allows the user to perform training with half precision (`16`), or with
+mixed-precision formats like `bf16-mixed` if supported by the accelerator. This
+might reduce the size of the model and batches in memory, allowing one to use
+larger batches, or it may simply provide small speed-ups.
+
+There are a number of ways to specify how long a model should train for. For
+example, the following YAML snippet specifies that training should run for 100
+epochs or 6 wall-clock hours, whichever comes first:
+
+    ...
+    trainer:
+      max_epochs: 100
+      max_time: 00:06:00:00
+      ...
+
+### Validation (`validate`)
+
+In `validation` mode, one runs the validation step over labeled validation data
+(specified as `data: val: path/to/validation.tsv`) using a previously trained
+checkpoint (`--ckpt_path path/to/checkpoint.ckpt` from the command line),
+recording loss and other statistics for the validation set. In practice this is
+mostly useful for debugging.
+
+This mode is invoked using the `validate` subcommand, like so:
+
+    yoyodyne validate --config path/to/config.yaml --ckpt_path path/to/checkpoint.ckpt
+
+### Evaluation (`test`)
+
+In `test` mode, one computes accuracy over held-out test data (specified as
+`data: test: path/to/test.tsv`) using a previously trained checkpoint
+(`--ckpt_path path/to/checkpoint.ckpt` from the command line); it differs from
+validation mode in that it uses the `test` file rather than the `val` file.
+
+This mode is invoked using the `test` subcommand, like so:
+
+    yoyodyne test --config path/to/config.yaml --ckpt_path path/to/checkpoint.ckpt
+
+#### Inference (`predict`)
+
+In `predict` mode, a previously trained model checkpoint
+(`--ckpt_path path/to/checkpoint.ckpt` from the command line) is used to label
+an input file. One must also specify the path where the predictions will be
+written:
+
+    ...
+    predict:
+      path: /Users/Shinji/predictions.txt
+    ...
+
+This mode is invoked using the `predict` subcommand, like so:
+
+    yoyodyne predict --config path/to/config.yaml --ckpt_path path/to/checkpoint.ckpt
+
+Vanilla RNN models (like `yoyodyne.models.AttentiveGRUModel` or
+`yoyodyne.models.AttentiveLSTMModel`) and pointer-generator RNN models (like
+`yoyodyne.models.PointerGeneratorGRUModel` or
+`yoyodyne.models.PointerGeneratorLSTMModel`) support beam search during
+prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
+`batch_size` of 1:
+
+    data:
+      ...
+      batch_size: 1
+      ...
+    model:
+      class_path: yoyodyne.models.AttentiveLSTMModel
+      init_args:
+        ...
+        beam_width: 5
+        ...
+    predict:
+      path: /Users/Shinji/predictions.tsv
+      ...
+
+The resulting prediction files will be a 10-column TSV file consisting of the
+top 5 target hypotheses and their log-likelihoods (collated together), rather
+than single-file text files just containing the top hypothesis.
 
 ## Models
 
@@ -256,134 +455,6 @@ For all models, the user may also wish to specify:
 By default, RNN-backed (i.e., GRU and LSTM) encoders are bidirectional. One can
 disable this with the `--no_bidirectional` flag.
 
-## Training options
-
-A non-exhaustive list includes:
-
--   Batch size:
-    -   `--batch_size` (default: `32`)
-    -   `--accumulate_grad_batches` (default: not enabled)
--   Regularization:
-    -   `--dropout` (default: `0.2`)
-    -   `--label_smoothing` (default: `0.0`)
-    -   `--gradient_clip_val` (default: not enabled)
--   Optimizer:
-    -   `--learning_rate` (default: `0.001`)
-    -   `--optimizer` (default: `"adam"`)
-    -   `--beta1` (default: `0.9`): $\beta_1$ hyperparameter for the Adam
-        optimizer (`--optimizer adam`)
-    -   `--beta2` (default: `0.99`): $\beta_2$ hyperparameter for the Adam
-        optimizer (`--optimizer adam`)
-    -   `--scheduler` (default: not enabled)
--   Duration:
-    -   `--max_epochs`
-    -   `--min_epochs`
-    -   `--max_steps`
-    -   `--min_steps`
-    -   `--max_time`
--   Seeding:
-    -   `--seed`
--   [Weights & Biases](https://wandb.ai/site):
-    -   `--log_wandb` (default: `False`): enables Weights & Biases tracking; the
-        "project" name can be specified using the environmental variable
-        `$WANDB_PROJECT`.
-
-Additional training options are discussed below.
-
-### Early stopping
-
-To enable early stopping, use the `--patience` and `--patience_metric` flags.
-Early stopping occurs after `--patience` epochs with no improvement (when
-validation loss stops decreasing if `--patience_metric loss`, or when validation
-accuracy stops increasing if `--patience_metric accuracy`). Early stopping is
-not enabled by default.
-
-### Schedulers
-
-By default, Yoyodyne uses a constant learning rate during training, but best
-practice is to gradually decrease learning rate as the model approaches
-convergence using a [scheduler](yoyodyne/schedulers.py). The following
-schedulers are supported and are selected with `--scheduler`:
-
--   `reduceonplateau`: reduces the learning rate (multiplying it by
-    `--reduceonplateau_factor`) after `--reduceonplateau_patience` epochs with
-    no improvement (when validation loss stops decreasing if
-    `--reduceonplateau loss`, or when validation accuracy stops increasing if
-    `--reduceonplateau_metric accuracy`) until the learning rate is less than or
-    equal to `--min_learning_rate`.
--   `warmupinvsqrt`: linearly increases the learning rate from 0 to
-    `--learning_rate` for `--warmup_steps` steps, then decreases learning rate
-    according to an inverse root square schedule.
-
-## Tied embeddings
-
-By default, the source and target vocabularies are shared. This can be disabled
-with the flag `--no_tie_embeddings`, which uses `{...}` to avoid clashes between
-source and target symbols.
-
-### Batch size tricks
-
-**Choosing a good batch size is key to fast training and optimal performance.**
-Batch size is specified by the `--batch_size` flag.
-
-One may wish to train with a larger batch size than will fit in "in core". For
-example, suppose one wishes to fit with a batch size of 4,096, but this gives an
-out of memory (OOM) exception. Then, with minimal overhead, one could simulate
-an effective batch size of 4,096 by using batches of size 1,024, [accumulating
-gradients from 4 batches per
-update](https://lightning.ai/docs/pytorch/stable/common/optimization.html#id3):
-
-    yoyodyne-train --batch_size 1024 --accumulate_grad_batches 4 ...
-
-The `--find_batch_size` flag enables [automatically computation of the batch
-size](https://lightning.ai/docs/pytorch/stable/advanced/training_tricks.html#batch-size-finder).
-With `--find_batch_size max`, it simply uses the maximum batch size, ignoring
-`--batch_size`. With `--find_batch_size opt`, it finds the maximum batch size,
-and then interprets it as follows:
-
--   If the maximum batch size is greater than `--batch_size`, then
-    `--batch_size` is used as the batch size.
--   However, if the maximum batch size is less than `--batch_size`, it solves
-    for the optimal gradient accumulation trick and uses the largest batch size
-    and the smallest number of gradient accumulation steps whose product is
-    `--batch_size`.
-
-If one wishes to solve for these quantities without actually training, pass
-`--find_batch_size opt` and `--max_epochs 0`. This will halt after computing and
-logging the solution.
-
-### Hyperparameter tuning
-
-**No neural model should be deployed without proper hyperparameter tuning.**
-However, the default options give a reasonable initial settings for an attentive
-biLSTM. For transformer-based architectures, experiment with multiple encoder
-and decoder layers, much larger batches, and the warmup-plus-inverse square root
-decay scheduler.
-
-### Weights & Biases tuning
-
-[`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
-Biases](https://wandb.ai/site) to run hyperparameter sweeps.
-
-## Accelerators
-
-[Hardware
-accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
-can be used during training or prediction. In addition to CPU (the default) and
-GPU (`--accelerator gpu`), [other
-accelerators](https://pytorch-lightning.readthedocs.io/en/stable/extensions/accelerator.html)
-may also be supported but not all have been tested yet.
-
-## Precision
-
-By default, training uses 32-bit precision. However, the `--precision` flag
-allows the user to perform training with half precision (`16`) or with the
-[`bfloat16` half precision
-format](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) if
-supported by the accelerator. This may reduce the size of the model and batches
-in memory, allowing one to use larger batches. Note that only default precision
-is expected to work with CPU training.
-
 ## Examples
 
 The [`examples`](examples) directory contains interesting examples, including:
@@ -401,11 +472,17 @@ The [`examples`](examples) directory contains interesting examples, including:
     provides a similar interface but uses large pre-trained models to initialize
     the encoder and decoder modules.
 
+## Testing
+
+🚧 UNDER CONSTRUCTION 🚧
+
+### License
+
+Yoyodyne is distributed under an [Apache 2.0 license](LICENSE.txt).
+
 ## For developers
 
-*Developers, developers, developers!* - Steve Ballmer
-
-This section contains instructions for the Yoyodyne maintainers.
+We welcome contributions using the fork-and-pull model.
 
 ### Design
 
@@ -425,35 +502,35 @@ consistency decisions made thus far:
 
 A *model* in Yoyodyne is a sequence-to-sequence architecture and inherits from
 `yoyodyne.models.BaseModel`. These models in turn consist of ("have-a") one or
-more *encoders* responsible for building a numerical representation of the
-source (and features, where appropriate) and a *decoder* responsible for
-predicting the target sequence using the representation generated by the
-encoders. The encoders and decoder are themselves Torch modules.
+more *encoders* responsible for encoding the source (and features, where
+appropriate), and a *decoder* responsible for predicting the target sequence
+using the representation generated by the encoders. The encoders and decoder are
+themselves Torch modules.
 
 The model is responsible for constructing the encoders and decoders. The model
-dictates the type of decoder; each model has a preferred encoder type as well,
-though it may work with others. The model communicates with its modules by
-calling them as functions (which invokes their `forward` methods); however, in
-some cases it is also necessary for the model to call ancillary members or
-methods of its modules. The `base.ModuleOutput` class is used to capture the
-output of the various modules, and it is this which is essential to, e.g.,
-abstracting between different kinds of encoders which may or may not have hidden
-or cell state to return.
+dictates the type of decoder. The model communicates with its modules by calling
+them as functions (which invokes their `forward` methods); however, in some
+cases it is also necessary for the model to call ancillary members or methods of
+its modules.
 
-When features are present, models are responsible for fusing encoded source and
-features and do so in a model-specific fashion. For example, ordinary RNNs and
+When features are present, models are responsible for fusing source and features
+encodings, and do so in a model-specific fashion. For example, ordinary RNNs and
 transformers concatenate source and features encodings on the length dimension
-whereas hard attention and transducer models average across the features
-encoding across the length dimension and the concatenate the resulting tensor
-with the source encoding on the encoding dimension; by doing so they preserve
-the source length and make it impossible to attend directly to features symbols.
+(and thus require that the encodings be the same size), whereas hard attention
+and transducer models average across the features encoding across the length
+dimension and the concatenate the resulting tensor with the source encoding on
+the encoding dimension; by doing so they preserve the source length and make it
+impossible to attend directly to features symbols.
 
 #### Decoding strategies
 
 Each model supports greedy decoding implemented via a `greedy_decode` method;
-some also support beam decoding via `beam_decode`. Some models (e.g., the hard
-attention models) require teacher forcing, but most can be trained with either
-student or teacher forcing.
+some also support beam decoding via `beam_decode`
+(cf. [#17](https://github.com/CUNY-CL/yoyodyne/issues/17)).
+
+Some models (e.g., the hard attention models) require teacher forcing, but
+others can be trained with either student or teacher forcing
+(cf. [#77](https://github.com/CUNY-CL/yoyodyne/issues/77)).
 
 ### Releasing
 

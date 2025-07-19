@@ -45,6 +45,10 @@ class TransformerModel(base.BaseModel):
         self.attention_heads = attention_heads
         self.decoder_max_length = decoder_max_length
         super().__init__(*args, **kwargs)
+        self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
         if (
             self.has_features_encoder
             and self.source_encoder.output_size
@@ -52,13 +56,9 @@ class TransformerModel(base.BaseModel):
         ):
             raise Error(
                 "Cannot concatenate source encoding "
-                f"({self.source_encoder.output_size}) and features encoding "
-                f"{self.features_encoder.output_size})"
+                f"({self.source_encoder.output_size}) and features "
+                f"encoding {self.features_encoder.output_size})"
             )
-        self.teacher_forcing = teacher_forcing
-        self.classifier = nn.Linear(
-            self.embedding_size, self.target_vocab_size
-        )
 
     def decode_step(
         self,

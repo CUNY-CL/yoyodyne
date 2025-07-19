@@ -78,7 +78,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         max_target_length: int = defaults.MAX_LENGTH,
         optimizer: cli.OptimizerCallable = defaults.OPTIMIZER,
         scheduler: cli.LRSchedulerCallable = defaults.SCHEDULER,
-        has_features: bool = False,  # Dummy value filled in via link.
         target_vocab_size: int = -1,  # Dummy value filled in via link.
         vocab_size: int = -1,  # Dummy value filled in via link.
         **kwargs,  # Ignored here.
@@ -106,17 +105,27 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         if source_encoder.embedding_size != self.embedding_size:
             raise Error(
                 "Source embedding size "
-                f"({self.source_encoder.embedding_size}) != "
+                f"({source_encoder.embedding_size}) != "
                 "model embedding size "
                 f"({self.embedding_size})"
             )
         self.source_encoder = source_encoder
         if features_encoder is True:
             self.features_encoder = self.source_encoder
+            self.has_features_encoder = True
         elif features_encoder is False:
             self.feature_encoder = None
+            self.has_features_encoder = False
         else:
+            if features_encoder.embedding_size != self.embedding_size:
+                raise Error(
+                    "Features embedding size "
+                    f"({features_encoder.embedding_size}) != "
+                    "model embedding size "
+                    f"({self.embedding_size})"
+                )
             self.features_encoder = features_encoder
+            self.has_features_encoder = True
         self.decoder = self.get_decoder()
         self.loss_func = self._get_loss_func()
         self.save_hyperparameters(
@@ -127,12 +136,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             ]
         )
         self._log_model()
-        self._check_compatibility()
-
-    # Override to add a compatibility check.
-
-    def _check_compatibility(self) -> None:
-        pass
 
     def _get_loss_func(
         self,
@@ -193,10 +196,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     @property
     def has_ser(self) -> bool:
         return self.ser is not None
-
-    @property
-    def has_features_encoder(self) -> bool:
-        return self.features_encoder is not None
 
     @property
     def num_parameters(self) -> int:
