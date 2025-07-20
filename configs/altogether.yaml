@@ -49,5 +49,5 @@ checkpoint:
   monitor: val_accuracy
   verbose: true
   mode: max
-predict:
+prediction:
   path: /Users/shinji/predict.txt

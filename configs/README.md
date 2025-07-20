@@ -66,6 +66,10 @@ To use, run:
 
 ## Model configurations
 
+To use any of the configurations below, run:
+
+    yoyodyne fit --model /path/to/model_config.yaml ...
+
 ### Feature-free configurations
 
 These models all involve a simple sequence-to-sequence transduction without any
@@ -117,5 +121,9 @@ but we illustrate different ways one can enable feature conditioning.
 
 ## Putting it all together
 
-[`algother.yaml`](altogether.yaml) is a single combined configuration file with trainer,
-checkpoint, data, model, and prediction configuration information.
+[`algother.yaml`](altogether.yaml) is a single combined configuration file with
+trainer, checkpoint, data, model, and prediction configuration information.
+
+To use, run:
+
+    yoyodyne fit --config /path/to/config.yaml
