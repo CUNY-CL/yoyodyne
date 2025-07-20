@@ -17,6 +17,10 @@ Yoyodyne's use with various architectures.
 
         yoyodyne fit --config /path/to/config.yaml --data.batch_size 1024 ...
 
+-   create a single combined configuration file (NB: won't actually train):
+
+        yoyodyne fit --trainer /path/to/trainer_config.yaml --model /path/to/model_config.yaml --print_config=skip_default,skip_null
+
 The `LightningCLI` configuration system is extremely powerful and advanced users
 may want to read the docs
 [here](https://lightning.ai/docs/pytorch/stable/cli/lightning_cli_advanced.html)
@@ -37,6 +41,17 @@ To use, run:
 
     yoyodyne fit --trainer /path/to/trainer_config.yaml ...
 
+## Checkpointing configurations
+
+-   [`accuracy_checkpoint.yaml`](accuracy_checkpoint.yaml) saves the single
+    checkpoint with the highest validation accuracy.
+-   [`loss_checkpoint.yaml`](loss_checkpoint.yaml) saves the single checkpoint
+    with the lowest validation loss.
+
+To use, run:
+
+    yoyodyne fit --checkpoint /path/to/checkpoint_config.yaml ...
+
 ## Data configurations
 
 -   [`sigmorphon2016.yaml`](sigmorphon2016.yaml) specifies the data format for
@@ -48,17 +63,6 @@ To use, run:
 To use, run:
 
     yoyodyne fit --data /path/to/data_config.yaml ...
-
-## Checkpointing configurations
-
--   [`accuracy_checkpoint.yaml`](accuracy_checkpoint.yaml) saves the single
-    checkpoint with the highest validation accuracy.
--   [`loss_checkpoint.yaml`](loss_checkpoint.yaml) saves the single checkpoint
-    with the lowest validation loss.
-
-To use, run:
-
-    yoyodyne fit --checkpoint /path/to/checkpoint_config.yaml ...
 
 ## Model configurations
 
@@ -110,3 +114,8 @@ but we illustrate different ways one can enable feature conditioning.
     variant with a separate linear features encoder.
 -   [`transformer_shared.yaml`](transformer_shared.yaml) is a transformer with a
     shared source and features encoder.
+
+## Putting it all together
+
+[`algother.yaml`](altogether.yaml) is a single combined configuration file with trainer,
+checkpoint, data, model, and prediction configuration information.

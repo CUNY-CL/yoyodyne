@@ -1,4 +1,4 @@
-filename: "model-{epoch:03d}-{val_loss:.4f}"
+filename: model-{epoch:03d}-{val_loss:.4f}
 mode: min
 monitor: val_loss
 verbose: true

@@ -1,4 +1,4 @@
-filename: "model-{epoch:03d}-{val_accuracy:.4f}"
+filename: model-{epoch:03d}-{val_accuracy:.4f}
 mode: max
 monitor: val_accuracy
 verbose: true
