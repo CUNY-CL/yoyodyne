@@ -10,9 +10,9 @@ parameters:
     min: 0
     max: 0.5
   model.init_args.decoder_hidden_size:
-    value: 512
+    value: 400
   model.init_args.embedding_size:
-    value: 128
+    value: 100
   model.init_args.label_smoothing:
     distribution: uniform
     min: 0
@@ -24,9 +24,9 @@ parameters:
     min: 0
     max: 0.5
   model.init_args.source_encoder.init_args.embedding_size:
-    value: 128
+    value: 100
   model.init_args.source_encoder.init_args.hidden_size:
-    value: 512
+    value: 400
   model.init_args.features_encoder:
     value: true
   model.init_args.optimizer.class_path:
@@ -41,7 +41,7 @@ parameters:
     distribution: q_uniform
     q: 1
     min: 1
-    max: 10
+    max: 20
   data.batch_size:
     distribution: q_uniform
     q: 16

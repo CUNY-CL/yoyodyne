@@ -1,10 +1,4 @@
-#!/usr/bin/env python
-"""Runs a W&B sweep.
-
-Adapted from UDTube:
-
-    https://github.com/CUNY-CL/udtube/blob/master/examples/wandb_sweeps/sweep.py
-"""
+"""Runs a W&B sweep."""
 
 import argparse
 import functools
@@ -14,18 +8,18 @@ import sys
 import tempfile
 import traceback
 import warnings
-from typing import TextIO
+from typing import Dict, List, TextIO
 
 import wandb
 import yaml
 
-import util
+from .. import util
 
 warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
 
 
 def train_sweep(
-    config: dict[str, ...], temp_config: TextIO, argv: list[str]
+    config: Dict[str, ...], temp_config: TextIO, argv: List[str]
 ) -> None:
     """Runs a single training run.
 
@@ -38,7 +32,7 @@ def train_sweep(
     run_sweep(argv)
 
 
-def run_sweep(argv: list[str]) -> None:
+def run_sweep(argv: List[str]) -> None:
     """Actually runs the sweep.
 
     Args:
@@ -54,7 +48,7 @@ def run_sweep(argv: list[str]) -> None:
 
 
 def populate_config(
-    config: dict[str, ...], temp_config_handle: TextIO
+    config: Dict[str, ...], temp_config_handle: TextIO
 ) -> None:
     """Populates temporary configuration file.
 
@@ -70,7 +64,21 @@ def populate_config(
     yaml.safe_dump(config, temp_config_handle)
 
 
-def main(args: argparse.Namespace) -> None:
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sweep_id", required=True, help="ID for the sweep.")
+    parser.add_argument(
+        "--entity", required=True, help="The entity scope for the project."
+    )
+    parser.add_argument(
+        "--project", required=True, help="The project of the sweep."
+    )
+    parser.add_argument("--count", type=int, help="Number of runs to perform.")
+    parser.add_argument("--config", required=True)
+    # We pass the known args to main but remove them from ARGV.
+    # See: https://docs.python.org/3/library/argparse.html#partial-parsing
+    # This allows the user to override config arguments with CLI arguments.
+    args, sys.argv[1:] = parser.parse_known_args()
     with open(args.config, "r") as source:
         config = yaml.safe_load(source)
     # TODO: Consider enabling the W&B logger; we are not sure if things will
@@ -96,26 +104,3 @@ def main(args: argparse.Namespace) -> None:
         logging.fatal(traceback.format_exc())
         wandb.finish(exit_code=1)
         exit(1)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(levelname)s: %(asctime)s - %(message)s",
-        datefmt="%d-%b-%y %H:%M:%S",
-        level="INFO",
-    )
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sweep_id", required=True, help="ID for the sweep.")
-    parser.add_argument(
-        "--entity", required=True, help="The entity scope for the project."
-    )
-    parser.add_argument(
-        "--project", required=True, help="The project of the sweep."
-    )
-    parser.add_argument("--count", type=int, help="Number of runs to perform.")
-    parser.add_argument("--config", required=True)
-    # We pass the known args to main but remove them from ARGV.
-    # See: https://docs.python.org/3/library/argparse.html#partial-parsing
-    # This allows the user to override config arguments with CLI arguments.
-    args, sys.argv[1:] = parser.parse_known_args()
-    main(args)

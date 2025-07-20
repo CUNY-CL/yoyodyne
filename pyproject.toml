@@ -39,11 +39,13 @@ dependencies = [
     "pyyaml>=6.0,<7.0",
     "torch>=2.4.0,<3.0.0",
     "torchmetrics>=1.4.0post0,<2.0.0",
-    "wandb>=0.18.0,< 0.19.0",
+    "wandb>=0.18.0,<0.19.0",
 ]
 
 [project.scripts]
-yoyodyne = "yoyodyne.cli:main"
+yoyodyne = "yoyodyne.cli.main:main"
+yoyodyne_hyperparameters = "yoyodyne.cli.hyperparameters:main"
+yoyodyne_sweep = "yoyodyne.cli.sweep:main"
 
 [project.urls]
 homepage = "https://github.com/CUNY-CL/yoyodyne"

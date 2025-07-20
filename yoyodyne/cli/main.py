@@ -4,7 +4,7 @@ import logging
 
 from lightning.pytorch import callbacks as pytorch_callbacks, cli
 
-from . import callbacks, data, models, trainers
+from .. import callbacks, data, models, trainers
 
 
 class YoyodyneCLI(cli.LightningCLI):

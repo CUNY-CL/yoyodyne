@@ -1,8 +1,10 @@
-"""Yoyodyne: small-vocabulary sequence-to-sequence generation."""
+"""Yoyodyne: small-vocabulary sequence-to-sequence generation.
+
+This module just silences some uninformative warnings.
+"""
 
 import warnings
 
-# Silences irrelevant warnings; these are more like "Did you know?"s.
 warnings.filterwarnings(
     "ignore",
     ".*does not have many workers which may be a bottleneck.*",

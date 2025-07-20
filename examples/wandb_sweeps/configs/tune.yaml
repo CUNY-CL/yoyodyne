@@ -10,7 +10,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: val_loss
-        patience: 20
+        patience: 10
         verbose: true
   logger:
     - class_path: lightning.pytorch.loggers.CSVLogger

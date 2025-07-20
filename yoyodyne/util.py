@@ -1,6 +1,9 @@
 """Utilities."""
 
+import logging
 import os
+
+from typing import Dict
 
 import torch
 
@@ -61,3 +64,28 @@ def pad_tensor_after_end(
         with torch.inference_mode():
             predictions[i] = torch.cat((symbols, pads))
     return predictions
+
+
+def recursive_insert(config: Dict[str, ...], key: str, value) -> None:
+    """Recursively inserts values into a nested dictionary.
+
+    Args:
+        config: the config dictionary.
+        key: a string with the arguments separated by ".".
+        value: the value to insert.
+    """
+    *most, last = key.split(".")
+    ptr = config
+    for piece in most:
+        try:
+            ptr = ptr[piece]
+        except KeyError:
+            ptr[piece] = {}
+            ptr = ptr[piece]
+    if last in ptr:
+        logging.debug(
+            "Overriding configuration argument %s with W&B sweep value: %r",
+            key,
+            value,
+        )
+    ptr[last] = value
