@@ -35,12 +35,13 @@ jobs:
       - run:
           name: Show installed Python packages
           command: pip list -v
-      - run:
-          name: Run tests
-          command: |
-              pytest -vv tests --junitxml /tmp/testxml/report.xml
-      - store_test_results:
-          path: /tmp/testxml/
+      # TODO(#5): as of #327 we have no active tests.
+      #- run:
+      #    name: Run tests
+      #    command: |
+      #        pytest -vv tests --junitxml /tmp/testxml/report.xml
+      #- store_test_results:
+      #    path: /tmp/testxml/
 
 workflows:
   version: 2
