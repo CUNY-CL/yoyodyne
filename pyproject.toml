@@ -19,7 +19,7 @@ license = { text = "Apache 2.0" }
 authors = [
     {name = "Adam Wiemerslage"},
     {name = "Kyle Gorman"},
-    {name = "Travis Bartley"},
+    {name = "Travis M. Bartley"},
 ]
 keywords = [
     "computational linguistics",
