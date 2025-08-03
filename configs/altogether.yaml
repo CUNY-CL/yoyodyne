@@ -3,10 +3,10 @@ trainer:
   logger:
   - class_path: lightning.pytorch.loggers.CSVLogger
     init_args:
-      save_dir: /Users/Shinji/models
+      save_dir: /Users/Shinji/models  # TODO: fix for your environment.
   - class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-      save_dir: /Users/Shinji/models
+      save_dir: /Users/Shinji/models  # TODO: fix for your environment.
   callbacks:
   - class_path: lightning.pytorch.callbacks.LearningRateMonitor
     init_args:
@@ -39,15 +39,15 @@ model:
       init_args:
         lr: 1.0
 data:
-  model_dir: /Users/Shinji/models
-  train: /Users/Shinji/train.tsv
-  val: /Users/Shinji/dev.tsv
-  predict: /Users/Shinji/test.tsv
-  test: /Users/Shinji/test.tsv
+  model_dir: /Users/Shinji/models  # TODO: fix for your environment.
+  train: /Users/Shinji/train.tsv  # TODO: fix for your environment.
+  val: /Users/Shinji/dev.tsv  # TODO: fix for your environment.
+  predict: /Users/Shinji/test.tsv  # TODO: fix for your environment.
+  test: /Users/Shinji/test.tsv  # TODO: fix for your environment.
 checkpoint:
   filename: model-{epoch:03d}-{val_accuracy:.4f}
   monitor: val_accuracy
   verbose: true
   mode: max
 prediction:
-  path: /Users/shinji/predict.txt
+  path: /Users/shinji/predict.txt  # TODO: fix for your environment.

@@ -14,8 +14,8 @@ callbacks:
 logger:
   - class_path: lightning.pytorch.loggers.CSVLogger
     init_args:
-      save_dir: /Users/Shinji/models
+      save_dir: /Users/Shinji/models  # TODO: fix for your environment.
   - class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
       project: unti1
-      save_dir: /Users/Shinji/models
+      save_dir: /Users/Shinji/models  # TODO: fix for your environment.
