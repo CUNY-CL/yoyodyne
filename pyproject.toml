@@ -12,7 +12,7 @@ requires-python = ">= 3.10,<3.141"
 authors = [
     { name = "Adam Wiemerslage" },
     { name = "Kyle Gorman", email = "kylebgorman@gmail.com" },
-    { name = "Travis Bartley" },
+    {name = "Travis M. Bartley"},
 ]
 keywords = [
     "computational linguistics",
