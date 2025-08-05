@@ -3,16 +3,16 @@
 import abc
 from typing import Callable, Dict, List, Optional, Tuple
 
-from maxwell import actions
+from maxwell import actions, sed
 import numpy
 import torch
 from torch import nn
 
 from .. import data, defaults, special, util
-from . import expert, modules, rnn
+from . import base, embeddings, expert, modules
 
 
-class TransducerRNNModel(rnn.RNNModel):
+class TransducerRNNModel(base.BaseModel):
     """Abstract base class for transducer models.
 
     Transducer models are essentially inattentive RNN models which
@@ -30,45 +30,51 @@ class TransducerRNNModel(rnn.RNNModel):
         2877–2882.
 
      Args:
-        expert (expert.Expert): oracle that guides training for transducer.
+        sed_path (str): path to SED parameters .pkl.
         *args: passed to superclass.
+        index (data.Index, optional): index for mapping symbols to indices.
+        oracle_factor (int, optional): a scaling factor for scheduling
+            predictions during transducer training.
+        teacher_forcing (bool, optional): should teacher (rather than student)
+            forcing be used?
         **kwargs: passed to superclass.
     """
 
     expert: expert.Expert
+    teacher_forcing: bool
+    classifer: nn.Linear
 
     def __init__(
         self,
-        expert,
+        sed_path: str,
         *args,
+        index: Optional[data.Index] = None,  # Dummy value filled in via link.
+        oracle_factor: int = defaults.ORACLE_FACTOR,
+        teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
-        """Initializes transducer model.
-
-        Args:
-            expert (expert.Expert): oracle that guides training for transducer.
-            *args: passed to superclass.
-            **kwargs: passed to superclass.
-        """
-        super().__init__(*args, **kwargs)
-        # Model specific variables.
-        self.vocab_offset = self.vocab_size - self.target_vocab_size
-        self.expert = expert  # Oracle to train model.
-        self.actions = self.expert.actions
-        self.substitutions = self.actions.substitutions
+        self.actions = expert.ActionVocabulary(index)
         self.insertions = self.actions.insertions
+        self.substitutions = self.actions.substitutions
+        aligner = sed.StochasticEditDistance(
+            sed.ParamDict.read_params(sed_path)
+        )
+        self.expert = expert.Expert(actions, aligner, oracle_factor)
+        # The vocabularies are defined in a radically different way here.
+        self.vocab_offset = index.vocab_size
+        kwargs["target_vocab_size"] = len(self.actions)
+        kwargs["vocab_size"] = index.vocab_size + len(self.actions)
+        super().__init__(*args, **kwargs)
+        self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.decoder_hidden_size, self.target_vocab_size
+        )
 
     def _get_loss_func(
         self,
     ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
         # Prevents base construction of unused loss function.
         return None
-
-    def beam_decode(self, *args, **kwargs):
-        """Overrides incompatible implementation inherited from RNNModel."""
-        raise NotImplementedError(
-            f"Beam search is not supported by {self.name} model"
-        )
 
     @property
     def decoder_input_size(self) -> int:
@@ -82,51 +88,38 @@ class TransducerRNNModel(rnn.RNNModel):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> Tuple[List[List[int]], torch.Tensor]:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             Tuple[List[List[int]], torch.Tensor]: encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned.
         """
-        encoded = self.source_encoder(batch.source)
+        encoded = self.source_encoder(batch.source, self.embeddings)
         # Ignores start symbol.
         encoded = encoded[:, 1:, :]
         source = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         if self.has_features_encoder:
-            features_encoded = self.features_encoder(batch.features)
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             encoded = torch.cat((encoded, features_encoded), dim=2)
-        if self.beam_width > 1:
-            # Will raise a NotImplementedError.
-            return self.beam_decode(
-                source,
-                encoded,
-                source_mask,
-                teacher_forcing=(
-                    self.teacher_forcing if self.training else False
-                ),
-                target=batch.target.padded if batch.has_target else None,
-                target_mask=batch.target.mask if batch.has_target else None,
-            )
-        else:
-            return self.greedy_decode(
-                source,
-                encoded,
-                source_mask,
-                teacher_forcing=(
-                    self.teacher_forcing if self.training else False
-                ),
-                target=batch.target.padded if batch.has_target else None,
-                target_mask=batch.target.mask if batch.has_target else None,
-            )
+        return self.greedy_decode(
+            source,
+            encoded,
+            source_mask,
+            teacher_forcing=self.teacher_forcing if self.training else False,
+            target=batch.target.padded if batch.has_target else None,
+            target_mask=batch.target.mask if batch.has_target else None,
+        )
 
     def greedy_decode(
         self,
@@ -204,6 +197,7 @@ class TransducerRNNModel(rnn.RNNModel):
                 ~(alignment.unsqueeze(1) + 1),
                 last_action.unsqueeze(dim=1) + self.vocab_offset,
                 state,
+                self.embeddings,
             )
             logits = self.classifier(decoded).squeeze(1)
             # If given targets, asks expert for optimal actions.
@@ -522,15 +516,13 @@ class TransducerRNNModel(rnn.RNNModel):
         normalization_term = torch.logsumexp(logits, -1)
         return log_sum_exp_terms - normalization_term
 
-    def predict_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def predict_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         predictions, _ = self(batch)
         length = max(len(prediction) for prediction in predictions)
         # Pads; truncation cannot occur by construction.
         return self._convert_predictions(predictions, length)
 
-    def test_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, _ = self(batch)
         self._update_metrics(
             self._convert_predictions(predictions), batch.target.padded
@@ -539,25 +531,32 @@ class TransducerRNNModel(rnn.RNNModel):
     def on_train_epoch_start(self) -> None:
         self.expert.roll_in_schedule(self.current_epoch)
 
-    def training_step(
-        self, batch: data.PaddedBatch, batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         """Runs one step of training.
 
-        This is called by the PL Trainer.
+        Training loss is tracked.
 
         Args:
-            batch (data.PaddedBatch)
+            batch (data.Batch)
             batch_idx (int).
 
         Returns:
-            torch.Tensor: loss.
+            torch.Tensor: training loss.
         """
         # Forward pass produces loss.
         _, loss = self(batch)
+        self.log(
+            "train_loss",
+            loss,
+            batch_size=len(batch),
+            logger=True,
+            on_epoch=True,
+            on_step=False,
+            prog_bar=True,
+        )
         return loss
 
-    def validation_step(self, batch: data.PaddedBatch, batch_idx: int) -> None:
+    def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, loss = self(batch)
         self.log(
             "val_loss",
@@ -632,24 +631,40 @@ class TransducerRNNModel(rnn.RNNModel):
             # its late ordering.
             return torch.tensor(prediction[:length], device=self.device)
 
+    def init_embeddings(
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
+
     @property
     @abc.abstractmethod
     def name(self) -> str: ...
 
 
-class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
+class TransducerGRUModel(TransducerRNNModel):
     """Transducer with GRU backend."""
 
     def get_decoder(self) -> modules.GRUDecoder:
         return modules.GRUDecoder(
             bidirectional=False,
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
+            dropout=self.decoder_dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
             layers=self.decoder_layers,
-            hidden_size=self.hidden_size,
-            num_embeddings=self.vocab_size,
+            hidden_size=self.decoder_hidden_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -657,19 +672,19 @@ class TransducerGRUModel(TransducerRNNModel, rnn.GRUModel):
         return "transducer GRU"
 
 
-class TransducerLSTMModel(TransducerRNNModel, rnn.LSTMModel):
+class TransducerLSTMModel(TransducerRNNModel):
     """Transducer with LSTM backend."""
 
     def get_decoder(self) -> modules.LSTMDecoder:
         return modules.LSTMDecoder(
             bidirectional=False,
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
+            dropout=self.decoder_dropout,
             embeddings=self.embeddings,
             embedding_size=self.embedding_size,
             layers=self.decoder_layers,
-            hidden_size=self.hidden_size,
-            num_embeddings=self.vocab_size,
+            hidden_size=self.decoder_hidden_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property

@@ -8,11 +8,6 @@ Adding additional metrics is relatively easy, though there are a lot of steps.
 Suppose one wants to add a metric called Wham. Then one must:
 
 * Implement `Wham(torchmetrics.Metric)` in this module.
-* Register `Wham` in `_metric_fac` in this module.
-* Add the following to `get_model_from_argparse_args` in `train.py`:
-
-    compute_wham=metrics.compute_metric(args, "wham")
-
 * Add the following to the `BaseModel` in `models/base.py`:
     - add `wham: Optional[metrics.Wham]` to the member type declarations
     - add `compute_wham=False` to the constructor's arguments
@@ -46,14 +41,11 @@ Suppose one wants to add a metric called Wham. Then one must:
             )
 """
 
-import argparse
-import collections
-
 import numpy
 import torch
 import torchmetrics
 
-from . import defaults, special, util
+from . import special
 
 
 class Error(Exception):
@@ -70,30 +62,6 @@ class Error(Exception):
 # * `mode` is either "max" or "min" and indicates whether we want to
 #   maximize or minimize the metric.
 # * `monitor` is the name of the metric with a `val_` prefix.
-
-
-Metric = collections.namedtuple("Metric", ["filename", "mode", "monitor"])
-
-
-_metric_fac = {
-    "accuracy": Metric(
-        "model-{epoch:03d}-{val_accuracy:.3f}", "max", "val_accuracy"
-    ),
-    "loss": Metric(
-        "model-{epoch:03d}-{val_loss:.3f}",
-        "min",
-        "val_loss",
-    ),
-    "ser": Metric(
-        "model-{epoch:03d}-{val_ser:.3f}",
-        "min",
-        "val_ser",
-    ),
-}
-
-
-def get_metric(name: str) -> Metric:
-    return _metric_fac[name]
 
 
 # Implements metrics.
@@ -241,57 +209,3 @@ class SER(torchmetrics.Metric):
 
     def compute(self) -> torch.Tensor:
         return self.edits / self.length
-
-
-# Helper function to determine whether we need to compute a metric.
-
-
-def compute_metric(args: argparse.Namespace, metric: str) -> bool:
-    """Tests whether a metric needs to be tracked.
-
-    Args:
-        args (argparse.Namespace).
-        metric (str)
-
-    Return:
-        True iff the metric needs to be tracked.
-    """
-    return (
-        metric == args.checkpoint_metric
-        or metric == args.reduceonplateau_metric
-        or metric == args.patience_metric
-        or metric in args.eval_metric
-    )
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds shared configuration options to the argument parser.
-
-    These are only needed at training time.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--checkpoint_metric",
-        choices=_metric_fac.keys(),
-        default=defaults.CHECKPOINT_METRIC,
-        help="Selects checkpoints to maximize validation `accuracy`, "
-        "or to minimize validation `loss` or `ser`. "
-        "Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--eval_metric",
-        action=util.UniqueAddAction,
-        choices=_metric_fac.keys(),
-        default=defaults.EVAL_METRICS,
-        help="Additional metrics to compute.",
-    )
-    parser.add_argument(
-        "--patience_metric",
-        choices=_metric_fac.keys(),
-        default=defaults.PATIENCE_METRIC,
-        help="Stops early when validation `accuracy` does not increase or "
-        "when validation `loss` or `ser` does not decrease. "
-        "Default: %(default)s.",
-    )
