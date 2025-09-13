@@ -1,8 +1,9 @@
 """Full tests of training and prediction.
 
 This runs five epochs of training over toy data sets, then computes the
-held-out accuracy performance. As such this is essentially a
-change-detector test.
+held-out accuracy and loss, comparing it against a previously recorded
+numbers. As such this is essentially a change-detector test. See testdata/data
+for code for regenerating data and accuracy/loss statistics.
 """
 
 import contextlib
