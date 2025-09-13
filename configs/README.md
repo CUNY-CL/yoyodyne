@@ -37,7 +37,7 @@ before beginning.
     -   local CSV logging
     -   remote [Weights & Biases](https://wandb.ai/site) logging
 
-To use, run:
+To use, set paths as appropriate for your environment, then run:
 
     yoyodyne fit --trainer /path/to/trainer_config.yaml ...
 
@@ -60,7 +60,7 @@ To use, run:
 
         source feat1,feat2,... target
 
-To use, run:
+To use, set paths as appropriate for your environment, then run:
 
     yoyodyne fit --data /path/to/data_config.yaml ...
 
@@ -124,6 +124,6 @@ but we illustrate different ways one can enable feature conditioning.
 [`algother.yaml`](altogether.yaml) is a single combined configuration file with
 trainer, checkpoint, data, model, and prediction configuration information.
 
-To use, run:
+To use, set paths as appropriate for your environment, then run:
 
     yoyodyne fit --config /path/to/config.yaml

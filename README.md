@@ -34,7 +34,7 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 ## Authors
 
 Yoyodyne was created by [Adam Wiemerslage](https://adamits.github.io/), [Kyle
-Gorman](https://wellformedness.com/), Travis Bartley, and [other
+Gorman](https://wellformedness.com/), Travis M. Bartley, and [other
 contributors](https://github.com/CUNY-CL/yoyodyne/graphs/contributors) like
 yourself.
 
