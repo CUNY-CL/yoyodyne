@@ -25,7 +25,7 @@ all: train.tsv dev.tsv test.tsv
 	.././randgen.py --vocabulary 26 --length 5 --seed 1957 --size 100 > "$(TMPDIR)/reverse_$@"
 	paste "$(TMPDIR)/reverse_$@" <(rev "$(TMPDIR)/reverse_$@") > "$@"
 
-%_expected.test: train.tsv dev.tsv test.tsv
+%_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \
 		fit \

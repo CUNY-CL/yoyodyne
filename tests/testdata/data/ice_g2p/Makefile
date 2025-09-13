@@ -29,7 +29,7 @@ dev.tsv:
 test.tsv:
 	curl -s https://raw.githubusercontent.com/sigmorphon/2021-task1/refs/heads/main/data/low/ice_test.tsv > "$@"
 
-%_expected.test: train.tsv dev.tsv test.tsv
+%_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \
 		fit \

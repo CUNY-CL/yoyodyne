@@ -26,7 +26,7 @@ all: train.tsv dev.tsv test.tsv
 	paste "$(TMPDIR)/upper_$@" <(tr [:lower:] [:upper:] < "$(TMPDIR)/upper_$@") > "$@"
 	rm -rf "$(TMPDIR)"
 
-%_expected.test: train.tsv dev.tsv test.tsv
+%_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \
 		fit \
