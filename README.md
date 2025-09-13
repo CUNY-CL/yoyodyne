@@ -550,11 +550,11 @@ To run all tests, run the following:
 
     pytest -vvv tests
 
-Given this large number of units and the alloted amount of training time, which
+Given this large number of units and the allotted amount of training time, which
 accounts for the vast majority of compute time, running the full set of tests
-could take as long as a few hours. Thus one may wish instead to specific a
-subset of tests using the `-k` flag. For example, to run all the "toy" tests,
-run the following:
+could take as long as a few hours. Thus one may wish instead to specify a subset
+of tests using the `-k` flag. For example, to run all the "toy" tests, run the
+following:
 
     pytest -vvv -k toy tests
 
