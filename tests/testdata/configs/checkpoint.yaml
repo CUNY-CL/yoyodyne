@@ -1,0 +1,4 @@
+filename: model-{epoch:03d}-{val_accuracy:.4f}
+mode: max
+monitor: val_accuracy
+save_last: true

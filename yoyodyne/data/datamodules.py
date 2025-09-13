@@ -77,6 +77,7 @@ class DataModule(lightning.LightningDataModule):
         max_target_length: int = defaults.MAX_LENGTH,
     ):
         super().__init__()
+        self.model_dir = model_dir
         self.train = train
         self.val = val
         self.predict = predict
@@ -94,9 +95,9 @@ class DataModule(lightning.LightningDataModule):
         # If the training data is specified, it is used to create (or recreate)
         # the index; if not specified it is read from the model directory.
         self.index = (
-            self._make_index(model_dir, tie_embeddings)
+            self._make_index(tie_embeddings)
             if self.train
-            else indexes.Index.read(model_dir)
+            else indexes.Index.read(self.model_dir)
         )
         self.log_vocabularies()
         self.collator = collators.Collator(
@@ -107,9 +108,7 @@ class DataModule(lightning.LightningDataModule):
             max_target_length=max_target_length,
         )
 
-    def _make_index(
-        self, model_dir: str, tie_embeddings: bool
-    ) -> indexes.Index:
+    def _make_index(self, tie_embeddings: bool) -> indexes.Index:
         """Creates the index from a training set."""
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
@@ -144,7 +143,7 @@ class DataModule(lightning.LightningDataModule):
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
-        index.write(model_dir)
+        index.write(self.model_dir)
         return index
 
     # Logging.

@@ -32,25 +32,21 @@ class RNNModel(base.BaseModel):
 
     Args:
         *args: passed to superclass.
-        beam_width (int, optional): width of beam for beam decoding.
         teacher_forcing (bool, optional): should teacher (rather than student)
             forcing be used?
         **kwargs: passed to superclass.
     """
 
-    beam_width: int
     teacher_forcing: bool
     classifier: nn.Linear
 
     def __init__(
         self,
         *args,
-        beam_width: int = defaults.BEAM_WIDTH,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.beam_width = beam_width
         self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size

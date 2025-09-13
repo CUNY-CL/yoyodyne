@@ -42,6 +42,11 @@ class YoyodyneCLI(cli.LightningCLI):
             "model.init_args.vocab_size",
             apply_on="instantiate",
         )
+        parser.link_arguments(
+            "data.model_dir",
+            "trainer.logger.init_args.save_dir",
+            apply_on="instantiate",
+        )
 
 
 def main() -> None:
@@ -57,6 +62,11 @@ def main() -> None:
         # Prevents predictions from accumulating in memory; see the
         # documentation in `trainers.py` for more context.
         trainer_class=trainers.Trainer,
+        # Makes sure there's always at least one logger. Without this,
+        # no checkpoints are stored.
+        trainer_defaults={
+            "logger": {"class_path": "lightning.pytorch.loggers.CSVLogger"}
+        },
     )
 
 
@@ -66,8 +76,10 @@ def python_interface(args: cli.ArgsType = None) -> None:
         models.BaseModel,
         data.DataModule,
         subclass_mode_model=True,
-        # Prevents predictions from accumulating in memory; see the
-        # documentation in `trainers.py` for more context.
+        # See above for explanation.
         trainer_class=trainers.Trainer,
+        trainer_defaults={
+            "logger": {"class_path": "lightning.pytorch.loggers.CSVLogger"}
+        },
         args=args,
     )

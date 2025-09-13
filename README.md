@@ -323,16 +323,7 @@ the one we saw above for callbacks.
 
 The
 [`CSVLogger`](https://lightning.ai/docs/pytorch/stable/extensions/generated/lightning.pytorch.loggers.CSVLogger.html)
-logs all monitored quantities to a CSV file:
-
-    ...
-    trainer:
-      logger:
-        - class_path: lightning.pytorch.loggers.CSVLogger
-          init_args:
-            save_dir: /Users/Shinji/models
-      ...
-       
+is enabled by default, and logs all monitored quantities to a CSV file.
 
 The
 [`WandbLogger`](https://lightning.ai/docs/pytorch/stable/extensions/generated/lightning.pytorch.loggers.WandbLogger.html)
@@ -469,10 +460,6 @@ The [`examples`](examples) directory contains interesting examples, including:
     provides a similar interface but uses large pre-trained models to initialize
     the encoder and decoder modules.
 
-## Testing
-
-🚧 UNDER CONSTRUCTION 🚧
-
 ### License
 
 Yoyodyne is distributed under an [Apache 2.0 license](LICENSE.txt).
@@ -528,6 +515,60 @@ some also support beam decoding via `beam_decode`
 Some models (e.g., the hard attention models) require teacher forcing, but
 others can be trained with either student or teacher forcing
 (cf. [#77](https://github.com/CUNY-CL/yoyodyne/issues/77)).
+
+### Testing
+
+The "units" of [`tests/yoyodyne_test.py`](tests/yoyodyne_test.py) are
+essentially small integration tests running through training, prediction, and
+evaluation.
+
+There are two kinds of data sets here. "Toy" data sets consist of simple
+transductions over a small alphabet:
+
+-   `copy` (i.e., repeat the input string twice)
+-   `identity`
+-   `reverse`
+-   `upper` (i.e., map to uppercase)
+
+These are configured to train for 20 epochs, training for no more than 2
+minutes.
+
+In contrast, the two "real" data sets target existing problems:
+
+-   `ice_g2p`: Icelandic G2P data from the [2021 SIGMORPHON shared
+    task](https://aclanthology.org/2021.sigmorphon-1.13/)
+-   `tur_inflection`: Turkish inflection generation data from the
+    [CoNLl-SIGMORPHON 2017 shared task](https://aclanthology.org/K17-2001/)
+
+These are instead configured to train for up to 50 epochs (with early stopping),
+training for no more than 10 minutes.
+
+There are also a few tests which confirm that specific misconfigurations raise
+exceptions.
+
+To run all tests, run the following:
+
+    pytest -vvv tests
+
+Given this large number of units and the alloted amount of training time, which
+accounts for the vast majority of compute time, running the full set of tests
+could take as long as a few hours. Thus one may wish instead to specific a
+subset of tests using the `-k` flag. For example, to run all the "toy" tests,
+run the following:
+
+    pytest -vvv -k toy tests
+
+Or, to just run the Icelandic G2P tests, run the following:
+
+    pytest -vvv -k g2p tests
+
+Or, to just run the misconfiguration tests, run the following:
+
+    pytest -vvv -k misconfiguration tests
+
+See [the `pytest`
+documentation](https://docs.pytest.org/en/stable/how-to/usage.html) for more
+information on the test runner.
 
 ### Releasing
 

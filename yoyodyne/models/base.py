@@ -40,15 +40,16 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     Args:
         source_encoder (modules.BaseModule).
-        features_encoder (modules.BaseModule, optional).
         decoder_hidden_size (int, optional): dimensionality of decoder layers.
         decoder_layers (int, optional): number of decoder layers.
         decoder_dropout (float, optional): dropout probability.
         embedding_size (int, optional): dimensionality of embedding.
+        features_encoder (modules.BaseModule, optional).
         label_smoothing (float, optional): label smoothing coefficient.
         max_target_length (int, optional): maximum target length.
     """
 
+    beam_width: int
     decoder_layers: int
     decoder_hidden_size: int
     decoder_dropout: float
@@ -67,13 +68,14 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self,
         source_encoder: modules.BaseModule,
         *args,  # Ignored here.
+        beam_width: int = defaults.BEAM_WIDTH,
         compute_accuracy: bool = True,
         compute_ser: bool = False,
-        features_encoder: Union[modules.BaseModule, bool] = False,
         decoder_hidden_size: int = defaults.HIDDEN_SIZE,
         decoder_layers: int = defaults.LAYERS,
         decoder_dropout: float = defaults.DROPOUT,
         embedding_size: int = defaults.EMBEDDING_SIZE,
+        features_encoder: Union[modules.BaseModule, bool] = False,
         label_smoothing: float = defaults.LABEL_SMOOTHING,
         max_target_length: int = defaults.MAX_LENGTH,
         optimizer: cli.OptimizerCallable = defaults.OPTIMIZER,
@@ -83,6 +85,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         **kwargs,  # Ignored here.
     ):
         super().__init__()
+        self.beam_width = beam_width
         self.decoder_hidden_size = decoder_hidden_size
         self.decoder_layers = decoder_layers
         self.decoder_dropout = decoder_dropout

@@ -32,14 +32,14 @@ classifiers = [
     "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
-    "accelerate>=1.6.0,<2.0.0",
-    "jsonargparse[signatures]>=4.28.0,<5.0.0",
-    "lightning>=2.4.0,<3.0.0",
+    "PyYAML>=6.0.2,<7.0.0",
+    "jsonargparse[signatures]>=4.40.0,<5.0.0",
+    "lightning==2.5.2",
     "maxwell>=0.2.6",
-    "pyyaml>=6.0,<7.0",
-    "torch>=2.4.0,<3.0.0",
-    "torchmetrics>=1.4.0post0,<2.0.0",
-    "wandb>=0.18.0,<0.19.0",
+    "numpy<=2.3.1",
+    "torch==2.7.1",
+    "torchmetrics==1.7.4",
+    "wandb>=0.18.7,<0.19.0"
 ]
 
 [project.scripts]
