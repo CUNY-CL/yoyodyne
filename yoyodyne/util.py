@@ -1,52 +1,13 @@
 """Utilities."""
 
-import argparse
+import logging
 import os
-import sys
 
-from typing import Any, Optional
+from typing import Dict
 
 import torch
 
 from . import special
-
-
-class UniqueAddAction(argparse.Action):
-    """Custom action that enforces uniqueness using a set."""
-
-    def __call__(
-        self,
-        parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
-        values: Any,
-        option_string: Optional[str] = None,
-    ) -> None:
-        getattr(namespace, self.dest).add(values)
-
-
-def log_info(msg: str) -> None:
-    """Logs msg to sys.stderr.
-
-    We can additionally consider logging to a file, or getting a handle to the
-    PL logger.
-
-    Args:
-        msg (str): the message to log.
-    """
-    print(msg, file=sys.stderr)
-
-
-def log_arguments(args: argparse.Namespace) -> None:
-    """Logs non-null arguments via log_info.
-
-    Args:
-        args (argparse.Namespace).
-    """
-    log_info("Arguments:")
-    for arg, val in vars(args).items():
-        if val is None:
-            continue
-        log_info(f"\t{arg}: {val!r}")
 
 
 def mkpath(path: str) -> None:
@@ -103,3 +64,28 @@ def pad_tensor_after_end(
         with torch.inference_mode():
             predictions[i] = torch.cat((symbols, pads))
     return predictions
+
+
+def recursive_insert(config: Dict[str, ...], key: str, value) -> None:
+    """Recursively inserts values into a nested dictionary.
+
+    Args:
+        config: the config dictionary.
+        key: a string with the arguments separated by ".".
+        value: the value to insert.
+    """
+    *most, last = key.split(".")
+    ptr = config
+    for piece in most:
+        try:
+            ptr = ptr[piece]
+        except KeyError:
+            ptr[piece] = {}
+            ptr = ptr[piece]
+    if last in ptr:
+        logging.debug(
+            "Overriding configuration argument %s with W&B sweep value: %r",
+            key,
+            value,
+        )
+    ptr[last] = value

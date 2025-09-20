@@ -1,31 +1,33 @@
-"""Custom learning-rate schedulers.
+"""Custom schedulers."""
 
-Additional schedulers will become available on the migration to LightingCLI.
-"""
-
-import argparse
-from typing import Any, Dict
+from typing import List
 
 import numpy
 from torch import optim
 
-from . import defaults, metrics
 
-SCHEDULER_ARGS = [
-    "warmup_steps",
-    "reduceonplateau_metric",
-    "reduceonplateau_factor",
-    "reduceonplateau_patience",
-    "min_learning_rate",
-    "check_val_every_n_epoch",
-]
+class Dummy(optim.lr_scheduler.LRScheduler):
+    """A dummy scheduler that holds learning rate constant.
+
+    Args:
+        optimizer: optimizer.
+    """
+
+    def __init__(self, optimizer: optim.Optimizer):
+        super().__init__(optimizer)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.optimizer})"
+
+    def get_lr(self) -> List[float]:
+        return [group["lr"] for group in self.optimizer.param_groups]
 
 
 class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
     """Linear warmup and then inverse square root decay.
 
     Linearly increases learning rate from 0 to the learning rate over the
-    warmup steps, then decreases learning rate according to an inverse root
+    warmup epochs, then decreases learning rate according to an inverse root
     square schedule.
 
     After:
@@ -36,167 +38,37 @@ class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
 
     Args:
         optimizer (optim.Optimizer): optimizer.
-        warmup_steps (int): number of warmup steps.
+        warmup_epochs (int): number of warmup epochs.
         *args: ignored.
         **kwargs: ignored.
     """
 
-    warmup_steps: int
+    warmup_epochs: int
     decay_factor: float
 
     def __init__(
         self,
         optimizer: optim.Optimizer,
-        warmup_steps,
+        warmup_epochs: int,
         *args,
         **kwargs,
     ):
-        self.warmup_steps = warmup_steps
-        self.decay_factor = numpy.sqrt(warmup_steps)
+        self.warmup_epochs = warmup_epochs
+        self.decay_factor = numpy.sqrt(warmup_epochs)
         super().__init__(optimizer, self.lr_lambda)
 
-    def lr_lambda(self, step: int) -> float:
-        """Computes the learning rate lambda at a given steps.
+    def lr_lambda(self, epoch: int) -> float:
+        """Computes the learning rate lambda at a given epoch.
 
         Args:
-            step (int): current step.
+            epoch (int): current epoch.
 
         Returns:
             float: lr_lambda.
         """
-        if step < self.warmup_steps:
-            # +1 in numerator avoids a zero-LR first step.
-            return (step + 1) / self.warmup_steps
+        if epoch < self.warmup_epochs:
+            # +1 in numerator avoids a zero-LR first epoch.
+            return (epoch + 1) / self.warmup_epochs
         # +1 in base of exponent avoids an undefined operation (0 to a negative
         # exponent) in the unlikely case one is using this without warmup.
-        return self.decay_factor * (step + 1) ** -0.5
-
-    def config_dict(self) -> Dict[str, Any]:
-        return {"interval": "step", "frequency": 1}
-
-
-class ReduceOnPlateau(optim.lr_scheduler.ReduceLROnPlateau):
-    """Reduce on plateau scheduler.
-
-    This is patched to make use of Yoyodyne's metrics library.
-
-    Args:
-        optimizer (optim.Optimizer): optimizer.
-        check_val_every_n_epoch (int): frequency at which validation metrics
-            are recomputed.
-        reduceonplateau_metric (str): reduces the LR when validation
-            `accuracy` stops increasing or when validation `loss` stops
-            decreasing.
-        *args: ignored.
-        **kwargs: ignored.
-    """
-
-    check_val_every_n_epoch: int
-    metric: metrics.Metric
-
-    def __init__(
-        self,
-        optimizer: optim.Optimizer,
-        check_val_every_n_epoch: int,
-        reduceonplateau_factor: str,
-        reduceonplateau_metric: str,
-        *args,
-        **kwargs,
-    ):
-        self.check_val_every_n_epoch = check_val_every_n_epoch
-        self.metric = metrics.get_metric(reduceonplateau_metric)
-        super().__init__(
-            optimizer,
-            factor=reduceonplateau_factor,
-            mode=self.metric.mode,
-        )
-
-    def config_dict(self) -> Dict[str, Any]:
-        return {
-            "frequency": self.check_val_every_n_epoch,
-            "interval": "epoch",
-            "monitor": self.metric.monitor,
-        }
-
-
-def add_argparse_args(parser: argparse.ArgumentParser) -> None:
-    """Adds shared configuration options to the argument parser.
-
-    These are only needed at training time. Note that the actual scheduler
-    arg is specified in models/base.py.
-
-    Args:
-        parser (argparse.ArgumentParser).
-    """
-    parser.add_argument(
-        "--warmup_steps",
-        type=int,
-        default=defaults.WARMUP_STEPS,
-        help="Number of warmup steps (warmupinvsqrt scheduler only). "
-        "Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--reduceonplateau_metric",
-        type=str,
-        choices=[
-            "accuracy",
-            "loss",
-            "ser",
-        ],
-        default=defaults.REDUCEONPLATEAU_METRIC,
-        help="Reduces the LR when validation `accuracy` stops increasing or "
-        "when validation `loss` stops decreasing (reduceonplateau scheduler "
-        "only. Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--reduceonplateau_factor",
-        type=float,
-        default=defaults.REDUCEONPLATEAU_FACTOR,
-        help="Factor by which the learning rate will be reduced: "
-        "new_lr = lr * factor (reduceonplateau scheduler only). "
-        "Default: %(default)s.",
-    )
-    parser.add_argument(
-        "--reduceonplateau_patience",
-        type=int,
-        default=defaults.REDUCEONPLATEAU_PATIENCE,
-        help="Number of epochs with no improvement before "
-        "reducing LR (reduceonplateau scheduler only). "
-        "Default: %(default)s.",
-    )
-
-
-_scheduler_fac = {
-    "reduceonplateau": ReduceOnPlateau,
-    "warmupinvsqrt": WarmupInverseSquareRoot,
-}
-SCHEDULERS = _scheduler_fac.keys()
-
-
-def get_scheduler_cfg(
-    scheduler: str, optimizer: optim.Optimizer, *args, **kwargs
-) -> Dict[str, Any]:
-    try:
-        scheduler_cls = _scheduler_fac[scheduler]
-    except KeyError:
-        raise NotImplementedError(f"Scheduler not found: {scheduler}")
-    scheduler = scheduler_cls(optimizer, *args, **kwargs)
-    config = scheduler.config_dict()
-    # We also add the scheduler itself to the dictionary.
-    config["scheduler"] = scheduler
-    return config
-
-
-def get_scheduler_kwargs_from_argparse_args(
-    args: argparse.Namespace,
-) -> Dict[str, Any]:
-    """Gets the Dict of kwargs that will be used to instantiate the scheduler.
-
-    Args:
-        args (argparse.Namespace).
-
-    Returns:
-        Dict: hyperparameters for the scheduler.
-    """
-    kwargs = vars(args)
-    return {k: kwargs.get(k) for k in SCHEDULER_ARGS}
+        return self.decay_factor * (epoch + 1) ** -0.5

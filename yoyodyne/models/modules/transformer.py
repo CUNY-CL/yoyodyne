@@ -8,7 +8,7 @@ import numpy
 import torch
 from torch import nn
 
-from ... import data, special
+from ... import data, defaults, special
 from .. import embeddings
 from . import base, position
 
@@ -51,47 +51,42 @@ class TransformerModule(base.BaseModule):
     """Abstract base module for transformers.
 
     Args:
-        attention_heads (int).
-        max_length (int).
         *args: passed to superclass.
+        attention_heads (int, optional): number of attention heads.
+        dropout (float, optional): dropout probability.
+        max_length (int, optional): max length for input.
         **kwargs: passed to superclass.
     """
 
     attention_heads: int
-    # Constructed inside __init__.
     esq: float
+    dropout_layer: nn.Dropout
     module: nn.TransformerEncoder
     positional_encoding: position.PositionalEncoding
 
     def __init__(
         self,
         *args,
-        attention_heads: int,
-        max_length: int,
+        attention_heads: int = defaults.ATTENTION_HEADS,
+        dropout: float = defaults.DROPOUT,
+        max_length: int = defaults.MAX_LENGTH,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
+        self.dropout_layer = nn.Dropout(dropout)
         self.esq = numpy.sqrt(self.embedding_size)
         self.module = self.get_module()
         self.positional_encoding = position.PositionalEncoding(
             self.embedding_size, max_length
         )
 
-    def embed(self, symbols: torch.Tensor) -> torch.Tensor:
-        """Embeds the source symbols and adds positional encodings.
-
-        Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
-
-        Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
-        """
-        word_embedded = self.esq * self.embeddings(symbols)
-        positional_embedded = self.positional_encoding(symbols)
-        return self.dropout_layer(word_embedded + positional_embedded)
+    def embed(
+        self, symbols: torch.Tensor, embeddings: nn.Embedding
+    ) -> torch.Tensor:
+        """Embeds the source symbols and adds positional encodings."""
+        embedded = self.esq * embeddings(symbols)
+        return self.dropout_layer(embedded + self.positional_encoding(symbols))
 
     @abc.abstractmethod
     def get_module(self) -> base.BaseModule: ...
@@ -110,16 +105,19 @@ class TransformerEncoder(TransformerModule):
         on Machine Learning, pages 10524-10533.
     """
 
-    def forward(self, source: data.PaddedTensor) -> torch.Tensor:
+    def forward(
+        self, source: data.PaddedTensor, embeddings: nn.Embedding
+    ) -> torch.Tensor:
         """Encodes the source with the TransformerEncoder.
 
         Args:
             source (data.PaddedTensor).
+            embeddings (nn.Embedding).
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.embed(source.padded)
+        embedded = self.embed(source.padded, embeddings)
         return self.module(embedded, src_key_padding_mask=source.mask)
 
     def get_module(self) -> nn.TransformerEncoder:
@@ -175,26 +173,27 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             self.embedding_size,
         )
 
-    def embed(self, symbols: torch.Tensor) -> torch.Tensor:
+    def embed(
+        self, symbols: torch.Tensor, embeddings: nn.Embedding
+    ) -> torch.Tensor:
         """Embeds the source symbols.
 
         This adds positional encodings and special embeddings.
 
         Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
+            source (data.PaddedTensor).
+            embeddings (nn.Embedding).
 
         Returns:
-            embedded (torch.Tensor): embedded tensor of shape
-                B x seq_len x embed_dim.
+            torch.Tensor: sequence of encoded symbols.
         """
         # "0" is whatever type we're using here; "1" is reserved for PAD.
         char_mask = (symbols == special.PAD_IDX).long()
-        word_embedded = self.esq * self.embeddings(symbols)
+        embedded = self.esq * embeddings(symbols)
         type_embedded = self.esq * self.type_embedding(char_mask)
         positional_embedded = self.positional_encoding(symbols, mask=char_mask)
         return self.dropout_layer(
-            word_embedded + type_embedded + positional_embedded
+            embedded + type_embedded + positional_embedded
         )
 
     @property
@@ -246,6 +245,7 @@ class TransformerDecoder(TransformerModule):
         source_mask: torch.Tensor,
         target: torch.Tensor,
         target_mask: torch.Tensor,
+        embeddings: nn.Embedding,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Performs single pass of decoder module.
 
@@ -256,12 +256,13 @@ class TransformerDecoder(TransformerModule):
                 full target or previous decoded, of shape
                 B x seq_len x hidden_size.
             target_mask (torch.Tensor): mask for target.
+            embeddings (nn.Embedding): embeddings.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        embedded = self.embed(target)
+        embedded = self.embed(target, embeddings)
         causal_mask = nn.Transformer.generate_square_subsequent_mask(
             embedded.size(1),
             device=self.device,
@@ -523,6 +524,7 @@ class TransformerPointerDecoder(TransformerDecoder):
         source_mask: torch.Tensor,
         target: torch.Tensor,
         target_mask: torch.Tensor,
+        embeddings: nn.Embedding,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -533,6 +535,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             source_mask (torch.Tensor): mask for source.
             target (torch.Tensor): current targets, which may be the full
                 target or previous decoded, of shape B x seq_len x hidden_size.
+            embeddings (nn.Embedding): embedding.
             features_encoded (Optional[torch.Tensor]): encoded features.
             features_mask (Optional[torch.Tensor]): mask for features.
 
@@ -540,7 +543,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        embedded = self.embed(target)
+        embedded = self.embed(target, embeddings)
         causal_mask = nn.Transformer.generate_square_subsequent_mask(
             embedded.size(1),
             device=self.device,

@@ -1,0 +1,25 @@
+# Model parameters similar to the Makarov & Clematide baseline from SIGMORPHON
+# 2021:
+# https://aclanthology.org/2021.sigmorphon-1.13/
+#
+# They use --data.batch_size 16 and --trainer.accelerator cpu; one must also
+# train the SED model with `maxwell-train` and specify its path via
+# --model.sed_path.
+# 
+# Nowadays most people would probably prefer larger batch sizes and would use
+# the Adam optimizer.
+class_path: yoyodyne.models.TransducerLSTMModel
+init_args:
+  source_encoder:
+    class_path: yoyodyne.models.modules.LSTMEncoder
+    init_args:
+      dropout: .1
+      embedding_size: 300
+      hidden_size: 100
+  decoder_dropout: .1
+  decoder_hidden_size: 100
+  embedding_size: 300
+  optimizer:
+    class_path: torch.optim.Adadelta
+    init_args:
+      lr: 1

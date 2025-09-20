@@ -3,58 +3,41 @@
 import abc
 
 import lightning
-import torch
-from torch import nn
 
 from ... import defaults
 
 
 class BaseModule(abc.ABC, lightning.LightningModule):
-    """Abstract base class for encoder and decoder modules."""
+    """Abstract base class for encoder and decoder modules.
 
-    # Sizes.
-    num_embeddings: int
-    # Regularization arguments.
+    Unknown positional or keyword args from the superclass are ignored.
+
+    Args:
+        dropout (float, optional): dropout probability.
+        embedding_size (int, optional): the dimensionality of the embedding.
+        hidden_size (int, optional): size of the hidden layer.
+        layers (int, optional): number of layers.
+    """
+
     dropout: float
-    # Model arguments.
-    embeddings: nn.Embedding
     embedding_size: int
     hidden_size: int
     layers: int
-    # Constructed inside __init__.
-    dropout_layer: nn.Dropout
 
     def __init__(
         self,
-        *,
-        embeddings,
-        embedding_size,
-        num_embeddings,
-        dropout=defaults.DROPOUT,
-        layers=defaults.ENCODER_LAYERS,
-        hidden_size=defaults.HIDDEN_SIZE,
-        **kwargs,  # Ignored.
+        *args,  # Ignored here.
+        dropout: float = defaults.DROPOUT,
+        embedding_size: int = defaults.EMBEDDING_SIZE,
+        hidden_size: int = defaults.HIDDEN_SIZE,
+        layers: int = defaults.LAYERS,
+        **kwargs,  # Ignored here.
     ):
         super().__init__()
         self.dropout = dropout
-        self.embeddings = embeddings
         self.embedding_size = embedding_size
-        self.num_embeddings = num_embeddings
-        self.layers = layers
         self.hidden_size = hidden_size
-        self.dropout_layer = nn.Dropout(p=self.dropout)
-
-    def embed(self, symbols: torch.Tensor) -> torch.Tensor:
-        """Embeds the source symbols and adds positional encodings.
-
-        Args:
-            symbols (torch.Tensor): batch of symbols to embed of shape
-                B x seq_len.
-
-        Returns:
-            torch.Tensor: embedded tensor of shape B x seq_len x embed_dim.
-        """
-        return self.dropout_layer(self.embeddings(symbols))
+        self.layers = layers
 
     @property
     @abc.abstractmethod

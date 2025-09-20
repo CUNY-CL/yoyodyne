@@ -33,6 +33,7 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         mask: torch.Tensor,
         symbol: torch.Tensor,
         state: rnn.RNNState,
+        embeddings: nn.Embedding,
     ) -> Tuple[torch.Tensor, torch.Tensor, rnn.RNNState]:
         """Single decode pass.
 
@@ -42,13 +43,14 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
             mask (torch.Tensor): mask for the encoded source batch of
                 shape B x seq_len.
             symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
-            state (RNNState).
+            state (RNNState): RNN state.
+            embeddings (nn.Embedding): embeddings.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor, RNNState]: the emission and
                 transition tensors and RNN state.
         """
-        embedded = self.embed(symbol)
+        embedded = self.embed(symbol, embeddings)
         decoded, state = self.module(embedded, state)
         emissions = self._get_emissions(decoded, encoded)
         transitions = self._get_transitions(decoded, encoded, mask)

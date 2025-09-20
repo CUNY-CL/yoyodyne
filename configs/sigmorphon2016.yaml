@@ -1,0 +1,8 @@
+model_dir: /Users/Shinji/models  # TODO: fix for your environment.
+train: /Users/Shinji/train.tsv  # TODO: fix for your environment.
+val: /Users/Shinji/dev.tsv  # TODO: fix for your environment.
+predict: /Users/Shinji/test.tsv  # TODO: fix for your environment.
+test: /Users/Shinji/test.tsv  # TODO: fix for your environment.
+features_col: 2
+features_sep: ,
+target_col: 3

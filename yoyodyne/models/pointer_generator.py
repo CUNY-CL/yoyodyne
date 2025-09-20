@@ -14,7 +14,7 @@ class Error(Exception):
 
 
 class PointerGeneratorModel(base.BaseModel):
-    """Abstract base class for pointer-generator models."""
+    """Base class for pointer-generator models."""
 
     # Constructed inside __init__.
     geneneration_probability: modules.GenerationProbability
@@ -103,37 +103,25 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.encoder_layers != self.decoder_layers:
-            raise Error(
-                "The number of encoder and decoder layers must match "
-                f"({self.encoder_layers} != {self.decoder_layers})"
-            )
         # Uses the inherited defaults for the source embeddings and encoder.
         if self.has_features_encoder:
             self.features_attention = modules.Attention(
-                self.features_encoder.output_size, self.hidden_size
+                self.features_encoder.output_size, self.decoder_hidden_size
             )
         self.generation_probability = modules.GenerationProbability(
             self.embedding_size,
-            self.hidden_size,
+            self.decoder_hidden_size,
             self.decoder_input_size,
         )
-        # Overrides inherited classifier.
         self.classifier = nn.Linear(
-            self.hidden_size + self.decoder_input_size,
+            self.decoder_hidden_size + self.decoder_input_size,
             self.target_vocab_size,
         )
-
-    def _check_layer_sizes(self) -> None:
-        """Checks that encoder and decoder layers are the same number.
-
-        Raises:
-            Error.
-        """
-        if self.encoder_layers != self.decoder_layers:
+        # Compatibility check.
+        if self.source_encoder.layers != self.decoder_layers:
             raise Error(
-                "The number of encoder and decoder layers must match "
-                f"({self.encoder_layers} != {self.decoder_layers})"
+                f"Number of encoder layers ({self.source_encoder.layers}) and "
+                f"decoder layers ({self.decoder_layers}) must match"
             )
 
     def beam_decode(
@@ -228,7 +216,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         """
         # TODO: there are a few Law of Demeter violations here. Is there an
         # obvious refactoring?
-        embedded = self.decoder.embed(symbol)
+        embedded = self.decoder.embed(symbol, self.embeddings)
         context, attention_weights = self.decoder.attention(
             source_encoded,
             state.hidden.transpose(0, 1),
@@ -268,12 +256,12 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam search
@@ -284,9 +272,11 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 a tensor of predictions of shape
                 B x target_vocab_size x seq_len.
         """
-        source_encoded = self.source_encoder(batch.source)
+        source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
-            features_encoded = self.features_encoder(batch.features)
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
             if self.beam_width > 1:
                 return self.beam_decode(
                     batch.source.padded,
@@ -413,12 +403,11 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
         return modules.AttentiveGRUDecoder(
             attention_input_size=self.source_encoder.output_size,
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -433,12 +422,11 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
         return modules.AttentiveLSTMDecoder(
             attention_input_size=self.source_encoder.output_size,
             decoder_input_size=self.decoder_input_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.vocab_size,
+            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -527,6 +515,7 @@ class PointerGeneratorTransformerModel(
             source_mask,
             target,
             target_mask,
+            self.embeddings,
             features_encoded,
             features_mask,
         )
@@ -567,12 +556,12 @@ class PointerGeneratorTransformerModel(
 
     def forward(
         self,
-        batch: data.PaddedBatch,
+        batch: data.Batch,
     ) -> torch.Tensor:
         """Forward pass.
 
         Args:
-            batch (data.PaddedBatch).
+            batch (data.Batch).
 
         Returns:
             torch.Tensor.
@@ -580,40 +569,25 @@ class PointerGeneratorTransformerModel(
         Raises:
             NotImplementedError: Beam search not implemented.
         """
-        source_encoded = self.source_encoder(batch.source)
+        source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
-            features_encoded = self.features_encoder(batch.features)
-            if self.beam_width > 1:
-                # Will raise a NotImplementedError.
-                return self.beam_decode(
-                    batch.source.padded,
-                    source_encoded,
-                    batch.source.mask,
-                    features_encoded=features_encoded,
-                    features_mask=batch.features.mask,
-                )
-            else:
-                return self.greedy_decode(
-                    batch.source.padded,
-                    source_encoded,
-                    batch.source.mask,
-                    target=batch.target.padded if batch.has_target else None,
-                    features_encoded=features_encoded,
-                    features_mask=batch.features.mask,
-                )
-        elif self.beam_width > 1:
-            # Will raise a NotImplementedError.
-            return self.beam_decode(
+            features_encoded = self.features_encoder(
+                batch.features, self.embeddings
+            )
+            return self.greedy_decode(
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
+                batch.target.padded if batch.has_target else None,
+                features_encoded=features_encoded,
+                features_mask=batch.features.mask,
             )
         else:
             return self.greedy_decode(
                 batch.source.padded,
                 source_encoded,
                 batch.source.mask,
-                target=batch.target.padded if batch.has_target else None,
+                batch.target.padded if batch.has_target else None,
             )
 
     def get_decoder(
@@ -622,14 +596,13 @@ class PointerGeneratorTransformerModel(
         return modules.TransformerPointerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
-            dropout=self.dropout,
-            embeddings=self.embeddings,
+            dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
             has_features_encoder=self.has_features_encoder,
-            hidden_size=self.hidden_size,
+            hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.max_length,
-            num_embeddings=self.vocab_size,
+            max_length=self.decoder_max_length,
+            num_embeddings=self.num_embeddings,
         )
 
     def greedy_decode(

@@ -1,0 +1,8 @@
+precision: bf16-mixed
+gradient_clip_val: 3
+max_epochs: 20
+max_time: 00:00:02:00
+callbacks:
+  - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+    init_args:
+      logging_interval: epoch

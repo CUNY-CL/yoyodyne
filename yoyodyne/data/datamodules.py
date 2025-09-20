@@ -1,11 +1,12 @@
 """Data modules."""
 
+import logging
 from typing import Iterable, Optional, Set
 
 import lightning
 from torch.utils import data
 
-from .. import defaults, util
+from .. import defaults
 from . import collators, datasets, indexes, mappers, tsv
 
 
@@ -57,10 +58,10 @@ class DataModule(lightning.LightningDataModule):
         # Paths.
         *,
         model_dir: str,
-        train=None,
-        val=None,
-        predict=None,
-        test=None,
+        train: Optional[str] = None,
+        val: Optional[str] = None,
+        predict: Optional[str] = None,
+        test: Optional[str] = None,
         # TSV parsing arguments.
         source_col: int = defaults.SOURCE_COL,
         features_col: int = defaults.FEATURES_COL,
@@ -68,15 +69,15 @@ class DataModule(lightning.LightningDataModule):
         source_sep: str = defaults.SOURCE_SEP,
         features_sep: str = defaults.FEATURES_SEP,
         target_sep: str = defaults.TARGET_SEP,
-        # Modeling options.
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
         # Other.
         batch_size: int = defaults.BATCH_SIZE,
-        max_source_length: int = defaults.MAX_SOURCE_LENGTH,
-        max_features_length: int = defaults.MAX_FEATURES_LENGTH,
-        max_target_length: int = defaults.MAX_TARGET_LENGTH,
+        max_source_length: int = defaults.MAX_LENGTH,
+        max_features_length: int = defaults.MAX_LENGTH,
+        max_target_length: int = defaults.MAX_LENGTH,
     ):
         super().__init__()
+        self.model_dir = model_dir
         self.train = train
         self.val = val
         self.predict = predict
@@ -94,10 +95,11 @@ class DataModule(lightning.LightningDataModule):
         # If the training data is specified, it is used to create (or recreate)
         # the index; if not specified it is read from the model directory.
         self.index = (
-            self._make_index(model_dir, tie_embeddings)
+            self._make_index(tie_embeddings)
             if self.train
-            else indexes.Index.read(model_dir)
+            else indexes.Index.read(self.model_dir)
         )
+        self.log_vocabularies()
         self.collator = collators.Collator(
             has_features=self.has_features,
             has_target=self.has_target,
@@ -106,9 +108,7 @@ class DataModule(lightning.LightningDataModule):
             max_target_length=max_target_length,
         )
 
-    def _make_index(
-        self, model_dir: str, tie_embeddings: bool
-    ) -> indexes.Index:
+    def _make_index(self, tie_embeddings: bool) -> indexes.Index:
         """Creates the index from a training set."""
         source_vocabulary: Set[str] = set()
         features_vocabulary: Set[str] = set()
@@ -143,7 +143,7 @@ class DataModule(lightning.LightningDataModule):
             tie_embeddings=tie_embeddings,
         )
         # Writes it to the model directory.
-        index.write(model_dir)
+        index.write(self.model_dir)
         return index
 
     # Logging.
@@ -155,18 +155,18 @@ class DataModule(lightning.LightningDataModule):
 
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
-        util.log_info(
-            f"Source vocabulary: {self.pprint(self.index.source_vocabulary)}"
+        logging.info(
+            "Source vocabulary: %s", self.pprint(self.index.source_vocabulary)
         )
         if self.has_features:
-            util.log_info(
-                f"Features vocabulary: "
-                f"{self.pprint(self.index.features_vocabulary)}"
+            logging.info(
+                "Features vocabulary: %s",
+                self.pprint(self.index.features_vocabulary),
             )
         if self.has_target:
-            util.log_info(
-                f"Target vocabulary: "
-                f"{self.pprint(self.index.target_vocabulary)}"
+            logging.info(
+                "Target vocabulary: %s",
+                self.pprint(self.index.target_vocabulary),
             )
 
     # Properties.
@@ -180,6 +180,14 @@ class DataModule(lightning.LightningDataModule):
     @property
     def has_target(self) -> bool:
         return self.parser.has_target
+
+    @property
+    def target_vocab_size(self) -> int:
+        return self.index.target_vocab_size
+
+    @property
+    def vocab_size(self) -> int:
+        return self.index.vocab_size
 
     # Required API.
 

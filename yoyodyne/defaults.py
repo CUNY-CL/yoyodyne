@@ -2,6 +2,10 @@
 
 import numpy
 
+from torch import optim
+
+from . import schedulers
+
 # All elements should be styled as CONSTANTS.
 
 # Scalar constants.
@@ -28,20 +32,12 @@ ARCH = "attentive_lstm"
 ATTENTION_CONTEXT = 0
 ATTENTION_HEADS = 4
 BIDIRECTIONAL = True
-DECODER_LAYERS = 1
 EMBEDDING_SIZE = 128
-ENCODER_LAYERS = 1
 ENFORCE_MONOTONIC = False
 HIDDEN_SIZE = 512
-MAX_SOURCE_LENGTH = 128
-MAX_FEATURES_LENGTH = 128
-MAX_TARGET_LENGTH = 128
+LAYERS = 1
+MAX_LENGTH = 128
 TIE_EMBEDDINGS = True
-
-# Tuning arguments. These just mirror the defaults in the tuner library.
-FIND_BATCH_SIZE_MODE = "power"
-FIND_BATCH_SIZE_STEPS_PER_TRIAL = 3
-FIND_BATCH_SIZE_MAX_TRIALS = 25
 
 # Training arguments.
 BATCH_SIZE = 32
@@ -49,25 +45,13 @@ BETA1 = 0.9
 BETA2 = 0.999
 DROPOUT = 0.2
 LABEL_SMOOTHING = 0.0
-LEARNING_RATE = 0.001
-ORACLE_EM_EPOCHS = 5
 ORACLE_FACTOR = 1
-OPTIMIZER = "adam"
-NUM_CHECKPOINTS = 1
-CHECKPOINT_METRIC = "accuracy"
-PATIENCE_METRIC = "loss"
-LOG_WANDB = False
-TEACHER_FORCING = True
-
-# LR scheduler arguments.
-WARMUP_STEPS = 0
-MIN_LR = 0.0
-REDUCEONPLATEAU_FACTOR = 0.1
-REDUCEONPLATEAU_METRIC = "loss"
-REDUCEONPLATEAU_PATIENCE = 10
+OPTIMIZER = optim.Adam
+SCHEDULER = schedulers.Dummy
 
 # Decoding arguments.
 BEAM_WIDTH = 1
+TEACHER_FORCING = True
 
 # Extra evaluation metrics.
 EVAL_METRICS = set()

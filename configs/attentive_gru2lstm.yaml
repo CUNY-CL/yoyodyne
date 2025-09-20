@@ -1,0 +1,24 @@
+# Model parameters similar to those of Kann & Schütze (MED):
+# https://aclanthology.org/W16-2010/
+# 
+# They use --data.batch_size 20.
+#
+# Nowadays most people would probably prefer larger batch sizes and would use
+# the Adam optimizer.
+#
+# This variant has a GRU encoder but an LSTM decoder.
+class_path: yoyodyne.models.AttentiveLSTMModel
+init_args:
+  source_encoder:
+    class_path: yoyodyne.models.modules.GRUEncoder
+    init_args:
+      dropout: .3
+      embedding_size: 300
+      hidden_size: 100
+  decoder_dropout: .3
+  decoder_hidden_size: 100
+  embedding_size: 300
+  optimizer:
+    class_path: torch.optim.Adadelta
+    init_args:
+      lr: 1
