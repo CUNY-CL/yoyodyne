@@ -468,6 +468,13 @@ Yoyodyne is distributed under an [Apache 2.0 license](LICENSE.txt).
 
 We welcome contributions using the fork-and-pull model.
 
+### Older versions
+
+In addition to releases available via
+[GitHub](https://github.com/CUNY-CL/yoyodyne/releases) and
+[PyPI](https://pypi.org/project/yoyodyne/), the 0.3.3 version is available as
+[the `legacy` branch](https://github.com/CUNY-CL/yoyodyne/tree/legacy).
+
 ### Design
 
 Yoyodyne is beholden to the heavily object-oriented design of Lightning, and
