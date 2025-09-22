@@ -33,7 +33,7 @@ jobs:
               pip install dist/`ls dist/ | grep .whl`
       - run:
           name: Show installed Python packages
-          command: pip list -v
+          command: pip list
 
 workflows:
   version: 2
