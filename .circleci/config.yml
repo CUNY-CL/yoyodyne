@@ -7,23 +7,22 @@ jobs:
       command-run:
         type: string
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.13
     steps:
       - checkout
       - run:
           command: pip install -r requirements.txt
       - run:
           command: << parameters.command-run >>
-
   build-python:
     parameters:
       python-version:
         type: string
     docker:
       - image: cimg/python:<< parameters.python-version >>
-        #auth:
-        #  username: $DOCKERHUB_USERNAME
-        #  password: $DOCKERHUB_PASSWORD
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
     steps:
       - checkout
       - run:
@@ -35,13 +34,6 @@ jobs:
       - run:
           name: Show installed Python packages
           command: pip list -v
-      # TODO(#5): as of #327 we have no active tests.
-      #- run:
-      #    name: Run tests
-      #    command: |
-      #        pytest -vv tests --junitxml /tmp/testxml/report.xml
-      #- store_test_results:
-      #    path: /tmp/testxml/
 
 workflows:
   version: 2
@@ -49,10 +41,10 @@ workflows:
     jobs:
       - pre-build:
           name: black
-          command-run: black --line-length=79 --check .
+          command-run: black --line-length 79 --check .
       - pre-build:
           name: flake8
-          command-run: flake8 .
+          command-run: flake8 --ignore E203,W503 .
       - pre-build:
           name: twine
           command-run: |
