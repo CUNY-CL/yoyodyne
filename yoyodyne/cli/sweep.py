@@ -55,7 +55,7 @@ def populate_config(
     The wandb config data used here comes from the environment.
 
     Args:
-        config: path to Yoyodyne YAML config file.
+        config: path to YAML config file.
         temp_config_handle: temporary configuration file handle.
     """
     wandb.init()
@@ -73,6 +73,11 @@ def main() -> None:
     parser.add_argument(
         "--project", required=True, help="The project of the sweep."
     )
+    parser.add_argument(
+        "--command",
+        default="yoyodyne",
+        help="Command to use when running sweep (default: %(default)s).",
+    )
     parser.add_argument("--count", type=int, help="Number of runs to perform.")
     parser.add_argument("--config", required=True)
     # We pass the known args to main but remove them from ARGV.
@@ -85,7 +90,7 @@ def main() -> None:
     # unless this is configured.
     temp_config = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml")
     argv = [
-        "yoyodyne",
+        args.command,
         "fit",
         "--config",
         temp_config.name,
