@@ -1,4 +1,4 @@
-"""Metadata for validation metrics.
+"""Validation metrics.
 
 The computation of loss is built into the models. A slight modification of
 a built-in class from torchmetrics is used to compute exact match accuracy. A
@@ -50,21 +50,6 @@ from . import special
 
 class Error(Exception):
     pass
-
-
-# This maps metrics, as specified as command-line strings, onto three
-# pieces of data:
-#
-# * `filename` is an f-string template (note it is not an f-string literal)
-#   which is used when that metric is used for checkpointing.
-#   It includes the integer `epoch` and the value of `monitor` (see below)
-#   in the template.
-# * `mode` is either "max" or "min" and indicates whether we want to
-#   maximize or minimize the metric.
-# * `monitor` is the name of the metric with a `val_` prefix.
-
-
-# Implements metrics.
 
 
 class Accuracy(torchmetrics.classification.MulticlassExactMatch):
