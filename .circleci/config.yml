@@ -44,7 +44,7 @@ workflows:
           command-run: black --line-length 79 --check .
       - pre-build:
           name: flake8
-          command-run: flake8 --ignore E203,W503 .
+          command-run: flake8 --ignore E203,E704,W503 .
       - pre-build:
           name: twine
           command-run: |
