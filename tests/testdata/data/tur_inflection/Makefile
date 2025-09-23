@@ -40,7 +40,7 @@ test.tsv:
 		--data ../../configs/tur_inflection_data.yaml \
 		--data.train train.tsv \
 		--data.val dev.tsv \
-		--data.model_dir $(TMPDIR) \
+		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
 		--seed_everything 49 \
 		--trainer ../../configs/real_trainer.yaml 

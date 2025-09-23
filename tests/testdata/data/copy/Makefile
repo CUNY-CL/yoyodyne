@@ -32,7 +32,7 @@ all: train.tsv \
 		--data ../../configs/toy_data.yaml \
 		--data.train train.tsv \
 		--data.val dev.tsv \
-		--data.model_dir $(TMPDIR) \
+		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
 		--seed_everything 49 \
 		--trainer ../../configs/toy_trainer.yaml 

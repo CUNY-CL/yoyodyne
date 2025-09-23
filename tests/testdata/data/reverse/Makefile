@@ -24,7 +24,7 @@ all: train.tsv dev.tsv test.tsv
 	$(eval TMPDIR := $(shell mktemp -d))
 	.././randgen.py --vocabulary 26 --length 5 --seed 1957 --size 100 > "$(TMPDIR)/reverse_$@"
 	paste "$(TMPDIR)/reverse_$@" <(rev "$(TMPDIR)/reverse_$@") > "$@"
-    rm -rf "$(TMPDIR)"                                                                   
+	rm -rf "$(TMPDIR)"                                                                   
 
 %_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
@@ -34,7 +34,7 @@ all: train.tsv dev.tsv test.tsv
 		--data ../../configs/toy_data.yaml \
 		--data.train train.tsv \
 		--data.val dev.tsv \
-		--data.model_dir $(TMPDIR) \
+		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
 		--seed_everything 49 \
 		--trainer ../../configs/toy_trainer.yaml 
