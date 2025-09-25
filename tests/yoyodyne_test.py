@@ -177,7 +177,7 @@ class YoyodyneTest(unittest.TestCase):
                 )
         self.assertNonEmptyFileExists(evaluation_path)
         expected_path = os.path.join(
-            self.TESTDATA_DIR, data, f"{data}_{arch}_expected.test"
+            self.TESTDATA_DIR, data, f"{arch}_expected.test"
         )
         self.assertFileIdentity(evaluation_path, expected_path)
 
