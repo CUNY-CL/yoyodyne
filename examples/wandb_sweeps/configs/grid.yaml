@@ -1,4 +1,4 @@
-method: random
+method: bayes
 metric:
   name: val_accuracy
   goal: maximize
@@ -10,23 +10,21 @@ parameters:
     min: 0
     max: 0.5
   model.init_args.decoder_hidden_size:
-    value: 400
+    distribution: q_uniform
+    q: 32
+    min: 32
+    max: 1024
   model.init_args.embedding_size:
-    value: 100
+    distribution: q_uniform
+    q: 16
+    min: 16
+    max: 512
   model.init_args.label_smoothing:
     distribution: uniform
     min: 0
     max: 0.2
   model.init_args.source_encoder.class_path:
     value: yoyodyne.models.modules.LSTMEncoder
-  model.init_args.source_encoder.init_args.dropout:
-    distribution: uniform
-    min: 0
-    max: 0.5
-  model.init_args.source_encoder.init_args.embedding_size:
-    value: 100
-  model.init_args.source_encoder.init_args.hidden_size:
-    value: 400
   model.init_args.features_encoder:
     value: true
   model.init_args.optimizer.class_path:
@@ -46,4 +44,4 @@ parameters:
     distribution: q_uniform
     q: 16
     min: 16
-    max: 1024
+    max: 512

@@ -3,9 +3,10 @@
 import logging
 import os
 
-from typing import Dict
+from typing import Dict, Tuple
 
 import torch
+import yaml
 
 from . import special
 
@@ -64,6 +65,21 @@ def pad_tensor_after_end(
         with torch.inference_mode():
             predictions[i] = torch.cat((symbols, pads))
     return predictions
+
+
+def load_config_and_links(path: str) -> Tuple[Dict[str, ...], Dict[str, str]]:
+    """Loads a YAML config file, parsing the LINKS field separately.
+
+    Args:
+        path:
+
+    Returns:
+        A tuple of two dictionaries: the core config file and the links.
+    """
+    with open(path, "r") as source:
+        config = yaml.safe_load(source)
+    links = config.pop("LINKS", {})
+    return config, links
 
 
 def recursive_insert(config: Dict[str, ...], key: str, value) -> None:
