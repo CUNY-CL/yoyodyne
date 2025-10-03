@@ -1,11 +1,6 @@
 """Custom optimizers."""
 
-from typing import Union
-
-import torch
 from torch import optim
-
-FloatOrTensorT = Union[float, torch.Tensor]
 
 BETA1 = 0.9
 BETA2 = 0.999
@@ -38,10 +33,10 @@ class Adam(optim.Adam):
 
     def __init__(
         self,
-        params: optim.ParamsT,
-        lr: FloatOrTensorT = 0.001,
-        beta1: FloatOrTensorT = BETA1,
-        beta2: FloatOrTensorT = BETA2,
+        params,
+        lr: float = 0.001,
+        beta1: float = BETA1,
+        beta2: float = BETA2,
         *args,
         **kwargs,
     ):
@@ -53,10 +48,10 @@ class AdamW(optim.AdamW):
 
     def __init__(
         self,
-        params: optim.ParamsT,
-        lr: FloatOrTensorT = 0.001,
-        beta1: FloatOrTensorT = BETA1,
-        beta2: FloatOrTensorT = BETA2,
+        params,
+        lr: float = 0.001,
+        beta1: float = BETA1,
+        beta2: float = BETA2,
         *args,
         **kwargs,
     ):
@@ -68,10 +63,10 @@ class Adamax(optim.Adamax):
 
     def __init__(
         self,
-        params: optim.ParamsT,
-        lr: FloatOrTensorT = 0.002,
-        beta1: FloatOrTensorT = BETA1,
-        beta2: FloatOrTensorT = BETA2,
+        params,
+        lr: float = 0.002,
+        beta1: float = BETA1,
+        beta2: float = BETA2,
         *args,
         **kwargs,
     ):
@@ -83,10 +78,10 @@ class NAdam(optim.NAdam):
 
     def __init__(
         self,
-        params: optim.ParamsT,
-        lr: FloatOrTensorT = 0.002,
-        beta1: FloatOrTensorT = BETA1,
-        beta2: FloatOrTensorT = BETA2,
+        params,
+        lr: float = 0.002,
+        beta1: float = BETA1,
+        beta2: float = BETA2,
         *args,
         **kwargs,
     ):
@@ -98,10 +93,10 @@ class RAdam(optim.RAdam):
 
     def __init__(
         self,
-        params: optim.ParamsT,
-        lr: FloatOrTensorT = 0.001,
-        beta1: FloatOrTensorT = BETA1,
-        beta2: FloatOrTensorT = BETA2,
+        params,
+        lr: float = 0.001,
+        beta1: float = BETA1,
+        beta2: float = BETA2,
         *args,
         **kwargs,
     ):
@@ -113,10 +108,10 @@ class SparseAdam(optim.SparseAdam):
 
     def __init__(
         self,
-        params: optim.ParamsT,
-        lr: FloatOrTensorT = 0.001,
-        beta1: FloatOrTensorT = BETA1,
-        beta2: FloatOrTensorT = BETA2,
+        params,
+        lr: float = 0.001,
+        beta1: float = BETA1,
+        beta2: float = BETA2,
         *args,
         **kwargs,
     ):
