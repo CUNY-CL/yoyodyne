@@ -28,11 +28,19 @@ parameters:
   model.init_args.features_encoder:
     value: true
   model.init_args.optimizer.class_path:
-    value: torch.optim.Adam
+    value: yoyodyne.optimizers.Adam
   model.init_args.optimizer.init_args.lr:
     distribution: log_uniform_values
     min: 1.0e-06
     max: 0.001
+  model.init_args.optimizer.init_args.beta1:
+    distribution: log_uniform_values
+    min: 0.8
+    max: 0.99
+  model.init_args.optimizer.init_args.beta2:
+    distribution: log_uniform_values
+    min: 0.99
+    max: 0.9999
   model.init_args.scheduler.class_path:
     value: yoyodyne.schedulers.WarmupInverseSquareRoot
   model.init_args.scheduler.init_args.warmup_epochs:
