@@ -11,7 +11,7 @@ Execute the following to create and run the sweep; here `${ENTITY}` and
 In the following example, targeting the English data for the CoNLL-SIGMORPHON
 2017 shared task on morphological generation, we have two separate YAML
 configuration files prepared. The first file,
-[`configs/mbert_grid.yaml`](configs/grid.yaml), specifies the hyperparameter
+[`configs/grid.yaml`](configs/grid.yaml), specifies the hyperparameter
 grid (it may also contain constant values, if desired). The second file,
 [`configs/tune.yaml`](configs/tune.yaml), specifies any constants needed during
 the sweep, such as trainer arguments or data paths.
