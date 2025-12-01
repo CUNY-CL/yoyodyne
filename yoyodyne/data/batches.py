@@ -13,7 +13,7 @@ from .. import special
 
 
 class PaddedTensor(nn.Module):
-    """A tensor.
+    """A tensor with an optional padding mask.
 
     This is ordinarily used for padding a tensor list, so it represents
     one of (source, target, features) for a batch.
