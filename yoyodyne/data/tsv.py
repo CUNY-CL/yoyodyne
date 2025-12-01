@@ -66,7 +66,7 @@ class TsvParser:
             raise Error(f"Out of range target column: {self.target_col}")
 
     @staticmethod
-    def _tsv_reader(path: str) -> Iterator[str]:
+    def _tsv_reader(path: str) -> Iterator[List[str]]:
         with open(path, "r", encoding=defaults.ENCODING) as tsv:
             yield from csv.reader(tsv, delimiter="\t")
 
