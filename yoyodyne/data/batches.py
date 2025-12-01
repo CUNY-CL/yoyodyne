@@ -102,11 +102,11 @@ class Batch(nn.Module):
         self.register_module("target", target)
 
     @property
-    def has_features(self):
+    def has_features(self) -> bool:
         return self.features is not None
 
     @property
-    def has_target(self):
+    def has_target(self) -> bool:
         return self.target is not None
 
     def __len__(self) -> int:
