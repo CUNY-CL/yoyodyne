@@ -78,12 +78,12 @@ class WrappedRNNEncoder:
 
     @staticmethod
     def _pad(sequence: nn.utils.rnn.PackedSequence) -> torch.Tensor:
-        packed, _ = nn.utils.rnn.pad_packed_sequence(
+        padded, _ = nn.utils.rnn.pad_packed_sequence(
             sequence,
             batch_first=True,
             padding_value=special.PAD_IDX,
         )
-        return packed
+        return padded
 
     @staticmethod
     def _pack(
