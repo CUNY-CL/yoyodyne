@@ -231,7 +231,7 @@ poorly and are present only for historical reasons.
 #### Optimization
 
 Yoyodyne requires an optimizer and an learning rate scheduler. The default
-optimizer isv `yoyodyne.optimizers.Adam`, and the default scheduler is
+optimizer is `yoyodyne.optimizers.Adam`, and the default scheduler is
 `yoyodyne.schedulers.Dummy`, which keeps learning rate fixed at its initial
 value and takes no explicit configuration arguments.
 
