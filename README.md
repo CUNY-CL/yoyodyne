@@ -130,9 +130,9 @@ For more detailed examples, see the [`configs`](configs) directory.
 ### Training (`fit`)
 
 In `fit` mode, one trains a Yoyodyne model, either from scratch or, optionally,
-resuming for a prexisting checkpoint. Naturally, most configuration options need
-to be set at training time. E.g., it is not possible to switch modules after
-training a model.
+resuming from a prexisting checkpoint. Naturally, most configuration options
+need to be set at training time. E.g., it is not possible to switch modules
+after training a model.
 
 This mode is invoked using the `fit` subcommand, like so.
 
