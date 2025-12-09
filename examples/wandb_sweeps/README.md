@@ -1,6 +1,6 @@
 # W&B Sweeps
 
-This directory contains example scripts for running a hyperparameter sweep with
+This directory contains instructions for running a hyperparameter sweep with
 [Weights & Biases](https://wandb.ai/site).
 
 ## Usage
