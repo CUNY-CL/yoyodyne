@@ -86,11 +86,11 @@ the format is specified as:
 
     ...
     data:
-        ...
-        features_col: 2
-        features_sep: ,
-        target_col: 3
-        ...
+      ...
+      features_col: 2
+      features_sep: ,
+      target_col: 3
+      ...
 
 Alternatively, for the [CoNLL-SIGMORPHON 2017 shared
 task](https://sigmorphon.github.io/sharedtasks/2017/), the first column is the
@@ -103,8 +103,8 @@ the format is specified as simply:
 
     ...
     data:
-        ...
-        features_col: 3
+      ...
+      features_col: 3
 
 ### Reserved symbols
 
@@ -242,16 +242,16 @@ non-default initial learning rate and the
 
     ...
     model:
-        ...
-        optimizer:
-          class_path: torch.optim.Adam
-          init_args:
-            lr: 1.0e-5 
-        scheduler:
-          class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
-          init_args:
-            warmup_epochs: 10   
-        ...
+      ...
+      optimizer:
+        class_path: torch.optim.Adam
+        init_args:
+          lr: 1.0e-5 
+      scheduler:
+        class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
+        init_args:
+          warmup_epochs: 10   
+      ...
 
 #### Checkpointing
 
