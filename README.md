@@ -363,7 +363,7 @@ By default, the source and target vocabularies share embeddings so identical
 source and target symbols will have the same embedding. This can be disabled
 with `data: tie_embeddings: false`.
 
-By default, training uses 32-bit precision. However, the `trainer.: precision:`
+By default, training uses 32-bit precision. However, the `trainer: precision:`
 flag allows the user to perform training with half precision (`16`), or with
 mixed-precision formats like `bf16-mixed` if supported by the accelerator. This
 might reduce the size of the model and batches in memory, allowing one to use
@@ -411,7 +411,7 @@ written:
 
     ...
     predict:
-      path: /Users/Shinji/predictions.txt
+      path: path/to/predictions.txt
     ...
 
 This mode is invoked using the `predict` subcommand, like so:
