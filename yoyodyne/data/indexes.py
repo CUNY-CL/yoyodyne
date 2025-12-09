@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import itertools
 import pickle
-
 from typing import Dict, Iterable, List, Optional
+
+from torch import serialization
+import yaml
 
 from .. import defaults, special, util
 
@@ -21,12 +23,13 @@ class Index:
         source_vocabulary (Iterable[str]).
         features_vocabulary (Iterable[str], optional).
         target_vocabulary (Iterable[str], optional).
-        tie_embeddings: (bool).
+        tie_embeddings (bool).
     """
 
     source_vocabulary: List[str]
-    target_vocabulary: List[str]
     features_vocabulary = Optional[List[str]]
+    target_vocabulary: List[str]
+    tie_embeddings: bool
     _index2symbol: List[str]
     _symbol2index: Dict[str, int]
 
@@ -131,6 +134,28 @@ class Index:
         """
         return f"{model_dir}/index.pkl"
 
+    @staticmethod
+    def _yaml_representer(dumper: yaml.Representer, data: Index):
+        return dumper.represent_mapping(
+            "!Index",
+            {
+                "source_vocabulary": data.source_vocabulary,
+                "features_vocabulary": data.features_vocabulary,
+                "target_vocabulary": data.target_vocabulary,
+                "tie_embeddings": data.tie_embeddings,
+            },
+        )
+
+    @staticmethod
+    def _yaml_constructor(loader: yaml.Constructor, node: yaml.Node):
+        node_value = loader.construct_mapping(node, deep=True)
+        return Index(
+            source_vocabulary=node_value.get("source_vocabulary"),
+            features_vocabulary=node_value.get("features_vocabulary"),
+            target_vocabulary=node_value.get("target_vocabulary"),
+            tie_embeddings=node_value.get("tie_embeddings"),
+        )
+
     # Properties.
 
     @property
@@ -160,3 +185,11 @@ class Index:
             return len(special.SPECIAL) + len(self.target_vocabulary)
         else:
             return 0
+
+
+# This whitelists the Index for safe serialization.
+
+
+serialization.add_safe_globals([Index])
+yaml.add_representer(Index, Index._yaml_representer, Dumper=yaml.SafeDumper)
+yaml.add_constructor("!Index", Index._yaml_constructor, Loader=yaml.SafeLoader)
