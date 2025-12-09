@@ -4,7 +4,7 @@ import numpy
 
 from torch import optim
 
-from . import schedulers
+from . import optimizers, schedulers
 
 # All elements should be styled as CONSTANTS.
 
@@ -46,7 +46,7 @@ BETA2 = 0.999
 DROPOUT = 0.2
 LABEL_SMOOTHING = 0.0
 ORACLE_FACTOR = 1
-OPTIMIZER = optim.Adam
+OPTIMIZER = optimizers.Adam
 SCHEDULER = schedulers.Dummy
 
 # Decoding arguments.
