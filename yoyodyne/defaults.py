@@ -2,8 +2,6 @@
 
 import numpy
 
-from torch import optim
-
 from . import optimizers, schedulers
 
 # All elements should be styled as CONSTANTS.
