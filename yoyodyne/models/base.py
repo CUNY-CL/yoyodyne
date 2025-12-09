@@ -172,7 +172,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         else:
             logging.info("Encoder: %s", self.source_encoder.name)
         logging.info("Decoder: %s", self.decoder.name)
-        logging.info("# of parameters: %s", f"{self.num_parameters:,}")
 
     def configure_optimizers(
         self,
@@ -199,10 +198,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     @property
     def has_ser(self) -> bool:
         return self.ser is not None
-
-    @property
-    def num_parameters(self) -> int:
-        return sum(part.numel() for part in self.parameters())
 
     def start_symbol(self, batch_size: int) -> torch.Tensor:
         """Generates a tensor of start symbols for the batch."""
