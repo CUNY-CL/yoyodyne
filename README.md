@@ -231,10 +231,9 @@ poorly and are present only for historical reasons.
 #### Optimization
 
 Yoyodyne requires an optimizer and an learning rate scheduler. The default
-optimizer is
-[`torch.optim.Adam`](https://docs.pytorch.org/docs/stable/generated/torch.optim.Adam.html),
-and the default scheduler is `yoyodyne.schedulers.Dummy`, which keeps learning
-rate fixed at its initial value and takes no explicit configuration arguments.
+optimizer isv `yoyodyne.optimizers.Adam`, and the default scheduler is
+`yoyodyne.schedulers.Dummy`, which keeps learning rate fixed at its initial
+value and takes no explicit configuration arguments.
 
 The following YAML snippet shows the use of the Adam optimizer with a
 non-default initial learning rate and the
@@ -244,9 +243,10 @@ non-default initial learning rate and the
     model:
       ...
       optimizer:
-        class_path: torch.optim.Adam
+        class_path: yoyodyne.optimizers.Adam
         init_args:
-          lr: 1.0e-5 
+          lr: 1.0e-5
+          beta2: 0.9
       scheduler:
         class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
         init_args:
