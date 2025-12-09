@@ -141,7 +141,7 @@ This mode is invoked using the `fit` subcommand, like so.
 Alternatively, one can resume training from a pre-existing checkpoint so long as
 it matches the specification of the configuration file.
 
-    yoyodyne fit --config path/to/config.yaml --ckpt path/to/checkpoint.ckpt
+    yoyodyne fit --config path/to/config.yaml --ckpt_path path/to/checkpoint.ckpt
 
 #### Seeding
 
