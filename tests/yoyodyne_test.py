@@ -7,6 +7,7 @@ import contextlib
 import difflib
 import itertools
 import os
+import re
 import tempfile
 import unittest
 
@@ -29,8 +30,8 @@ class YoyodyneTest(unittest.TestCase):
         ):
             difflines = "".join(
                 difflib.unified_diff(
-                    actual.readlines(),
-                    expected.readlines(),
+                    [self._normalize(line) for line in actual],
+                    [self._normalize(line) for line in expected],
                     fromfile=actual_path,
                     tofile=expected_path,
                     n=1,
@@ -38,6 +39,10 @@ class YoyodyneTest(unittest.TestCase):
             )
             if difflines:
                 self.fail(f"Prediction differences found:\n{difflines}")
+
+    @staticmethod
+    def _normalize(line: str) -> str:
+        return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", line)
 
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="yoyodyne_test-")
