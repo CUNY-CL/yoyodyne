@@ -27,7 +27,7 @@ class YoyodyneTest(unittest.TestCase):
             open(actual_path, "r") as actual,
             open(expected_path, "r") as expected,
         ):
-            diff = list(
+            difflines = "".join(
                 difflib.unified_diff(
                     actual.readlines(),
                     expected.readlines(),
@@ -36,7 +36,8 @@ class YoyodyneTest(unittest.TestCase):
                     n=1,
                 )
             )
-        self.assertEqual(diff, [], f"Prediction differences found:\n{diff}")
+            if difflines:
+                self.fail(f"Prediction differences found:\n{difflines}")
 
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory(prefix="yoyodyne_test-")

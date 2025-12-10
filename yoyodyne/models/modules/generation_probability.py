@@ -1,6 +1,7 @@
 """Generation probability modules for pointer-generators."""
 
-import numpy
+import math
+
 import torch
 from torch import nn
 
@@ -14,7 +15,7 @@ class GenerationProbability(nn.Module):
         attention_size (int): dimensions of combined encoder attentions.
     """
 
-    stdev = 1 / numpy.sqrt(100)
+    stdev = 1 / math.sqrt(100)
 
     W_attention: nn.Linear
     W_hs: nn.Linear

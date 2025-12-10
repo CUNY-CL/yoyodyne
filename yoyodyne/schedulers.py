@@ -1,8 +1,8 @@
 """Custom schedulers."""
 
+import math
 from typing import List
 
-import numpy
 from torch import optim
 
 
@@ -54,7 +54,7 @@ class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
         **kwargs,
     ):
         self.warmup_epochs = warmup_epochs
-        self.decay_factor = numpy.sqrt(warmup_epochs)
+        self.decay_factor = math.sqrt(warmup_epochs)
         super().__init__(optimizer, self.lr_lambda)
 
     def lr_lambda(self, epoch: int) -> float:

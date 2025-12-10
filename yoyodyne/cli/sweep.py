@@ -82,6 +82,7 @@ def populate_config(
 def main() -> None:
     logging.basicConfig(
         format="%(levelname)s: %(asctime)s - %(message)s",
+        datefmt="%d-%b-%y %H:%M:%S",
         level="INFO",
     )
     parser = argparse.ArgumentParser(description=__doc__)

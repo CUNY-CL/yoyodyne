@@ -1,8 +1,8 @@
 """Positional encoding modules for transformers."""
 
+import math
 from typing import Optional
 
-import numpy
 import torch
 from torch import nn
 
@@ -30,7 +30,7 @@ class PositionalEncoding(nn.Module):
         position = torch.arange(
             0, max_source_length, dtype=torch.float
         ).unsqueeze(1)
-        scale_factor = -numpy.log(10000.0) / d_model
+        scale_factor = -math.log(10000.0) / d_model
         div_term = torch.exp(
             torch.arange(0, d_model, 2).float() * scale_factor
         )

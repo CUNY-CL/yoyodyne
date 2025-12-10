@@ -2,9 +2,9 @@
 
 import abc
 import collections
+import math
 from typing import Optional, Tuple
 
-import numpy
 import torch
 from torch import nn
 
@@ -75,7 +75,7 @@ class TransformerModule(base.BaseModule):
         super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
         self.dropout_layer = nn.Dropout(dropout)
-        self.esq = numpy.sqrt(self.embedding_size)
+        self.esq = math.sqrt(self.embedding_size)
         self.module = self.get_module()
         self.positional_encoding = position.PositionalEncoding(
             self.embedding_size, max_length

@@ -485,9 +485,6 @@ consistency decisions made thus far:
 
 -   Abstract classes overrides are enforced using [PEP
     3119](https://peps.python.org/pep-3119/).
--   [`numpy`](https://numpy.org/) is used for basic mathematical operations and
-    constants even in places where the built-in
-    [`math`](https://docs.python.org/3/library/math.html) would do.
 
 #### Models and modules
 

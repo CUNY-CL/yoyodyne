@@ -1,6 +1,6 @@
 """Default values for flags and modules."""
 
-import numpy
+import math
 
 from . import optimizers, schedulers
 
@@ -8,10 +8,8 @@ from . import optimizers, schedulers
 
 # Scalar constants.
 EPSILON = 1e-7
-LOG_EPSILON = numpy.log(EPSILON)
-NEG_LOG_EPSILON = -numpy.log(EPSILON)
-INF = numpy.inf
-NEG_INF = -numpy.inf
+NEG_LOG_EPSILON = -math.log(EPSILON)
+NEG_INF = -math.inf
 
 # Default text encoding.
 ENCODING = "utf-8"

@@ -1,10 +1,10 @@
 """Finds the best batch size given constraints."""
 
 import logging
+import math
 from typing import Tuple
 
 import lightning
-import numpy
 from lightning.pytorch.tuner import tuning
 
 from . import data, defaults, models
@@ -100,7 +100,7 @@ def find_batch_size(
             # exceed the desired batch size. This seems like it would be "off
             # by one" but the way it's defined in the batch size finder is
             # itself "off by one" in the opposite direction, so it cancels out.
-            max_trials=int(numpy.log2(desired_batch_size - 1)),
+            max_trials=int(math.log2(desired_batch_size - 1)),
             steps_per_trial=steps_per_trial,
         )
         steps, batch_size = _optimal_batch_size(
