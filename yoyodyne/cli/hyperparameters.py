@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+from typing import Any, Dict
 
 import wandb
 import yaml
@@ -14,7 +15,7 @@ ALLOWED_TOP_LEVEL_CATEGORIES = frozenset(
 )
 
 
-def dot_to_nested_dict(flat_dict: dict[str, ...]) -> dict[str, ...]:
+def dot_to_nested_dict(flat_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Converts dot notation dictionary to nested dictionary.
 
     Args:

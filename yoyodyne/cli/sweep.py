@@ -8,7 +8,7 @@ import sys
 import tempfile
 import traceback
 import warnings
-from typing import Dict, List, TextIO
+from typing import Any, Dict, List, TextIO
 
 import wandb
 import yaml
@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
 
 
 def train_sweep(
-    config: Dict[str, ...],
+    config: Dict[str, Any],
     links: Dict[str, List[str]],
     temp_config: TextIO,
     argv: List[str],
@@ -52,7 +52,7 @@ def run_sweep(argv: List[str]) -> None:
 
 
 def populate_config(
-    config: Dict[str, ...],
+    config: Dict[str, Any],
     links: Dict[str, List[str]],
     temp_config_handle: TextIO,
 ) -> None:
