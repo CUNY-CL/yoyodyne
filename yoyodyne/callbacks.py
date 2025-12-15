@@ -19,7 +19,6 @@ class PredictionWriter(callbacks.BasePredictionWriter):
     """
 
     path: str
-    target_sep: str
     sink: Optional[TextIO]
 
     # path is given a default argument to silence a warning if no prediction
@@ -34,8 +33,8 @@ class PredictionWriter(callbacks.BasePredictionWriter):
     ):
         super().__init__("batch")
         self.path = path
-        self.target_sep = target_sep
         self.sink = None
+        self.target_sep = target_sep
 
     # Required API.
 
