@@ -38,6 +38,11 @@ class YoyodyneCLI(cli.LightningCLI):
             apply_on="instantiate",
         )
         parser.link_arguments(
+            "data.target_sep",
+            "prediction.target_sep",
+            apply_on="instantiate",
+        )
+        parser.link_arguments(
             "data.vocab_size",
             "model.init_args.vocab_size",
             apply_on="instantiate",

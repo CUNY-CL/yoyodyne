@@ -182,6 +182,10 @@ class DataModule(lightning.LightningDataModule):
         return self.parser.has_target
 
     @property
+    def target_sep(self) -> str:
+        return self.parser.target_sep
+
+    @property
     def target_vocab_size(self) -> int:
         return self.index.target_vocab_size
 
