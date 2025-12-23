@@ -99,15 +99,18 @@ class TransformerModel(base.BaseModel):
         encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
+            if not batch.features:
+                raise Error(
+                    "Features encoder enabled, but no feature column specified"
+                )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.training and self.teacher_forcing:
-            assert (
-                batch.has_target
-            ), "Teacher forcing requested but no target provided"
+            if not batch.has_target:
+                raise Error("Teacher forcing requested but no target provided")
             batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
             target = torch.cat((symbol, batch.target.padded), dim=1)
