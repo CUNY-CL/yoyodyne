@@ -10,6 +10,10 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
+class Error(Exception):
+    pass
+
+
 class HardAttentionRNNModel(base.BaseModel):
     """Abstract base class for hard attention models.
 
@@ -303,6 +307,10 @@ class HardAttentionRNNModel(base.BaseModel):
         """
         encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
+            if not batch.features:
+                raise Error(
+                    "Features encoder enabled, but no feature column specified"
+                )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )

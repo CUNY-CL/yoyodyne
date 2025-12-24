@@ -12,6 +12,10 @@ from .. import data, defaults, special, util
 from . import base, embeddings, expert, modules
 
 
+class Error(Exception):
+    pass
+
+
 class TransducerRNNModel(base.BaseModel):
     """Abstract base class for transducer models.
 
@@ -106,6 +110,10 @@ class TransducerRNNModel(base.BaseModel):
         source = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         if self.has_features_encoder:
+            if not batch.features:
+                raise Error(
+                    "Features encoder enabled, but no feature column specified"
+                )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )

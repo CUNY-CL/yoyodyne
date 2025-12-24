@@ -274,6 +274,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         """
         source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
+            if not batch.features:
+                raise Error(
+                    "Features encoder enabled, but no feature column specified"
+                )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )
@@ -571,6 +575,10 @@ class PointerGeneratorTransformerModel(
         """
         source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
+            if not batch.features:
+                raise Error(
+                    "Features encoder enabled, but no feature column specified"
+                )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )
