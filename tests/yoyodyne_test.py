@@ -90,11 +90,12 @@ class YoyodyneTest(unittest.TestCase):
             "ice_g2p", arch, data_config_path, self.REAL_TRAINER_CONFIG_PATH
         )
 
-    # Also tests out separate features encoders.
+    # Tests out different ways to encode the features.
     INFLECTION_ARCH = [
         "attentive_lstm_gru_features",
         "attentive_lstm_linear_features",
         "attentive_lstm_separate_features",
+        "attentive_lstm_shared_features",
     ]
 
     @parameterized.expand(ARCH + INFLECTION_ARCH)
@@ -187,46 +188,63 @@ class YoyodyneTest(unittest.TestCase):
         )
         self.assertFileIdentity(evaluation_path, expected_path)
 
+    # These misconfiguration tests all use a shared structure.
+
     def test_misconfiguration_source_embedding_neq_model_embedding(self):
         self._test_misconfiguration_procedure(
+            "ice_g2p",
             "misconfigured_source_embedding_neq_model_embedding",
         )
 
     def test_misconfiguration_features_embedding_neq_model_embedding(self):
         self._test_misconfiguration_procedure(
+            "tur_inflection",
             "misconfigured_features_embedding_neq_model_embedding",
+        )
+
+    def test_misconfiguration_features_col_no_features_encoder(self):
+        self._test_misconfiguration_procedure(
+            "tur_inflection",
+            "attentive_lstm",
+        )
+
+    def test_misconfiguration_features_encoder_no_features_col(self):
+        self._test_misconfiguration_procedure(
+            "ice_g2p",
+            "attentive_lstm_shared_features",
         )
 
     def test_misconfiguration_encoder_layers_neq_decoder_layers(self):
         self._test_misconfiguration_procedure(
+            "ice_g2p",
             "misconfigured_encoder_layers_neq_decoder_layers",
         )
 
-    def _test_misconfiguration_procedure(self, arch: str):
+    def _test_misconfiguration_procedure(self, data: str, arch: str):
         # It doesn't really matter what data we use, though.
-        testdata_dir = os.path.join(self.TESTDATA_DIR, "tur_inflection")
+        testdata_dir = os.path.join(self.TESTDATA_DIR, data)
         train_path = os.path.join(testdata_dir, "train.tsv")
         self.assertNonEmptyFileExists(train_path)
         dev_path = os.path.join(testdata_dir, "dev.tsv")
         model_dir = os.path.join(self.tempdir.name, "models")
         # Gets config paths.
+        data_config_path = os.path.join(self.CONFIG_DIR, f"{data}_data.yaml")
         model_config_path = os.path.join(self.CONFIG_DIR, f"{arch}.yaml")
         self.assertNonEmptyFileExists(model_config_path)
-        # Tries to fit but catches the misconfiguration.
-        # Ideally we'd catch the more specific example but jsonargparse
-        # catches these and turns them into ValueError.
+        # Tries to validate but catches the misconfiguration.
+        # Errors during the constructor are converted to ValueError;
+        # those during runtime inference are a more derived class.
         with self.assertRaises(ValueError):
             main.python_interface(
                 [
-                    "fit",
+                    "validate",
                     f"--checkpoint={self.CHECKPOINT_CONFIG_PATH}",
-                    f"--data={self.TOY_DATA_CONFIG_PATH}",
+                    f"--data={data_config_path}",
                     f"--model={model_config_path}",
                     f"--trainer={self.TOY_TRAINER_CONFIG_PATH}",
                     f"--data.train={train_path}",
                     f"--data.val={dev_path}",
                     f"--data.model_dir={model_dir}",
-                    f"--seed_everything={self.SEED}",
                 ]
             )
 

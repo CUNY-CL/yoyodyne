@@ -10,10 +10,6 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
-class Error(Exception):
-    pass
-
-
 class HardAttentionRNNModel(base.BaseModel):
     """Abstract base class for hard attention models.
 
@@ -303,13 +299,18 @@ class HardAttentionRNNModel(base.BaseModel):
                 x vocab_size, and transition probabilities for each transition
 
         Raises:
+            base.ConfigurationError: Features encoder specified but no feature
+                column specified.
+            base.ConfigurationError: Feature column specified but no feature
+                encoder specified.
             NotImplementedError: Beam search not implemented.
         """
         encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
             if not batch.has_features:
-                raise Error(
-                    "Features encoder enabled, but no feature column specified"
+                raise base.ConfigurationError(
+                    "Features encoder specified but "
+                    "no feature column specified"
                 )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
@@ -317,6 +318,10 @@ class HardAttentionRNNModel(base.BaseModel):
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
             encoded = torch.cat((encoded, features_encoded), dim=2)
+        elif batch.has_features:
+            raise base.ConfigurationError(
+                "Feature column specified but no feature encoder specified"
+            )
         if self.training:
             return self.decode(
                 encoded,

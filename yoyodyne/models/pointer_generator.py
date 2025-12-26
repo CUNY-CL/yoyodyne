@@ -9,10 +9,6 @@ from .. import data, special
 from . import base, beam_search, defaults, modules, rnn, transformer
 
 
-class Error(Exception):
-    pass
-
-
 class PointerGeneratorModel(base.BaseModel):
     """Base class for pointer-generator models."""
 
@@ -119,7 +115,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         )
         # Compatibility check.
         if self.source_encoder.layers != self.decoder_layers:
-            raise Error(
+            raise base.ConfigurationError(
                 f"Number of encoder layers ({self.source_encoder.layers}) and "
                 f"decoder layers ({self.decoder_layers}) must match"
             )
@@ -271,12 +267,19 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 log-probabilities) for each prediction; greedy search returns
                 a tensor of predictions of shape
                 B x target_vocab_size x seq_len.
+
+        Raises:
+            base.ConfigurationError: Features encoder specified but no feature
+                column specified.
+            base.ConfigurationError: Features column specified but no feature
+                encoder specified.
         """
         source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
             if not batch.has_features:
-                raise Error(
-                    "Features encoder enabled, but no feature column specified"
+                raise base.Error(
+                    "Features encoder specified but "
+                    "no feature column specified"
                 )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
@@ -301,6 +304,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                     features_encoded=features_encoded,
                     features_mask=batch.features.mask,
                 )
+        elif batch.has_features:
+            raise base.Error(
+                "Features column specified but no feature encoder specified"
+            )
         elif self.beam_width > 1:
             return self.beam_decode(
                 batch.source.padded, source_encoded, batch.source.mask
@@ -571,13 +578,18 @@ class PointerGeneratorTransformerModel(
             torch.Tensor.
 
         Raises:
+            base.ConfigurationError: Features encoder specified but no feature
+                column specified.
+            base.ConfigurationError: Features column specified but no feature
+                encoder specified.
             NotImplementedError: Beam search not implemented.
         """
         source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
             if not batch.features:
-                raise Error(
-                    "Features encoder enabled, but no feature column specified"
+                raise base.ConfigurationError(
+                    "Features encoder specified but "
+                    "no feature column specified"
                 )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
@@ -589,6 +601,10 @@ class PointerGeneratorTransformerModel(
                 batch.target.padded if batch.has_target else None,
                 features_encoded=features_encoded,
                 features_mask=batch.features.mask,
+            )
+        elif batch.has_features:
+            raise base.ConfigurationError(
+                "Feature column specified but no feature encoder specified"
             )
         else:
             return self.greedy_decode(

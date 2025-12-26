@@ -9,10 +9,6 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
-class Error(Exception):
-    pass
-
-
 class TransformerModel(base.BaseModel):
     """Vanilla transformer model.
 
@@ -54,7 +50,7 @@ class TransformerModel(base.BaseModel):
             and self.source_encoder.output_size
             != self.features_encoder.output_size
         ):
-            raise Error(
+            raise base.ConfigurationError(
                 "Cannot concatenate source encoding "
                 f"({self.source_encoder.output_size}) and features "
                 f"encoding {self.features_encoder.output_size})"
@@ -95,22 +91,37 @@ class TransformerModel(base.BaseModel):
 
         Returns:
             torch.Tensor.
+
+        Raises:
+            base.ConfigurationError: Features encoder specified but no feature
+                column specified.
+            base.ConfigurationError: Features column specified but no feature
+                encoder specified.
+            base.ConfigurationError: Teacher forcing requested but no target
+                provided.
         """
         encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
             if not batch.has_features:
-                raise Error(
-                    "Features encoder enabled, but no feature column specified"
+                raise base.ConfigurationError(
+                    "Features encoder specified but "
+                    "no feature column specified"
                 )
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
+        elif batch.has_features:
+            raise base.ConfigurationError(
+                "Feature column specified but no feature encoder specified"
+            )
         if self.training and self.teacher_forcing:
             if not batch.has_target:
-                raise Error("Teacher forcing requested but no target provided")
+                raise base.ConfigurationError(
+                    "Teacher forcing requested but no target provided"
+                )
             batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
             target = torch.cat((symbol, batch.target.padded), dim=1)
