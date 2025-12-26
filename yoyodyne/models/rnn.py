@@ -170,7 +170,7 @@ class RNNModel(base.BaseModel):
         encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
-            if not batch.features:
+            if not batch.has_features:
                 raise Error(
                     "Features encoder enabled, but no feature column specified"
                 )

@@ -110,7 +110,7 @@ class TransducerRNNModel(base.BaseModel):
         source = batch.source.padded[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         if self.has_features_encoder:
-            if not batch.features:
+            if not batch.has_features:
                 raise Error(
                     "Features encoder enabled, but no feature column specified"
                 )
