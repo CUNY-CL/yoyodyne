@@ -14,7 +14,7 @@ from .. import data, defaults, metrics, special
 from . import modules
 
 
-class Error(Exception):
+class ConfigurationError(ValueError):
     pass
 
 
@@ -106,7 +106,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             self.num_embeddings, self.embedding_size
         )
         if source_encoder.embedding_size != self.embedding_size:
-            raise Error(
+            raise ConfigurationError(
                 "Source embedding size "
                 f"({source_encoder.embedding_size}) != "
                 "model embedding size "
@@ -121,7 +121,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             self.has_features_encoder = False
         else:
             if features_encoder.embedding_size != self.embedding_size:
-                raise Error(
+                raise ConfigurationError(
                     "Features embedding size "
                     f"({features_encoder.embedding_size}) != "
                     "model embedding size "

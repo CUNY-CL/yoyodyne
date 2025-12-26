@@ -8,6 +8,7 @@ all: train.tsv \
     attentive_lstm_gru_features_expected.test \
     attentive_lstm_linear_features_expected.test \
     attentive_lstm_separate_features_expected.test \
+    attentive_lstm_shared_features_expected.test \
 	attentive_lstm_gru_source_expected.test \
 	attentive_lstm_transformer_source_expected.test \
 	context_hard_attention_gru_expected.test \

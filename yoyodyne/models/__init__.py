@@ -2,6 +2,7 @@
 
 from .. import defaults  # noqa: F401
 from .base import BaseModel  # noqa: F401
+from .base import ConfigurationError  # noqa: F401
 from .hard_attention import HardAttentionGRUModel  # noqa: F401
 from .hard_attention import HardAttentionLSTMModel  # noqa: F401
 from .pointer_generator import PointerGeneratorGRUModel  # noqa: F401

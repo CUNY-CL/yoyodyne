@@ -15,10 +15,6 @@ from .. import data, defaults, special
 from . import base, beam_search, embeddings, modules
 
 
-class Error(Exception):
-    pass
-
-
 class RNNModel(base.BaseModel):
     """Abstract base class for RNN models.
 
@@ -56,7 +52,7 @@ class RNNModel(base.BaseModel):
             and self.source_encoder.output_size
             != self.features_encoder.output_size
         ):
-            raise Error(
+            raise base.Error(
                 "Cannot concatenate source encoding "
                 f"({self.source_encoder.output_size}) and features "
                 f"encoding ({self.features_encoder.output_size})"
@@ -164,15 +160,19 @@ class RNNModel(base.BaseModel):
                 B x seq_len x target_vocab_size.
 
         Raises:
-            Error: Cannot concatenate source encoding with features encoding.
+            base.ConfigurationError: Features encoder specified but no feature
+                column specified.
+            base.ConfigurationError: Features column specified but no feature
+                encoder specified.
         """
         sequence = batch.source.padded
         encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
-            if not batch.features:
-                raise Error(
-                    "Features encoder enabled, but no feature column specified"
+            if not batch.has_features:
+                raise base.ConfigurationError(
+                    "Features encoder specified but "
+                    "no feature column specified"
                 )
             sequence = torch.cat((sequence, batch.features.padded), dim=1)
             features_encoded = self.features_encoder(
@@ -180,6 +180,10 @@ class RNNModel(base.BaseModel):
             )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
+        elif batch.has_features:
+            raise base.ConfigurationError(
+                "Features column specified but no feature encoder specified"
+            )
         if self.beam_width > 1:
             return self.beam_decode(sequence, encoded, mask)
         else:
