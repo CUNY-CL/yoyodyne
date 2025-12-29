@@ -99,6 +99,7 @@ class YoyodyneTest(unittest.TestCase):
         "soft_attention_lstm_linear_features",
         "soft_attention_lstm_separate_features",
         "soft_attention_lstm_shared_features",
+        "transformer_shared_features",
     ]
 
     @parameterized.expand(INFLECTION_ARCH)
