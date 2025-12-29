@@ -6,17 +6,11 @@
 # Nowadays most people would probably prefer larger batch sizes and would use
 # the Adam optimizer.
 #
-# This uses a separate linear features encoder.
-class_path: yoyodyne.models.AttentiveLSTMModel
+# This variant has a GRU encoder but an LSTM decoder.
+class_path: yoyodyne.models.SoftAttentionLSTMModel
 init_args:
   source_encoder:
-    class_path: yoyodyne.models.modules.LSTMEncoder
-    init_args:
-      dropout: .3
-      embedding_size: 300
-      hidden_size: 100
-  features_encoder:
-    class_path: yoyodyne.models.modules.LSTMEncoder
+    class_path: yoyodyne.models.modules.GRUEncoder
     init_args:
       dropout: .3
       embedding_size: 300

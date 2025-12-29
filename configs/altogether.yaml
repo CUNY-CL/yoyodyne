@@ -22,7 +22,7 @@ trainer:
   max_time: 00:06:00:00
   gradient_clip_val: 3
 model:
-  class_path: yoyodyne.models.AttentiveGRUModel
+  class_path: yoyodyne.models.SoftAttentionGRUModel
   init_args:
     source_encoder:
       class_path: yoyodyne.models.modules.GRUEncoder

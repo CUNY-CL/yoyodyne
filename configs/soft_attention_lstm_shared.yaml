@@ -5,15 +5,17 @@
 # 
 # Nowadays most people would probably prefer larger batch sizes and would use
 # the Adam optimizer.
-class_path: yoyodyne.models.AttentiveLSTMModel
+#
+# This uses an LSTM features encoder shared with the source encoder.
+class_path: yoyodyne.models.SoftAttentionLSTMModel
 init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.LSTMEncoder
     init_args:
-      bidirectional: false
       dropout: .3
       embedding_size: 300
       hidden_size: 100
+  features_encoder: true
   decoder_dropout: .3
   decoder_hidden_size: 100
   embedding_size: 300

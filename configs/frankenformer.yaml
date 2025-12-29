@@ -1,5 +1,5 @@
 # Tuning is probably necessary to figure out sensible values here.
-class_path: yoyodyne.models.AttentiveLSTMModel
+class_path: yoyodyne.models.SoftAttentionLSTMModel
 init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.TransformerEncoder

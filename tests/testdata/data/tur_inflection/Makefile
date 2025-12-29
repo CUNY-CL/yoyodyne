@@ -3,24 +3,15 @@ SHELL := /bin/bash
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
-	attentive_gru_expected.test \
-	attentive_lstm_expected.test \
-    attentive_lstm_gru_features_expected.test \
-    attentive_lstm_linear_features_expected.test \
-    attentive_lstm_separate_features_expected.test \
-    attentive_lstm_shared_features_expected.test \
-	attentive_lstm_gru_source_expected.test \
-	attentive_lstm_transformer_source_expected.test \
-	context_hard_attention_gru_expected.test \
-	context_hard_attention_lstm_expected.test \
-	gru_expected.test \
-	hard_attention_gru_expected.test \
-	hard_attention_lstm_expected.test \
-	lstm_expected.test \
-	pointer_generator_gru_expected.test \
-	pointer_generator_lstm_expected.test \
-	pointer_generator_transformer_expected.test \
-	transformer_expected.test
+	context_hard_attention_lstm_separate_features_expected.test \
+	hard_attention_lstm_separate_features_expected.test \
+	pointer_generator_lstm_separate_features_expected.test \
+	soft_attention_lstm_gru_features_expected.test \
+	soft_attention_lstm_gru_source_expected.test \
+	soft_attention_lstm_linear_features_expected.test \
+	soft_attention_lstm_separate_features_expected.test \
+	soft_attention_lstm_shared_features_expected.test \
+	transformer_shared_features_expected.test
 
 # Data from the CoNLL-SIGMORPHON 2017 shared task on morphological reinflection.
 

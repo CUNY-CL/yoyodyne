@@ -4,7 +4,7 @@ metric:
   goal: maximize
 parameters:
   model.class_path:
-    value: yoyodyne.models.AttentiveLSTMModel
+    value: yoyodyne.models.SoftAttentionLSTMModel
   model.init_args.decoder_dropout:
     distribution: uniform
     min: 0
