@@ -2,21 +2,21 @@
 # https://aclanthology.org/W16-2010/
 # 
 # They use --data.batch_size 20.
-# 
+#
 # Nowadays most people would probably prefer larger batch sizes and would use
 # the Adam optimizer.
-class_path: yoyodyne.models.AttentiveLSTMModel
+#
+# They actually use LSTMs instead of GRUs.
+class_path: yoyodyne.models.SoftAttentionGRUModel
 init_args:
   source_encoder:
-    class_path: yoyodyne.models.modules.LSTMEncoder
+    class_path: yoyodyne.models.modules.GRUEncoder
     init_args:
       dropout: .3
       embedding_size: 300
       hidden_size: 100
-      layers: 2
   decoder_dropout: .3
   decoder_hidden_size: 100
-  decoder_layers: 2
   embedding_size: 300
   optimizer:
     class_path: torch.optim.Adadelta

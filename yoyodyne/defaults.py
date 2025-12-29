@@ -24,7 +24,6 @@ FEATURES_SEP = ";"
 TIED_VOCABULARY = True
 
 # Architecture arguments.
-ARCH = "attentive_lstm"
 ATTENTION_CONTEXT = 0
 ATTENTION_HEADS = 4
 BIDIRECTIONAL = True

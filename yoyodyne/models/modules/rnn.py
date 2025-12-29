@@ -214,8 +214,9 @@ class WrappedLSTMDecoder(nn.LSTM):
 class RNNDecoder(RNNModule):
     """Abstract base class for RNN decoders.
 
-    This implementation is inattentive; it uses the encodings of the
-    sequence-final hidden states as the input to the decoder.
+    This implementation lacks a learned attention mechanism; rather, it uses
+    the encodings of the sequence-final hidden states as the input to the
+    decoder.
 
     The initial decoder hidden state is a learned parameter.
     """
@@ -322,8 +323,8 @@ class LSTMDecoder(RNNDecoder):
         return "LSTM"
 
 
-class AttentiveRNNDecoder(RNNDecoder):
-    """Abstract base class for attentive RNN decoders.
+class SoftAttentionRNNDecoder(RNNDecoder):
+    """Abstract base class for soft attention RNN decoders.
 
     The attention module learns to differentially attend to different symbols
     in the encoder output.
@@ -369,17 +370,17 @@ class AttentiveRNNDecoder(RNNDecoder):
         return self.dropout_layer(decoded), state
 
 
-class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
-    """Attentive GRU decoder."""
+class SoftAttentionGRUDecoder(SoftAttentionRNNDecoder, GRUDecoder):
+    """Soft attention GRU decoder."""
 
     @property
     def name(self) -> str:
-        return "attentive GRU"
+        return "soft attention GRU"
 
 
-class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
-    """Attentive LSTM decoder."""
+class SoftAttentionLSTMDecoder(SoftAttentionRNNDecoder, LSTMDecoder):
+    """Soft attention LSTM decoder."""
 
     @property
     def name(self) -> str:
-        return "attentive LSTM"
+        return "soft attention LSTM"

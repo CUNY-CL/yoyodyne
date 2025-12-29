@@ -9,14 +9,14 @@ from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
 from .hard_attention import HardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import HardAttentionLSTMDecoder  # noqa: F401
 from .linear import LinearEncoder  # noqa: F401
-from .rnn import AttentiveGRUDecoder  # noqa: F401
-from .rnn import AttentiveLSTMDecoder  # noqa: F401
 from .rnn import GRUDecoder  # noqa: F401
 from .rnn import GRUEncoder  # noqa: F401
 from .rnn import LSTMDecoder  # noqa: F401
 from .rnn import LSTMEncoder  # noqa: F401
 from .rnn import RNNDecoder  # noqa: F401
 from .rnn import RNNState  # noqa: F401
+from .rnn import SoftAttentionGRUDecoder  # noqa: F401
+from .rnn import SoftAttentionLSTMDecoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder  # noqa: F401
 from .transformer import TransformerDecoder  # noqa: F401
 from .transformer import TransformerEncoder  # noqa: F401

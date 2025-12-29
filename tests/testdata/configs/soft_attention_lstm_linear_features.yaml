@@ -1,4 +1,4 @@
-class_path: yoyodyne.models.AttentiveLSTMModel
+class_path: yoyodyne.models.SoftAttentionLSTMModel
 init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.LSTMEncoder
@@ -7,11 +7,12 @@ init_args:
       embedding_size: 128
       hidden_size: 512
   features_encoder:
-    class_path: yoyodyne.models.modules.GRUEncoder
+    class_path: yoyodyne.models.modules.LinearEncoder
     init_args:
       dropout: .2
       embedding_size: 128
-      hidden_size: 512
+      # Twice hidden size because of bidirectionality.
+      output_size: 1024
   decoder_dropout: .2
   decoder_hidden_size: 64
   embedding_size: 128

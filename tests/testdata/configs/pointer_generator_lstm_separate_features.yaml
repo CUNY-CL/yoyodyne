@@ -1,4 +1,4 @@
-class_path: yoyodyne.models.AttentiveLSTMModel
+class_path: yoyodyne.models.PointerGeneratorLSTMModel
 init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.LSTMEncoder
@@ -6,7 +6,12 @@ init_args:
       dropout: .2
       embedding_size: 128
       hidden_size: 512
-  features_encoder: true
+  features_encoder:
+    class_path: yoyodyne.models.modules.LSTMEncoder
+    init_args:
+      dropout: .2
+      embedding_size: 128
+      hidden_size: 512
   decoder_dropout: .2
   decoder_hidden_size: 64
   embedding_size: 128

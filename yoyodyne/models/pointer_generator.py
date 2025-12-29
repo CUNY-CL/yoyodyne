@@ -410,8 +410,8 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
 class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
     """Pointer-generator model with an GRU backend."""
 
-    def get_decoder(self) -> modules.AttentiveGRUDecoder:
-        return modules.AttentiveGRUDecoder(
+    def get_decoder(self) -> modules.SoftAttentionGRUDecoder:
+        return modules.SoftAttentionGRUDecoder(
             attention_input_size=self.source_encoder.output_size,
             decoder_input_size=self.decoder_input_size,
             dropout=self.decoder_dropout,
@@ -429,8 +429,8 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
 class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
     """Pointer-generator model with an LSTM backend."""
 
-    def get_decoder(self) -> modules.AttentiveLSTMDecoder:
-        return modules.AttentiveLSTMDecoder(
+    def get_decoder(self) -> modules.SoftAttentionLSTMDecoder:
+        return modules.SoftAttentionLSTMDecoder(
             attention_input_size=self.source_encoder.output_size,
             decoder_input_size=self.decoder_input_size,
             dropout=self.decoder_dropout,

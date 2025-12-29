@@ -216,10 +216,10 @@ files](configs) and model docstrings for more information.
 
 The following are general-purpose models.
 
--   `yoyodyne.models.AttentiveGRUModel`: a GRU decoder with an attention
+-   `yoyodyne.models.SoftAttentionGRUModel`: a GRU decoder with an attention
     mechanism; the initial hidden state is treated as a learned parameter. This
     is most commonly used with `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.AttentiveLSTMModel`: an LSTM decoder with an attention
+-   `yoyodyne.models.SoftAttentionLSTMModel`: an LSTM decoder with an attention
     mechanism; the initial hidden and cell state are treated as learned
     parameters. This is most commonly used with
     `yoyodyne.models.modules.LSTMEncoder`s.
@@ -474,8 +474,8 @@ This mode is invoked using the `predict` subcommand, like so:
 
     yoyodyne predict --config path/to/config.yaml --ckpt_path path/to/checkpoint.ckpt
 
-Vanilla RNN models (like `yoyodyne.models.AttentiveGRUModel` or
-`yoyodyne.models.AttentiveLSTMModel`) and pointer-generator RNN models (like
+Vanilla RNN models (like `yoyodyne.models.SoftAttentionGRUModel` or
+`yoyodyne.models.SoftAttentionLSTMModel`) and pointer-generator RNN models (like
 `yoyodyne.models.PointerGeneratorGRUModel` or
 `yoyodyne.models.PointerGeneratorLSTMModel`) support beam search during
 prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
@@ -487,7 +487,7 @@ prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
       batch_size: 1
       ...
     model:
-      class_path: yoyodyne.models.AttentiveLSTMModel
+      class_path: yoyodyne.models.SoftAttentionLSTMModel
       init_args:
         ...
         beam_width: 5

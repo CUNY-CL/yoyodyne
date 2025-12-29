@@ -20,7 +20,7 @@ class RNNModel(base.BaseModel):
 
     The implementation of `get_decoder` in the subclasses determines what kind
     of RNN is used (i.e., GRU or LSTM), and this determines whether the model
-    is "inattentive" or attentive.
+    uses a learned attention or not.
 
     If features are provided, the encodings are fused by concatenation of the
     features encoding with the source encoding on the sequence length
@@ -332,11 +332,11 @@ class LSTMModel(RNNModel):
         return "LSTM"
 
 
-class AttentiveGRUModel(GRUModel):
+class SoftAttentionGRUModel(GRUModel):
     """GRU model with attention."""
 
-    def get_decoder(self) -> modules.AttentiveGRUDecoder:
-        return modules.AttentiveGRUDecoder(
+    def get_decoder(self) -> modules.SoftAttentionGRUDecoder:
+        return modules.SoftAttentionGRUDecoder(
             attention_input_size=self.decoder_input_size,
             decoder_input_size=self.decoder_input_size,
             dropout=self.decoder_dropout,
@@ -348,14 +348,14 @@ class AttentiveGRUModel(GRUModel):
 
     @property
     def name(self) -> str:
-        return "attentive GRU"
+        return "soft attention GRU"
 
 
-class AttentiveLSTMModel(LSTMModel):
+class SoftAttentionLSTMModel(LSTMModel):
     """LSTM model with attention."""
 
-    def get_decoder(self) -> modules.AttentiveLSTMDecoder:
-        return modules.AttentiveLSTMDecoder(
+    def get_decoder(self) -> modules.SoftAttentionLSTMDecoder:
+        return modules.SoftAttentionLSTMDecoder(
             attention_input_size=self.decoder_input_size,
             decoder_input_size=self.decoder_input_size,
             dropout=self.decoder_dropout,
@@ -367,4 +367,4 @@ class AttentiveLSTMModel(LSTMModel):
 
     @property
     def name(self) -> str:
-        return "attentive LSTM"
+        return "soft attention LSTM"
