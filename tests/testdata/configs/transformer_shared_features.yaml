@@ -1,0 +1,23 @@
+class_path: yoyodyne.models.TransformerModel
+init_args:
+  source_encoder:
+    class_path: yoyodyne.models.modules.TransformerEncoder
+    init_args:
+      dropout: .2
+      embedding_size: 128
+      hidden_size: 512
+      layers: 4
+  features_encoder: true
+  decoder_dropout: .2
+  decoder_hidden_size: 512
+  decoder_layers: 4
+  embedding_size: 128
+  label_smoothing: .1
+  optimizer:
+    class_path: torch.optim.Adam
+    init_args:
+      lr: .01
+  scheduler:
+    class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
+    init_args:
+      warmup_epochs: 10

@@ -3,10 +3,10 @@ SHELL := /bin/bash
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
-	attentive_gru_expected.test \
-	attentive_lstm_expected.test \
-	attentive_lstm_gru_source_expected.test \
-	attentive_lstm_transformer_source_expected.test \
+	soft_attention_gru_expected.test \
+	soft_attention_lstm_expected.test \
+	soft_attention_lstm_gru_source_expected.test \
+	soft_attention_lstm_transformer_source_expected.test \
 	context_hard_attention_gru_expected.test \
 	context_hard_attention_lstm_expected.test \
 	gru_expected.test \

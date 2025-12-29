@@ -75,20 +75,20 @@ To use any of the configurations below, run:
 These models all involve a simple sequence-to-sequence transduction without any
 feature conditioning.
 
--   [`attentive_gru.yaml`](attentive_gru.yaml) and
-    [`attentive_lstm.yaml`](attentive_lstm.yaml) are attentive RNN models with
+-   [`soft_attention_gru.yaml`](soft_attention_gru.yaml) and
+    [`soft_attention_lstm.yaml`](soft_attention_lstm.yaml) are soft attention RNN models with
     hyperparameters similar to those of MED (Kann & Schütze 2016).
--   [`attentive_unilstm.yaml`](attentive_unilstm.yaml) is a variant of
-    [`attentive_lstm.yaml`](attentive_lstm.yaml) with a uni- (rather than bi-)
+-   [`soft_attention_unilstm.yaml`](soft_attention_unilstm.yaml) is a variant of
+    [`soft_attention_lstm.yaml`](soft_attention_lstm.yaml) with a uni- (rather than bi-)
     directional encoder. Performance is often quite a bit worse with this
     design.
--   [`attentive_gru2lstm.yaml`](attentive_gru2lstm.yaml) is a MED-like variant
+-   [`soft_attention_gru2lstm.yaml`](soft_attention_gru2lstm.yaml) is a MED-like variant
     where the encoder is an GRU but the decoder is a LSTM.
--   [`attentive_deep_lstm.yaml`](attentive_deep_lstm.yaml) is a MED-like variant
+-   [`soft_attention_deep_lstm.yaml`](soft_attention_deep_lstm.yaml) is a MED-like variant
     where the encoder has 2 LSTM layers and the decoder has 2 LSTM layers.
     Performance is often quite a bit worse with this design.
 -   [`frankenformer.yaml`](frankenformer.yaml) is a hybrid system with a
-    transformer encoder and an attentive LSTM decoder. This model is in need of
+    transformer encoder and an soft attention LSTM decoder. This model is in need of
     hyperparameter tuning before it is ready for deployment.
 -   [`hard_attention_lstm.yaml`](hard_attention_lstm.yaml) and
     [`context_hard_attention_lstm.yaml`](context_hard_attention_lstm.yaml) are
@@ -110,11 +110,11 @@ feature conditioning.
 Most of the patterns from above generalize to feature-conditioned transduction,
 but we illustrate different ways one can enable feature conditioning.
 
--   [`attentive_lstm_shared.yaml`](attentive_lstm_shared.yaml) is a MED-like
+-   [`soft_attention_lstm_shared.yaml`](soft_attention_lstm_shared.yaml) is a MED-like
     variant with a shared source and features encoder.
--   [`attentive_lstm_separate.yaml`](attentive_lstm_separate.yaml) is a MED-like
+-   [`soft_attention_lstm_separate.yaml`](soft_attention_lstm_separate.yaml) is a MED-like
     variant with a separate LSTM features encoder.
--   [`attentive_lstm_linear.yaml`](attentive_lstm_linear.yaml) is a MED-like
+-   [`soft_attention_lstm_linear.yaml`](soft_attention_lstm_linear.yaml) is a MED-like
     variant with a separate linear features encoder.
 -   [`transformer_shared.yaml`](transformer_shared.yaml) is a transformer with a
     shared source and features encoder.

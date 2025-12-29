@@ -17,8 +17,8 @@ Current limitations:
   larger batches.
 * We hard-code the use of log-likelihoods; the addition of two log
   probabilities is equivalent to multiplying real numbers.
-* Beam search is designed to support RNN and attentive RNN models and interface
-  issues might arise with other architectures.
+* Beam search is designed to support RNN-based models and interface issues
+  might arise with other architectures.
 * Not much attention has been paid to keeping data on device.
 
 See rnn.py for sample usage.

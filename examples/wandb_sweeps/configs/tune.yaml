@@ -17,10 +17,10 @@ trainer:
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
         project: unit1
-        save_dir: /Users/Shinji/attentive_lstm/models
+        save_dir: /Users/Shinji/models
 data:
   features_col: 3
-  model_dir: /Users/Shinji/attentive_lstm/models
+  model_dir: /Users/Shinji/models
   train: /Users/Shinji/conll2017/english-train-high
   val: /Users/Shinji/conll2017/english-dev
 LINKS:
