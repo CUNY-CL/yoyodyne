@@ -20,7 +20,6 @@ warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
 
 def train_sweep(
     config: Dict[str, Any],
-    links: Dict[str, List[str]],
     temp_config: TextIO,
     argv: List[str],
 ) -> None:
@@ -28,11 +27,10 @@ def train_sweep(
 
     Args:
         config: config dictionary.
-        links: links dictionary.
         temp_config: temporary configuration file handle.
         argv: command-line arguments.
     """
-    populate_config(config, links, temp_config)
+    populate_config(config, temp_config)
     run_sweep(argv)
 
 
@@ -53,7 +51,6 @@ def run_sweep(argv: List[str]) -> None:
 
 def populate_config(
     config: Dict[str, Any],
-    links: Dict[str, List[str]],
     temp_config_handle: TextIO,
 ) -> None:
     """Populates temporary configuration file.
@@ -62,20 +59,11 @@ def populate_config(
 
     Args:
         config: config dictionary.
-        links: links dictionary.
         temp_config_handle: temporary configuration file handle.
-
-    Raises:
-        KeyError: link not found.
     """
     wandb.init()
     for key, value in wandb.config.items():
         util.recursive_insert(config, key, value)
-    for source, dests in links.items():
-        value = wandb.config[source]
-        for dest in dests:
-            logging.info("Linking: %s (%r) -> %s", source, value, dest)
-            util.recursive_insert(config, dest, value)
     yaml.safe_dump(config, temp_config_handle)
 
 
@@ -104,7 +92,7 @@ def main() -> None:
     # See: https://docs.python.org/3/library/argparse.html#partial-parsing
     # This allows the user to override config arguments with CLI arguments.
     args, sys.argv[1:] = parser.parse_known_args()
-    config, links = util.load_config_and_links(args.config)
+    config = util.load_config(args.config)
     # TODO: Consider enabling the W&B logger; we are not sure if things will
     # unless this is configured.
     temp_config = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml")
@@ -120,9 +108,7 @@ def main() -> None:
             sweep_id=args.sweep_id,
             entity=args.entity,
             project=args.project,
-            function=functools.partial(
-                train_sweep, config, links, temp_config, argv
-            ),
+            function=functools.partial(train_sweep, config, temp_config, argv),
             count=args.count,
         )
     except Exception:

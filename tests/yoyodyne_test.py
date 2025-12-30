@@ -59,10 +59,6 @@ class YoyodyneTest(unittest.TestCase):
     TOY_TRAINER_CONFIG_PATH = os.path.join(CONFIG_DIR, "toy_trainer.yaml")
     REAL_TRAINER_CONFIG_PATH = os.path.join(CONFIG_DIR, "real_trainer.yaml")
     ARCH = [
-        "attentive_gru",
-        "attentive_lstm",
-        "attentive_lstm_gru_source",
-        "attentive_lstm_transformer_source",
         "context_hard_attention_gru",
         "context_hard_attention_lstm",
         "gru",
@@ -72,6 +68,10 @@ class YoyodyneTest(unittest.TestCase):
         "pointer_generator_gru",
         "pointer_generator_lstm",
         "pointer_generator_transformer",
+        "soft_attention_gru",
+        "soft_attention_lstm",
+        "soft_attention_lstm_gru_source",
+        "soft_attention_lstm_transformer_source",
         "transformer",
         # TODO: test transducers too; but we need logic for the SED data.
     ]
@@ -90,15 +90,19 @@ class YoyodyneTest(unittest.TestCase):
             "ice_g2p", arch, data_config_path, self.REAL_TRAINER_CONFIG_PATH
         )
 
-    # Tests out different ways to encode the features.
+    # Also tests out different ways to encode the features.
     INFLECTION_ARCH = [
-        "attentive_lstm_gru_features",
-        "attentive_lstm_linear_features",
-        "attentive_lstm_separate_features",
-        "attentive_lstm_shared_features",
+        "context_hard_attention_lstm_separate_features",
+        "hard_attention_lstm_separate_features",
+        "pointer_generator_lstm_separate_features",
+        "soft_attention_lstm_gru_features",
+        "soft_attention_lstm_linear_features",
+        "soft_attention_lstm_separate_features",
+        "soft_attention_lstm_shared_features",
+        "transformer_shared_features",
     ]
 
-    @parameterized.expand(ARCH + INFLECTION_ARCH)
+    @parameterized.expand(INFLECTION_ARCH)
     def test_inflection(self, arch: str):
         data_config_path = os.path.join(
             self.CONFIG_DIR, "tur_inflection_data.yaml"
@@ -205,13 +209,13 @@ class YoyodyneTest(unittest.TestCase):
     def test_misconfiguration_features_col_no_features_encoder(self):
         self._test_misconfiguration_procedure(
             "tur_inflection",
-            "attentive_lstm",
+            "soft_attention_lstm",
         )
 
     def test_misconfiguration_features_encoder_no_features_col(self):
         self._test_misconfiguration_procedure(
             "ice_g2p",
-            "attentive_lstm_shared_features",
+            "soft_attention_lstm_shared_features",
         )
 
     def test_misconfiguration_encoder_layers_neq_decoder_layers(self):

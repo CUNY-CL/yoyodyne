@@ -25,31 +25,28 @@ class RNNModule(base.BaseModule):
 
     Args:
         *args: passed to superclass.
-        bidirectional (bool, optional): should the RNN be bidirectional?
+        hidden_size (int, optional): size of the hidden layer.
+        layers (int, optional): number of layers.
         **kwargs: passed to superclass.
     """
 
-    bidirectional: bool
-    dropout_layer: nn.Dropout
-    module: nn.RNNBase
+    hidden_size: int
+    layers: int
 
     def __init__(
         self,
         *args,
-        bidirectional=defaults.BIDIRECTIONAL,
+        hidden_size: int = defaults.HIDDEN_SIZE,
+        layers: int = defaults.LAYERS,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.bidirectional = bidirectional
-        self.dropout_layer = nn.Dropout(self.dropout)
+        self.hidden_size = hidden_size
+        self.layers = layers
         self.module = self.get_module()
 
     @abc.abstractmethod
     def get_module(self) -> nn.RNNBase: ...
-
-    @property
-    def num_directions(self) -> int:
-        return 2 if self.bidirectional else 1
 
     def embed(
         self, symbols: torch.Tensor, embeddings: nn.Embedding
@@ -125,7 +122,17 @@ class WrappedLSTMEncoder(nn.LSTM, WrappedRNNEncoder):
 
 
 class RNNEncoder(RNNModule):
-    """Abstract base class for RNN encoders."""
+    """Abstract base class for RNN encoders.
+
+    Args:
+        *args: passed to superclass.
+        bidirectional (bool, optional): should the RNN be bidirectional?
+        **kwargs: passed to superclass.
+    """
+
+    def __init__(self, *args, bidirectional=defaults.BIDIRECTIONAL, **kwargs):
+        self.bidirectional = bidirectional
+        super().__init__(*args, **kwargs)
 
     def forward(
         self, source: data.PaddedTensor, embeddings: nn.Embedding
@@ -146,6 +153,10 @@ class RNNEncoder(RNNModule):
         return self.module(
             self.embed(source.padded, embeddings), source.lengths()
         )
+
+    @property
+    def num_directions(self) -> int:
+        return 2 if self.bidirectional else 1
 
     @property
     def output_size(self) -> int:
@@ -214,12 +225,19 @@ class WrappedLSTMDecoder(nn.LSTM):
 class RNNDecoder(RNNModule):
     """Abstract base class for RNN decoders.
 
-    This implementation is inattentive; it uses the encodings of the
-    sequence-final hidden states as the input to the decoder.
+    This implementation lacks a learned attention mechanism; rather, it uses
+    the encodings of the sequence-final hidden states as the input to the
+    decoder.
 
     The initial decoder hidden state is a learned parameter.
+
+    Args:
+        *args: passed to superclass.
+        decoder_input_size (int): decoder input size.
+        **kwargs: passed to superclass.
     """
 
+    decoder_input_size: int
     h0: nn.Parameter
 
     def __init__(self, decoder_input_size, *args, **kwargs):
@@ -322,8 +340,8 @@ class LSTMDecoder(RNNDecoder):
         return "LSTM"
 
 
-class AttentiveRNNDecoder(RNNDecoder):
-    """Abstract base class for attentive RNN decoders.
+class SoftAttentionRNNDecoder(RNNDecoder):
+    """Abstract base class for soft attention RNN decoders.
 
     The attention module learns to differentially attend to different symbols
     in the encoder output.
@@ -369,17 +387,17 @@ class AttentiveRNNDecoder(RNNDecoder):
         return self.dropout_layer(decoded), state
 
 
-class AttentiveGRUDecoder(AttentiveRNNDecoder, GRUDecoder):
-    """Attentive GRU decoder."""
+class SoftAttentionGRUDecoder(SoftAttentionRNNDecoder, GRUDecoder):
+    """Soft attention GRU decoder."""
 
     @property
     def name(self) -> str:
-        return "attentive GRU"
+        return "soft attention GRU"
 
 
-class AttentiveLSTMDecoder(AttentiveRNNDecoder, LSTMDecoder):
-    """Attentive LSTM decoder."""
+class SoftAttentionLSTMDecoder(SoftAttentionRNNDecoder, LSTMDecoder):
+    """Soft attention LSTM decoder."""
 
     @property
     def name(self) -> str:
-        return "attentive LSTM"
+        return "soft attention LSTM"

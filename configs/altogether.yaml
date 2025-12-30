@@ -22,15 +22,15 @@ trainer:
   max_time: 00:06:00:00
   gradient_clip_val: 3
 model:
-  class_path: yoyodyne.models.AttentiveGRUModel
+  class_path: yoyodyne.models.SoftAttentionGRUModel
   init_args:
     source_encoder:
       class_path: yoyodyne.models.modules.GRUEncoder
       init_args:
         bidirectional: true
-        dropout: 0.3
-        embedding_size: 300
-        hidden_size: 100
+        dropout: ${model.init_args.decoder_dropout}
+        embedding_size: ${model.init_args.embedding_size}
+        hidden_size: ${model.init_args.decoder_hidden_size}
     decoder_hidden_size: 100
     decoder_dropout: 0.3
     embedding_size: 300

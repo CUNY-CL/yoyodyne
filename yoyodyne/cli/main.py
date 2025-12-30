@@ -3,8 +3,19 @@
 import logging
 
 from lightning.pytorch import callbacks as pytorch_callbacks, cli
+import omegaconf
 
 from .. import callbacks, data, models, trainers
+
+
+# Register OmegaConf resolvers here.
+#
+# This allows expressions of the form:
+#
+# hidden_size: ${multiply:${model.init_args.embedding_size}, 4}
+#
+# which means that the hidden size is 4x the embedding size.
+omegaconf.OmegaConf.register_new_resolver("multiply", lambda x, y: x * y)
 
 
 class YoyodyneCLI(cli.LightningCLI):
@@ -62,8 +73,9 @@ def main() -> None:
     )
     # Select the model.
     YoyodyneCLI(
-        model_class=models.BaseModel,
-        datamodule_class=data.DataModule,
+        models.BaseModel,
+        data.DataModule,
+        parser_kwargs={"parser_mode": "omegaconf"},
         save_config_callback=None,
         subclass_mode_model=True,
         # Prevents predictions from accumulating in memory; see the
@@ -77,6 +89,7 @@ def python_interface(args: cli.ArgsType = None) -> None:
     YoyodyneCLI(
         models.BaseModel,
         data.DataModule,
+        parser_kwargs={"parser_mode": "omegaconf"},
         save_config_callback=None,
         subclass_mode_model=True,
         # See above for explanation.

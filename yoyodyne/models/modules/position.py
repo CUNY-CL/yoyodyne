@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 from torch import nn
 
-from ... import special
+from ... import defaults, special
 
 
 class PositionalEncoding(nn.Module):
@@ -17,13 +17,11 @@ class PositionalEncoding(nn.Module):
 
     Args:
         d_model (int).
-        max_source_length (int).
+        max_source_length (int, optional).
     """
 
     def __init__(
-        self,
-        d_model: int,
-        max_source_length: int,
+        self, d_model: int, max_source_length: int = defaults.MAX_LENGTH
     ):
         super().__init__()
         positional_encoding = torch.zeros(max_source_length, d_model)
