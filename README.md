@@ -63,16 +63,74 @@ Colab](https://colab.research.google.com/) GPU runtimes.
 
 ## File formats
 
-Other than YAML configuration files, Yoyodyne operates on basic tab-separated
-values (TSV) data files. The user can specify source, features, and target
-columns, and separators used to parse them.
+### YAML configuration files
 
-### Data format
+Yoyodyne uses YAML for configuration files; see the [example configuration
+files](configs) for examples.
+
+#### Variable interpolation
+
+Yoyodyne supports [OmegaConf](https://omegaconf.readthedocs.io/en)'s [variable
+interpolation](https://omegaconf.readthedocs.io/en/2.3_branch/usage.html#variable-interpolation)
+syntax, which is useful to link hyperparameters, particularly to set the
+hyperparameters of source and/or features encoders in a way that is compatible
+with the outer-level model arguments for the decoder. For instance, if one wants
+to use the same hidden size for encoders and decoders one can simply set one
+value and then use variable interpolation for the others, as in the following
+configuration snippet:
+
+    ...
+    model:
+      init_args:
+        ...
+        decoder_hidden_size: 512
+        source_encoder:
+          init_args:
+            hidden_size: ${model.decoder_hidden_size}
+        features_encoder:
+          init_args:
+            hidden_size: ${model.decoder_hidden_size}
+    ...
+
+#### Custom variable resolvers
+
+Occasionally one may wish to set one hyperparameter as some (non-identity)
+function of another. For example, if one is using a bidirectional RNN source
+encoder and a linear features encoder, the size of the latter's output size must
+be set to twice that of the source encoder's hidden size. For this, Yoyodyne
+registers the `multiply` [custom
+resolver](https://omegaconf.readthedocs.io/en/2.3_branch/custom_resolvers.html#id9),
+as shown in the following snippet:
+
+    ...
+    model:
+      init_args:
+        class_path: yoyodyne.models.SoftAttentionLSTMModel
+        decoder_hidden_size: 512
+        source_encoder:
+          class_path: yoyodyne.models.modules.LSTMEncoder
+          init_args:
+            hidden_size: ${model.decoder_hidden_size}
+        features_encoder:
+          class_path: yoyodyne.models.modules.LinearEncoder
+          init_args:
+            hidden_size: ${multiply:${model.init_args.decoder_hidden_size}, 2}
+    ...
+
+Other custom resolvers can be registered in [the `main`
+method](yoyodyne/cli/main.py) if desired.
+
+### TSV data files
+
+Yoyodyne operates on basic tab-separated values (TSV) data files. The user can
+specify source, features, and target columns, and separators used to parse them.
 
 The default data format is a two-column TSV file in which the first column is
 the source string and the second the target string.
 
     source   target
+
+#### Feature columns
 
 To enable the use of a features column, one specifies a (non-zero)
 `data: features_col:` argument, and optionally also a `data: features_sep:`
@@ -90,7 +148,7 @@ the format is specified as:
       features_col: 2
       features_sep: ,
       target_col: 3
-      ...
+    ...
 
 Alternatively, for the [CoNLL-SIGMORPHON 2017 shared
 task](https://sigmorphon.github.io/sharedtasks/2017/), the first column is the
@@ -105,8 +163,9 @@ the format is specified as simply:
     data:
       ...
       features_col: 3
+    ...
 
-### Reserved symbols
+#### Reserved symbols
 
 Yoyodyne reserves symbols of the form `<...>` for internal use.
 Feature-conditioned models also use `[...]` to avoid clashes between features
@@ -251,7 +310,7 @@ non-default initial learning rate and the
         class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
         init_args:
           warmup_epochs: 10   
-      ...
+    ...
 
 #### Checkpointing
 
@@ -266,7 +325,7 @@ given below.
       mode: max
       monitor: val_accuracy
       verbose: true
-      ...
+    ...
 
 Alternatively, one can specify a checkpointing that minimizes validation loss,
 as follows.
@@ -277,7 +336,7 @@ as follows.
       mode: min
       monitor: val_loss
       verbose: true
-      ...
+    ...
 
 A checkpoint config must be specified or Yoyodyne will not generate any
 checkpoints.
@@ -297,7 +356,7 @@ callback records learning rates:
       - class_path: lightning.pytorch.callbacks.LearningRateMonitor
         init_args:
           logging_interval: epoch
-      ...
+    ...
 
 The
 [`EarlyStopping`](https://lightning.ai/docs/pytorch/stable/common/early_stopping.html)
@@ -312,7 +371,7 @@ callback enables early stopping based on a monitored quantity and a fixed
           monitor: val_loss
           patience: 10
           verbose: true
-      ...
+    ...
 
 #### Logging
 
@@ -338,7 +397,7 @@ generate charts or share artifacts:
         init_args:
           project: unit1
           save_dir: /Users/Shinji/models
-      ...
+    ...
 
 Note that this functionality requires a working account with Weights & Biases.
 
@@ -355,7 +414,7 @@ Dropout probability and/or label smoothing are specified as arguments to the
           dropout: 0.5
       decoder_dropout: 0.5
       label_smoothing: 0.1
-      ...
+    ...
 
 Batch size is specified using `data: batch_size: ...` and defaults to 32.
 
@@ -377,7 +436,7 @@ epochs or 6 wall-clock hours, whichever comes first:
     trainer:
       max_epochs: 100
       max_time: 00:06:00:00
-      ...
+    ...
 
 ### Validation (`validate`)
 
@@ -425,6 +484,7 @@ Vanilla RNN models (like `yoyodyne.models.SoftAttentionGRUModel` or
 prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
 `batch_size` of 1:
 
+    ...
     data:
       ...
       batch_size: 1
@@ -437,7 +497,7 @@ prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
         ...
     prediction:
       path: /Users/Shinji/predictions.tsv
-      ...
+    ...
 
 The resulting prediction files will be a 10-column TSV file consisting of the
 top 5 target hypotheses and their log-likelihoods (collated together), rather

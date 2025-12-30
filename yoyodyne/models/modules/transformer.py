@@ -53,14 +53,16 @@ class TransformerModule(base.BaseModule):
     Args:
         *args: passed to superclass.
         attention_heads (int, optional): number of attention heads.
-        dropout (float, optional): dropout probability.
+        hidden_size (int, optional): size of the hidden layer.
+        layers (int, optional): number of layers.
         max_length (int, optional): max length for input.
         **kwargs: passed to superclass.
     """
 
     attention_heads: int
     esq: float
-    dropout_layer: nn.Dropout
+    hidden_size: int
+    layers: int
     module: nn.TransformerEncoder
     positional_encoding: position.PositionalEncoding
 
@@ -68,14 +70,16 @@ class TransformerModule(base.BaseModule):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
-        dropout: float = defaults.DROPOUT,
+        hidden_size: int = defaults.HIDDEN_SIZE,
+        layers: int = defaults.LAYERS,
         max_length: int = defaults.MAX_LENGTH,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
-        self.dropout_layer = nn.Dropout(dropout)
         self.esq = math.sqrt(self.embedding_size)
+        self.hidden_size = hidden_size
+        self.layers = layers
         self.module = self.get_module()
         self.positional_encoding = position.PositionalEncoding(
             self.embedding_size, max_length
@@ -226,8 +230,8 @@ class TransformerDecoder(TransformerModule):
     """Transformer decoder.
 
     Args:
-        decoder_input_size (int).
         *args: passed to superclass.
+        decoder_input_size (int).
         **kwargs: passed to superclass.
     """
 
@@ -495,12 +499,10 @@ class TransformerPointerDecoder(TransformerDecoder):
         https://gist.github.com/airalcorn2/50ec06517ce96ecc143503e21fa6cb91
 
     Args:
-        attention_heads (int).
         *args: passed to superclass.
+        has_features_encoder (bool).
         *kwargs: passed to superclass.
     """
-
-    attention_heads: int
 
     def __init__(
         self,

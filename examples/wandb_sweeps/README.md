@@ -11,8 +11,8 @@ Execute the following to create and run the sweep; here `${ENTITY}` and
 In the following example, targeting the English data for the CoNLL-SIGMORPHON
 2017 shared task on morphological generation, we have two separate YAML
 configuration files prepared. The first file,
-[`configs/grid.yaml`](configs/grid.yaml), specifies the hyperparameter
-grid (it may also contain constant values, if desired). The second file,
+[`configs/grid.yaml`](configs/grid.yaml), specifies the hyperparameter grid (it
+may also contain constant values, if desired). The second file,
 [`configs/tune.yaml`](configs/tune.yaml), specifies any constants needed during
 the sweep, such as trainer arguments or data paths.
 
@@ -62,18 +62,13 @@ the run's "Overview" on W&B, and then run:
     killed. To specify a fixed number of samples, provide the `--count`
     argument.
 
+-   Yoyodyne config files (i..e, those passed as
+    `yoyodyne_sweep --config path/to/config.yaml`) support OmegaConf [variable
+    interpolation](https://github.com/kylebgorman/yoyodyne/blob/omegaconf/README.md#variable-interpolation)
+    and
+    [resolution](https://github.com/kylebgorman/yoyodyne/blob/omegaconf/README.md#custom-variable-resolvers).
+    With some care, these can refer to hyperparameters set by W&B, as they do in
+    the provided example.
+
 -   For more information about W&B sweeps, [read
     here](https://docs.wandb.ai/guides/sweeps).
-
--   The config file provided to `yoyodyne_sweep` can contain a special top-level
-    field called `LINKS`, which instructs the sweep engine to copy some
-    hyperparameter sampled from by W&B to some other value. For instance, the
-    following links dropout, hidden layer size, and embedding size:
-
-        LINKS:
-          model.init_args.decoder_dropout:
-            - model.init_args.source_encoder.init_args.dropout
-          model.init_args.decoder_hidden_size:
-            - model.init_args.source_encoder.init_args.hidden_size
-          model.init_args.embedding_size:
-            - model.init_args.source_encoder.init_args.embedding_size

@@ -7,7 +7,6 @@ all: train.tsv \
 	hard_attention_lstm_separate_features_expected.test \
 	pointer_generator_lstm_separate_features_expected.test \
 	soft_attention_lstm_gru_features_expected.test \
-	soft_attention_lstm_gru_source_expected.test \
 	soft_attention_lstm_linear_features_expected.test \
 	soft_attention_lstm_separate_features_expected.test \
 	soft_attention_lstm_shared_features_expected.test \

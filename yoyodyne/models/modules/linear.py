@@ -1,6 +1,6 @@
 """Linear module class."""
 
-from ... import data
+from ... import data, defaults
 from . import base
 
 import torch
@@ -13,14 +13,17 @@ class LinearEncoder(base.BaseModule):
     This produces a simple non-contextual encoding of the input tensor.
 
     Args:
-        output_size (int).
+        *args: passed to superclass.
+        output_size (int, optional).
+        **kwargs: passed to superclass.
     """
 
     linear: nn.Linear
 
-    def __init__(self, *args, output_size: int, **kwargs):
+    def __init__(
+        self, *args, output_size: int = defaults.HIDDEN_SIZE, **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self.dropout_layer = nn.Dropout(self.dropout)
         self.linear = nn.Linear(self.embedding_size, output_size)
 
     def forward(
