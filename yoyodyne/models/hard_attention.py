@@ -93,20 +93,18 @@ class HardAttentionRNNModel(base.BaseModel):
             encoded, mask, symbol, state
         )
         likelihood = self._emissions(
-            transitions[:, 0].unsqueeze(), emissions, target[:, 0]
+            transitions[:, 0].unsqueeze(1),
+            emissions,
+            target[:, 0],
         )
-        for t in range(target.size(1)):
+        target_len = target.size(1)
+        for t in range(1, target_len):
             emissions, transitions, state = self.decode_step(
-                encoded,
-                mask,
-                target[:, t].unsqueeze(1),
-                state,
+                encoded, mask, target[:, t - 1].unsqueeze(1), state
             )
-            likelihood = self._transiitions(likelihood, transitions[t])
-            likelihood = self._emissions(
-                likelihood, emissions[t], target[:, t]
-            )
-        return self._scale(likelihood, t + 1)
+            likelihood = self._transitions(likelihood, transitions)
+            likelihood = self._emissions(likelihood, emissions, target[:, t])
+        return self._scale(likelihood, target_len)
 
     def decode_step(
         self,
@@ -165,92 +163,6 @@ class HardAttentionRNNModel(base.BaseModel):
         transitions = transitions - transitions.logsumexp(dim=2, keepdim=True)
         return transitions
 
-    @classmethod
-    def _emissions(
-        cls,
-        likelihood: torch.Tensor,
-        emissions: torch.Tensor,
-        symbol: torch.Tensor,
-    ) -> torch.Tensor:
-        """Adds emission to likelihood.
-
-        Args:
-            likelihood (torch.Tensor): probabilities of shape
-                B x 1 x src_len.
-            emissions (torch.Tensor): slice of emission probabilities of shape
-                B x src_len x vocab_size.
-            symbol (torch.Tensor): slice of symbols of shape B.
-
-        Returns:
-            torch.Tensor: probabilities of shape B x 1 x src_len.
-        """
-        return likelihood + cls._gather_at_idx(emissions, symbol)
-
-    @staticmethod
-    def _gather_at_idx(
-        emissions: torch.Tensor, symbol: torch.Tensor
-    ) -> torch.Tensor:
-        """Collects probability of the symbol across all states.
-
-        To calculate the final emission probability, the pseudo-HMM
-        graph needs to aggregate the final emission probabilities of
-        target symbols across all potential hidden states in the emissions.
-
-        Args:
-            emissions (torch.Tensor): slice of emission probabilities of
-                shape B x src_len.
-            symbol (torch.Tensor): target symbol to poll probabilities for
-                shape B.
-
-        Returns:
-            torch.Tensor: emission probabilities of the symbol for each hidden
-                state, of size B x 1 x src_len.
-        """
-        batch_size = emissions.size(0)
-        src_seq_len = emissions.size(1)
-        idx = symbol.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
-        output = torch.gather(emissions, -1, idx).view(
-            batch_size, 1, src_seq_len
-        )
-        idx = idx.view(batch_size, 1, src_seq_len)
-        pad_mask = (idx != special.PAD_IDX).float()
-        return output * pad_mask
-
-    @staticmethod
-    def _transitions(
-        likelihood: torch.Tensor, transitions: torch.Tensor
-    ) -> torch.Tensor:
-        """Adds transitions to likelihood.
-
-        Args:
-            likelihood (torch.Tensor): probabilities of shape
-                B x 1 x src_len.
-            transitions (torch.Tensor): slice of transition probabilities
-                of shape B x src_len x src_len.
-
-        Returns:
-            torch.Tensor: probabilities of shape B x 1 x src_len.
-        """
-        return torch.logsumexp(
-            likelihood + transitions.transpose(1, 2),
-            dim=2,
-            keepdim=True,
-        ).transpose(1, 2)
-
-    @staticmethod
-    def _scale(likelihood: torch.Tensor, size: int) -> torch.Tensor:
-        """Scales likelihood to compute loss.
-
-        Args:
-            likelihood (torch.Tensor): probailities of shape
-                B x 1 x src_len.
-            size (int).
-
-        Returns:
-            torch.Tensor: scaled loss.
-        """
-        return -likelihood.logsumexp(dim=2).mean() / size
-
     def init_embeddings(
         self,
         num_embeddings: int,
@@ -274,8 +186,8 @@ class HardAttentionRNNModel(base.BaseModel):
             batch (data.Batch).
 
         Returns:
-            Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: if training,
-                the loss tensor; otherwise, also predictions of shape
+            Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: if
+                training, the loss tensor; otherwise, also predictions of shape
                 B x pred_seq_length.
 
         Raises:
@@ -333,8 +245,8 @@ class HardAttentionRNNModel(base.BaseModel):
                 decoding continues until this length is reached.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: the loss and predictions of shape
-                B x pred_seq_len.
+            Tuple[torch.Tensor, torch.Tensor]: the loss and predictions of
+                shape B x pred_seq_len.
         """
         batch_size = source_mask.size(0)
         symbol = self.start_symbol(batch_size)
@@ -371,6 +283,57 @@ class HardAttentionRNNModel(base.BaseModel):
         predictions = torch.stack(predictions, dim=1)
         return self._scale(likelihood, t + 1), predictions
 
+    @classmethod
+    def _emissions(
+        cls,
+        likelihood: torch.Tensor,
+        emissions: torch.Tensor,
+        symbol: torch.Tensor,
+    ) -> torch.Tensor:
+        """Adds emission to likelihood.
+
+        Args:
+            likelihood (torch.Tensor): probabilities of shape
+                B x 1 x src_len.
+            emissions (torch.Tensor): slice of emission probabilities of shape
+                B x src_len x vocab_size.
+            symbol (torch.Tensor): slice of symbols of shape B.
+
+        Returns:
+            torch.Tensor: probabilities of shape B x 1 x src_len.
+        """
+        return likelihood + cls._gather_at_idx(emissions, symbol)
+
+    @staticmethod
+    def _gather_at_idx(
+        emissions: torch.Tensor, symbol: torch.Tensor
+    ) -> torch.Tensor:
+        """Collects probability of the symbol across all states.
+
+        To calculate the final emission probability, the pseudo-HMM
+        graph needs to aggregate the final emission probabilities of
+        target symbols across all potential hidden states in the emissions.
+
+        Args:
+            emissions (torch.Tensor): slice of emission probabilities of
+                shape B x src_len.
+            symbol (torch.Tensor): target symbol to poll probabilities for
+                shape B.
+
+        Returns:
+            torch.Tensor: emission probabilities of the symbol for each hidden
+                state, of size B x 1 x src_len.
+        """
+        batch_size = emissions.size(0)
+        src_seq_len = emissions.size(1)
+        idx = symbol.view(-1, 1).expand(batch_size, src_seq_len).unsqueeze(-1)
+        output = torch.gather(emissions, -1, idx).view(
+            batch_size, 1, src_seq_len
+        )
+        idx = idx.view(batch_size, 1, src_seq_len)
+        pad_mask = (idx != special.PAD_IDX).float()
+        return output * pad_mask
+
     @staticmethod
     def _greedy_step(
         likelihood: torch.Tensor,
@@ -388,6 +351,41 @@ class HardAttentionRNNModel(base.BaseModel):
         """
         likelihood = likelihood + emissions.transpose(1, 2)
         return torch.argmax(likelihood.logsumexp(dim=2), dim=1)
+
+    @staticmethod
+    def _scale(likelihood: torch.Tensor, size: int) -> torch.Tensor:
+        """Scales likelihood to compute loss.
+
+        Args:
+            likelihood (torch.Tensor): probailities of shape
+                B x 1 x src_len.
+            size (int).
+
+        Returns:
+            torch.Tensor: scaled loss.
+        """
+        return -likelihood.logsumexp(dim=2).mean() / size
+
+    @staticmethod
+    def _transitions(
+        likelihood: torch.Tensor, transitions: torch.Tensor
+    ) -> torch.Tensor:
+        """Adds transitions to likelihood.
+
+        Args:
+            likelihood (torch.Tensor): probabilities of shape
+                B x 1 x src_len.
+            transitions (torch.Tensor): slice of transition probabilities
+                of shape B x src_len x src_len.
+
+        Returns:
+            torch.Tensor: probabilities of shape B x 1 x src_len.
+        """
+        return torch.logsumexp(
+            likelihood + transitions.transpose(1, 2),
+            dim=2,
+            keepdim=True,
+        ).transpose(1, 2)
 
     def predict_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         _, predictions = self(batch)
