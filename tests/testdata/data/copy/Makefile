@@ -3,10 +3,6 @@ SHELL := /bin/bash
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
-	soft_attention_gru_expected.test \
-	soft_attention_lstm_expected.test \
-	soft_attention_lstm_gru_source_expected.test \
-	soft_attention_lstm_transformer_source_expected.test \
 	context_hard_attention_gru_expected.test \
 	context_hard_attention_lstm_expected.test \
 	gru_expected.test \
@@ -16,6 +12,10 @@ all: train.tsv \
 	pointer_generator_gru_expected.test \
 	pointer_generator_lstm_expected.test \
 	pointer_generator_transformer_expected.test \
+	soft_attention_gru_expected.test \
+	soft_attention_lstm_expected.test \
+	soft_attention_lstm_gru_source_expected.test \
+	soft_attention_lstm_transformer_source_expected.test \
 	transformer_expected.test
 
 %.tsv:

@@ -8,7 +8,7 @@ from torch import nn
 
 
 class LinearEncoder(base.BaseModule):
-    """Embeds the input tensor, and then applies a affine projection.
+    """Embeds the input tensor, and then applies an affine projection.
 
     This produces a simple non-contextual encoding of the input tensor.
 
