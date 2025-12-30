@@ -62,7 +62,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     ser: Optional[metrics.SER]
     decoder: modules.BaseModule
     embedding: nn.Embedding
-    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+    loss_func: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]
 
     def __init__(
         self,
@@ -142,7 +142,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     def _get_loss_func(
         self,
-    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
         """Returns the actual function used to compute loss.
 
         This is overridden by certain classes which compute loss as a side
