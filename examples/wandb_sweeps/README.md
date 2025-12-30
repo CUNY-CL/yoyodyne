@@ -62,9 +62,13 @@ the run's "Overview" on W&B, and then run:
     killed. To specify a fixed number of samples, provide the `--count`
     argument.
 
+-   Yoyodyne config files (i..e, those passed as
+    `yoyodyne_sweep --config path/to/config.yaml`) support OmegaConf [variable
+    interpolation](https://github.com/kylebgorman/yoyodyne/blob/omegaconf/README.md#variable-interpolation)
+    and
+    [resolution](https://github.com/kylebgorman/yoyodyne/blob/omegaconf/README.md#custom-variable-resolvers).
+    With some care, these can refer to hyperparameters set by W&B, as they do in
+    the provided example.
+
 -   For more information about W&B sweeps, [read
     here](https://docs.wandb.ai/guides/sweeps).
-
--   Yoyodyne config files (i..e, those passed as
-    `yoyodyne_sweep --config path/to/config.yaml` ) support OmegaConf variable
-    interpolation and resolution.

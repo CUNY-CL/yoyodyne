@@ -8,10 +8,10 @@ init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.TransformerEncoder
     init_args:
-      dropout: .3
-      embedding_size: 256
-      hidden_size: 1024
-      layers: 4
+      dropout: ${init_args.decoder_dropout}
+      embedding_size: ${init_args.embedding_size}
+      hidden_size: ${init_args.decoder_hidden_size}
+      layers: ${init_args.decoder_layers}
   decoder_dropout: .3
   decoder_hidden_size: 100
   decoder_layers: 4

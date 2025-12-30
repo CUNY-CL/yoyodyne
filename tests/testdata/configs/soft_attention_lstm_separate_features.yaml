@@ -3,18 +3,18 @@ init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.LSTMEncoder
     init_args:
-      dropout: .2
-      embedding_size: 128
-      hidden_size: 512
+      dropout: ${init_args.decoder_dropout}
+      embedding_size: ${init_args.embedding_size}
+      hidden_size: ${init_args.decoder_hidden_size}
   features_encoder:
     class_path: yoyodyne.models.modules.LSTMEncoder
     init_args:
-      dropout: .2
-      embedding_size: 128
-      hidden_size: 512
+      dropout: ${init_args.decoder_dropout}
+      embedding_size: ${init_args.embedding_size}
+      hidden_size: ${init_args.decoder_hidden_size}
   decoder_dropout: .2
-  decoder_hidden_size: 64
-  embedding_size: 128
+  decoder_hidden_size: 256
+  embedding_size: 64
   label_smoothing: .1
   optimizer:
     class_path: torch.optim.Adam

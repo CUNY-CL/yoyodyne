@@ -65,16 +65,19 @@ Colab](https://colab.research.google.com/) GPU runtimes.
 
 ### YAML configuration files
 
-Yoyodyne uses YAML for configuration files.
+Yoyodyne uses YAML for configuration files; see the [example configuration
+files](configs) for examples.
 
 #### Variable interpolation
 
 Yoyodyne supports [OmegaConf](https://omegaconf.readthedocs.io/en)'s [variable
 interpolation](https://omegaconf.readthedocs.io/en/2.3_branch/usage.html#variable-interpolation)
-syntax, which is useful to link arguments. For instance, if one wants to use the
-same hidden size for encoders and decoders one can simply set one value and then
-use variable interpolation for the others, as in the following configuration
-snippet:
+syntax, which is useful to link hyperparameters, particularly to set the
+hyperparameters of source and/or features encoders in a way that is compatible
+with the outer-level model arguments for the decoder. For instance, if one wants
+to use the same hidden size for encoders and decoders one can simply set one
+value and then use variable interpolation for the others, as in the following
+configuration snippet:
 
     ...
     model:
@@ -94,7 +97,7 @@ snippet:
 Occasionally one may wish to set one hyperparameter as some (non-identity)
 function of another. For example, if one is using a bidirectional RNN source
 encoder and a linear features encoder, the size of the latter's output size must
-be set to 4x that of the source encoder's hidden size. For this, Yoyodyne
+be set to twice that of the source encoder's hidden size. For this, Yoyodyne
 registers the `multiply` [custom
 resolver](https://omegaconf.readthedocs.io/en/2.3_branch/custom_resolvers.html#id9),
 as shown in the following snippet:
@@ -111,7 +114,7 @@ as shown in the following snippet:
         features_encoder:
           class_path: yoyodyne.models.modules.LinearEncoder
           init_args:
-            hidden_size: ${multiply:${model.init_args.decoder_hidden_size}, 4}
+            hidden_size: ${multiply:${model.init_args.decoder_hidden_size}, 2}
     ...
 
 Other custom resolvers can be registered in [the `main`

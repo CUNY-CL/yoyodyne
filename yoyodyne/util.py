@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 import torch
 import yaml

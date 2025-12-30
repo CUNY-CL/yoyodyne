@@ -9,7 +9,7 @@ from .. import callbacks, data, models, trainers
 
 
 # Register OmegaConf resolvers here.
-# 
+#
 # This allows expressions of the form:
 #
 # hidden_size: ${multiply:${model.init_args.embedding_size}, 4}

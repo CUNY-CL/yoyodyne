@@ -1,4 +1,11 @@
 seed_everything: 49
+model:
+  init_args:
+    source_encoder:
+      init_args:
+        dropout: ${model.init_args.decoder_dropout}
+        embedding_size: ${model.init_args.embedding_size}
+        hidden_size: ${model.init_args.decoder_hidden_size}
 trainer:
   gradient_clip_val: 3
   max_epochs: 100
@@ -15,18 +22,8 @@ trainer:
   logger:
     - class_path: lightning.pytorch.loggers.CSVLogger
     - class_path: lightning.pytorch.loggers.WandbLogger
-      init_args:
-        project: unit1
-        save_dir: /Users/Shinji/models
 data:
   features_col: 3
   model_dir: /Users/Shinji/models
   train: /Users/Shinji/conll2017/english-train-high
   val: /Users/Shinji/conll2017/english-dev
-LINKS:
-  model.init_args.decoder_dropout:
-    - model.init_args.source_encoder.init_args.dropout
-  model.init_args.decoder_hidden_size:
-    - model.init_args.source_encoder.init_args.hidden_size
-  model.init_args.embedding_size:
-    - model.init_args.source_encoder.init_args.embedding_size

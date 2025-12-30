@@ -14,9 +14,21 @@ from . import rnn
 
 
 class HardAttentionRNNDecoder(rnn.RNNDecoder):
-    """Abstract base class for zeroth-order HMM hard attention RNN decoders."""
+    """Abstract base class for zeroth-order HMM hard attention RNN decoders.
 
-    def __init__(self, *args, **kwargs):
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    output_proj: nn.Sequential
+    scale_encoded: nn.Linear
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         # Activates emission probs.
         self.output_proj = nn.Sequential(
@@ -169,12 +181,12 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
     This overrides the definition of _get_transitions.
     """
 
-    def __init__(self, attention_context, *args, **kwargs):
+    def __init__(self, attention_context: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.delta = attention_context
         # The window size must include center and both sides.
         self.alignment_proj = nn.Linear(
-            self.hidden_size * 2, (attention_context * 2) + 1
+            self.hidden_size * 2, (self.delta * 2) + 1
         )
 
     def _get_transitions(
