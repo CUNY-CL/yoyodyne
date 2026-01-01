@@ -195,6 +195,10 @@ class DataModule(lightning.LightningDataModule):
 
     # Required API.
 
+    # The training set uses the mappable dataset because of shuffling, and
+    # the validation set uses it because it is accesssed repeatedly under
+    # normal conditions. Other dataloaders use the iterable dataset.
+
     def train_dataloader(self) -> data.DataLoader:
         assert self.train is not None, "no train path"
         # This uses the mappable dataset because of shuffling. Other
@@ -213,7 +217,7 @@ class DataModule(lightning.LightningDataModule):
     def val_dataloader(self) -> data.DataLoader:
         assert self.val is not None, "no val path"
         return data.DataLoader(
-            datasets.IterableDataset(
+            datasets.MappableDataset(
                 self.val, mappers.Mapper(self.index), self.parser
             ),
             collate_fn=self.collator,
