@@ -195,10 +195,18 @@ class DataModule(lightning.LightningDataModule):
 
     # Required API.
 
+    # The training set uses the mappable dataset because of shuffling, and
+    # the validation set uses it because it is accesssed repeatedly under
+    # normal conditions. Other dataloaders use the iterable dataset.
+
     def train_dataloader(self) -> data.DataLoader:
         assert self.train is not None, "no train path"
+        # This uses the mappable dataset because of shuffling. Other
+        # dataloaders use the iterable dataset.
         return data.DataLoader(
-            self._dataset(self.train),
+            datasets.MappableDataset(
+                self.train, mappers.Mapper(self.index), self.parser
+            ),
             collate_fn=self.collator,
             batch_size=self.batch_size,
             shuffle=True,
@@ -209,7 +217,9 @@ class DataModule(lightning.LightningDataModule):
     def val_dataloader(self) -> data.DataLoader:
         assert self.val is not None, "no val path"
         return data.DataLoader(
-            self._dataset(self.val),
+            datasets.MappableDataset(
+                self.val, mappers.Mapper(self.index), self.parser
+            ),
             collate_fn=self.collator,
             batch_size=self.batch_size,
             shuffle=False,
@@ -220,7 +230,9 @@ class DataModule(lightning.LightningDataModule):
     def predict_dataloader(self) -> data.DataLoader:
         assert self.predict is not None, "no predict path"
         return data.DataLoader(
-            self._dataset(self.predict),
+            datasets.IterableDataset(
+                self.predict, mappers.Mapper(self.index), self.parser
+            ),
             collate_fn=self.collator,
             batch_size=self.batch_size,
             shuffle=False,
@@ -231,17 +243,12 @@ class DataModule(lightning.LightningDataModule):
     def test_dataloader(self) -> data.DataLoader:
         assert self.test is not None, "no test path"
         return data.DataLoader(
-            self._dataset(self.test),
+            datasets.IterableDataset(
+                self.test, mappers.Mapper(self.index), self.parser
+            ),
             collate_fn=self.collator,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=1,
             persistent_workers=True,
-        )
-
-    def _dataset(self, path: str) -> datasets.Dataset:
-        return datasets.Dataset(
-            list(self.parser.samples(path)),
-            mappers.Mapper(self.index),
-            self.parser,
         )

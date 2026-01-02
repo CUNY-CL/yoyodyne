@@ -6,7 +6,6 @@ separators.
 
 import csv
 import dataclasses
-
 from typing import Iterator, List, Tuple, Union
 
 from .. import defaults
@@ -65,10 +64,40 @@ class TsvParser:
         if self.target_col < 0:
             raise Error(f"Out of range target column: {self.target_col}")
 
-    @staticmethod
-    def _tsv_reader(path: str) -> Iterator[List[str]]:
-        with open(path, "r", encoding=defaults.ENCODING) as tsv:
-            yield from csv.reader(tsv, delimiter="\t")
+    def parse_line(self, line: str) -> SampleType:
+        """Parses a single TSV line string."""
+        reader = csv.reader([line], delimiter="\t")
+        try:
+            row = next(reader)
+        except StopIteration:
+            raise Error("Empty line encountered")
+        return self._row_to_sample(row)
+
+    def samples(self, path: str) -> Iterator[SampleType]:
+        """Yields source, and features and/or target if available."""
+        with open(path, "r") as source:
+            for row in csv.reader(source, delimiter="\t"):
+                yield self._row_to_sample(row)
+
+    def _row_to_sample(self, row: List[str]) -> SampleType:
+        """Internal helper to convert a split row into a SampleType."""
+        source = self.source_symbols(self._get_string(row, self.source_col))  #
+        if self.has_features:
+            features = self.features_symbols(
+                self._get_string(row, self.features_col)
+            )
+            if self.has_target:
+                target = self.target_symbols(
+                    self._get_string(row, self.target_col)
+                )
+                return source, features, target
+            return source, features
+        elif self.has_target:
+            target = self.target_symbols(
+                self._get_string(row, self.target_col)
+            )
+            return source, target
+        return source
 
     @staticmethod
     def _get_string(row: List[str], col: int) -> str:
@@ -89,31 +118,6 @@ class TsvParser:
     @property
     def has_target(self) -> bool:
         return self.target_col != 0
-
-    def samples(self, path: str) -> Iterator[SampleType]:
-        """Yields source, and features and/or target if available."""
-        for row in self._tsv_reader(path):
-            source = self.source_symbols(
-                self._get_string(row, self.source_col)
-            )
-            if self.has_features:
-                features = self.features_symbols(
-                    self._get_string(row, self.features_col)
-                )
-                if self.has_target:
-                    target = self.target_symbols(
-                        self._get_string(row, self.target_col)
-                    )
-                    yield source, features, target
-                else:
-                    yield source, features
-            elif self.has_target:
-                target = self.target_symbols(
-                    self._get_string(row, self.target_col)
-                )
-                yield source, target
-            else:
-                yield source
 
     # String parsing methods.
 
