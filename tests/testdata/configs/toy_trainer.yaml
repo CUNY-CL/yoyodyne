@@ -5,5 +5,9 @@ callbacks:
   - class_path: lightning.pytorch.callbacks.LearningRateMonitor
     init_args:
       logging_interval: epoch
+  - class_path: lightning.pytorch.callbacks.EarlyStopping
+    init_args:
+      monitor: val_loss
+      patience: 5
 logger:
   - class_path: lightning.pytorch.loggers.CSVLogger

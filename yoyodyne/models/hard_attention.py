@@ -1,7 +1,6 @@
 """Hard monotonic neural HMM classes."""
 
 import abc
-import math
 from typing import Optional, Tuple
 
 import torch
@@ -75,38 +74,32 @@ class HardAttentionRNNModel(base.BaseModel):
         encoded: torch.Tensor,
         mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Computes average loss.
+        """Computes loss.
+
+        Following Wu & Cotterell this is scaled by max sequence length.
 
         Args:
             encoded (torch.Tensor): encoded source symbols
                 of shape B x src_len x (encoder_hidden * num_directions).
             mask (torch.Tensor): mask.
             target (torch.Tensor): target symbols.
-            target_mask (torch.Tensor): target mask.
 
         Returns:
-            torch.Tensor: average loss.
+            torch.Tensor: loss.
         """
         batch_size = mask.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
-        emissions, transitions, state = self.decode_step(
-            encoded, mask, symbol, state
-        )
-        likelihood = self._emissions(
-            transitions[:, :1, 0:1],
-            emissions,
-            target[:, 0],
-        )
-        for t in range(1, target.size(1)):
+        likelihood = self._initial_likelihood(batch_size, encoded.size(1))
+        for t in range(target.size(1)):
             emissions, transitions, state = self.decode_step(
-                encoded, mask, target[:, t - 1], state
+                encoded, mask, symbol, state
             )
             likelihood = self._transitions(likelihood, transitions)
             likelihood = self._emissions(likelihood, emissions, target[:, t])
-        return -likelihood.logsumexp(dim=2).sum() / target_mask.sum()
+            symbol = target[:, t : t + 1]
+        return -likelihood.logsumexp(dim=2).mean() / target.size(1)
 
     def decode_step(
         self,
@@ -136,11 +129,21 @@ class HardAttentionRNNModel(base.BaseModel):
             self.embeddings,
         )
         logits = self.classifier(emissions)
-        scores = nn.functional.log_softmax(logits, dim=2)
+        emissions = nn.functional.log_softmax(logits, dim=2)
+        if __debug__:
+            sums = emissions.exp().sum(dim=-1)
+            assert torch.allclose(
+                sums, torch.ones_like(sums)
+            ), "emissions do not sum to 1"
         # Expands matrix for all time steps.
         if self.enforce_monotonic:
             transitions = self._apply_mono_mask(transitions)
-        return scores, transitions, state
+        if __debug__:
+            sums = transitions.exp().sum(dim=-1)
+            assert torch.allclose(
+                sums, torch.ones_like(sums)
+            ), "transitions do not sum to 1"
+        return emissions, transitions, state
 
     @staticmethod
     def _apply_mono_mask(transitions: torch.Tensor) -> torch.Tensor:
@@ -157,11 +160,13 @@ class HardAttentionRNNModel(base.BaseModel):
             torch.Tensor: masked transition probabilities of shape
                 B x src_len x src_len.
         """
-        mask = torch.ones_like(transitions[0]).triu().unsqueeze(0)
-        # Using 0 log-probability value for masking; this is borrowed from the
-        # original implementation.
-        mask = (mask - 1) * defaults.NEG_LOG_EPSILON
-        transitions = transitions + mask
+        mask = (
+            torch.ones_like(transitions[0], dtype=bool)
+            .triu()
+            .logical_not()
+            .unsqueeze(0)
+        )
+        transitions = transitions.masked_fill(mask, -1e7)
         transitions = transitions - transitions.logsumexp(dim=2, keepdim=True)
         return transitions
 
@@ -216,33 +221,24 @@ class HardAttentionRNNModel(base.BaseModel):
                 "Feature column specified but no feature encoder specified"
             )
         if self.training:
-            return self._loss(
-                encoded,
-                batch.source.mask,
-                batch.target.padded,
-                batch.target.mask,
-            )
-        # Otherwise predict.
+            return self._loss(encoded, batch.source.mask, batch.target.padded)
         predictions = self.greedy_decode(
             encoded,
             batch.source.mask,
             batch.target.padded if batch.has_target else None,
         )
-        if self.validating:
-            loss = self._loss(
-                encoded,
-                batch.source.mask,
-                batch.target.padded,
-                batch.target.mask,
-            )
+        if self.trainer and (
+            self.trainer.validating or self.trainer.sanity_checking
+        ):
+            loss = self._loss(encoded, batch.source.mask, batch.target.padded)
             return loss, predictions
         else:
             return predictions
 
     def greedy_decode(
         self,
-        source_encoded: torch.Tensor,
-        source_mask: torch.Tensor,
+        encoded: torch.Tensor,
+        mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
@@ -251,20 +247,19 @@ class HardAttentionRNNModel(base.BaseModel):
         specified length depending on the `target` args.
 
         Args:
-            source_encoded (torch.Tensor): encoded source symbols of shape
+            encoded (torch.Tensor): encoded source symbols of shape
                 B x src_len x (encoder_hidden * num_directions)
-            source_mask (torch.Tensor): mask.
+            mask (torch.Tensor): mask.
             target (torch.Tensor, optional): target symbols; if provided
                 decoding continues until this length is reached.
 
         Returns:
             torch.Tensor: predictions of shape B x pred_seq_len.
         """
-        batch_size = source_mask.size(0)
+        batch_size = mask.size(0)
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
-        likelihood = torch.full_like(source_encoded, -math.inf).unsqueeze(1)
-        likelihood[:, 0, 0] = 0.0
+        likelihood = self._initial_likelihood(batch_size, encoded.size(1))
         predictions = []
         if target is None:
             max_num_steps = self.max_target_length
@@ -274,8 +269,8 @@ class HardAttentionRNNModel(base.BaseModel):
             max_num_steps = target.size(1)
         for t in range(max_num_steps):
             emissions, transitions, state = self.decode_step(
-                source_encoded,
-                source_mask,
+                encoded,
+                mask,
                 symbol,
                 state,
             )
@@ -283,10 +278,18 @@ class HardAttentionRNNModel(base.BaseModel):
             symbol = torch.argmax(
                 torch.logsumexp(likelihood.transpose(1, 2) + emissions, dim=1),
                 dim=1,
+                keepdim=True,
             )
-            predictions.append(symbol)
+            predictions.append(symbol.squeeze(1))
             likelihood = self._emissions(likelihood, emissions, symbol)
             likelihood = likelihood - likelihood.logsumexp(dim=2, keepdim=True)
+            if __debug__:
+                assert not torch.isnan(
+                    likelihood
+                ).any(), "NaN(s) in likelihood"
+                assert (
+                    likelihood.logsumexp(dim=2).isfinite().all()
+                ), "no alignment is reachable"
             if target is None:
                 final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():
@@ -315,6 +318,15 @@ class HardAttentionRNNModel(base.BaseModel):
         """
         return likelihood + cls._gather_at_idx(emissions, symbol)
 
+    def _initial_likelihood(
+        self, batch_size: int, src_len: int
+    ) -> torch.Tensor:
+        likelihood = torch.full(
+            (batch_size, 1, src_len), defaults.NEG_INF, device=self.device
+        )
+        likelihood[:, 0, 0] = 0.0
+        return likelihood
+
     @staticmethod
     def _gather_at_idx(
         emissions: torch.Tensor, symbol: torch.Tensor
@@ -330,15 +342,15 @@ class HardAttentionRNNModel(base.BaseModel):
             torch.Tensor: log-probs of that symbol for each source state,
                 of shape B x 1 x src_len.
         """
-        batch_size = emissions.size(0)
         src_len = emissions.size(1)
         # Reshapes symbol to B, src_len, 1 to gather from the vocab dimension.
-        idx = symbol.view(-1, 1, 1).expand(-1, batch_size, src_len, 1)
+        idx = symbol.view(-1, 1, 1).expand(-1, src_len, 1)
         # Gathers the log-probs: (B, src_len, 1)
         output = torch.gather(emissions, 2, idx).transpose(1, 2)
         # Masks out padding positions if necessary.
-        pad_mask = (symbol.view(-1, 1, 1) != special.PAD_IDX).float()
-        return output * pad_mask
+        pad_mask = symbol.view(-1, 1, 1) == special.PAD_IDX
+        output.masked_fill_(pad_mask, 1e-7)
+        return output
 
     @staticmethod
     def _transitions(
@@ -356,13 +368,12 @@ class HardAttentionRNNModel(base.BaseModel):
             torch.Tensor: probabilities of shape B x 1 x src_len.
         """
         return torch.logsumexp(
-            likelihood.transpose(1, 2) + transitions,
-            dim=1,
-            keepdim=True,
-        ).transpose(1, 2)
+            likelihood.transpose(1, 2) + transitions, dim=1, keepdim=True
+        )
 
     def predict_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
-        return self(batch)
+        predictions = self(batch)
+        return predictions
 
     def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions = self(batch)
