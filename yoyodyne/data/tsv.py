@@ -75,8 +75,9 @@ class TsvParser:
 
     def samples(self, path: str) -> Iterator[SampleType]:
         """Yields source, and features and/or target if available."""
-        for row in self._tsv_reader(path):
-            yield self._row_to_sample(row)
+        with open(path, "r") as source:
+            for row in csv.reader(source, delimiter="\t"):
+                yield self._row_to_sample(row)
 
     def _row_to_sample(self, row: List[str]) -> SampleType:
         """Internal helper to convert a split row into a SampleType."""
@@ -94,7 +95,7 @@ class TsvParser:
         elif self.has_target:
             target = self.target_symbols(
                 self._get_string(row, self.target_col)
-            )  #
+            )
             return source, target
         return source
 
