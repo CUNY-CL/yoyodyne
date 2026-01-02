@@ -45,7 +45,7 @@ class PredictionWriter(callbacks.BasePredictionWriter):
         # where a prediction callback was specified but this is not running
         # in predict mode.
         util.mkpath(self.path)
-        self.sink = open(self.path, "w")
+        self.sink = open(self.path, "w", encoding=defaults.ENCODING)
 
     def write_on_batch_end(
         self,

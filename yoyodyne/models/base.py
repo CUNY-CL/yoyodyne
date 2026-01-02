@@ -117,7 +117,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             self.features_encoder = self.source_encoder
             self.has_features_encoder = True
         elif features_encoder is False:
-            self.feature_encoder = None
+            self.features_encoder = None
             self.has_features_encoder = False
         else:
             if features_encoder.embedding_size != self.embedding_size:
