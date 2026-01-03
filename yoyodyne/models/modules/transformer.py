@@ -240,7 +240,7 @@ class WrappedTransformerDecoder(nn.TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         causal_mask: torch.Tensor,
     ) -> torch.Tensor:
         return super().forward(
@@ -275,7 +275,7 @@ class TransformerDecoder(TransformerModule):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         embeddings: nn.Embedding,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Performs single pass of decoder module.
@@ -293,21 +293,17 @@ class TransformerDecoder(TransformerModule):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        embedded = self.embed(target, embeddings)
-        causal_mask = nn.Transformer.generate_square_subsequent_mask(
-            embedded.size(1),
-            device=self.device,
-            dtype=bool,
-        )
+        target_embedded = self.embed(target, embeddings)
+        causal_mask = self._causal_mask(target_embedded.size(1))
         # -> B x seq_len x d_model.
         decoded = self.module(
             source_encoded,
             source_mask,
-            embedded,
+            target_embedded,
             target_mask,
             causal_mask,
         )
-        return decoded, embedded
+        return decoded, target_embedded
 
     def get_module(self) -> WrappedTransformerDecoder:
         decoder_layer = nn.TransformerDecoderLayer(
@@ -323,6 +319,13 @@ class TransformerDecoder(TransformerModule):
             decoder_layer=decoder_layer,
             num_layers=self.layers,
             norm=nn.LayerNorm(self.embedding_size),
+        )
+
+    def _causal_mask(self, target_len: int) -> torch.Tensor:
+        return nn.Transformer.generate_square_subsequent_mask(
+            target_len,
+            device=self.device,
+            dtype=bool,
         )
 
     @property
@@ -390,7 +393,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
         causal_mask: torch.Tensor,
@@ -414,57 +417,37 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         Returns:
             torch.Tensor.
         """
-        output = self.norm2(
-            target
-            + self._sa_block(
-                self.norm1(target),
-                causal_mask,
-                target_mask,
-                is_causal=True,
-            )
+        # Self-attention (pre-norm).
+        x = self.norm1(target)
+        sa_output, _ = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=causal_mask,
+            key_padding_mask=target_mask,
         )
-        source_attention = self.source_linear(
-            self._mha_block(
-                output,
-                source_encoded,
-                attn_mask=None,
-                key_padding_mask=source_mask,
-            )
+        output = target + self.dropout1(sa_output)
+        # Cross-attention (pre-norm).
+        x = self.norm2(output)
+        # Cross-attends to source.
+        source_attn_out, _ = self.multihead_attn(
+            x, source_encoded, source_encoded, key_padding_mask=source_mask
         )
-        features_attention = self.features_linear(
-            self._features_mha_block(
-                output,
-                features_encoded,
-                attn_mask=None,
-                key_padding_mask=features_mask,
-            ),
+        source_attention = self.source_linear(self.dropout2(source_attn_out))
+        # Cross-attends to features.
+        feat_attn_out, _ = self.features_multihead_attn(
+            x,
+            features_encoded,
+            features_encoded,
+            key_padding_mask=features_mask,
         )
-        output = torch.cat((source_attention, features_attention), dim=2)
+        features_attention = self.features_linear(self.dropout2(feat_attn_out))
+        # Concatenates and adds residual connection.
+        attn_output = torch.cat((source_attention, features_attention), dim=2)
+        output = output + attn_output
+        # Feed-forward.
+        # Normalizes before the feed-forward network.
         output = output + self._ff_block(self.norm3(output))
-        return output
-
-    def _features_mha_block(
-        self,
-        x: torch.Tensor,
-        mem: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
-        key_padding_mask: Optional[torch.Tensor] = None,
-        is_causal: bool = False,
-    ) -> torch.Tensor:
-        """Multihead attention block that attends to features.
-
-        This has the same interface as nn.TransformerDecoderLayer._mha_block.
-        """
-        output = self.features_multihead_attn(
-            x,  # The output.
-            mem,  # Encoded features.
-            mem,  # Ditto.
-            attn_mask=attn_mask,  # Causal mask.
-            key_padding_mask=key_padding_mask,  # Features mask.
-            is_causal=is_causal,  # False; no causal mask will be provided.
-            need_weights=False,
-        )[0]
-        output = self.dropout2(output)
         return output
 
 
@@ -480,7 +463,7 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
         causal_mask: torch.Tensor,
@@ -552,8 +535,9 @@ class TransformerPointerDecoder(TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         embeddings: nn.Embedding,
+        *,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -564,6 +548,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             source_mask (torch.Tensor): mask for source.
             target (torch.Tensor): current targets, which may be the full
                 target or previous decoded, of shape B x seq_len x hidden_size.
+            target_mask (torch.Tensor): mask for target.
             embeddings (nn.Embedding): embedding.
             features_encoded (Optional[torch.Tensor]): encoded features.
             features_mask (Optional[torch.Tensor]): mask for features.
@@ -572,18 +557,19 @@ class TransformerPointerDecoder(TransformerDecoder):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        embedded = self.embed(target, embeddings)
-        causal_mask = nn.Transformer.generate_square_subsequent_mask(
-            embedded.size(1),
-            device=self.device,
-            dtype=bool,
-        )
+        # FIXME: temporary.
+        if target_mask is not None:
+            assert target_mask.dim() == 2, target_mask.shape
+        if features_mask is not None:
+            assert features_mask.dim() == 2, features_mask.shape
+        target_embedded = self.embed(target, embeddings)
+        causal_mask = self._causal_mask(target_embedded.size(1))
         # -> B x seq_len x d_model.
         if self.has_features_encoder:
             decoded = self.module(
                 source_encoded,
                 source_mask,
-                embedded,
+                target_embedded,
                 target_mask,
                 features_encoded,
                 features_mask,
@@ -593,11 +579,11 @@ class TransformerPointerDecoder(TransformerDecoder):
             decoded = self.module(
                 source_encoded,
                 source_mask,
-                embedded,
+                target_embedded,
                 target_mask,
                 causal_mask,
             )
-        return decoded, embedded
+        return decoded, target_embedded
 
     def get_module(self) -> nn.TransformerDecoder:
         if self.has_features_encoder:

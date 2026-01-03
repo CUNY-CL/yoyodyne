@@ -485,10 +485,10 @@ class PointerGeneratorTransformerModel(
         attention_heads=defaults.ATTENTION_HEADS,
         **kwargs,
     ):
-        self.attention_heads = attention_heads
-        super().__init__(
-            *args,
-            **kwargs,
+        super().__init__(*args, attention_heads=attention_heads, **kwargs)
+        self.attention_weights = modules.AttentionOutput()
+        self.decoder.module.layers[-1].multihead_attn.register_forward_hook(
+            self.attention_weights,
         )
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
@@ -509,6 +509,8 @@ class PointerGeneratorTransformerModel(
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
+        *,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -526,6 +528,7 @@ class PointerGeneratorTransformerModel(
             source_encoded (torch.Tensor): encoded source_symbols.
             source_mask (torch.Tensor): mask for the source.
             target (torch.Tensor): tensor of predictions thus far.
+            target_mask (torch.Tensor): mask for the target.
             features_encoded (torch.Tensor, optional): encoded features
                 symbols.
             features_mask (torch.Tensor, optional): mask for the features.
@@ -533,24 +536,31 @@ class PointerGeneratorTransformerModel(
         Returns:
             torch.Tensor: predictions for that state.
         """
-        # Uses a dummy mask of all zeros.
-        target_mask = torch.zeros_like(target, dtype=bool)
-        decoded, target_embedded = self.decoder(
-            source_encoded,
-            source_mask,
-            target,
-            target_mask,
-            self.embeddings,
-            features_encoded,
-            features_mask,
-        )
+        self.attention_weights.clear()
+        if self.has_features_encoder:
+            decoded, target_embedded = self.decoder(
+                source_encoded,
+                source_mask,
+                target,
+                None,
+                self.embeddings,
+                features_encoded=features_encoded,
+                features_mask=features_mask,
+            )
+        else:
+            decoded, target_embedded = self.decoder(
+                source_encoded,
+                source_mask,
+                target,
+                None,
+                self.embeddings,
+            )
         # Outputs from the multi-headed attention from each decoder step to
-        # the encoded source. Values have been averaged over each attention
+        # the encoded source; values have been averaged over each attention
         # head.
         # -> B x target_seq_len x source_seq_len.
-        mha_outputs = self.decoder.attention_output[0]
-        # Clears the stored attention result.
-        self.decoder.attention_output.clear()
+        mha_outputs = self.attention_weights[0]
+        self.attention_weights.clear()
         logits = self.classifier(decoded)
         output_dist = nn.functional.softmax(logits, dim=2)
         # -> B x target-seq_len x target_vocab_size.
@@ -643,7 +653,7 @@ class PointerGeneratorTransformerModel(
             has_features_encoder=self.has_features_encoder,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.decoder_max_length,
+            max_length=self.max_target_length,
             num_embeddings=self.num_embeddings,
         )
 
@@ -653,6 +663,7 @@ class PointerGeneratorTransformerModel(
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
+        *,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -693,14 +704,26 @@ class PointerGeneratorTransformerModel(
         else:
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
-            scores = self.decode_step(
-                source,
-                source_encoded,
-                source_mask,
-                torch.stack(predictions, dim=1),
-                features_encoded,
-                features_mask,
-            )
+            if self.has_features_encoder:
+                assert features_encoded is not None
+                assert features_mask is not None
+                scores = self.decode_step(
+                    source,
+                    source_encoded,
+                    source_mask,
+                    torch.stack(predictions, dim=1),
+                    None,
+                    features_encoded=features_encoded,
+                    features_mask=features_mask,
+                )
+            else:
+                scores = self.decode_step(
+                    source,
+                    source_encoded,
+                    source_mask,
+                    torch.stack(predictions, dim=1),
+                    None,
+                )
             scores = scores[:, -1, :]
             outputs.append(scores)
             symbol = torch.argmax(scores, dim=1)

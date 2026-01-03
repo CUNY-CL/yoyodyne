@@ -206,6 +206,13 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             batch_size, 1
         )
 
+    def on_fit_start(self):
+        # Rather than crashing, we simply warn about lack of deterministic
+        # algorithms.
+        if torch.are_deterministic_algorithms_enabled():
+            logging.info("(Only) warning about non-deterministic algorithms")
+            torch.use_deterministic_algorithms(True, warn_only=True)
+
     def predict_step(
         self,
         batch: data.Batch,

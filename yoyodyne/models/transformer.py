@@ -19,7 +19,6 @@ class TransformerModel(base.BaseModel):
     Args:
         *args: passed to superclass.
         attention_heads (int, optional).
-        decoder_max_length (int, optional): maximum length for decoder strings.
         teacher_forcing (bool, optional): should teacher (rather than student)
             forcing be used?
         **kwargs: passed to superclass.
@@ -34,12 +33,10 @@ class TransformerModel(base.BaseModel):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
-        decoder_max_length: int = defaults.MAX_LENGTH,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
         self.attention_heads = attention_heads
-        self.decoder_max_length = decoder_max_length
         super().__init__(*args, **kwargs)
         self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
@@ -74,10 +71,8 @@ class TransformerModel(base.BaseModel):
         Returns:
             torch.Tensor: logits.
         """
-        # Uses a dummy mask of all zeros.
-        target_mask = torch.zeros_like(predictions, dtype=bool)
         decoded, _ = self.decoder(
-            encoded, mask, predictions, target_mask, self.embeddings
+            encoded, mask, predictions, None, self.embeddings
         )
         logits = self.classifier(decoded)
         logits = logits[:, -1, :]  # Ignores END.
@@ -152,7 +147,7 @@ class TransformerModel(base.BaseModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.decoder_max_length,
+            max_length=self.max_target_length,
             num_embeddings=self.num_embeddings,
             attention_heads=self.attention_heads,
         )
