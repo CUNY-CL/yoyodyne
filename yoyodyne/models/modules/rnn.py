@@ -288,10 +288,8 @@ class RNNDecoder(RNNModule):
         Returns:
             torch.Tensor.
         """
-        end_mask = torch.unsqueeze(sequence == special.END_IDX, dim=2).expand(
-            -1, -1, encoded.size(2)
-        )
-        return torch.sum(encoded * end_mask, dim=1, keepdim=True)
+        mask = torch.unsqueeze(sequence == special.END_IDX, dim=2)
+        return torch.mean(encoded * mask, dim=1, keepdim=True)
 
     @abc.abstractmethod
     def initial_state(self, batch_size: int) -> RNNState: ...
