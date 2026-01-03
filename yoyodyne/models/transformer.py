@@ -53,7 +53,7 @@ class TransformerModel(base.BaseModel):
             raise base.ConfigurationError(
                 "Cannot concatenate source encoding "
                 f"({self.source_encoder.output_size}) and features "
-                f"encoding {self.features_encoder.output_size})"
+                f"encoding ({self.features_encoder.output_size})"
             )
 
     def decode_step(
@@ -67,8 +67,8 @@ class TransformerModel(base.BaseModel):
         This predicts a distribution for one symbol.
 
         Args:
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
             predictions (torch.Tensor): tensor of predictions thus far.
 
         Returns:
@@ -100,7 +100,9 @@ class TransformerModel(base.BaseModel):
             base.ConfigurationError: Teacher forcing requested but no target
                 provided.
         """
-        encoded = self.source_encoder(batch.source, self.embeddings)
+        encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         mask = batch.source.mask
         if self.has_features_encoder:
             if not batch.has_features:
@@ -109,14 +111,12 @@ class TransformerModel(base.BaseModel):
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
-        elif batch.has_features:
-            raise base.ConfigurationError(
-                "Feature column specified but no feature encoder specified"
-            )
         if self.training and self.teacher_forcing:
             if not batch.has_target:
                 raise base.ConfigurationError(

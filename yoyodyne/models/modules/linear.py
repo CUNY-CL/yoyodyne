@@ -27,13 +27,19 @@ class LinearEncoder(base.BaseModule):
         self.linear = nn.Linear(self.embedding_size, output_size)
 
     def forward(
-        self, symbols: data.PaddedTensor, embeddings: nn.Embedding
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        *args,
+        **kwargs,
     ) -> torch.Tensor:
         """Encodes the input.
 
         Args:
-            symbols (data.PaddedTensor): padded tensor.
-            embeddings (nn.Embedding): embeddings.
+            symbols (data.PaddedTensor).
+            embeddings (nn.Embedding).
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
             torch.Tensor.

@@ -203,7 +203,9 @@ class HardAttentionRNNModel(base.BaseModel):
             base.ConfigurationError: Feature column specified but no feature
                 encoder specified.
         """
-        encoded = self.source_encoder(batch.source, self.embeddings)
+        encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         if self.has_features_encoder:
             if not batch.has_features:
                 raise base.ConfigurationError(
@@ -211,7 +213,7 @@ class HardAttentionRNNModel(base.BaseModel):
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features, self.embeddings, is_source=False
             )
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)

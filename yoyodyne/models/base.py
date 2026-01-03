@@ -113,12 +113,13 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 f"({self.embedding_size})"
             )
         self.source_encoder = source_encoder
-        if features_encoder is True:
-            self.features_encoder = self.source_encoder
-            self.has_features_encoder = True
-        elif features_encoder is False:
+        if features_encoder is False:
             self.features_encoder = None
             self.has_features_encoder = False
+        elif features_encoder is True:
+            # Shallow copy.
+            self.features_encoder = self.source_encoder
+            self.has_features_encoder = True
         else:
             if features_encoder.embedding_size != self.embedding_size:
                 raise ConfigurationError(

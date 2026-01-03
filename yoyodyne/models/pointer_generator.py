@@ -284,7 +284,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             base.ConfigurationError: Features column specified but no feature
                 encoder specified.
         """
-        source_encoded = self.source_encoder(batch.source, self.embeddings)
+        source_encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         if self.has_features_encoder:
             if not batch.has_features:
                 raise base.ConfigurationError(
@@ -292,7 +294,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             if self.beam_width > 1:
                 return self.beam_decode(
@@ -594,7 +598,9 @@ class PointerGeneratorTransformerModel(
                 encoder specified.
             NotImplementedError: Beam search not implemented.
         """
-        source_encoded = self.source_encoder(batch.source, self.embeddings)
+        source_encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         if self.has_features_encoder:
             if not batch.features:
                 raise base.ConfigurationError(
@@ -602,7 +608,9 @@ class PointerGeneratorTransformerModel(
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             return self.greedy_decode(
                 batch.source.padded,

@@ -9,7 +9,6 @@ import torch
 from torch import nn
 
 from ... import data, defaults, special
-from .. import embeddings
 from . import base, position
 
 
@@ -88,7 +87,7 @@ class TransformerModule(base.BaseModule):
     def embed(
         self, symbols: torch.Tensor, embeddings: nn.Embedding
     ) -> torch.Tensor:
-        """Embeds the source symbols and adds positional encodings."""
+        """Embeds the symbols and adds positional encoding."""
         embedded = self.esq * embeddings(symbols)
         return self.dropout_layer(embedded + self.positional_encoding(symbols))
 
@@ -110,19 +109,25 @@ class TransformerEncoder(TransformerModule):
     """
 
     def forward(
-        self, source: data.PaddedTensor, embeddings: nn.Embedding
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        *args,
+        **kwargs,
     ) -> torch.Tensor:
-        """Encodes the source with the TransformerEncoder.
+        """Encodes the symbols with the TransformerEncoder.
 
         Args:
-            source (data.PaddedTensor).
+            symbols (data.PaddedTensor).
             embeddings (nn.Embedding).
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.embed(source.padded, embeddings)
-        return self.module(embedded, src_key_padding_mask=source.mask)
+        embedded = self.embed(symbols.padded, embeddings)
+        return self.module(embedded, src_key_padding_mask=symbols.mask)
 
     def get_module(self) -> nn.TransformerEncoder:
         encoder_layer = nn.TransformerEncoderLayer(
@@ -157,8 +162,18 @@ class TransformerEncoder(TransformerModule):
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
     """Transformer encoder with feature invariance.
 
-    The internal embedding is of size 1 because this is either source
-    or features.
+    This is only sensibly used in a configuration where there is a shared
+    source and features encoder, as in the following YAML snippet:
+
+        source_encoder:
+          class_path: yoyodyne.models.modules.TransformerEncoder
+            init_args:
+              ...
+        features_encoder: true
+
+    There is already space in the embeddings for the type embeddings; the
+    caller just has to indicate whether the symbols are source or target
+    symbols.
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
@@ -167,38 +182,50 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         Main Volume, pages 1901-1907.
     """
 
-    # Constructed inside __init__.
-    type_embedding: nn.Embedding
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type_embedding = embeddings.xavier_embedding(
-            2,
-            self.embedding_size,
-        )
 
     def embed(
-        self, symbols: torch.Tensor, embeddings: nn.Embedding
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        is_source: bool,
     ) -> torch.Tensor:
-        """Embeds the source symbols.
+        """Embeds the symbols and adds type and positional encodings."""
+        embedded = self.esq * embeddings(symbols.padded)
+        type_embedded = self.esq * embeddings(
+            torch.where(
+                symbols.mask,
+                special.SOURCE_IDX if is_source else special.FEATURES_IDX,
+                special.PAD_IDX,
+            )
+        )
+        return self.dropout_layer(
+            embedded + type_embedded + self.positional_encoding(symbols.padded)
+        )
 
-        This adds positional encodings and special embeddings.
+    def forward(
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        is_source: bool,
+        *args,
+        **kwargs,
+    ) -> torch.Tensor:
+        """Encodes the symbols with the TransformerEncoder.
 
         Args:
-            source (data.PaddedTensor).
+            symbols (data.PaddedTensor).
             embeddings (nn.Embedding).
+            is_source (bool): is this being used to encode source or features?
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        # "0" is whatever type we're using here; "1" is reserved for PAD.
-        char_mask = (symbols == special.PAD_IDX).long()
-        embedded = self.esq * embeddings(symbols)
-        type_embedded = self.esq * self.type_embedding(char_mask)
-        positional_embedded = self.positional_encoding(symbols, mask=char_mask)
-        return self.dropout_layer(
-            embedded + type_embedded + positional_embedded
-        )
+        embedded = self.embed(symbols, embeddings, is_source)
+        return self.module(embedded, src_key_padding_mask=symbols.mask)
 
     @property
     def name(self) -> str:
@@ -304,7 +331,7 @@ class TransformerDecoder(TransformerModule):
 
     @property
     def output_size(self) -> int:
-        return self.num_embeddings
+        return self.embedding_size
 
 
 class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
