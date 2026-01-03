@@ -75,7 +75,7 @@ class TsvParser:
 
     def samples(self, path: str) -> Iterator[SampleType]:
         """Yields source, and features and/or target if available."""
-        with open(path, "r") as source:
+        with open(path, "r", encoding=defaults.ENCODING) as source:
             for row in csv.reader(source, delimiter="\t"):
                 yield self._row_to_sample(row)
 

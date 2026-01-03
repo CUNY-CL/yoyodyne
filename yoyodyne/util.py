@@ -7,7 +7,7 @@ from typing import Any, Dict
 import torch
 import yaml
 
-from . import special
+from . import defaults, special
 
 
 def mkpath(path: str) -> None:
@@ -75,7 +75,7 @@ def load_config(path: str) -> Dict[str, Any]:
     Returns:
         The config file as a dictionary.
     """
-    with open(path, "r") as source:
+    with open(path, "r", encoding=defaults.ENCODING) as source:
         return yaml.safe_load(source)
 
 

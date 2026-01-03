@@ -223,7 +223,7 @@ class WrappedLSTMDecoder(nn.LSTM):
 
 
 class RNNDecoder(RNNModule):
-    """Abstract base class for RNN decoders.
+    """Base class for RNN decoders.
 
     This implementation lacks a learned attention mechanism; rather, it uses
     the encodings of the sequence-final hidden states as the input to the
@@ -247,36 +247,49 @@ class RNNDecoder(RNNModule):
 
     def forward(
         self,
-        sequence: torch.Tensor,
-        encoded: torch.Tensor,
-        mask: torch.Tensor,
         symbol: torch.Tensor,
-        state: RNNState,
         embeddings: nn.Embedding,
+        context: torch.Tensor,
+        mask: torch.Tensor,
+        state: RNNState,
     ) -> Tuple[torch.Tensor, RNNState]:
         """Single decode pass.
 
         Args:
-            sequence (torch.Tensor): sequence of shape B x seq_len.
-            encoded (torch.Tensor): encoded source sequence of shape
-                B x seq_len x encoder_dim.
-            mask (torch.Tensor): ignored.
             symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
-            state (RNNState): RNN state.
-            embeddings (nn.Embedding): embeddings.
+            embeddings (nn.Embedding).
+            context (torch.Tensor).
+            mask (torch.Tensor): ignored.
+            state (RNNState).
 
         Returns:
             Tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol, embeddings)
-        end_mask = (
-            (sequence == special.END_IDX)
-            .unsqueeze(2)
-            .expand(-1, -1, encoded.size(2))
+        decoded, state = self.module(
+            torch.cat((embedded, context), dim=2), state
         )
-        ends = torch.sum(encoded * end_mask, dim=1, keepdim=True)
-        decoded, state = self.module(torch.cat((embedded, ends), dim=2), state)
         return self.dropout_layer(decoded), state
+
+    @staticmethod
+    def get_context(
+        sequence: torch.Tensor,
+        encoded: torch.Tensor,
+    ) -> torch.Tensor:
+        """Computes the source context vector.
+
+        Here we use the sequence-final encodings.
+
+        Args:
+            sequence (torch.Tensor).
+            encoded (torch.Tensor).
+            state (RNNState): ignored.
+
+        Returns:
+            torch.Tensor.
+        """
+        mask = torch.unsqueeze(sequence == special.END_IDX, dim=2)
+        return torch.mean(encoded * mask, dim=1, keepdim=True)
 
     @abc.abstractmethod
     def initial_state(self, batch_size: int) -> RNNState: ...
@@ -355,36 +368,51 @@ class SoftAttentionRNNDecoder(RNNDecoder):
 
     def forward(
         self,
-        sequence: torch.Tensor,
-        encoded: torch.Tensor,
-        mask: torch.Tensor,
         symbol: torch.Tensor,
-        state: RNNState,
         embeddings: nn.Embedding,
+        context: torch.Tensor,
+        mask: torch.Tensor,
+        state: RNNState,
     ) -> Tuple[torch.Tensor, RNNState]:
         """Single decode pass.
 
         Args:
-            sequence (torch.Tensor): ignored.
-            encoded (torch.Tensor): encoded source sequence of shape
-                B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask of shape B x seq_len.
-            symbol (torch.Tensor): previously decoded symbol(s) of shape
-                B x 1.
-            state (RNNState): RNN state.
-            embeddings (nn.Embedding): embeddings.
+            symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
+            embeddings (nn.Embedding).
+            context (torch.Tensor).
+            mask (torch.Tensor).
+            state (RNNState).
 
         Returns:
             Tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol, embeddings)
+        # Here we weigh the context using attention.
         context, _ = self.attention(
-            encoded, state.hidden.transpose(0, 1), mask
+            context, state.hidden.transpose(0, 1), mask
         )
         decoded, state = self.module(
             torch.cat((embedded, context), dim=2), state
         )
         return self.dropout_layer(decoded), state
+
+    @staticmethod
+    def get_context(
+        sequence: torch.Tensor,
+        encoded: torch.Tensor,
+    ) -> torch.Tensor:
+        """Computes the source context vector.
+
+        Here the entire encoding is the context.
+
+        Args:
+            sequence (torch.Tensor): ignored.
+            encoded (torch.Tensor).
+
+        Returns:
+            torch.Tensor.
+        """
+        return encoded
 
 
 class SoftAttentionGRUDecoder(SoftAttentionRNNDecoder, GRUDecoder):
