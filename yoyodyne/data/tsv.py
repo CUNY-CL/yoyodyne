@@ -95,7 +95,7 @@ class TsvParser:
         elif self.has_target:
             target = self.target_symbols(
                 self._get_string(row, self.target_col)
-            )  #
+            )
             return source, target
         return source
 
