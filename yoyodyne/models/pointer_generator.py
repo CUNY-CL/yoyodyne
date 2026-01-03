@@ -13,7 +13,7 @@ class PointerGeneratorModel(base.BaseModel):
     """Base class for pointer-generator models."""
 
     # Constructed inside __init__.
-    geneneration_probability: modules.GenerationProbability
+    generation_probability: modules.GenerationProbability
 
     def _get_loss_func(
         self,
@@ -83,8 +83,12 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
     If features are provided, a separate features attention module computes
-    the feature encodings which are then concatenated with the source attention
-    output on the encoding dimension.
+    the feature encodings. Because of this, the source and features encoders
+    can have differently-sized hidden layers. However, because of the way
+    they are combined, they must have the same number of hidden layers.
+
+    Whereas See et al. use a two-layer MLP  for the vocabulary distribution,
+    this uses a single linear layer.
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
@@ -95,6 +99,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     Args:
         *args: passed to superclass.
         **kwargs: passed to superclass.
+
+    Raises:
+        base.ConfigurationError: Number of encoder layers and decoder layers
+            must match.
     """
 
     def __init__(self, *args, **kwargs):
@@ -145,6 +153,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
                 B x beam_width x seq_length and log-likelihoods of shape
                 B x beam_width.
+
+        Raises:
+            NotImplementedError: Beam search is not implemented for
+                batch_size > 1.
         """
         # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
@@ -224,12 +236,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 state.hidden.transpose(0, 1),
                 features_mask,
             )
-            # -> B x 1 x 4*hidden_size.
             context = torch.cat((context, features_context), dim=2)
         _, state = self.decoder.module(
             torch.cat((embedded, context), dim=2), state
         )
-        # -> B x 1 x hidden_size.
         hidden = state.hidden[-1, :, :].unsqueeze(1)
         output_dist = nn.functional.softmax(
             self.classifier(torch.cat((hidden, context), dim=2)),
@@ -277,7 +287,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         source_encoded = self.source_encoder(batch.source, self.embeddings)
         if self.has_features_encoder:
             if not batch.has_features:
-                raise base.Error(
+                raise base.ConfigurationError(
                     "Features encoder specified but "
                     "no feature column specified"
                 )
@@ -305,7 +315,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                     features_mask=batch.features.mask,
                 )
         elif batch.has_features:
-            raise base.Error(
+            raise base.ConfigurationError(
                 "Features column specified but no feature encoder specified"
             )
         elif self.beam_width > 1:

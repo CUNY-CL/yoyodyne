@@ -47,16 +47,6 @@ class RNNModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
-        if (
-            self.has_features_encoder
-            and self.source_encoder.output_size
-            != self.features_encoder.output_size
-        ):
-            raise base.ConfigurationError(
-                "Cannot concatenate source encoding "
-                f"({self.source_encoder.output_size}) and features "
-                f"encoding ({self.features_encoder.output_size})"
-            )
 
     def beam_decode(
         self,
@@ -169,6 +159,15 @@ class RNNModel(base.BaseModel):
                 raise base.ConfigurationError(
                     "Features encoder specified but "
                     "no feature column specified"
+                )
+            if (
+                self.source_encoder.output_size
+                != self.features_encoder.output_size
+            ):
+                raise base.ConfigurationError(
+                    "Cannot concatenate source encoding "
+                    f"({self.source_encoder.output_size}) and features "
+                    f"encoding ({self.features_encoder.output_size})"
                 )
             sequence = torch.cat((sequence, batch.features.padded), dim=1)
             features_encoded = self.features_encoder(
