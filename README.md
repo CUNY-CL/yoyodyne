@@ -24,11 +24,11 @@ Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
     -   There is little need for data preprocessing; it works with TSV files.
 -   It has support for using features to condition decoding, with
     architecture-specific code for handling feature information.
--   It supports the use of validation accuracy (not loss) for model selection
-    and early stopping.
+-   It supports the use of validation accuracy (not just loss) for model
+    selection and early stopping.
 -   Models are specified using YAML configuration files.
 -   Releases are made regularly and bugs addressed.
--   🚧 UNDER CONSTRUCTION 🚧: It has exhaustive test suites.
+-   It has exhaustive test suites.
 -   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 
 ## Authors
