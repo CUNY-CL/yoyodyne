@@ -130,18 +130,16 @@ class HardAttentionRNNModel(base.BaseModel):
         )
         logits = self.classifier(emissions)
         emissions = nn.functional.log_softmax(logits, dim=2)
-        if __debug__:
-            sums = emissions.exp().sum(dim=-1)
-            assert torch.allclose(
-                sums, torch.ones_like(sums)
-            ), "emissions do not sum to 1"
+        assert torch.allclose(
+            emissions.exp().sum(dim=-1),
+            torch.tensor(1.0, device=self.device),
+        ), "emissions do not sum to 1"
         # Expands matrix for all time steps.
         if self.enforce_monotonic:
             transitions = self._apply_mono_mask(transitions)
-        if __debug__:
-            sums = transitions.exp().sum(dim=-1)
             assert torch.allclose(
-                sums, torch.ones_like(sums)
+                transitions.exp().sum(dim=-1),
+                torch.tensor(1.0, device=self.device),
             ), "transitions do not sum to 1"
         return emissions, transitions, state
 
@@ -203,7 +201,9 @@ class HardAttentionRNNModel(base.BaseModel):
             base.ConfigurationError: Feature column specified but no feature
                 encoder specified.
         """
-        encoded = self.source_encoder(batch.source, self.embeddings)
+        encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         if self.has_features_encoder:
             if not batch.has_features:
                 raise base.ConfigurationError(
@@ -211,7 +211,7 @@ class HardAttentionRNNModel(base.BaseModel):
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features, self.embeddings, is_source=False
             )
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)
@@ -283,13 +283,10 @@ class HardAttentionRNNModel(base.BaseModel):
             predictions.append(symbol.squeeze(1))
             likelihood = self._emissions(likelihood, emissions, symbol)
             likelihood = likelihood - likelihood.logsumexp(dim=2, keepdim=True)
-            if __debug__:
-                assert not torch.isnan(
-                    likelihood
-                ).any(), "NaN(s) in likelihood"
-                assert (
-                    likelihood.logsumexp(dim=2).isfinite().all()
-                ), "no alignment is reachable"
+            assert not torch.isnan(likelihood).any(), "NaN(s) in likelihood"
+            assert (
+                likelihood.logsumexp(dim=2).isfinite().all()
+            ), "no alignment is reachable"
             if target is None:
                 final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():

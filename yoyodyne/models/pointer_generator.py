@@ -13,7 +13,7 @@ class PointerGeneratorModel(base.BaseModel):
     """Base class for pointer-generator models."""
 
     # Constructed inside __init__.
-    geneneration_probability: modules.GenerationProbability
+    generation_probability: modules.GenerationProbability
 
     def _get_loss_func(
         self,
@@ -83,8 +83,12 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
     If features are provided, a separate features attention module computes
-    the feature encodings which are then concatenated with the source attention
-    output on the encoding dimension.
+    the feature encodings. Because of this, the source and features encoders
+    can have differently-sized hidden layers. However, because of the way
+    they are combined, they must have the same number of hidden layers.
+
+    Whereas See et al. use a two-layer MLP  for the vocabulary distribution,
+    this uses a single linear layer.
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
@@ -95,6 +99,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
     Args:
         *args: passed to superclass.
         **kwargs: passed to superclass.
+
+    Raises:
+        base.ConfigurationError: Number of encoder layers and decoder layers
+            must match.
     """
 
     def __init__(self, *args, **kwargs):
@@ -145,6 +153,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
                 B x beam_width x seq_length and log-likelihoods of shape
                 B x beam_width.
+
+        Raises:
+            NotImplementedError: Beam search is not implemented for
+                batch_size > 1.
         """
         # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
@@ -224,12 +236,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 state.hidden.transpose(0, 1),
                 features_mask,
             )
-            # -> B x 1 x 4*hidden_size.
             context = torch.cat((context, features_context), dim=2)
         _, state = self.decoder.module(
             torch.cat((embedded, context), dim=2), state
         )
-        # -> B x 1 x hidden_size.
         hidden = state.hidden[-1, :, :].unsqueeze(1)
         output_dist = nn.functional.softmax(
             self.classifier(torch.cat((hidden, context), dim=2)),
@@ -274,15 +284,19 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             base.ConfigurationError: Features column specified but no feature
                 encoder specified.
         """
-        source_encoded = self.source_encoder(batch.source, self.embeddings)
+        source_encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         if self.has_features_encoder:
             if not batch.has_features:
-                raise base.Error(
+                raise base.ConfigurationError(
                     "Features encoder specified but "
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             if self.beam_width > 1:
                 return self.beam_decode(
@@ -305,7 +319,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                     features_mask=batch.features.mask,
                 )
         elif batch.has_features:
-            raise base.Error(
+            raise base.ConfigurationError(
                 "Features column specified but no feature encoder specified"
             )
         elif self.beam_width > 1:
@@ -471,10 +485,10 @@ class PointerGeneratorTransformerModel(
         attention_heads=defaults.ATTENTION_HEADS,
         **kwargs,
     ):
-        self.attention_heads = attention_heads
-        super().__init__(
-            *args,
-            **kwargs,
+        super().__init__(*args, attention_heads=attention_heads, **kwargs)
+        self.attention_weights = modules.AttentionOutput()
+        self.decoder.module.layers[-1].multihead_attn.register_forward_hook(
+            self.attention_weights,
         )
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
@@ -495,6 +509,8 @@ class PointerGeneratorTransformerModel(
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
+        *,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -512,6 +528,7 @@ class PointerGeneratorTransformerModel(
             source_encoded (torch.Tensor): encoded source_symbols.
             source_mask (torch.Tensor): mask for the source.
             target (torch.Tensor): tensor of predictions thus far.
+            target_mask (torch.Tensor): mask for the target.
             features_encoded (torch.Tensor, optional): encoded features
                 symbols.
             features_mask (torch.Tensor, optional): mask for the features.
@@ -519,24 +536,31 @@ class PointerGeneratorTransformerModel(
         Returns:
             torch.Tensor: predictions for that state.
         """
-        # Uses a dummy mask of all zeros.
-        target_mask = torch.zeros_like(target, dtype=bool)
-        decoded, target_embedded = self.decoder(
-            source_encoded,
-            source_mask,
-            target,
-            target_mask,
-            self.embeddings,
-            features_encoded,
-            features_mask,
-        )
+        self.attention_weights.clear()
+        if self.has_features_encoder:
+            decoded, target_embedded = self.decoder(
+                source_encoded,
+                source_mask,
+                target,
+                None,
+                self.embeddings,
+                features_encoded=features_encoded,
+                features_mask=features_mask,
+            )
+        else:
+            decoded, target_embedded = self.decoder(
+                source_encoded,
+                source_mask,
+                target,
+                None,
+                self.embeddings,
+            )
         # Outputs from the multi-headed attention from each decoder step to
-        # the encoded source. Values have been averaged over each attention
+        # the encoded source; values have been averaged over each attention
         # head.
         # -> B x target_seq_len x source_seq_len.
-        mha_outputs = self.decoder.attention_output[0]
-        # Clears the stored attention result.
-        self.decoder.attention_output.clear()
+        mha_outputs = self.attention_weights[0]
+        self.attention_weights.clear()
         logits = self.classifier(decoded)
         output_dist = nn.functional.softmax(logits, dim=2)
         # -> B x target-seq_len x target_vocab_size.
@@ -584,7 +608,9 @@ class PointerGeneratorTransformerModel(
                 encoder specified.
             NotImplementedError: Beam search not implemented.
         """
-        source_encoded = self.source_encoder(batch.source, self.embeddings)
+        source_encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         if self.has_features_encoder:
             if not batch.features:
                 raise base.ConfigurationError(
@@ -592,7 +618,9 @@ class PointerGeneratorTransformerModel(
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             return self.greedy_decode(
                 batch.source.padded,
@@ -625,7 +653,7 @@ class PointerGeneratorTransformerModel(
             has_features_encoder=self.has_features_encoder,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.decoder_max_length,
+            max_length=self.max_target_length,
             num_embeddings=self.num_embeddings,
         )
 
@@ -635,6 +663,7 @@ class PointerGeneratorTransformerModel(
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: Optional[torch.Tensor] = None,
+        *,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -675,14 +704,26 @@ class PointerGeneratorTransformerModel(
         else:
             max_num_steps = target.size(1)
         for _ in range(max_num_steps):
-            scores = self.decode_step(
-                source,
-                source_encoded,
-                source_mask,
-                torch.stack(predictions, dim=1),
-                features_encoded,
-                features_mask,
-            )
+            if self.has_features_encoder:
+                assert features_encoded is not None
+                assert features_mask is not None
+                scores = self.decode_step(
+                    source,
+                    source_encoded,
+                    source_mask,
+                    torch.stack(predictions, dim=1),
+                    None,
+                    features_encoded=features_encoded,
+                    features_mask=features_mask,
+                )
+            else:
+                scores = self.decode_step(
+                    source,
+                    source_encoded,
+                    source_mask,
+                    torch.stack(predictions, dim=1),
+                    None,
+                )
             scores = scores[:, -1, :]
             outputs.append(scores)
             symbol = torch.argmax(scores, dim=1)

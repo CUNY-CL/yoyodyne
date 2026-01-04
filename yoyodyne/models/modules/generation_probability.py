@@ -57,7 +57,8 @@ class GenerationProbability(nn.Module):
                 B x sequence_length x embedding_size.
 
         Returns:
-            torch.Tensor: generation probability of shape B.
+            torch.Tensor: generation probability of shape
+                B x sequence_length x 1.
         """
         # -> B x sequence_length x 1.
         p_gen = self.W_attention(attention_context) + self.W_hs(
@@ -66,5 +67,4 @@ class GenerationProbability(nn.Module):
         p_gen += self.W_emb(target_embeddings) + self.bias.expand(
             attention_context.size(0), 1, -1
         )
-        # -> B x 1 x sequence_length.
         return torch.sigmoid(p_gen)

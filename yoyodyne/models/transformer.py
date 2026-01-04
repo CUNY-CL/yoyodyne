@@ -19,7 +19,6 @@ class TransformerModel(base.BaseModel):
     Args:
         *args: passed to superclass.
         attention_heads (int, optional).
-        decoder_max_length (int, optional): maximum length for decoder strings.
         teacher_forcing (bool, optional): should teacher (rather than student)
             forcing be used?
         **kwargs: passed to superclass.
@@ -34,12 +33,10 @@ class TransformerModel(base.BaseModel):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
-        decoder_max_length: int = defaults.MAX_LENGTH,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
         self.attention_heads = attention_heads
-        self.decoder_max_length = decoder_max_length
         super().__init__(*args, **kwargs)
         self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
@@ -53,7 +50,7 @@ class TransformerModel(base.BaseModel):
             raise base.ConfigurationError(
                 "Cannot concatenate source encoding "
                 f"({self.source_encoder.output_size}) and features "
-                f"encoding {self.features_encoder.output_size})"
+                f"encoding ({self.features_encoder.output_size})"
             )
 
     def decode_step(
@@ -67,17 +64,15 @@ class TransformerModel(base.BaseModel):
         This predicts a distribution for one symbol.
 
         Args:
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
             predictions (torch.Tensor): tensor of predictions thus far.
 
         Returns:
             torch.Tensor: logits.
         """
-        # Uses a dummy mask of all zeros.
-        target_mask = torch.zeros_like(predictions, dtype=bool)
         decoded, _ = self.decoder(
-            encoded, mask, predictions, target_mask, self.embeddings
+            encoded, mask, predictions, None, self.embeddings
         )
         logits = self.classifier(decoded)
         logits = logits[:, -1, :]  # Ignores END.
@@ -100,7 +95,9 @@ class TransformerModel(base.BaseModel):
             base.ConfigurationError: Teacher forcing requested but no target
                 provided.
         """
-        encoded = self.source_encoder(batch.source, self.embeddings)
+        encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         mask = batch.source.mask
         if self.has_features_encoder:
             if not batch.has_features:
@@ -109,14 +106,12 @@ class TransformerModel(base.BaseModel):
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
-        elif batch.has_features:
-            raise base.ConfigurationError(
-                "Feature column specified but no feature encoder specified"
-            )
         if self.training and self.teacher_forcing:
             if not batch.has_target:
                 raise base.ConfigurationError(
@@ -152,7 +147,7 @@ class TransformerModel(base.BaseModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.decoder_max_length,
+            max_length=self.max_target_length,
             num_embeddings=self.num_embeddings,
             attention_heads=self.attention_heads,
         )

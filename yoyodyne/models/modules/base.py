@@ -26,10 +26,10 @@ class BaseModule(abc.ABC, lightning.LightningModule):
 
     def __init__(
         self,
-        *args,  # Ignored here.
+        *args,
         dropout: float = defaults.DROPOUT,
         embedding_size: int = defaults.EMBEDDING_SIZE,
-        **kwargs,  # Ignored here.
+        **kwargs,
     ):
         super().__init__()
         self.dropout = dropout

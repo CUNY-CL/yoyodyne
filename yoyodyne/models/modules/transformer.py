@@ -9,7 +9,6 @@ import torch
 from torch import nn
 
 from ... import data, defaults, special
-from .. import embeddings
 from . import base, position
 
 
@@ -88,7 +87,7 @@ class TransformerModule(base.BaseModule):
     def embed(
         self, symbols: torch.Tensor, embeddings: nn.Embedding
     ) -> torch.Tensor:
-        """Embeds the source symbols and adds positional encodings."""
+        """Embeds the symbols and adds positional encoding."""
         embedded = self.esq * embeddings(symbols)
         return self.dropout_layer(embedded + self.positional_encoding(symbols))
 
@@ -110,19 +109,25 @@ class TransformerEncoder(TransformerModule):
     """
 
     def forward(
-        self, source: data.PaddedTensor, embeddings: nn.Embedding
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        *args,
+        **kwargs,
     ) -> torch.Tensor:
-        """Encodes the source with the TransformerEncoder.
+        """Encodes the symbols with the TransformerEncoder.
 
         Args:
-            source (data.PaddedTensor).
+            symbols (data.PaddedTensor).
             embeddings (nn.Embedding).
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.embed(source.padded, embeddings)
-        return self.module(embedded, src_key_padding_mask=source.mask)
+        embedded = self.embed(symbols.padded, embeddings)
+        return self.module(embedded, src_key_padding_mask=symbols.mask)
 
     def get_module(self) -> nn.TransformerEncoder:
         encoder_layer = nn.TransformerEncoderLayer(
@@ -157,8 +162,18 @@ class TransformerEncoder(TransformerModule):
 class FeatureInvariantTransformerEncoder(TransformerEncoder):
     """Transformer encoder with feature invariance.
 
-    The internal embedding is of size 1 because this is either source
-    or features.
+    This is only sensibly used in a configuration where there is a shared
+    source and features encoder, as in the following YAML snippet:
+
+        source_encoder:
+          class_path: yoyodyne.models.modules.TransformerEncoder
+            init_args:
+              ...
+        features_encoder: true
+
+    There is already space in the embeddings for the type embeddings; the
+    caller just has to indicate whether the symbols are source or target
+    symbols.
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
@@ -167,38 +182,50 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         Main Volume, pages 1901-1907.
     """
 
-    # Constructed inside __init__.
-    type_embedding: nn.Embedding
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type_embedding = embeddings.xavier_embedding(
-            2,
-            self.embedding_size,
-        )
 
     def embed(
-        self, symbols: torch.Tensor, embeddings: nn.Embedding
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        is_source: bool,
     ) -> torch.Tensor:
-        """Embeds the source symbols.
+        """Embeds the symbols and adds type and positional encodings."""
+        embedded = self.esq * embeddings(symbols.padded)
+        type_embedded = self.esq * embeddings(
+            torch.where(
+                symbols.mask,
+                special.SOURCE_IDX if is_source else special.FEATURES_IDX,
+                special.PAD_IDX,
+            )
+        )
+        return self.dropout_layer(
+            embedded + type_embedded + self.positional_encoding(symbols.padded)
+        )
 
-        This adds positional encodings and special embeddings.
+    def forward(
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        is_source: bool,
+        *args,
+        **kwargs,
+    ) -> torch.Tensor:
+        """Encodes the symbols with the TransformerEncoder.
 
         Args:
-            source (data.PaddedTensor).
+            symbols (data.PaddedTensor).
             embeddings (nn.Embedding).
+            is_source (bool): is this being used to encode source or features?
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        # "0" is whatever type we're using here; "1" is reserved for PAD.
-        char_mask = (symbols == special.PAD_IDX).long()
-        embedded = self.esq * embeddings(symbols)
-        type_embedded = self.esq * self.type_embedding(char_mask)
-        positional_embedded = self.positional_encoding(symbols, mask=char_mask)
-        return self.dropout_layer(
-            embedded + type_embedded + positional_embedded
-        )
+        embedded = self.embed(symbols, embeddings, is_source)
+        return self.module(embedded, src_key_padding_mask=symbols.mask)
 
     @property
     def name(self) -> str:
@@ -213,7 +240,7 @@ class WrappedTransformerDecoder(nn.TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         causal_mask: torch.Tensor,
     ) -> torch.Tensor:
         return super().forward(
@@ -248,7 +275,7 @@ class TransformerDecoder(TransformerModule):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         embeddings: nn.Embedding,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Performs single pass of decoder module.
@@ -266,21 +293,17 @@ class TransformerDecoder(TransformerModule):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        embedded = self.embed(target, embeddings)
-        causal_mask = nn.Transformer.generate_square_subsequent_mask(
-            embedded.size(1),
-            device=self.device,
-            dtype=bool,
-        )
+        target_embedded = self.embed(target, embeddings)
+        causal_mask = self._causal_mask(target_embedded.size(1))
         # -> B x seq_len x d_model.
         decoded = self.module(
             source_encoded,
             source_mask,
-            embedded,
+            target_embedded,
             target_mask,
             causal_mask,
         )
-        return decoded, embedded
+        return decoded, target_embedded
 
     def get_module(self) -> WrappedTransformerDecoder:
         decoder_layer = nn.TransformerDecoderLayer(
@@ -298,13 +321,20 @@ class TransformerDecoder(TransformerModule):
             norm=nn.LayerNorm(self.embedding_size),
         )
 
+    def _causal_mask(self, target_len: int) -> torch.Tensor:
+        return nn.Transformer.generate_square_subsequent_mask(
+            target_len,
+            device=self.device,
+            dtype=bool,
+        )
+
     @property
     def name(self) -> str:
         return "transformer"
 
     @property
     def output_size(self) -> int:
-        return self.num_embeddings
+        return self.embedding_size
 
 
 class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
@@ -363,7 +393,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
         causal_mask: torch.Tensor,
@@ -387,57 +417,37 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         Returns:
             torch.Tensor.
         """
-        output = self.norm2(
-            target
-            + self._sa_block(
-                self.norm1(target),
-                causal_mask,
-                target_mask,
-                is_causal=True,
-            )
+        # Self-attention (pre-norm).
+        x = self.norm1(target)
+        sa_output, _ = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=causal_mask,
+            key_padding_mask=target_mask,
         )
-        source_attention = self.source_linear(
-            self._mha_block(
-                output,
-                source_encoded,
-                attn_mask=None,
-                key_padding_mask=source_mask,
-            )
+        output = target + self.dropout1(sa_output)
+        # Cross-attention (pre-norm).
+        x = self.norm2(output)
+        # Cross-attends to source.
+        source_attn_out, _ = self.multihead_attn(
+            x, source_encoded, source_encoded, key_padding_mask=source_mask
         )
-        features_attention = self.features_linear(
-            self._features_mha_block(
-                output,
-                features_encoded,
-                attn_mask=None,
-                key_padding_mask=features_mask,
-            ),
+        source_attention = self.source_linear(self.dropout2(source_attn_out))
+        # Cross-attends to features.
+        feat_attn_out, _ = self.features_multihead_attn(
+            x,
+            features_encoded,
+            features_encoded,
+            key_padding_mask=features_mask,
         )
-        output = torch.cat((source_attention, features_attention), dim=2)
+        features_attention = self.features_linear(self.dropout2(feat_attn_out))
+        # Concatenates and adds residual connection.
+        attn_output = torch.cat((source_attention, features_attention), dim=2)
+        output = output + attn_output
+        # Feed-forward.
+        # Normalizes before the feed-forward network.
         output = output + self._ff_block(self.norm3(output))
-        return output
-
-    def _features_mha_block(
-        self,
-        x: torch.Tensor,
-        mem: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
-        key_padding_mask: Optional[torch.Tensor] = None,
-        is_causal: bool = False,
-    ) -> torch.Tensor:
-        """Multihead attention block that attends to features.
-
-        This has the same interface as nn.TransformerDecoderLayer._mha_block.
-        """
-        output = self.features_multihead_attn(
-            x,  # The output.
-            mem,  # Encoded features.
-            mem,  # Ditto.
-            attn_mask=attn_mask,  # Causal mask.
-            key_padding_mask=key_padding_mask,  # Features mask.
-            is_causal=is_causal,  # False; no causal mask will be provided.
-            need_weights=False,
-        )[0]
-        output = self.dropout2(output)
         return output
 
 
@@ -453,7 +463,7 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
         causal_mask: torch.Tensor,
@@ -525,8 +535,9 @@ class TransformerPointerDecoder(TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
         embeddings: nn.Embedding,
+        *,
         features_encoded: Optional[torch.Tensor] = None,
         features_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -537,6 +548,7 @@ class TransformerPointerDecoder(TransformerDecoder):
             source_mask (torch.Tensor): mask for source.
             target (torch.Tensor): current targets, which may be the full
                 target or previous decoded, of shape B x seq_len x hidden_size.
+            target_mask (torch.Tensor): mask for target.
             embeddings (nn.Embedding): embedding.
             features_encoded (Optional[torch.Tensor]): encoded features.
             features_mask (Optional[torch.Tensor]): mask for features.
@@ -545,18 +557,19 @@ class TransformerPointerDecoder(TransformerDecoder):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        embedded = self.embed(target, embeddings)
-        causal_mask = nn.Transformer.generate_square_subsequent_mask(
-            embedded.size(1),
-            device=self.device,
-            dtype=bool,
-        )
+        # FIXME: temporary.
+        if target_mask is not None:
+            assert target_mask.dim() == 2, target_mask.shape
+        if features_mask is not None:
+            assert features_mask.dim() == 2, features_mask.shape
+        target_embedded = self.embed(target, embeddings)
+        causal_mask = self._causal_mask(target_embedded.size(1))
         # -> B x seq_len x d_model.
         if self.has_features_encoder:
             decoded = self.module(
                 source_encoded,
                 source_mask,
-                embedded,
+                target_embedded,
                 target_mask,
                 features_encoded,
                 features_mask,
@@ -566,11 +579,11 @@ class TransformerPointerDecoder(TransformerDecoder):
             decoded = self.module(
                 source_encoded,
                 source_mask,
-                embedded,
+                target_embedded,
                 target_mask,
                 causal_mask,
             )
-        return decoded, embedded
+        return decoded, target_embedded
 
     def get_module(self) -> nn.TransformerDecoder:
         if self.has_features_encoder:

@@ -76,20 +76,21 @@ These models all involve a simple sequence-to-sequence transduction without any
 feature conditioning.
 
 -   [`soft_attention_gru.yaml`](soft_attention_gru.yaml) and
-    [`soft_attention_lstm.yaml`](soft_attention_lstm.yaml) are soft attention RNN models with
-    hyperparameters similar to those of MED (Kann & Schütze 2016).
+    [`soft_attention_lstm.yaml`](soft_attention_lstm.yaml) are soft attention
+    RNN models with hyperparameters similar to those of MED (Kann & Schütze
+    2016).
 -   [`soft_attention_unilstm.yaml`](soft_attention_unilstm.yaml) is a variant of
-    [`soft_attention_lstm.yaml`](soft_attention_lstm.yaml) with a uni- (rather than bi-)
-    directional encoder. Performance is often quite a bit worse with this
-    design.
--   [`soft_attention_gru2lstm.yaml`](soft_attention_gru2lstm.yaml) is a MED-like variant
-    where the encoder is an GRU but the decoder is a LSTM.
--   [`soft_attention_deep_lstm.yaml`](soft_attention_deep_lstm.yaml) is a MED-like variant
-    where the encoder has 2 LSTM layers and the decoder has 2 LSTM layers.
-    Performance is often quite a bit worse with this design.
+    [`soft_attention_lstm.yaml`](soft_attention_lstm.yaml) with a uni- (rather
+    than bi-) directional encoder. Performance is often quite a bit worse with
+    this design.
+-   [`soft_attention_gru2lstm.yaml`](soft_attention_gru2lstm.yaml) is a MED-like
+    variant where the encoder is an GRU but the decoder is a LSTM.
+-   [`soft_attention_deep_lstm.yaml`](soft_attention_deep_lstm.yaml) is a
+    MED-like variant where the encoder has 2 LSTM layers and the decoder has 2
+    LSTM layers. Performance is often quite a bit worse with this design.
 -   [`frankenformer.yaml`](frankenformer.yaml) is a hybrid system with a
-    transformer encoder and an soft attention LSTM decoder. This model is in need of
-    hyperparameter tuning before it is ready for deployment.
+    transformer encoder and an soft attention LSTM decoder. This model is in
+    need of hyperparameter tuning before it is ready for deployment.
 -   [`hard_attention_lstm.yaml`](hard_attention_lstm.yaml) and
     [`context_hard_attention_lstm.yaml`](context_hard_attention_lstm.yaml) are
     variants of hard attention LSTMs with hyperparameters similar to those of Wu
@@ -110,14 +111,16 @@ feature conditioning.
 Most of the patterns from above generalize to feature-conditioned transduction,
 but we illustrate different ways one can enable feature conditioning.
 
--   [`soft_attention_lstm_shared.yaml`](soft_attention_lstm_shared.yaml) is a MED-like
-    variant with a shared source and features encoder.
--   [`soft_attention_lstm_separate.yaml`](soft_attention_lstm_separate.yaml) is a MED-like
-    variant with a separate LSTM features encoder.
--   [`soft_attention_lstm_linear.yaml`](soft_attention_lstm_linear.yaml) is a MED-like
-    variant with a separate linear features encoder.
+-   [`soft_attention_lstm_shared.yaml`](soft_attention_lstm_shared.yaml) is a
+    MED-like variant with a shared source and features encoder.
+-   [`soft_attention_lstm_separate.yaml`](soft_attention_lstm_separate.yaml) is
+    a MED-like variant with a separate LSTM features encoder.
+-   [`soft_attention_lstm_linear.yaml`](soft_attention_lstm_linear.yaml) is a
+    MED-like variant with a separate linear features encoder.
 -   [`transformer_shared.yaml`](transformer_shared.yaml) is a transformer with a
     shared source and features encoder.
+-   [`transformer_invariant.yaml`](transformer.yaml) is a transformer with
+    a shared "feature invariant" source and features encoder.
 
 ## Putting it all together
 

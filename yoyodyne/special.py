@@ -10,12 +10,17 @@ PAD_IDX = 1
 
 START = "<S>"
 START_IDX = 2
-
 END = "<E>"
 END_IDX = 3
 
+# For the feature-invariant transformer encoder.
+SOURCE = "<SOURCE>"
+SOURCE_IDX = 4
+FEATURES = "<FEATURES>"
+FEATURES_IDX = 5
+
 # Keep in above order.
-SPECIAL = [UNK, PAD, START, END]
+SPECIAL = [UNK, PAD, START, END, SOURCE, FEATURES]
 
 
 def isspecial(idx: int) -> bool:

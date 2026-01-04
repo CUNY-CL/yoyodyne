@@ -106,7 +106,9 @@ class TransducerRNNModel(base.BaseModel):
             base.ConfigurationError: Features column specified but no feature
                 encoder specified.
         """
-        encoded = self.source_encoder(batch.source, self.embeddings)
+        encoded = self.source_encoder(
+            batch.source, self.embeddings, is_source=True
+        )
         # Ignores start symbol.
         encoded = encoded[:, 1:, :]
         source = batch.source.padded[:, 1:]
@@ -118,7 +120,9 @@ class TransducerRNNModel(base.BaseModel):
                     "no feature column specified"
                 )
             features_encoded = self.features_encoder(
-                batch.features, self.embeddings
+                batch.features,
+                self.embeddings,
+                is_source=False,
             )
             features_encoded = features_encoded.mean(dim=1, keepdim=True)
             features_encoded = features_encoded.expand(-1, encoded.size(1), -1)

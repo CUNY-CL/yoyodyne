@@ -135,23 +135,28 @@ class RNNEncoder(RNNModule):
         super().__init__(*args, **kwargs)
 
     def forward(
-        self, source: data.PaddedTensor, embeddings: nn.Embedding
+        self,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        *args,
+        **kwargs,
     ) -> torch.Tensor:
-        """Encodes the source.
+        """Encodes the symbols.
 
         Subsequent operations don't use the encoder's final hidden state for
-        anything so it's discarded here.
+        anything so it's discarded.
 
         Args:
-            source (data.PaddedTensor): source padded tensors of shape
-                B x seq_len x 1.
-            embeddings (nn.Embedding): embeddings.
+            symbols (data.PaddedTensor).
+            embeddings (nn.Embedding).
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
             torch.Tensor.
         """
         return self.module(
-            self.embed(source.padded, embeddings), source.lengths()
+            self.embed(symbols.padded, embeddings), symbols.lengths()
         )
 
     @property
