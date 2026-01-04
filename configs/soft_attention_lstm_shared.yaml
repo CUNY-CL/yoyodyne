@@ -6,7 +6,7 @@
 # Nowadays most people would probably prefer larger batch sizes and would use
 # the Adam optimizer.
 #
-# This uses an LSTM features encoder shared with the source encoder.
+# This variant uses an LSTM features encoder shared with the source encoder.
 class_path: yoyodyne.models.SoftAttentionLSTMModel
 init_args:
   source_encoder:

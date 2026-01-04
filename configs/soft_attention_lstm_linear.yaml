@@ -6,7 +6,7 @@
 # Nowadays most people would probably prefer larger batch sizes and would use
 # the Adam optimizer.
 #
-# This uses a separate linear features encoder.
+# This variant uses a separate linear features encoder.
 class_path: yoyodyne.models.SoftAttentionLSTMModel
 init_args:
   source_encoder:
