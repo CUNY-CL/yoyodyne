@@ -41,7 +41,6 @@ Suppose one wants to add a metric called Wham. Then one must:
             )
 """
 
-import numpy
 import torch
 import torchmetrics
 
@@ -67,13 +66,9 @@ class SER(torchmetrics.Metric):
     of the gold hypotheses. Theoretically its range is $[0, \infty]$ but in
     practice it is usually in [0, 1]; smaller is better.
 
-    Some definitions multiple this by 100; we don't bother here.
-
-    We assume tensors of shape B x seq_len as input. For reasons documented
-    below, seq_len must be $< 2^16$.
-
     This is a corpus-level statistic; the number of edits and total lengths
-    are stored separately and combined when computing.
+    are stored separately and combined when computing. Some definitions
+    multiply this by 100; we don't bother here.
     """
 
     def __init__(self, *args, **kwargs):
