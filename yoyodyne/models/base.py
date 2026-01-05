@@ -210,7 +210,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         # Rather than crashing, we simply warn about lack of deterministic
         # algorithms.
         if torch.are_deterministic_algorithms_enabled():
-            logging.info("(Only) warning about non-deterministic algorithms")
             torch.use_deterministic_algorithms(True, warn_only=True)
 
     def predict_step(
