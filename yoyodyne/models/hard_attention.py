@@ -227,9 +227,7 @@ class HardAttentionRNNModel(base.BaseModel):
             batch.source.mask,
             batch.target.padded if batch.has_target else None,
         )
-        if self.trainer and (
-            self.trainer.validating or self.trainer.sanity_checking
-        ):
+        if self.validating:
             loss = self._loss(encoded, batch.source.mask, batch.target.padded)
             return loss, predictions
         else:
