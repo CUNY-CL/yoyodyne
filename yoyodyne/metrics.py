@@ -63,7 +63,7 @@ class SER(torchmetrics.Metric):
 
     Symbol error rate is essentially minimum edit distance, in "symbols" (not
     characters, as in the `torchmetrics.text` module) scaled by the length
-    of the gold hypotheses. Theoretically its range is $[0, \infty]$ but in
+    of the gold hypotheses. Theoretically its range is $[0, \infty)$ but in
     practice it is usually in [0, 1]; smaller is better.
 
     This is a corpus-level statistic; the number of edits and total lengths
@@ -139,7 +139,7 @@ class SER(torchmetrics.Metric):
                     ]
                 )
                 curr_row[:, j] = options.amin(dim=0)
-            # Only updates rows for batch items that haven't reached hypo_length.
+            # Only updates rows for items that haven't reached hypo_length.
             mask = (i <= hypo_length).unsqueeze(dim=1)
             prev_row = torch.where(mask, curr_row, prev_row)
         batch_edits = prev_row.gather(
