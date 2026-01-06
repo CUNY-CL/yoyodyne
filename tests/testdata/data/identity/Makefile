@@ -5,6 +5,7 @@ all: train.tsv \
 	test.tsv \
 	context_hard_attention_gru_expected.test \
 	context_hard_attention_lstm_expected.test \
+	decoder_only_transformer_expected.test \
 	gru_expected.test \
 	hard_attention_gru_expected.test \
 	hard_attention_lstm_expected.test \

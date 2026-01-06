@@ -368,7 +368,9 @@ class DecoderOnlyTransformerModel(base.BaseModel):
             layers=self.decoder_layers,
             # Source and features now count towards "target length", so we
             # incorporate them here.
-            max_length=self.max_length,
+            #max_length=self.max_length,
+            # FIXME I want this to be bigger.
+            max_length = self.max_target_length,
         )
 
     def greedy_decode(

@@ -61,6 +61,7 @@ class YoyodyneTest(unittest.TestCase):
     ARCH = [
         "context_hard_attention_gru",
         "context_hard_attention_lstm",
+        "decoder_only_transformer",
         "gru",
         "hard_attention_gru",
         "hard_attention_lstm",
@@ -93,6 +94,7 @@ class YoyodyneTest(unittest.TestCase):
     # Also tests out different ways to encode the features.
     INFLECTION_ARCH = [
         "context_hard_attention_lstm_separate_features",
+        "decoder_only_transformer",
         "hard_attention_lstm_separate_features",
         "pointer_generator_lstm_separate_features",
         "soft_attention_lstm_gru_features",

@@ -14,4 +14,5 @@ from .rnn import SoftAttentionGRUModel  # noqa: F401
 from .rnn import SoftAttentionLSTMModel  # noqa: F401
 from .transducer import TransducerGRUModel  # noqa: F401
 from .transducer import TransducerLSTMModel  # noqa: F401
+from .transformer import DecoderOnlyTransformerModel  # noqa: F401
 from .transformer import TransformerModel  # noqa: F401

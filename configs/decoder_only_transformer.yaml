@@ -1,0 +1,15 @@
+class_path: yoyodyne.models.DecoderOnlyTransformerModel
+init_args:
+  decoder_dropout: .3
+  decoder_hidden_size: 100
+  decoder_layers: 8
+  embedding_size: 256
+  label_smoothing: .1
+  optimizer:
+    class_path: torch.optim.Adam
+    init_args:
+      lr: .001
+  scheduler:
+    class_path: yoyodyne.schedulers.WarmupInverseSquareRoot
+    init_args:
+      warmup_epochs: 10
