@@ -17,19 +17,19 @@ These models are implemented using [PyTorch](https://pytorch.org/) and
 Yoyodyne is inspired by [FairSeq](https://github.com/facebookresearch/fairseq)
 (Ott et al. 2019) but differs on several key points of design:
 
--   It is for small-vocabulary sequence-to-sequence generation, and therefore
-    includes no affordances for machine translation or language modeling.
-    Because of this:
-    -   The architectures provided are intended to be reasonably exhaustive.
-    -   There is little need for data preprocessing; it works with TSV files.
--   It has support for using features to condition decoding, with
-    architecture-specific code for handling feature information.
--   It supports the use of validation accuracy (not just loss) for model
-    selection and early stopping.
--   Models are specified using YAML configuration files.
--   Releases are made regularly and bugs addressed.
--   It has exhaustive test suites.
--   🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
+- It is for small-vocabulary sequence-to-sequence generation, and therefore
+  includes no affordances for machine translation or language modeling. Because
+  of this:
+  - The architectures provided are intended to be reasonably exhaustive.
+  - There is little need for data preprocessing; it works with TSV files.
+- It has support for using features to condition decoding, with
+  architecture-specific code for handling feature information.
+- It supports the use of validation accuracy (not just loss) for model selection
+  and early stopping.
+- Models are specified using YAML configuration files.
+- Releases are made regularly and bugs addressed.
+- It has exhaustive test suites.
+- 🚧 UNDER CONSTRUCTION 🚧: It has performance benchmarks.
 
 ## Authors
 
@@ -219,48 +219,45 @@ files](configs) and model docstrings for more information.
 
 The following are general-purpose models.
 
--   `yoyodyne.models.SoftAttentionGRUModel`: a GRU decoder with an attention
-    mechanism; the initial hidden state is treated as a learned parameter. This
-    is most commonly used with `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.SoftAttentionLSTMModel`: an LSTM decoder with an attention
-    mechanism; the initial hidden and cell state are treated as learned
-    parameters. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
--   `yoyodyne.models.TransformerModel`: a transformer decoder; sinusodial
-    positional encodings and layer normalization are used. This is most commonly
-    used with `yoyodyne.models.modules.TransformerEncoder`s.
+- `yoyodyne.models.SoftAttentionGRUModel`: a GRU decoder with an attention
+  mechanism; the initial hidden state is treated as a learned parameter. This is
+  most commonly used with `yoyodyne.models.modules.GRUEncoder`s.
+- `yoyodyne.models.SoftAttentionLSTMModel`: the same as
+  `yoyodyne.models.SoftAttentionGRUModel` but with an LSTM decoder instead. This
+  is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
+- `yoyodyne.models.TransformerModel`: a transformer decoder; sinusodial
+  positional encodings and layer normalization are used. This is most commonly
+  used with `yoyodyne.models.modules.TransformerEncoder`s.
+- `yoyodyne.models.DecoderOnlyTransformerModel`: a transformer decoder without
+  separate encoder modules (a "prefix LM").
 
-The following models are appropriate for when source and target share symbols.
+The following models are particularly appropriate for when source and target
+share symbols.
 
--   `yoyodyne.models.PointerGeneratorGRUModel`: a GRU decoder with a
-    pointer-generator mechanism; the initial hidden state is treated as a
-    learned parameter. This is most commonly used with
-    `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.PointerGeneratorLSTMModel`: an LSTM decoder with a
-    pointer-generator mechanism; the initial hidden and cell state are treated
-    as learned parameters. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
--   `yoyodyne.models.PointerGeneratorTransformerModel`: a transformer decoder
-    with a pointer-generator mechanism. This is most commonly used with
-    `yoyodyne.models.modules.TransformerEncoder`s.
+- `yoyodyne.models.PointerGeneratorGRUModel`: a GRU decoder with a
+  pointer-generator mechanism; the initial hidden state is treated as a learned
+  parameter. This is most commonly used with
+  `yoyodyne.models.modules.GRUEncoder`s.
+- `yoyodyne.models.PointerGeneratorLSTMModel`: the same as
+  `yoyodyne.models.PointerGeneratorGRUModel` but with an LSTM decoder instead.
+  This is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
+- `yoyodyne.models.PointerGeneratorTransformerModel`: a transformer decoder with
+  a pointer-generator mechanism. This is most commonly used with
+  `yoyodyne.models.modules.TransformerEncoder`s.
 
-The following models are appropriate for transductions which are largely
-monotonic.
+The following models are particularly appropriate for transductions which are
+largely monotonic.
 
--   `yoyodyne.models.HardAttentionGRUModel`: an GRU decoder which models
-    generation as a Markov process. By default it assumes a non-monotonic
-    progression over the source, but with `model: enforce_monotonic: true` the
-    model is made to progress over each source character in linear order. By
-    specifying `model: attention_context: 1` (or larger values) one can widen
-    the context window for state transitions. This is most commonly used with
-    `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.HardAttentionLSTMModel`: an LSTM decoder which models
-    generation as a Markov process. By default it assumes a non-monotonic
-    progression over the source, but with `model: enforce_monotonic: true` the
-    model is made to progress over each source character in linear order. By
-    specifying `model: attention_context: 1` (or larger values) one can widen
-    the context window for state transitions. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
+- `yoyodyne.models.HardAttentionGRUModel`: an GRU decoder which models
+  generation as a Markov process. By default it assumes a non-monotonic
+  progression over the source, but with `model: enforce_monotonic: true` the
+  model is made to progress over each source character in linear order. By
+  specifying `model: attention_context: 1` (or larger values) one can widen the
+  context window for state transitions. This is most commonly used with
+  `yoyodyne.models.modules.GRUEncoder`s.
+- `yoyodyne.models.HardAttentionLSTMModel`: the same as
+  `yoyodyne.models.HardAttentionGRUModel` but with an LSTM decoder instead. This
+  is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
 
 The following models are also appropriate for transductions which are largely
 monotonic, but require additional precomputation with the
@@ -268,24 +265,23 @@ monotonic, but require additional precomputation with the
 one is recommended to use `trainer: accelerator: cpu` as they are not optimized
 for GPU (etc.) acceleration.
 
--   `yoyodyne.models.TransducerGRU`: an LSTM decoder with a neural transducer
-    mechanism trained with imitation learning. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
--   `yoyodyne.models.TransducerLSTM`: an LSTM decoder with a neural transducer
-    mechanism trained with imitation learning. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
+- `yoyodyne.models.TransducerGRU`: a GRU decoder with a neural transducer
+  mechanism trained with imitation learning. This is most commonly used with
+  `yoyodyne.models.modules.LSTMEncoder`s.
+- `yoyodyne.models.TransducerLSTM`: the same as `yoyodyne.models.TransducerGRU`
+  but with an LSTM decoder instead. This is most commonly used with
+  `yoyodyne.models.modules.LSTMEncoder`s.
 
 The following models are not recommended for most users. They generally perform
 poorly and are present only for historical reasons.
 
--   `yoyodyne.models.GRUModel`: a GRU decoder which uses the last non-padding
-    hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
-    state is treated as a learned parameter. This is most commonly used with
-    `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.LSTMModel`: a LSTM decoder which uses the last non-padding
-    hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
-    state is treated as a learned parameter. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
+- `yoyodyne.models.GRUModel`: a GRU decoder which uses the last non-padding
+  hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
+  state is treated as a learned parameter. This is most commonly used with
+  `yoyodyne.models.modules.GRUEncoder`s.
+- `yoyodyne.models.LSTMModel`: the same as `yoyodyne.models.GRUModel` but with
+  an LSTM decoder instead. This is most commonly used with
+  `yoyodyne.models.modules.LSTMEncoder`s.
 
 #### Optimization
 
@@ -507,18 +503,18 @@ than single-file text files just containing the top hypothesis.
 
 The [`examples`](examples) directory contains interesting examples, including:
 
--   [`concatenate`](examples/concatenate) provides sample code for concatenating
-    source and features symbols à la Kann & Schütze (2016).
--   [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
-    Biases](https://wandb.ai/site) to run hyperparameter sweeps.
+- [`concatenate`](examples/concatenate) provides sample code for concatenating
+  source and features symbols à la Kann & Schütze (2016).
+- [`wandb_sweeps`](examples/wandb_sweeps) shows how to use [Weights &
+  Biases](https://wandb.ai/site) to run hyperparameter sweeps.
 
 ## Related projects
 
--   [Maxwell](https://github.com/CUNY-CL/maxwell) is used to learn a stochastic
-    edit distance model for the transducer models.
--   [Yoyodyne Pretrained](https://github.com/CUNY-CL/yoyodyne-pretrained)
-    provides a similar interface but uses large pre-trained models to initialize
-    the encoder and decoder modules.
+- [Maxwell](https://github.com/CUNY-CL/maxwell) is used to learn a stochastic
+  edit distance model for the transducer models.
+- [Yoyodyne Pretrained](https://github.com/CUNY-CL/yoyodyne-pretrained) provides
+  a similar interface but uses large pre-trained models to initialize the
+  encoder and decoder modules.
 
 ### License
 
@@ -543,8 +539,8 @@ accelerator. Furthermore, since it is developed at "low-intensity" by a
 geographically-dispersed team, consistency is particularly important. Some
 consistency decisions made thus far:
 
--   Abstract classes overrides are enforced using [PEP
-    3119](https://peps.python.org/pep-3119/).
+- Abstract classes overrides are enforced using [PEP
+  3119](https://peps.python.org/pep-3119/).
 
 #### Models and modules
 
@@ -589,20 +585,20 @@ evaluation.
 There are two kinds of data sets here. "Toy" data sets consist of simple
 transductions over a small alphabet:
 
--   `copy` (i.e., repeat the input string twice)
--   `identity`
--   `reverse`
--   `upper` (i.e., map to uppercase)
+- `copy` (i.e., repeat the input string twice)
+- `identity`
+- `reverse`
+- `upper` (i.e., map to uppercase)
 
 These are configured to train for 20 epochs, training for no more than 2
 minutes.
 
 In contrast, the two "real" data sets target existing problems:
 
--   `ice_g2p`: Icelandic G2P data from the [2021 SIGMORPHON shared
-    task](https://aclanthology.org/2021.sigmorphon-1.13/)
--   `tur_inflection`: Turkish inflection generation data from the
-    [CoNLl-SIGMORPHON 2017 shared task](https://aclanthology.org/K17-2001/)
+- `ice_g2p`: Icelandic G2P data from the [2021 SIGMORPHON shared
+  task](https://aclanthology.org/2021.sigmorphon-1.13/)
+- `tur_inflection`: Turkish inflection generation data from the
+  [CoNLl-SIGMORPHON 2017 shared task](https://aclanthology.org/K17-2001/)
 
 These are instead configured to train for up to 50 epochs (with early stopping),
 training for no more than 10 minutes.
@@ -648,10 +644,9 @@ information on the test runner.
 7.  Submit a PR for your release and wait for it to be merged into `master`.
 8.  Tag the `master` branch's last commit. The tag should begin with `v`; e.g.,
     if the new version is 3.1.4, the tag should be `v3.1.4`. This can be done:
-    -   on GitHub itself: click the "Releases" or "Create a new release" link on
-        the right-hand side of the Yoyodyne GitHub page) and follow the
-        dialogues.
-    -   from the command-line using `git tag`.
+    - on GitHub itself: click the "Releases" or "Create a new release" link on
+      the right-hand side of the Yoyodyne GitHub page) and follow the dialogues.
+    - from the command-line using `git tag`.
 9.  Build the new release: `python -m build`
 10. Upload the result to PyPI: `twine upload dist/*`
 

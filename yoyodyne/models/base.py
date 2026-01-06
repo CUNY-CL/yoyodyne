@@ -39,7 +39,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     Unknown positional or keyword args from the superclass are ignored.
 
     Args:
-        source_encoder (modules.BaseModule).
+        source_encoder (modules.BaseModule, optional).
         decoder_hidden_size (int, optional): dimensionality of decoder layers.
         decoder_layers (int, optional): number of decoder layers.
         decoder_dropout (float, optional): dropout probability.
@@ -56,7 +56,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     label_smoothing: float
     optimizer: optim.Optimizer
     scheduler: optim.lr_scheduler.LRScheduler
-    source_encoder: modules.BaseModule
+    source_encoder: Optional[modules.BaseModule]
     features_encoder: Optional[modules.BaseModule]
     accuracy: Optional[metrics.Accuracy]
     ser: Optional[metrics.SER]
@@ -66,7 +66,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     def __init__(
         self,
-        source_encoder: modules.BaseModule,
+        source_encoder: Optional[modules.BaseModule],
         *args,  # Ignored here.
         beam_width: int = defaults.BEAM_WIDTH,
         compute_accuracy: bool = True,
@@ -105,18 +105,25 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.embeddings = self.init_embeddings(
             self.num_embeddings, self.embedding_size
         )
-        if source_encoder.embedding_size != self.embedding_size:
+        self.source_encoder = source_encoder
+        if (
+            self.source_encoder is not None
+            and self.source_encoder.embedding_size != self.embedding_size
+        ):
             raise ConfigurationError(
                 "Source embedding size "
-                f"({source_encoder.embedding_size}) != "
+                f"({self.source_encoder.embedding_size}) != "
                 "model embedding size "
                 f"({self.embedding_size})"
             )
-        self.source_encoder = source_encoder
         if features_encoder is False:
             self.features_encoder = None
             self.has_features_encoder = False
         elif features_encoder is True:
+            if self.source_encdoer is None:
+                raise ConfigurationError(
+                    "Shared features_encoder requires a valid source_encoder"
+                )
             # Shallow copy.
             self.features_encoder = self.source_encoder
             self.has_features_encoder = True
@@ -165,12 +172,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 logging.info(
                     "Source/features encoder: %s", self.source_encoder.name
                 )
-            else:
+            elif self.source_encoder:
                 logging.info("Source encoder: %s", self.source_encoder.name)
                 logging.info(
                     "Features encoder: %s", self.features_encoder.name
                 )
-        else:
+        elif self.source_encoder:
             logging.info("Encoder: %s", self.source_encoder.name)
         logging.info("Decoder: %s", self.decoder.name)
 

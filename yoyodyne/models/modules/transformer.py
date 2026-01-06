@@ -104,14 +104,16 @@ class TransformerEncoder(TransformerModule):
 
     After:
         Xiong, R., Yang, Y., He, D., Zheng, K., Zheng, S., Xing, C., ..., and
-        Liu, T.-Y. 2020. In Proceedings of the 37th International Conference
-        on Machine Learning, pages 10524-10533.
+        Liu, T.-Y. 2020. On layer normalization in the transformer
+        architecture. In Proceedings of the 37th International Conference on
+        Machine Learning, pages 10524-10533.
     """
 
     def forward(
         self,
         symbols: data.PaddedTensor,
         embeddings: nn.Embedding,
+        mask: Optional[torch.Tensor] = None,
         *args,
         **kwargs,
     ) -> torch.Tensor:
@@ -120,6 +122,7 @@ class TransformerEncoder(TransformerModule):
         Args:
             symbols (data.PaddedTensor).
             embeddings (nn.Embedding).
+            mask (torch.Tensor, optional): attention mask.
             *args: ignored.
             **kwargs: ignored.
 
@@ -127,7 +130,9 @@ class TransformerEncoder(TransformerModule):
             torch.Tensor: sequence of encoded symbols.
         """
         embedded = self.embed(symbols.padded, embeddings)
-        return self.module(embedded, src_key_padding_mask=symbols.mask)
+        return self.module(
+            embedded, src_key_padding_mask=symbols.mask, mask=mask
+        )
 
     def get_module(self) -> nn.TransformerEncoder:
         encoder_layer = nn.TransformerEncoderLayer(

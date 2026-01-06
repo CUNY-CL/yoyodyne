@@ -43,7 +43,6 @@ class PointerGeneratorModel(base.BaseModel):
         uniform distribution.
 
         After:
-
             https://github.com/NVIDIA/DeepLearningExamples/blob/
             8d8b21a933fff3defb692e0527fca15532da5dc6/PyTorch/Classification/
             ConvNets/image_classification/smoothing.py#L18
