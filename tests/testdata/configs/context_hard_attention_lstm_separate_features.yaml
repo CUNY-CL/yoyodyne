@@ -13,6 +13,7 @@ init_args:
       embedding_size: ${init_args.embedding_size}
       hidden_size: ${init_args.decoder_hidden_size}
   attention_context: 1
+  compute_ser: true
   decoder_dropout: .2
   decoder_hidden_size: 256
   embedding_size: 64
