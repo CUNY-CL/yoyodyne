@@ -200,6 +200,13 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def has_ser(self) -> bool:
         return self.ser is not None
 
+    @property
+    def validating(self) -> bool:
+        # Parallel to the built-in self.training.
+        return self.trainer and (
+            self.trainer.validating or self.trainer.sanity_checking
+        )
+
     def start_symbol(self, batch_size: int) -> torch.Tensor:
         """Generates a tensor of start symbols for the batch."""
         return torch.tensor([special.START_IDX], device=self.device).repeat(
