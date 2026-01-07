@@ -14,7 +14,7 @@ jobs:
           command: pip install -r requirements.txt
       - run:
           command: << parameters.command-run >>
-  build-python:
+  build-test-python:
     parameters:
       python-version:
         type: string
