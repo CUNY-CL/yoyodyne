@@ -36,11 +36,11 @@ jobs:
           command: pip list
       - run:
           name: Run tests
-            command: |
+          command: |
               pytest -vv \
-                -k "not YoyodyneTest" \
-                --junitxml /tmp/testxml/report.xml \
-              tests
+                  -k "not YoyodyneTest" \
+                  --junitxml /tmp/testxml/report.xml \
+                  tests
       - store_test_results:
           path: /tmp/testxml/
 
