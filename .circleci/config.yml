@@ -34,6 +34,15 @@ jobs:
       - run:
           name: Show installed Python packages
           command: pip list
+      - run:
+          name: Run tests
+            command: |
+              pytest -vv \
+                -k "not YoyodyneTest" \
+                --junitxml /tmp/testxml/report.xml \
+              tests
+      - store_test_results:
+          path: /tmp/testxml/
 
 workflows:
   version: 2
