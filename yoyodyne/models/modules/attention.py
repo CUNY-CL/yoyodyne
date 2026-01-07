@@ -18,15 +18,19 @@ class Attention(nn.Module):
         Natural Language Processing, pages 1412-1421.
 
     Args:
-        encoder_outputs_size (int).
-        hidden_size (int).
+        encoder_outputs_size (int, optional).
+        hidden_size (int, optional).
     """
 
     hidden_size: int
     M: nn.Linear
     V: nn.Linear
 
-    def __init__(self, encoder_outputs_size, hidden_size):
+    def __init__(
+        self,
+        encoder_outputs_size=defaults.HIDDEN_SIZE * 2,
+        hidden_size=defaults.HIDDEN_SIZE,
+    ):
         super().__init__()
         # MLP to run over encoder_outputs.
         self.M = nn.Linear(encoder_outputs_size + hidden_size, hidden_size)

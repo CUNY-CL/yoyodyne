@@ -181,7 +181,12 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
     This overrides the definition of _get_transitions.
     """
 
-    def __init__(self, attention_context: int, *args, **kwargs):
+    def __init__(
+        self,
+        attention_context: int = defaults.ATTENTION_CONTEXT,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.delta = attention_context
         # The window size must include center and both sides.

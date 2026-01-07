@@ -1,4 +1,4 @@
-"""Full tests of training and prediction.
+"""Integration tests of training and evaluation.
 
 See testdata/data for code for regenerating data and accuracy/loss statistics.
 """

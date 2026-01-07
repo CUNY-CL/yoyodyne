@@ -644,8 +644,8 @@ class PointerGeneratorTransformerModel(
 
     def get_decoder(
         self,
-    ) -> modules.TransformerPointerDecoder:
-        return modules.TransformerPointerDecoder(
+    ) -> modules.PointerGeneratorTransformerDecoder:
+        return modules.PointerGeneratorTransformerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,
