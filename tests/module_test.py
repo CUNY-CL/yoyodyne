@@ -7,7 +7,6 @@ import unittest
 
 from parameterized import parameterized
 
-from yoyodyne import defaults
 from yoyodyne.models import modules
 
 
@@ -68,24 +67,24 @@ class ModuleTest(unittest.TestCase):
 
     @parameterized.expand(
         [
-         modules.PointerGeneratorTransformerDecoder,
-         modules.TransformerDecoder,
+            modules.PointerGeneratorTransformerDecoder,
+            modules.TransformerDecoder,
         ]
     )
     def test_transformer_decoder(self, mod):
         module = mod()
         self.assertIsInstance(module, mod)
-        
+
     @parameterized.expand(
         [
-         modules.FeatureInvariantTransformerEncoder,
-         modules.TransformerEncoder,
+            modules.FeatureInvariantTransformerEncoder,
+            modules.TransformerEncoder,
         ]
     )
     def test_transformer_encoder(self, mod):
         module = mod()
         self.assertIsInstance(module, mod)
-    
+
 
 if __name__ == "__main__":
     unittest.main()
