@@ -60,7 +60,7 @@ workflows:
             python -m build && \
             twine check dist/`ls dist/ | grep .tar.gz` && \
             twine check dist/`ls dist/ | grep .whl`
-      - build-python:
+      - build-test-python:
           requires:
             - black
             - flake8
