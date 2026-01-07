@@ -112,6 +112,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             self.features_attention = modules.Attention(
                 self.features_encoder.output_size, self.decoder_hidden_size
             )
+        self.decoder = self.get_decoder()
         self.generation_probability = modules.GenerationProbability(
             self.embedding_size,
             self.decoder_hidden_size,
@@ -127,6 +128,16 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 f"Number of encoder layers ({self.source_encoder.layers}) and "
                 f"decoder layers ({self.decoder_layers}) must match"
             )
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                "classifier",
+                "decoder",
+                "generation_probability",
+                "source_encoder",
+                "features_encoder",
+            ]
+        )
 
     def beam_decode(
         self,
@@ -487,6 +498,7 @@ class PointerGeneratorTransformerModel(
     ):
         super().__init__(*args, attention_heads=attention_heads, **kwargs)
         self.attention_weights = modules.AttentionOutput()
+        self.decoder = self.get_decoder()
         self.decoder.module.layers[-1].multihead_attn.register_forward_hook(
             self.attention_weights,
         )
@@ -502,6 +514,16 @@ class PointerGeneratorTransformerModel(
                 self.embedding_size,
                 self.source_encoder.output_size,
             )
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                "classifier",
+                "decoder",
+                "generation_probability",
+                "source_encoder",
+                "features_encoder",
+            ]
+        )
 
     def decode_step(
         self,
@@ -644,8 +666,8 @@ class PointerGeneratorTransformerModel(
 
     def get_decoder(
         self,
-    ) -> modules.TransformerPointerDecoder:
-        return modules.TransformerPointerDecoder(
+    ) -> modules.PointerGeneratorTransformerDecoder:
+        return modules.PointerGeneratorTransformerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,

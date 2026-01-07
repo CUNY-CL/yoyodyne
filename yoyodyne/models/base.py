@@ -32,14 +32,28 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     * Evaluation metrics are tracked by test_step; nothing is returned.
     * Validation loss and evaluation metrics are tracked by validation_step;
       nothing is returned.
-    * If features_encoder is True, the source encoder will be reused as the
-      features encoder and if False (the default), no features encoder will be
-      used.
+    * If a source encoder is specified and features_encoder is True, the
+      source encoder will be reused as the features encoder; if False (the
+      default), no features encoder will be used.
 
-    Unknown positional or keyword args from the superclass are ignored.
+    Derived classes should call the superclass init and then issue:
+
+        self.decoder = self.get_decoder()
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                ...   # List other modules created here.
+                "source_encoder",
+                "features_encoder",
+                "decoder",
+            ]
+        )
 
     Args:
-        source_encoder (modules.BaseModule).
+        *args: ignored.
+        beam_width (int,  optional): width of beam for decoding.
+        compute_accuracy (bool, optional): compute accuracy?
+        compute_ser (bool, optional): compute SER?
         decoder_hidden_size (int, optional): dimensionality of decoder layers.
         decoder_layers (int, optional): number of decoder layers.
         decoder_dropout (float, optional): dropout probability.
@@ -47,26 +61,31 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         features_encoder (modules.BaseModule, optional).
         label_smoothing (float, optional): label smoothing coefficient.
         max_target_length (int, optional): maximum target length.
+        source_encoder (modules.BaseModule, optional).
+        **kwargs: ignored.
     """
 
-    beam_width: int
     decoder_layers: int
     decoder_hidden_size: int
     decoder_dropout: float
     label_smoothing: float
-    optimizer: optim.Optimizer
-    scheduler: optim.lr_scheduler.LRScheduler
-    source_encoder: modules.BaseModule
+
+    # TODO(kbg): do decoder-only models with this nullability.
+    source_encoder: Optional[modules.BaseModule]
     features_encoder: Optional[modules.BaseModule]
-    accuracy: Optional[metrics.Accuracy]
-    ser: Optional[metrics.SER]
     decoder: modules.BaseModule
     embedding: nn.Embedding
+
+    optimizer: optim.Optimizer
+    scheduler: optim.lr_scheduler.LRScheduler
+
+    beam_width: int
+    accuracy: Optional[metrics.Accuracy]
+    ser: Optional[metrics.SER]
     loss_func: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]
 
     def __init__(
         self,
-        source_encoder: modules.BaseModule,
         *args,  # Ignored here.
         beam_width: int = defaults.BEAM_WIDTH,
         compute_accuracy: bool = True,
@@ -80,6 +99,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         max_target_length: int = defaults.MAX_LENGTH,
         optimizer: cli.OptimizerCallable = defaults.OPTIMIZER,
         scheduler: cli.LRSchedulerCallable = defaults.SCHEDULER,
+        source_encoder: Optional[modules.BaseModule] = None,
         target_vocab_size: int = -1,  # Dummy value filled in via link.
         vocab_size: int = -1,  # Dummy value filled in via link.
         **kwargs,  # Ignored here.
@@ -130,16 +150,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 )
             self.features_encoder = features_encoder
             self.has_features_encoder = True
-        self.decoder = self.get_decoder()
         self.loss_func = self._get_loss_func()
-        self.save_hyperparameters(
-            ignore=[
-                "source_encoder",
-                "features_encoder",
-                "decoder",
-            ]
-        )
-        self._log_model()
 
     def _get_loss_func(
         self,
