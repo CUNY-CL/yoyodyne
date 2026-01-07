@@ -47,6 +47,16 @@ class RNNModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
+        self.decoder = self.get_decoder()
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                "classifier",
+                "decoder",
+                "features_encoder",
+                "source_encoder",
+            ]
+        )
 
     def beam_decode(
         self,

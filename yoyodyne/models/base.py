@@ -32,11 +32,22 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     * Evaluation metrics are tracked by test_step; nothing is returned.
     * Validation loss and evaluation metrics are tracked by validation_step;
       nothing is returned.
-    * If features_encoder is True, the source encoder will be reused as the
-      features encoder and if False (the default), no features encoder will be
-      used.
+    * If a source encoder is specified and features_encoder is True, the
+      source encoder will be reused as the features encoder; if False (the
+      default), no features encoder will be used.
 
-    Unknown positional or keyword args from the superclass are ignored.
+    Derived classes should call the superclass init and then issue:
+
+        self.decoder = self.get_decoder()
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                ...   # List other modules created here.
+                "source_encoder",
+                "features_encoder",
+                "decoder",
+            ]
+        )
 
     Args:
         *args: ignored.
@@ -139,16 +150,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
                 )
             self.features_encoder = features_encoder
             self.has_features_encoder = True
-        self.decoder = self.get_decoder()
         self.loss_func = self._get_loss_func()
-        self.save_hyperparameters(
-            ignore=[
-                "source_encoder",
-                "features_encoder",
-                "decoder",
-            ]
-        )
-        self._log_model()
 
     def _get_loss_func(
         self,
