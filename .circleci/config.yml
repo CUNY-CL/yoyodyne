@@ -14,7 +14,7 @@ jobs:
           command: pip install -r requirements.txt
       - run:
           command: << parameters.command-run >>
-  build-python:
+  build-test-python:
     parameters:
       python-version:
         type: string
@@ -34,6 +34,15 @@ jobs:
       - run:
           name: Show installed Python packages
           command: pip list
+      - run:
+          name: Run tests
+          command: |
+              pytest -vv \
+                  -k "not YoyodyneTest" \
+                  --junitxml /tmp/testxml/report.xml \
+                  tests
+      - store_test_results:
+          path: /tmp/testxml/
 
 workflows:
   version: 2
@@ -51,7 +60,7 @@ workflows:
             python -m build && \
             twine check dist/`ls dist/ | grep .tar.gz` && \
             twine check dist/`ls dist/ | grep .whl`
-      - build-python:
+      - build-test-python:
           requires:
             - black
             - flake8

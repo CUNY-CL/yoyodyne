@@ -120,11 +120,6 @@ class MappableDataset(AbstractDataset, data.Dataset):
             self._mmap = mmap.mmap(
                 self._fobj.fileno(), 0, access=mmap.ACCESS_READ
             )
-            try:
-                self._mmap.madvise(mmap.MADV_RANDOM)
-            except AttributeError:
-                # This isn't available on all platforms.
-                pass
         return self._mmap
 
     # Required API.

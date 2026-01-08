@@ -13,6 +13,7 @@ init_args:
       dropout: ${init_args.decoder_dropout}
       embedding_size: ${init_args.embedding_size}
       output_size: ${init_args.embedding_size}
+  compute_ser: true
   decoder_dropout: .2
   decoder_hidden_size: 256
   decoder_layers: 4

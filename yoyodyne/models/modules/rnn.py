@@ -238,14 +238,16 @@ class RNNDecoder(RNNModule):
 
     Args:
         *args: passed to superclass.
-        decoder_input_size (int): decoder input size.
+        decoder_input_size (int, optional): decoder input size.
         **kwargs: passed to superclass.
     """
 
     decoder_input_size: int
     h0: nn.Parameter
 
-    def __init__(self, decoder_input_size, *args, **kwargs):
+    def __init__(
+        self, decoder_input_size=defaults.HIDDEN_SIZE * 2, *args, **kwargs
+    ):
         self.decoder_input_size = decoder_input_size
         super().__init__(*args, **kwargs)
         self.h0 = nn.Parameter(torch.rand(self.hidden_size))
@@ -363,9 +365,19 @@ class SoftAttentionRNNDecoder(RNNDecoder):
 
     The attention module learns to differentially attend to different symbols
     in the encoder output.
+
+    Args:
+        *args: passed to superclass.
+        attention_input_size (int, optional).
+        **kwargs: passed to superclass.
     """
 
-    def __init__(self, attention_input_size, *args, **kwargs):
+    def __init__(
+        self,
+        attention_input_size: int = defaults.HIDDEN_SIZE * 2,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.attention = attention.Attention(
             attention_input_size, self.hidden_size

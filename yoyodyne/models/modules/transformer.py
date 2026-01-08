@@ -266,7 +266,12 @@ class TransformerDecoder(TransformerModule):
     # Constructed inside __init__.
     module: WrappedTransformerDecoder
 
-    def __init__(self, *args, decoder_input_size, **kwargs):
+    def __init__(
+        self,
+        *args,
+        decoder_input_size: int = defaults.EMBEDDING_SIZE,
+        **kwargs,
+    ):
         self.decoder_input_size = decoder_input_size
         super().__init__(*args, **kwargs)
 
@@ -500,7 +505,7 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
         return output
 
 
-class TransformerPointerDecoder(TransformerDecoder):
+class PointerGeneratorTransformerDecoder(TransformerDecoder):
     """A transformer decoder which tracks the output of multihead attention.
 
     This is achieved with a hook into the forward pass.
@@ -510,14 +515,14 @@ class TransformerPointerDecoder(TransformerDecoder):
 
     Args:
         *args: passed to superclass.
-        has_features_encoder (bool).
+        has_features_encoder (bool, optional).
         *kwargs: passed to superclass.
     """
 
     def __init__(
         self,
         *args,
-        has_features_encoder: bool,
+        has_features_encoder: bool = False,
         **kwargs,
     ):
         self.has_features_encoder = has_features_encoder

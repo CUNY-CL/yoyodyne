@@ -57,11 +57,21 @@ class HardAttentionRNNModel(base.BaseModel):
         enforce_monotonic: bool = defaults.ENFORCE_MONOTONIC,
         **kwargs,
     ):
+        super().__init__(*args, **kwargs)
         self.attention_context = attention_context
         self.enforce_monotonic = enforce_monotonic
-        super().__init__(*args, **kwargs)
+        self.decoder = self.get_decoder()
         self.classifier = nn.Linear(
             self.decoder.output_size, self.target_vocab_size
+        )
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                "classifier",
+                "decoder",
+                "features_encoder",
+                "source_encoder",
+            ]
         )
 
     # Prevents a loss function object from being constructed.
@@ -227,9 +237,7 @@ class HardAttentionRNNModel(base.BaseModel):
             batch.source.mask,
             batch.target.padded if batch.has_target else None,
         )
-        if self.trainer and (
-            self.trainer.validating or self.trainer.sanity_checking
-        ):
+        if self.validating:
             loss = self._loss(encoded, batch.source.mask, batch.target.padded)
             return loss, predictions
         else:

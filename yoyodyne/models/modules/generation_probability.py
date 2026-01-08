@@ -5,14 +5,17 @@ import math
 import torch
 from torch import nn
 
+from ... import defaults
+
 
 class GenerationProbability(nn.Module):
     """Generation probability for a pointer-generator.
 
     Args:
-        embedding_size (int): embedding dimensions.
-        hidden_size (int): decoder hidden state dimensions.
-        attention_size (int): dimensions of combined encoder attentions.
+        embedding_size (int, optional): embedding dimensions.
+        hidden_size (int, optional): decoder hidden state dimensions.
+        attention_size (int, optional): dimensions of combined encoder
+            attentions.
     """
 
     stdev = 1 / math.sqrt(100)
@@ -24,9 +27,9 @@ class GenerationProbability(nn.Module):
 
     def __init__(
         self,
-        embedding_size: int,
-        hidden_size: int,
-        attention_size: int,
+        embedding_size: int = defaults.EMBEDDING_SIZE,
+        hidden_size: int = defaults.HIDDEN_SIZE,
+        attention_size: int = defaults.HIDDEN_SIZE * 2,
     ):
         super().__init__()
         self.W_emb = nn.Linear(embedding_size, 1, bias=False)

@@ -36,8 +36,8 @@ class TransformerModel(base.BaseModel):
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
-        self.attention_heads = attention_heads
         super().__init__(*args, **kwargs)
+        self.attention_heads = attention_heads
         self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
@@ -52,6 +52,16 @@ class TransformerModel(base.BaseModel):
                 f"({self.source_encoder.output_size}) and features "
                 f"encoding ({self.features_encoder.output_size})"
             )
+        self.decoder = self.get_decoder()
+        self._log_model()
+        self.save_hyperparameters(
+            ignore=[
+                "classifier",
+                "decoder",
+                "features_encoder",
+                "source_encoder",
+            ]
+        )
 
     def decode_step(
         self,

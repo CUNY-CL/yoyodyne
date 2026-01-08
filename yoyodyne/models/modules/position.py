@@ -16,12 +16,14 @@ class PositionalEncoding(nn.Module):
         https://pytorch.org/tutorials/beginner/transformer_tutorial.html.
 
     Args:
-        d_model (int).
+        d_model (int, optional).
         max_source_length (int, optional).
     """
 
     def __init__(
-        self, d_model: int, max_source_length: int = defaults.MAX_LENGTH
+        self,
+        d_model: int = defaults.EMBEDDING_SIZE,
+        max_source_length: int = defaults.MAX_LENGTH,
     ):
         super().__init__()
         positional_encoding = torch.zeros(max_source_length, d_model)
