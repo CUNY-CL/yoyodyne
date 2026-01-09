@@ -156,16 +156,20 @@ class DataModule(lightning.LightningDataModule):
     def log_vocabularies(self) -> None:
         """Logs this module's vocabularies."""
         logging.info(
-            "Source vocabulary: %s", self.pprint(self.index.source_vocabulary)
+            "Source vocabulary (%d): %s",
+            len(self.index.source_vocabulary),
+            self.pprint(self.index.source_vocabulary),
         )
         if self.has_features:
             logging.info(
-                "Features vocabulary: %s",
+                "Features vocabulary (%d): %s",
+                len(self.index.features_vocabulary),
                 self.pprint(self.index.features_vocabulary),
             )
         if self.has_target:
             logging.info(
-                "Target vocabulary: %s",
+                "Target vocabulary (%d): %s",
+                len(self.index.target_vocabulary),
                 self.pprint(self.index.target_vocabulary),
             )
 
