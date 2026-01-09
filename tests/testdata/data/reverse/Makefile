@@ -37,7 +37,8 @@ all: train.tsv dev.tsv test.tsv
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
 		--seed_everything 49 \
-		--trainer ../../configs/toy_trainer.yaml 
+		--trainer ../../configs/toy_trainer.yaml \
+		--trainer.default_root_dir "$(TMPDIR)"
 	yoyodyne \
 		test \
 		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
@@ -45,6 +46,7 @@ all: train.tsv dev.tsv test.tsv
 		--data.test test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		--trainer.default_root_dir "$(TMPDIR)" \
 		--trainer.enable_progress_bar false \
 		> "$@"
 	rm -rf "$(TMPDIR)"
