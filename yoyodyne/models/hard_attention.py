@@ -28,6 +28,9 @@ class HardAttentionRNNModel(base.BaseModel):
     dimension and then scattered along the source length dimension, on the
     encoding dimension.
 
+    During training, the model is essentially doing teacher forcing, and we
+    pass the target length.
+
     After:
         Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
         symbol-level transduction. In _Proceedings of the 57th Annual
@@ -236,7 +239,11 @@ class HardAttentionRNNModel(base.BaseModel):
         predictions = self.greedy_decode(
             encoded,
             batch.source.mask,
-            batch.target.padded if batch.has_target else None,
+            target_length=(
+                batch.target.padded.size(1)
+                if (self.training or self.validating)
+                else None
+            ),
         )
         if self.validating:
             loss = self._loss(encoded, batch.source.mask, batch.target.padded)
@@ -248,18 +255,22 @@ class HardAttentionRNNModel(base.BaseModel):
         self,
         encoded: torch.Tensor,
         mask: torch.Tensor,
-        target: Optional[torch.Tensor] = None,
+        target_length: Optional[int] = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 
-        Decodes until all sequences in a batch have reached END up to a
-        specified length depending on the `target` args.
+        If the target length is provided, decoding halts at that point. If
+        the target length is not provided, decoding halts once each sequence
+        in the batch generates END or the maximum target length is reached,
+        whichever comes first.
+
+        This performs student forcing.
 
         Args:
             encoded (torch.Tensor): encoded source symbols of shape
                 B x src_len x (encoder_hidden * num_directions)
             mask (torch.Tensor): mask.
-            target (torch.Tensor, optional): target symbols; if provided
+            target (int, optional): maximum target length for this batch.
                 decoding continues until this length is reached.
 
         Returns:
@@ -270,13 +281,12 @@ class HardAttentionRNNModel(base.BaseModel):
         state = self.decoder.initial_state(batch_size)
         likelihood = self._initial_likelihood(batch_size, encoded.size(1))
         predictions = []
-        if target is None:
-            max_num_steps = self.max_target_length
-            # Tracks when each sequence has decoded an END.
+        if target_length is None:
+            max_target_length = self.max_target_length
             final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
-            max_num_steps = target.size(1)
-        for t in range(max_num_steps):
+            max_target_length = target_length
+        for _ in range(max_target_length):
             emissions, transitions, state = self.decode_step(
                 encoded,
                 mask,
@@ -296,7 +306,7 @@ class HardAttentionRNNModel(base.BaseModel):
             assert (
                 likelihood.logsumexp(dim=2).isfinite().all()
             ), "no alignment is reachable"
-            if target is None:
+            if target_length is None:
                 final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():
                     break

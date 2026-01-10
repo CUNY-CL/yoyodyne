@@ -287,6 +287,12 @@ poorly and are present only for historical reasons.
     state is treated as a learned parameter. This is most commonly used with
     `yoyodyne.models.modules.LSTMEncoder`s.
 
+#### Teacher- and student-forcing
+
+Teacher-forcing is the default during training, but pointer-generator,
+soft-attention, and transformer models all support optional training with
+student forcing.
+
 #### Optimization
 
 Yoyodyne requires an optimizer and an learning rate scheduler. The default
