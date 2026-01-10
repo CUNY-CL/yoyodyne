@@ -393,7 +393,8 @@ class HardAttentionRNNModel(base.BaseModel):
 
     def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions = self(batch)
-        self._update_metrics(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.padded)
+        self._update_metrics(predictions, target)
 
     def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         loss = self(batch)
@@ -410,6 +411,7 @@ class HardAttentionRNNModel(base.BaseModel):
 
     def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
         loss, predictions = self(batch)
+        predictions, target = self._align(predictions, batch.target.padded)
         self.log(
             "val_loss",
             loss,
@@ -418,7 +420,7 @@ class HardAttentionRNNModel(base.BaseModel):
             on_epoch=True,
             prog_bar=True,
         )
-        self._update_metrics(predictions, batch.target.padded)
+        self._update_metrics(predictions, target)
 
     @property
     def decoder_input_size(self) -> int:
