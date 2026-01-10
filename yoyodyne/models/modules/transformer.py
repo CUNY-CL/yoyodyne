@@ -562,11 +562,6 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
             Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
-        # FIXME: temporary.
-        if target_mask is not None:
-            assert target_mask.dim() == 2, target_mask.shape
-        if features_mask is not None:
-            assert features_mask.dim() == 2, features_mask.shape
         target_embedded = self.embed(target, embeddings)
         causal_mask = self._causal_mask(target_embedded.size(1))
         # -> B x seq_len x d_model.

@@ -11,18 +11,23 @@ all: train.tsv \
 	lstm_expected.test \
 	pointer_generator_gru_expected.test \
 	pointer_generator_lstm_expected.test \
+	pointer_generator_lstm_student_forcing_expected.test \
 	pointer_generator_transformer_expected.test \
 	soft_attention_gru_expected.test \
 	soft_attention_lstm_expected.test \
+	soft_attention_lstm_student_forcing_expected.test \
 	soft_attention_lstm_gru_source_expected.test \
 	soft_attention_lstm_transformer_source_expected.test \
-	transformer_expected.test
+	transformer_expected.test \
+	transformer_student_forcing_expected.test
 
 %.tsv:
 	$(eval TMPDIR := $(shell mktemp -d))
 	.././randgen.py --vocabulary 26 --length 5 --seed 1951 --size 100 > "$(TMPDIR)/copy_$@"
 	paste "$(TMPDIR)/copy_$@" <(paste -d'\0' "$(TMPDIR)/copy_$@" "$(TMPDIR)/copy_$@") > "$@"
 	rm -rf "$(TMPDIR)"
+
+# FIXME teacher forcing option
 
 %_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))

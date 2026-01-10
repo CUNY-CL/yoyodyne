@@ -67,12 +67,15 @@ class YoyodyneTest(unittest.TestCase):
         "lstm",
         "pointer_generator_gru",
         "pointer_generator_lstm",
+        "pointer_generator_lstm_student_forcing",
         "pointer_generator_transformer",
         "soft_attention_gru",
         "soft_attention_lstm",
+        "soft_attention_lstm_student_forcing",
         "soft_attention_lstm_gru_source",
         "soft_attention_lstm_transformer_source",
         "transformer",
+        "transformer_student_forcing",
         # TODO: test transducers too; but we need logic for the SED data.
     ]
     SEED = 49

@@ -1,0 +1,18 @@
+class_path: yoyodyne.models.PointerGeneratorLSTMModel
+init_args:
+  source_encoder:
+    class_path: yoyodyne.models.modules.LSTMEncoder
+    init_args:
+      dropout: ${init_args.decoder_dropout}
+      embedding_size: ${init_args.embedding_size}
+      hidden_size: ${init_args.decoder_hidden_size}
+  compute_ser: true
+  decoder_dropout: .2
+  decoder_hidden_size: 256
+  embedding_size: 64
+  label_smoothing: .1
+  optimizer:
+    class_path: torch.optim.Adam
+    init_args:
+      lr: .01
+  teacher_forcing: false
