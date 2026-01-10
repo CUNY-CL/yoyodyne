@@ -101,8 +101,6 @@ class TransformerModel(base.BaseModel):
                 column specified.
             base.ConfigurationError: Features column specified but no feature
                 encoder specified.
-            base.ConfigurationError: Teacher forcing requested but no target
-                provided.
         """
         encoded = self.source_encoder(
             batch.source, self.embeddings, is_source=True
@@ -122,10 +120,6 @@ class TransformerModel(base.BaseModel):
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
         if self.teacher_forcing and (self.training or self.validating):
-            if not batch.has_target:
-                raise base.ConfigurationError(
-                    "Teacher forcing requested but no target provided"
-                )
             batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
             target = torch.cat((symbol, batch.target.padded), dim=1)
@@ -194,7 +188,7 @@ class TransformerModel(base.BaseModel):
             outputs.append(logits)
             symbol = torch.argmax(logits, dim=1)
             predictions.append(symbol)
-            final = torch.logical_or(final, (symbol == special.END_IDX))
+            final = torch.logical_or(final, symbol == special.END_IDX)
             if final.all():
                 break
         # -> B x target_vocab_size x seq_len.

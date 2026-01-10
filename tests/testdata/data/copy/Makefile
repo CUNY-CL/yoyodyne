@@ -18,8 +18,7 @@ all: train.tsv \
 	soft_attention_lstm_student_forcing_expected.test \
 	soft_attention_lstm_gru_source_expected.test \
 	soft_attention_lstm_transformer_source_expected.test \
-	transformer_expected.test \
-	transformer_student_forcing_expected.test
+	transformer_expected.test
 
 %.tsv:
 	$(eval TMPDIR := $(shell mktemp -d))

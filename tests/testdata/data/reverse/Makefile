@@ -12,15 +12,12 @@ all: train.tsv \
 	pointer_generator_gru_expected.test \
 	pointer_generator_lstm_expected.test \
 	pointer_generator_lstm_student_forcing_expected.test \
-	pointer_generator_transformer_expected.test \
-	pointer_generator_transformer_student_forcing_expected.test \
 	soft_attention_gru_expected.test \
 	soft_attention_lstm_expected.test \
 	soft_attention_lstm_student_forcing_expected.test \
 	soft_attention_lstm_gru_source_expected.test \
 	soft_attention_lstm_transformer_source_expected.test \
-	transformer_expected.test \
-	transformer_student_forcing_expected.test
+	transformer_expected.test
 
 all: train.tsv dev.tsv test.tsv
 
