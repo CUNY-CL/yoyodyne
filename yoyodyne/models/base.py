@@ -224,6 +224,43 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             batch_size, 1
         )
 
+    def _align(
+        self, predictions: torch.Tensor, target: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Pads predictions and target tensors along sequence dimension.
+
+        This is useful for methods (e.g., student forcing training, or
+        prediction/testing) that require matched lengths.
+
+        Args:
+            predictions (torch.Tensor): B x C x L logits or B x L indices.
+            target (torch.Tensor): B X L indices.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor].
+        """
+        # Identifies which dimension represents the sequence length, and
+        # returns early if they're already aligned.
+        p_seq_dim = 2 if predictions.ndim == 3 else 1
+        p_len = predictions.size(p_seq_dim)
+        t_len = target.size(1)
+        if p_len == t_len:
+            return predictions, target
+        max_len = max(p_len, t_len)
+        # Pad predictions along the sequence dimension.
+        if p_len < max_len:
+            # For logits, padding with 0 is neutral; for indices use PAD_IDX.
+            pad_val = 0 if predictions.ndim == 3 else special.PAD_IDX
+            predictions = nn.functional.pad(
+                predictions, (0, max_len - p_len), value=pad_val
+            )
+        # Pads target along the sequence dimension.
+        elif t_len < max_len:
+            target = nn.functional.pad(
+                target, (0, max_len - t_len), value=special.PAD_IDX
+            )
+        return predictions, target
+
     def on_fit_start(self):
         # Rather than crashing, we simply warn about lack of deterministic
         # algorithms.
@@ -267,7 +304,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             torch.Tensor: training loss.
         """
         predictions = self(batch)
-        loss = self.loss_func(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.padded)
+        loss = self.loss_func(predictions, target)
         self.log(
             "train_loss",
             loss,
@@ -296,7 +334,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             predictions, _ = self(batch)
         else:
             predictions = torch.argmax(self(batch), dim=1)
-        self._update_metrics(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.padded)
+        self._update_metrics(predictions, target)
 
     def on_test_epoch_end(self) -> None:
         self._log_metrics_on_epoch_end("test")
@@ -318,7 +357,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             batch_idx (int).
         """
         predictions = self(batch)
-        loss = self.loss_func(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.padded)
+        loss = self.loss_func(predictions, target)
         self.log(
             "val_loss",
             loss,
@@ -327,7 +367,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             on_epoch=True,
             prog_bar=True,
         )
-        self._update_metrics(predictions, batch.target.padded)
+        self._update_metrics(predictions, target)
 
     def on_validation_epoch_end(self) -> None:
         self._log_metrics_on_epoch_end("val")
