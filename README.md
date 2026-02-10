@@ -55,9 +55,8 @@ Then, optionally install additional dependencies for developers and testers:
 Yoyodyne is also compatible with [Google
 Colab](https://colab.research.google.com/) GPU runtimes.
 
-1.  Click "Runtime" \> "Change Runtime Type".
-2.  In the dialogue box, under the "Hardware accelerator" dropdown box, select
-    "GPU", then click "Save".
+1.  Click "Runtime" \> "Change runtime type".
+2.  Under the "Hardware accelerator", select a "GPU", then click "Save".
 3.  You may be prompted to delete the old runtime. Do so if you wish.
 4.  Then install and run using the `!` as a prefix to shell commands.
 
