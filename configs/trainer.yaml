@@ -17,5 +17,5 @@ logger:
       save_dir: /Users/Shinji/models  # TODO: fix for your environment.
   - class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-      project: unti1
+      project: unit1
       save_dir: /Users/Shinji/models  # TODO: fix for your environment.
