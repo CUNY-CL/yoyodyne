@@ -156,7 +156,7 @@ class RNNEncoder(RNNModule):
             torch.Tensor.
         """
         return self.module(
-            self.embed(symbols.padded, embeddings), symbols.lengths()
+            self.embed(symbols.tensor, embeddings), symbols.lengths()
         )
 
     @property

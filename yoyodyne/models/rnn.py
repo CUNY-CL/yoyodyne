@@ -161,7 +161,7 @@ class RNNModel(base.BaseModel):
             base.ConfigurationError: Features column specified but no feature
                 encoder specified.
         """
-        sequence = batch.source.padded
+        sequence = batch.source.tensor
         encoded = self.source_encoder(batch.source, self.embeddings)
         mask = batch.source.mask
         if self.has_features_encoder:
@@ -179,7 +179,7 @@ class RNNModel(base.BaseModel):
                     f"({self.source_encoder.output_size}) and features "
                     f"encoding ({self.features_encoder.output_size})"
                 )
-            sequence = torch.cat((sequence, batch.features.padded), dim=1)
+            sequence = torch.cat((sequence, batch.features.tensor), dim=1)
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )
@@ -197,7 +197,7 @@ class RNNModel(base.BaseModel):
                 context,
                 mask,
                 self.teacher_forcing if self.training else False,
-                batch.target.padded if batch.has_target else None,
+                batch.target.tensor if batch.has_target else None,
             )
 
     @abc.abstractmethod

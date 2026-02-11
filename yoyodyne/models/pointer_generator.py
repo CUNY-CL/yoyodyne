@@ -311,7 +311,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             )
             if self.beam_width > 1:
                 return self.beam_decode(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     features_encoded=features_encoded,
@@ -319,13 +319,13 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
                 )
             else:
                 return self.greedy_decode(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     teacher_forcing=(
                         self.teacher_forcing if self.training else False
                     ),
-                    target=batch.target.padded if batch.has_target else None,
+                    target=batch.target.tensor if batch.has_target else None,
                     features_encoded=features_encoded,
                     features_mask=batch.features.mask,
                 )
@@ -335,17 +335,17 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             )
         elif self.beam_width > 1:
             return self.beam_decode(
-                batch.source.padded, source_encoded, batch.source.mask
+                batch.source.tensor, source_encoded, batch.source.mask
             )
         else:
             return self.greedy_decode(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
                 teacher_forcing=(
                     self.teacher_forcing if self.training else False
                 ),
-                target=batch.target.padded if batch.has_target else None,
+                target=batch.target.tensor if batch.has_target else None,
             )
 
     def greedy_decode(
@@ -645,10 +645,10 @@ class PointerGeneratorTransformerModel(
                 is_source=False,
             )
             return self.greedy_decode(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
-                batch.target.padded if batch.has_target else None,
+                batch.target.tensor if batch.has_target else None,
                 features_encoded=features_encoded,
                 features_mask=batch.features.mask,
             )
@@ -658,10 +658,10 @@ class PointerGeneratorTransformerModel(
             )
         else:
             return self.greedy_decode(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
-                batch.target.padded if batch.has_target else None,
+                batch.target.tensor if batch.has_target else None,
             )
 
     def get_decoder(

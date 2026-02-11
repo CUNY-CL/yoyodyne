@@ -27,7 +27,7 @@ class PaddedTensor(nn.Module):
     """
 
     pad_idx: int
-    padded: torch.Tensor
+    tensor: torch.Tensor
 
     def __init__(
         self,
@@ -39,7 +39,7 @@ class PaddedTensor(nn.Module):
         if length_msg_callback is not None:
             length_msg_callback(pad_len)
         self.register_buffer(
-            "padded",
+            "tensor",
             torch.stack(
                 [self.pad_tensor(tensor, pad_len) for tensor in tensorlist],
             ),
@@ -47,7 +47,7 @@ class PaddedTensor(nn.Module):
 
     @property
     def mask(self) -> torch.Tensor:
-        return self.padded == special.PAD_IDX
+        return self.tensor == special.PAD_IDX
 
     @staticmethod
     def pad_tensor(tensor: torch.Tensor, pad_max: int) -> torch.Tensor:
@@ -66,7 +66,7 @@ class PaddedTensor(nn.Module):
         )
 
     def __len__(self) -> int:
-        return len(self.padded)
+        return len(self.tensor)
 
     def lengths(self) -> torch.Tensor:
         """Computes the lengths of all the strings in the tensor.
