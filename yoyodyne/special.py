@@ -2,11 +2,11 @@
 
 # These are all reserved for internal use.
 
-UNK = "<UNK>"
-UNK_IDX = 0
-
 PAD = "<P>"
-PAD_IDX = 1
+PAD_IDX = 0
+
+UNK = "<UNK>"
+UNK_IDX = 1
 
 START = "<S>"
 START_IDX = 2
@@ -20,7 +20,7 @@ FEATURES = "<FEATURES>"
 FEATURES_IDX = 5
 
 # Keep in above order.
-SPECIAL = [UNK, PAD, START, END, SOURCE, FEATURES]
+SPECIAL = [PAD, UNK, START, END, SOURCE, FEATURES]
 
 
 def isspecial(idx: int) -> bool:
