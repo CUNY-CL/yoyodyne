@@ -26,7 +26,8 @@ def train_sweep(
 
     Args:
         config: config dictionary (base config, will be copied).
-        argv_template: command-line arguments template with None placeholder for config path.
+        argv_template: command-line arguments template with None placeholder
+            for the config path in 4th position.
     """
     # Create a fresh temp file for this run
     with tempfile.NamedTemporaryFile(
