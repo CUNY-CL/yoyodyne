@@ -7,7 +7,6 @@ import omegaconf
 
 from .. import callbacks, data, models, trainers
 
-
 # Register OmegaConf resolvers here.
 #
 # This allows expressions of the form:
