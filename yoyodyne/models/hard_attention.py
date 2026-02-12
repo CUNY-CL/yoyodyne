@@ -232,14 +232,14 @@ class HardAttentionRNNModel(base.BaseModel):
                 "Feature column specified but no feature encoder specified"
             )
         if self.training:
-            return self._loss(encoded, batch.source.mask, batch.target.padded)
+            return self._loss(encoded, batch.source.mask, batch.target.tensor)
         predictions = self.greedy_decode(
             encoded,
             batch.source.mask,
-            batch.target.padded if batch.has_target else None,
+            batch.target.tensor if batch.has_target else None,
         )
         if self.validating:
-            loss = self._loss(encoded, batch.source.mask, batch.target.padded)
+            loss = self._loss(encoded, batch.source.mask, batch.target.tensor)
             return loss, predictions
         else:
             return predictions
@@ -383,7 +383,7 @@ class HardAttentionRNNModel(base.BaseModel):
 
     def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions = self(batch)
-        self._update_metrics(predictions, batch.target.padded)
+        self._update_metrics(predictions, batch.target.tensor)
 
     def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         loss = self(batch)
@@ -408,7 +408,7 @@ class HardAttentionRNNModel(base.BaseModel):
             on_epoch=True,
             prog_bar=True,
         )
-        self._update_metrics(predictions, batch.target.padded)
+        self._update_metrics(predictions, batch.target.tensor)
 
     @property
     def decoder_input_size(self) -> int:

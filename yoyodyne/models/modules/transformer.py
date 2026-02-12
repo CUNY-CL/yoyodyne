@@ -126,7 +126,7 @@ class TransformerEncoder(TransformerModule):
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.embed(symbols.padded, embeddings)
+        embedded = self.embed(symbols.tensor, embeddings)
         return self.module(embedded, src_key_padding_mask=symbols.mask)
 
     def get_module(self) -> nn.TransformerEncoder:
@@ -192,7 +192,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         is_source: bool,
     ) -> torch.Tensor:
         """Embeds the symbols and adds type and positional encodings."""
-        embedded = self.esq * embeddings(symbols.padded)
+        embedded = self.esq * embeddings(symbols.tensor)
         type_embedded = self.esq * embeddings(
             torch.where(
                 symbols.mask,
@@ -201,7 +201,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             )
         )
         return self.dropout_layer(
-            embedded + type_embedded + self.positional_encoding(symbols.padded)
+            embedded + type_embedded + self.positional_encoding(symbols.tensor)
         )
 
     def forward(

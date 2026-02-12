@@ -129,7 +129,7 @@ class TransformerModel(base.BaseModel):
                 )
             batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
-            target = torch.cat((symbol, batch.target.padded), dim=1)
+            target = torch.cat((symbol, batch.target.tensor), dim=1)
             target_mask = torch.cat(
                 (
                     torch.ones_like(symbol, dtype=bool),
@@ -149,7 +149,7 @@ class TransformerModel(base.BaseModel):
             return self.greedy_decode(
                 encoded,
                 mask,
-                batch.target.padded if batch.has_target else None,
+                batch.target.tensor if batch.has_target else None,
             )
 
     def get_decoder(self) -> modules.TransformerDecoder:

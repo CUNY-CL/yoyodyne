@@ -44,7 +44,7 @@ class LinearEncoder(base.BaseModule):
         Returns:
             torch.Tensor.
         """
-        return self.linear(self.dropout_layer(embeddings(symbols.padded)))
+        return self.linear(self.dropout_layer(embeddings(symbols.tensor)))
 
     @property
     def name(self) -> str:

@@ -111,7 +111,7 @@ class TransducerRNNModel(base.BaseModel):
         )
         # Ignores start symbol.
         encoded = encoded[:, 1:, :]
-        source = batch.source.padded[:, 1:]
+        source = batch.source.tensor[:, 1:]
         source_mask = batch.source.mask[:, 1:]
         if self.has_features_encoder:
             if not batch.has_features:
@@ -136,7 +136,7 @@ class TransducerRNNModel(base.BaseModel):
             encoded,
             source_mask,
             teacher_forcing=self.teacher_forcing if self.training else False,
-            target=batch.target.padded if batch.has_target else None,
+            target=batch.target.tensor if batch.has_target else None,
             target_mask=batch.target.mask if batch.has_target else None,
         )
 
@@ -544,7 +544,7 @@ class TransducerRNNModel(base.BaseModel):
     def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, _ = self(batch)
         self._update_metrics(
-            self._convert_predictions(predictions), batch.target.padded
+            self._convert_predictions(predictions), batch.target.tensor
         )
 
     def on_train_epoch_start(self) -> None:
@@ -586,10 +586,10 @@ class TransducerRNNModel(base.BaseModel):
             prog_bar=True,
         )
         # This needs to conform to target size for evaluation.
-        length = batch.target.padded.size(1)
+        length = batch.target.tensor.size(1)
         self._update_metrics(
             self._convert_predictions(predictions, length),
-            batch.target.padded,
+            batch.target.tensor,
         )
 
     def _convert_predictions(
