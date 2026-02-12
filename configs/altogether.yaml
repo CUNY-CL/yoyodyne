@@ -50,4 +50,4 @@ checkpoint:
   verbose: true
   mode: max
 prediction:
-  path: /Users/shinji/predict.txt  # TODO: fix for your environment.
+  path: /Users/Shinji/predict.txt  # TODO: fix for your environment.

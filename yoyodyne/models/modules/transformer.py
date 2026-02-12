@@ -636,3 +636,7 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
             return forward_orig(*args, **kwargs)
 
         attention_module.forward = wrap
+
+    @property
+    def name(self) -> str:
+        return "pointer-generator transformer"

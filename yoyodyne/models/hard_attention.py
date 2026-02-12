@@ -69,6 +69,7 @@ class HardAttentionRNNModel(base.BaseModel):
             ignore=[
                 "classifier",
                 "decoder",
+                "embeddings",
                 "features_encoder",
                 "source_encoder",
             ]

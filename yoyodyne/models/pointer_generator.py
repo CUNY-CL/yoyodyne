@@ -6,14 +6,11 @@ import torch
 from torch import nn
 
 from .. import data, special
-from . import base, beam_search, defaults, modules, rnn, transformer
+from . import base, beam_search, defaults, embeddings, modules
 
 
 class PointerGeneratorModel(base.BaseModel):
     """Base class for pointer-generator models."""
-
-    # Constructed inside __init__.
-    generation_probability: modules.GenerationProbability
 
     def _get_loss_func(
         self,
@@ -79,7 +76,7 @@ class PointerGeneratorModel(base.BaseModel):
         return loss
 
 
-class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
+class PointerGeneratorRNNModel(PointerGeneratorModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
     If features are provided, a separate features attention module computes
@@ -105,9 +102,18 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             must match.
     """
 
-    def __init__(self, *args, **kwargs):
+    classifier: nn.Linear
+    generation_probability: modules.GenerationProbability
+    teacher_forcing: bool
+
+    def __init__(
+        self,
+        *args,
+        teacher_forcing: bool = defaults.TEACHER_FORCING,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        # Uses the inherited defaults for the source embeddings and encoder.
+        self.teacher_forcing = teacher_forcing
         if self.has_features_encoder:
             self.features_attention = modules.Attention(
                 self.features_encoder.output_size, self.decoder_hidden_size
@@ -133,9 +139,10 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
             ignore=[
                 "classifier",
                 "decoder",
+                "embeddings",
                 "generation_probability",
-                "source_encoder",
                 "features_encoder",
+                "source_encoder",
             ]
         )
 
@@ -270,6 +277,22 @@ class PointerGeneratorRNNModel(PointerGeneratorModel, rnn.RNNModel):
         scaled_output_dist = output_dist * gen_probs
         scaled_pointer_dist = pointer_dist * (1 - gen_probs)
         return torch.log(scaled_output_dist + scaled_pointer_dist), state
+
+    def init_embeddings(
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
 
     def forward(
         self,
@@ -470,9 +493,7 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
         return "pointer-generator LSTM"
 
 
-class PointerGeneratorTransformerModel(
-    PointerGeneratorModel, transformer.TransformerModel
-):
+class PointerGeneratorTransformerModel(PointerGeneratorModel):
     """Pointer-generator model with a transformer backend.
 
     After:
@@ -487,17 +508,23 @@ class PointerGeneratorTransformerModel(
         **kwargs: passed to the superclass.
     """
 
-    # Model arguments.
     attention_heads: int
+    attention_weights: modules.AttentionOutput
+    classifier: nn.Linear
+    generation_probability: modules.GenerationProbability
 
     def __init__(
         self,
         *args,
-        attention_heads=defaults.ATTENTION_HEADS,
+        attention_heads: int = defaults.ATTENTION_HEADS,
         **kwargs,
     ):
-        super().__init__(*args, attention_heads=attention_heads, **kwargs)
+        super().__init__(*args, **kwargs)
+        self.attention_heads = attention_heads
         self.attention_weights = modules.AttentionOutput()
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
         self.decoder = self.get_decoder()
         self.decoder.module.layers[-1].multihead_attn.register_forward_hook(
             self.attention_weights,
@@ -519,6 +546,7 @@ class PointerGeneratorTransformerModel(
             ignore=[
                 "classifier",
                 "decoder",
+                "embeddings",
                 "generation_probability",
                 "source_encoder",
                 "features_encoder",
@@ -610,6 +638,20 @@ class PointerGeneratorTransformerModel(
         scaled_pointer_dist = pointer_dist * (1 - gen_probs)
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_pointer_dist)
+
+    def init_embeddings(
+        self, num_embeddings: int, embedding_size: int
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int): number of embeddings.
+            embedding_size (int): dimension of embeddings.
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return embeddings.xavier_embedding(num_embeddings, embedding_size)
 
     def forward(
         self,
@@ -746,6 +788,7 @@ class PointerGeneratorTransformerModel(
                     torch.stack(predictions, dim=1),
                     None,
                 )
+            # Gets the scores for the last prediction.
             scores = scores[:, -1, :]
             outputs.append(scores)
             symbol = torch.argmax(scores, dim=1)
