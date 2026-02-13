@@ -155,9 +155,7 @@ class YoyodyneTest(unittest.TestCase):
         )
         self.assertNonEmptyFileExists(checkpoint_path)
         # Predicts on test data.
-        predicted_path = os.path.join(
-            self.tempdir.name, f"{data}_{arch}_predicted.txt"
-        )
+        predicted_path = os.path.join(self.tempdir.name, f"{data}_{arch}.txt")
         main.python_interface(
             [
                 "predict",
@@ -170,10 +168,14 @@ class YoyodyneTest(unittest.TestCase):
             ]
         )
         self.assertNonEmptyFileExists(predicted_path)
-        evaluation_path = os.path.join(
-            self.tempdir.name, f"{data}_{arch}_evaluated.test"
+        expected_path = os.path.join(
+            self.TESTDATA_DIR, data, f"{arch}_expected.txt"
         )
+        self.assertFileIdentity(predicted_path, expected_path)
         # Evaluates on test data and compares with result.
+        evaluation_path = os.path.join(
+            self.tempdir.name, f"{data}_{arch}.test"
+        )
         with open(evaluation_path, "w") as sink:
             with contextlib.redirect_stdout(sink):
                 main.python_interface(
