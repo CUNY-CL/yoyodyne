@@ -25,27 +25,35 @@ dev.tsv:
 test.tsv:
 	curl -s https://raw.githubusercontent.com/sigmorphon/conll2017/refs/heads/master/answers/task1/turkish-uncovered-test > "$@"
 
-%_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
+%_expected.txt %_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \
-		fit \
-		--checkpoint ../../configs/checkpoint.yaml \
-		--data ../../configs/tur_inflection_data.yaml \
-		--data.train train.tsv \
-		--data.val dev.tsv \
-		--data.model_dir "$(TMPDIR)" \
-		--model "../../configs/$*.yaml" \
-		--seed_everything 49 \
-		--trainer ../../configs/real_trainer.yaml \
-		--trainer.default_root_dir "$(TMPDIR)"
+        fit \
+        --checkpoint ../../configs/checkpoint.yaml \
+        --data ../../configs/tur_inflection_data.yaml \
+        --data.train train.tsv \
+        --data.val dev.tsv \
+        --data.model_dir "$(TMPDIR)" \
+        --model "../../configs/$*.yaml" \
+        --seed_everything 49 \
+        --trainer ../../configs/real_trainer.yaml \
+        --trainer.default_root_dir "$(TMPDIR)"
 	yoyodyne \
-		test \
-		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/tur_inflection_data.yaml \
-		--data.test test.tsv \
-		--data.model_dir "$(TMPDIR)" \
-		--model "../../configs/$*.yaml" \
-		--trainer.default_root_dir "$(TMPDIR)" \
-		--trainer.enable_progress_bar false \
-		> "$@"
+        predict \
+        --ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+        --data ../../configs/tur_inflection_data.yaml \
+        --data.predict test.tsv \
+        --data.model_dir "$(TMPDIR)" \
+        --model "../../configs/$*.yaml" \
+        --prediction.path "$*_expected.txt"
+	yoyodyne \
+        test \
+        --ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+        --data ../../configs/tur_inflection_data.yaml \
+        --data.test test.tsv \
+        --data.model_dir "$(TMPDIR)" \
+        --model "../../configs/$*.yaml" \
+        --trainer.default_root_dir "$(TMPDIR)" \
+        --trainer.enable_progress_bar false \
+        > "$*_expected.test"
 	rm -rf "$(TMPDIR)"
