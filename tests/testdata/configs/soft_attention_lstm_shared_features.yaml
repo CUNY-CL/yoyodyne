@@ -12,6 +12,7 @@ init_args:
   decoder_hidden_size: 256
   embedding_size: 64
   label_smoothing: .1
+  max_target_length: 32
   optimizer:
     class_path: torch.optim.Adam
     init_args:

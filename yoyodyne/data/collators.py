@@ -102,7 +102,10 @@ class Collator:
         Returns:
             batches.PaddedTensor.
         """
-        return batches.PaddedTensor([item.features for item in itemlist])
+        return batches.PaddedTensor(
+            [item.features for item in itemlist],
+            self._features_length_error,
+        )
 
     def pad_target(
         self, itemlist: List[datasets.Item]

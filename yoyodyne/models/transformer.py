@@ -97,20 +97,24 @@ class TransformerModel(base.BaseModel):
             torch.Tensor.
 
         Raises:
-            base.ConfigurationError: Features encoder specified but no feature
-                column specified.
-            base.ConfigurationError: Features column specified but no feature
+            base.ConfigurationError: Features column specified but no features
                 encoder specified.
+            base.ConfigurationError: Features encoder specified but no features
+                column specified.
         """
         encoded = self.source_encoder(
             batch.source, self.embeddings, is_source=True
         )
         mask = batch.source.mask
+        if batch.has_features and not self.has_features_encoder:
+            raise base.ConfigurationError(
+                "Features column provided but no features encoder specified"
+            )
         if self.has_features_encoder:
             if not batch.has_features:
                 raise base.ConfigurationError(
                     "Features encoder specified but "
-                    "no feature column specified"
+                    "no features column specified"
                 )
             features_encoded = self.features_encoder(
                 batch.features,

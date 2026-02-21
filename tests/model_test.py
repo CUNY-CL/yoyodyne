@@ -211,7 +211,9 @@ class TestModel:
         hidden_size = 128
         model = models.TransformerModel(
             source_encoder=modules.TransformerEncoder(model_size=hidden_size),
-            features_encoder=modules.LSTMEncoder(bidirectional=False, hidden_size=hidden_size),
+            features_encoder=modules.LSTMEncoder(
+                bidirectional=False, hidden_size=hidden_size
+            ),
             target_vocab_size=TARGET_VOCAB_SIZE,
             vocab_size=VOCAB_SIZE,
         )

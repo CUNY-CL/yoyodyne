@@ -265,7 +265,7 @@ gösteriyor muydunuz?
 işlemiyoruz
 cumhurlarmışsınız
 dokuyorum
-model-viep------------renterlerinin
+model-viep------------renterler
 izolasyonlarının
 gücenecekler
 yutaklarında
@@ -503,7 +503,7 @@ hava atıyor muydun?
 hazırlıkları
 tek boynuzlu atlarından
 kefaleti
-granüllü endoplazmik retikulumunda
+granüllü endoplazmik retikulumun
 hadislerin
 lezzetlerimizin
 yetiyordunuz
@@ -932,7 +932,7 @@ siğillerinin
 sahiplerinde
 diremeyecek miyim?
 çeteni
-model-vie----------------llerine
+model-vie----------------llerin
 kuyruğu titretmediler mi?
 kırdırmadınız
 işitmedin mi?

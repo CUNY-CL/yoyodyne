@@ -13,6 +13,7 @@ init_args:
   embedding_size: 64
   enforce_monotonic: true
   label_smoothing: .1
+  max_target_length: 32
   optimizer:
     class_path: torch.optim.Adam
     init_args:

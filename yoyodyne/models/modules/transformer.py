@@ -187,21 +187,22 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
 
     def embed(
         self,
-        symbols: data.PaddedTensor,
+        symbols: torch.Tensor,
+        mask: torch.Tensor,
         embeddings: nn.Embedding,
         is_source: bool,
     ) -> torch.Tensor:
         """Embeds the symbols and adds type and positional encodings."""
-        embedded = self.esq * embeddings(symbols.tensor)
+        embedded = self.esq * embeddings(symbols)
         type_embedded = self.esq * embeddings(
             torch.where(
-                symbols.mask,
-                special.SOURCE_IDX if is_source else special.FEATURES_IDX,
+                mask,
                 special.PAD_IDX,
+                special.SOURCE_IDX if is_source else special.FEATURES_IDX,
             )
         )
         return self.dropout_layer(
-            embedded + type_embedded + self.positional_encoding(symbols.tensor)
+            embedded + type_embedded + self.positional_encoding(symbols)
         )
 
     def forward(
@@ -224,7 +225,9 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         Returns:
             torch.Tensor: sequence of encoded symbols.
         """
-        embedded = self.embed(symbols, embeddings, is_source)
+        embedded = self.embed(
+            symbols.tensor, symbols.mask, embeddings, is_source
+        )
         return self.module(embedded, src_key_padding_mask=symbols.mask)
 
     @property
