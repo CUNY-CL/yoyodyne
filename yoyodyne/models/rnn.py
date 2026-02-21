@@ -203,7 +203,7 @@ class RNNModel(base.BaseModel):
                 return self.greedy_decode_train_validate(
                     context,
                     mask,
-                    batch.target.padded if self.teacher_forcing else None,
+                    batch.target.tensor if self.teacher_forcing else None,
                 )
             else:
                 return self.greedy_decode_predict_test(context, mask)

@@ -240,7 +240,7 @@ class HardAttentionRNNModel(base.BaseModel):
             encoded,
             batch.source.mask,
             target_length=(
-                batch.target.padded.size(1)
+                batch.target.tensor.size(1)
                 if (self.training or self.validating)
                 else None
             ),
@@ -393,7 +393,7 @@ class HardAttentionRNNModel(base.BaseModel):
 
     def test_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions = self(batch)
-        predictions, target = self._align(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.tensor)
         self._update_metrics(predictions, target)
 
     def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
@@ -419,7 +419,7 @@ class HardAttentionRNNModel(base.BaseModel):
             on_epoch=True,
             prog_bar=True,
         )
-        predictions, target = self._align(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.tensor)
         self._update_metrics(predictions, target)
 
     @property

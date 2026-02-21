@@ -349,18 +349,18 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
             elif self.training or self.validating:
                 # This version supports teacher forcing.
                 return self.greedy_decode_train_validate(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     target=(
-                        batch.target.padded if self.teacher_forcing else None
+                        batch.target.tensor if self.teacher_forcing else None
                     ),
                     features_encoded=features_encoded,
                     features_mask=batch.features.mask,
                 )
             else:
                 return self.greedy_decode_predict_test(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     features_encoded=features_encoded,
@@ -377,14 +377,14 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
         elif self.training or self.validating:
             # This version supports teacher forcing.
             return self.greedy_decode_train_validate(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
-                target=batch.target.padded if self.teacher_forcing else None,
+                target=batch.target.tensor if self.teacher_forcing else None,
             )
         else:
             return self.greedy_decode_predict_test(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
             )
@@ -755,7 +755,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
             if (self.training or self.validating) and self.teacher_forcing:
                 batch_size = len(batch)
                 symbol = self.start_symbol(batch_size)
-                target = torch.cat((symbol, batch.target.padded), dim=1)
+                target = torch.cat((symbol, batch.target.tensor), dim=1)
                 target_mask = torch.cat(
                     (
                         torch.ones_like(symbol, dtype=bool),
@@ -764,7 +764,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
                     dim=1,
                 )
                 log_probs = self.decode_step(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     target,
@@ -777,7 +777,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
                 return log_probs[:, :, :-1]
             else:
                 return self.greedy_decode(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     features_encoded=features_encoded,
@@ -790,7 +790,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
         if (self.training or self.validating) and self.teacher_forcing:
             batch_size = len(batch)
             symbol = self.start_symbol(batch_size)
-            target = torch.cat((symbol, batch.target.padded), dim=1)
+            target = torch.cat((symbol, batch.target.tensor), dim=1)
             target_mask = torch.cat(
                 (
                     torch.ones_like(symbol, dtype=bool),
@@ -799,7 +799,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
                 dim=1,
             )
             log_probs = self.decode_step(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
                 target,

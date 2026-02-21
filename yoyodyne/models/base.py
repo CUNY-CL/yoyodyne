@@ -304,7 +304,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             torch.Tensor: training loss.
         """
         predictions = self(batch)
-        predictions, target = self._align(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.tensor)
         loss = self.loss_func(predictions, target)
         self.log(
             "train_loss",
@@ -334,7 +334,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             predictions, _ = self(batch)
         else:
             predictions = torch.argmax(self(batch), dim=1)
-        predictions, target = self._align(predictions, batch.target.padded)
+        predictions, target = self._align(predictions, batch.target.tensor)
         self._update_metrics(predictions, target)
 
     def on_test_epoch_end(self) -> None:
@@ -357,6 +357,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             batch_idx (int).
         """
         predictions = self(batch)
+        predictions, target = self._align(predictions, batch.target.tensor)
         loss = self.loss_func(predictions, target)
         self.log(
             "val_loss",
@@ -366,7 +367,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             on_epoch=True,
             prog_bar=True,
         )
-        predictions, target = self._align(predictions, batch.target.padded)
         self._update_metrics(predictions, target)
 
     def on_validation_epoch_end(self) -> None:
