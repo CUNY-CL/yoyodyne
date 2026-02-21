@@ -357,7 +357,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             batch_idx (int).
         """
         predictions = self(batch)
-        predictions, target = self._align(predictions, batch.target.padded)
         loss = self.loss_func(predictions, target)
         self.log(
             "val_loss",
@@ -367,6 +366,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             on_epoch=True,
             prog_bar=True,
         )
+        predictions, target = self._align(predictions, batch.target.padded)
         self._update_metrics(predictions, target)
 
     def on_validation_epoch_end(self) -> None:

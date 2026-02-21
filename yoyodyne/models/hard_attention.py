@@ -235,7 +235,7 @@ class HardAttentionRNNModel(base.BaseModel):
                 "Feature column specified but no feature encoder specified"
             )
         if self.training:
-            return self._loss(encoded, batch.source.mask, batch.target.padded)
+            return self._loss(encoded, batch.source.mask, batch.target.tensor)
         predictions = self.greedy_decode(
             encoded,
             batch.source.mask,
@@ -246,7 +246,7 @@ class HardAttentionRNNModel(base.BaseModel):
             ),
         )
         if self.validating:
-            loss = self._loss(encoded, batch.source.mask, batch.target.padded)
+            loss = self._loss(encoded, batch.source.mask, batch.target.tensor)
             return loss, predictions
         else:
             return predictions

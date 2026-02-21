@@ -26,9 +26,7 @@ all: train.tsv \
 	paste "$(TMPDIR)/copy_$@" <(paste -d'\0' "$(TMPDIR)/copy_$@" "$(TMPDIR)/copy_$@") > "$@"
 	rm -rf "$(TMPDIR)"
 
-# FIXME teacher forcing option
-
-%_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
+%_expected.txt %_expected.test: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \
 		fit \
@@ -42,6 +40,14 @@ all: train.tsv \
 		--trainer ../../configs/toy_trainer.yaml \
 		--trainer.default_root_dir "$(TMPDIR)"
 	yoyodyne \
+		predict \
+		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+		--data ../../configs/toy_data.yaml \
+		--data.predict test.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/$*.yaml" \
+		--prediction.path "$*_expected.txt"
+	yoyodyne \
 		test \
 		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
 		--data ../../configs/toy_data.yaml \
@@ -50,5 +56,5 @@ all: train.tsv \
 		--model "../../configs/$*.yaml" \
 		--trainer.default_root_dir "$(TMPDIR)" \
 		--trainer.enable_progress_bar false \
-		> "$@"
+		> "$*_expected.test"
 	rm -rf "$(TMPDIR)"

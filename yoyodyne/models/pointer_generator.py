@@ -340,7 +340,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
             )
             if self.beam_width > 1:
                 return self.beam_decode(
-                    batch.source.padded,
+                    batch.source.tensor,
                     source_encoded,
                     batch.source.mask,
                     features_encoded=features_encoded,
@@ -372,7 +372,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
             )
         elif self.beam_width > 1:
             return self.beam_decode(
-                batch.source.padded, source_encoded, batch.source.mask
+                batch.source.tensor, source_encoded, batch.source.mask
             )
         elif self.training or self.validating:
             # This version supports teacher forcing.
@@ -810,7 +810,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
             return log_probs[:, :, :-1]
         else:
             return self.greedy_decode(
-                batch.source.padded,
+                batch.source.tensor,
                 source_encoded,
                 batch.source.mask,
             )
