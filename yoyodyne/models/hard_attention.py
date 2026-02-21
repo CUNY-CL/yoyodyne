@@ -411,7 +411,6 @@ class HardAttentionRNNModel(base.BaseModel):
 
     def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
         loss, predictions = self(batch)
-        predictions, target = self._align(predictions, batch.target.padded)
         self.log(
             "val_loss",
             loss,
@@ -420,6 +419,7 @@ class HardAttentionRNNModel(base.BaseModel):
             on_epoch=True,
             prog_bar=True,
         )
+        predictions, target = self._align(predictions, batch.target.padded)
         self._update_metrics(predictions, target)
 
     @property
