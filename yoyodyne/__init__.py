@@ -14,3 +14,7 @@ warnings.filterwarnings(
     ".*adds dropout after all but last recurrent layer.*",
 )
 warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
+warnings.filterwarnings(
+    "ignore",
+    ".*not recommended to provide both args and command line arguments.*",
+)
