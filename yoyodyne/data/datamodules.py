@@ -222,7 +222,10 @@ class DataModule(lightning.LightningDataModule):
         assert self.val is not None, "no val path"
         return data.DataLoader(
             datasets.MappableDataset(
-                self.val, mappers.Mapper(self.index), self.parser
+                self.val,
+                mappers.Mapper(self.index),
+                self.parser,
+                sequential=True,
             ),
             collate_fn=self.collator,
             batch_size=self.batch_size,
