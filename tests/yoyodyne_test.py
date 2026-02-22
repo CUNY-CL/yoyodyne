@@ -96,14 +96,14 @@ class TestYoyodyne:
         )
 
     @pytest.mark.parametrize("arch", ARCH)
-    def test_g2p(self, arch: str):
+    def test_ice_g2p(self, arch: str):
         data_config_path = os.path.join(CONFIG_DIR, "ice_g2p_data.yaml")
         self._test_model_procedure(
             "ice_g2p", arch, data_config_path, REAL_TRAINER_CONFIG_PATH
         )
 
     @pytest.mark.parametrize("arch", INFLECTION_ARCH)
-    def test_inflection(self, arch: str):
+    def test_tur_inflection(self, arch: str):
         data_config_path = os.path.join(CONFIG_DIR, "tur_inflection_data.yaml")
         self._test_model_procedure(
             "tur_inflection",
