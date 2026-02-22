@@ -26,6 +26,8 @@ class RNNModel(base.BaseModel):
     features encoding with the source encoding on the sequence length
     dimension.
 
+    This supports optional student forcing during training.
+
     Args:
         *args: passed to superclass.
         teacher_forcing (bool, optional): should teacher (rather than student)
@@ -101,7 +103,9 @@ class RNNModel(base.BaseModel):
                     logits, state = self.decode_step(
                         symbol, context, mask, state
                     )
-                    scores = nn.functional.log_softmax(logits.squeeze(), dim=0)
+                    scores = nn.functional.log_softmax(
+                        logits.squeeze(1), dim=0
+                    )
                     for new_cell in cell.extensions(state, scores):
                         beam.push(new_cell)
             beam.update()
@@ -194,38 +198,39 @@ class RNNModel(base.BaseModel):
         if self.beam_width > 1:
             return self.beam_decode(context, mask)
         else:
-            return self.greedy_decode(
-                context,
-                mask,
-                self.teacher_forcing if self.training else False,
-                batch.target.tensor if batch.has_target else None,
-            )
+            if self.training or self.validating:
+                # This version supports teacher forcing.
+                return self.greedy_decode_train_validate(
+                    context,
+                    mask,
+                    batch.target.tensor if self.teacher_forcing else None,
+                )
+            else:
+                return self.greedy_decode_predict_test(context, mask)
 
     @abc.abstractmethod
     def get_decoder(self) -> modules.RNNDecoder: ...
 
-    def greedy_decode(
+    def greedy_decode_train_validate(
         self,
         context: torch.Tensor,
         mask: torch.Tensor,
-        teacher_forcing: bool = defaults.TEACHER_FORCING,
         target: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Decodes greedily.
+        """Decodes greedily during training and validation.
 
-        A hard upper bound on the length of the decoded strings is provided by
-        the length of the target strings (more specifically, the length of the
-        longest target string) if a target is provided, or `max_target_length`
-        if not. Decoding will halt earlier if no target is provided and all
-        sequences have reached END.
+        Provide the target for teacher forcing.
+
+        If the target is provided, decoding halts at target length. If the
+        target is not provided, decoding halts once each sequence in the
+        batch generates END or the maximum target length is reached,
+        whichever comes first.
 
         Args:
             context (torch.Tensor).
             mask (torch.Tensor).
-            teacher_forcing (bool, optional): whether or not to decode with
-                teacher forcing.
-            target (torch.Tensor, optional): target symbols; if provided
-                decoding continues until this length is reached.
+            target (torch.Tensor, optional): target symbols; if provided,
+                these are used for teacher forcing.
 
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.
@@ -235,26 +240,55 @@ class RNNModel(base.BaseModel):
         state = self.decoder.initial_state(batch_size)
         predictions = []
         if target is None:
-            max_num_steps = self.max_target_length
-            # Tracks when each sequence has decoded an END.
+            target_length = self.max_target_length
             final = torch.zeros(batch_size, device=self.device, dtype=bool)
         else:
-            max_num_steps = target.size(1)
-        for t in range(max_num_steps):
+            target_length = target.size(1)
+        for t in range(target_length):
             logits, state = self.decode_step(symbol, context, mask, state)
             predictions.append(logits.squeeze(1))
-            # With teacher forcing the next input is the gold symbol for this
-            # step; with student forcing, it's the top prediction.
-            symbol = (
-                target[:, t].unsqueeze(1)
-                if teacher_forcing
-                else torch.argmax(logits, dim=2)
-            )
             if target is None:
-                # Updates which sequences have decoded an END.
+                # Student forcing.
+                symbol = logits.argmax(dim=2)
                 final = torch.logical_or(final, symbol == special.END_IDX)
                 if final.all():
                     break
+            else:
+                # Teacher forcing.
+                symbol = target[:, t].unsqueeze(1)
+        predictions = torch.stack(predictions, dim=2)
+        return predictions
+
+    def greedy_decode_predict_test(
+        self,
+        context: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Decodes greedily during prediction and testing.
+
+        These are different because teacher forcing is not supported, but
+        decoding will halt once each sequence in the batch generates END or
+        the maximum target length is reached, whichever comes first.
+
+        Args:
+            context (torch.Tensor).
+            mask (torch.Tensor).
+
+        Returns:
+            torch.Tensor: predictions of B x target_vocab_size x seq_len.
+        """
+        batch_size = context.size(0)
+        symbol = self.start_symbol(batch_size)
+        state = self.decoder.initial_state(batch_size)
+        predictions = []
+        final = torch.zeros(batch_size, device=self.device, dtype=bool)
+        for _ in range(self.max_target_length):
+            logits, state = self.decode_step(symbol, context, mask, state)
+            predictions.append(logits.squeeze(1))
+            symbol = logits.argmax(dim=2)
+            final = torch.logical_or(final, symbol == special.END_IDX)
+            if final.all():
+                break
         predictions = torch.stack(predictions, dim=2)
         return predictions
 

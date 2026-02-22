@@ -3,20 +3,19 @@
 The theory here is that a lot of breakages break module __init__.
 """
 
-import unittest
-
-from parameterized import parameterized
+import pytest
 
 from yoyodyne.models import modules
 
 
-class ModuleTest(unittest.TestCase):
+class TestModule:
 
     def test_attention(self):
         module = modules.Attention()
-        self.assertIsInstance(module, modules.Attention)
+        assert isinstance(module, modules.Attention)
 
-    @parameterized.expand(
+    @pytest.mark.parametrize(
+        "mod",
         [
             modules.ContextHardAttentionGRUDecoder,
             modules.ContextHardAttentionLSTMDecoder,
@@ -24,13 +23,14 @@ class ModuleTest(unittest.TestCase):
     )
     def test_context_hard_attention_rnn_decoders(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
+        assert isinstance(module, mod)
 
     def test_generation_probability(self):
         module = modules.GenerationProbability()
-        self.assertIsInstance(module, modules.GenerationProbability)
+        assert isinstance(module, modules.GenerationProbability)
 
-    @parameterized.expand(
+    @pytest.mark.parametrize(
+        "mod",
         [
             modules.HardAttentionGRUDecoder,
             modules.HardAttentionLSTMDecoder,
@@ -38,53 +38,58 @@ class ModuleTest(unittest.TestCase):
     )
     def test_hard_attention_rnn_decoders(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
+        assert isinstance(module, mod)
 
     def test_linear_encoder(self):
         module = modules.LinearEncoder()
-        self.assertIsInstance(module, modules.LinearEncoder)
+        assert isinstance(module, modules.LinearEncoder)
 
     def test_positional_encoding(self):
         module = modules.PositionalEncoding()
-        self.assertIsInstance(module, modules.PositionalEncoding)
+        assert isinstance(module, modules.PositionalEncoding)
 
-    @parameterized.expand([modules.GRUDecoder, modules.LSTMDecoder])
+    @pytest.mark.parametrize(
+        "mod",
+        [modules.GRUDecoder, modules.LSTMDecoder],
+    )
     def test_rnn_decoder(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
+        assert isinstance(module, mod)
 
-    @parameterized.expand([modules.GRUEncoder, modules.LSTMEncoder])
+    @pytest.mark.parametrize(
+        "mod",
+        [modules.GRUEncoder, modules.LSTMEncoder],
+    )
     def test_rnn_encoder(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
+        assert isinstance(module, mod)
 
-    @parameterized.expand(
-        [modules.SoftAttentionGRUDecoder, modules.SoftAttentionLSTMDecoder]
+    @pytest.mark.parametrize(
+        "mod",
+        [modules.SoftAttentionGRUDecoder, modules.SoftAttentionLSTMDecoder],
     )
     def test_soft_attention_rnn_decoder(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
+        assert isinstance(module, mod)
 
-    @parameterized.expand(
+    @pytest.mark.parametrize(
+        "mod",
         [
             modules.PointerGeneratorTransformerDecoder,
             modules.TransformerDecoder,
-        ]
+        ],
     )
     def test_transformer_decoder(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
+        assert isinstance(module, mod)
 
-    @parameterized.expand(
+    @pytest.mark.parametrize(
+        "mod",
         [
             modules.FeatureInvariantTransformerEncoder,
             modules.TransformerEncoder,
-        ]
+        ],
     )
     def test_transformer_encoder(self, mod):
         module = mod()
-        self.assertIsInstance(module, mod)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert isinstance(module, mod)

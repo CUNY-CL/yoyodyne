@@ -38,7 +38,7 @@ jobs:
           name: Run tests
           command: |
               pytest -vv \
-                  -k "not YoyodyneTest" \
+                  -k "not TestYoyodyne" \
                   --junitxml /tmp/testxml/report.xml \
                   tests
       - store_test_results:
