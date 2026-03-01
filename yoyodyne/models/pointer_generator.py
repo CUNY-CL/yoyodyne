@@ -90,9 +90,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
-        summarization with pointer-generator networks. In Proceedings of the
+        summarization with pointer-generator networks. In _Proceedings of the
         55th Annual Meeting of the Association for Computational Linguistics
-        (Volume 1: Long Papers), pages 1073-1083.
+        (Volume 1: Long Papers)_, pages 1073-1083.
 
     Args:
         *args: passed to superclass.
@@ -172,7 +172,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_length and log-likelihoods of shape
+                B x beam_width x seq_len and log-likelihoods of shape
                 B x beam_width.
 
         Raises:
@@ -560,9 +560,9 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
 
     After:
         Singer, A., and Kann, K. 2020. The NYU-CUBoulder Systems for
-        SIGMORPHON 2020 Task 0 and Task 2. In Proceedings of the 17th
+        SIGMORPHON 2020 Task 0 and Task 2. In _Proceedings of the 17th
         SIGMORPHON Workshop on Computational Research in Phonetics, Phonology,
-        and Morphology, pages 90–98.
+        and Morphology_, pages 90–98.
 
     Args:
         *args: passed to the superclass.

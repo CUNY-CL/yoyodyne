@@ -23,6 +23,7 @@ TOY_TRAINER_CONFIG_PATH = os.path.join(CONFIG_DIR, "toy_trainer.yaml")
 REAL_TRAINER_CONFIG_PATH = os.path.join(CONFIG_DIR, "real_trainer.yaml")
 ARCH = [
     "causal_transformer",
+    "causal_transformer_rotary_positional",
     "causal_transformer_student_forcing",
     "context_hard_attention_gru",
     "context_hard_attention_lstm",
@@ -34,6 +35,7 @@ ARCH = [
     "pointer_generator_lstm",
     "pointer_generator_lstm_student_forcing",
     "pointer_generator_transformer",
+    "pointer_generator_transformer_rotary_positional",
     "pointer_generator_transformer_student_forcing",
     "soft_attention_gru",
     "soft_attention_lstm",
@@ -42,20 +44,24 @@ ARCH = [
     "soft_attention_lstm_transformer_source",
     "transformer",
     "transformer_absolute_positional",
+    "transformer_rotary_positional",
     "transformer_student_forcing",
 ]
 INFLECTION_ARCH = [
     "causal_transformer",
+    "causal_transformer_rotary_positional",
     "context_hard_attention_lstm_separate_features",
     "hard_attention_lstm_separate_features",
     "pointer_generator_lstm_separate_features",
     "pointer_generator_transformer_linear_features",
+    "pointer_generator_transformer_rotary_positional",
     "soft_attention_lstm_gru_features",
     "soft_attention_lstm_linear_features",
     "soft_attention_lstm_separate_features",
     "soft_attention_lstm_shared_features",
     "transformer_invariant_features",
     "transformer_null_positional_features",
+    "transformer_rotary_positional",
     "transformer_shared_features",
 ]
 SEED = 49

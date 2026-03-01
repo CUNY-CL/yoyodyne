@@ -13,6 +13,7 @@ from .linear import LinearEncoder  # noqa: F401
 from .position import AbsolutePositionalEncoding  # noqa: F401
 from .position import BasePositionalEncoding  # noqa: F401
 from .position import NullPositionalEncoding  # noqa: F401
+from .position import RotaryPositionalEncoding  # noqa: F401
 from .position import SinusoidalPositionalEncoding  # noqa: F401
 from .rnn import GRUDecoder  # noqa: F401
 from .rnn import GRUEncoder  # noqa: F401
@@ -22,9 +23,14 @@ from .rnn import RNNDecoder  # noqa: F401
 from .rnn import RNNState  # noqa: F401
 from .rnn import SoftAttentionGRUDecoder  # noqa: F401
 from .rnn import SoftAttentionLSTMDecoder  # noqa: F401
-from .transformer import AttentionOutput  # noqa: F401
 from .transformer import CausalTransformerDecoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder  # noqa: F401
 from .transformer import PointerGeneratorTransformerDecoder  # noqa: F401
+from .transformer import RotaryCausalTransformerDecoder  # noqa: F401
+from .transformer import RotaryFeatureInvariantTransformerEncoder  # noqa: F401
+from .transformer import RotaryPointerGeneratorTransformerDecoder  # noqa: F401
+from .transformer import RotaryTransformerDecoder  # noqa: F401
+from .transformer import RotaryTransformerEncoder  # noqa: F401
+from .transformer import SeparateFeaturesTransformerDecoder  # noqa: F401
 from .transformer import TransformerDecoder  # noqa: F401
 from .transformer import TransformerEncoder  # noqa: F401

@@ -1,17 +1,18 @@
-
 SHELL := /bin/bash
 
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
+	causal_transformer_expected.test \
+	causal_transformer_expected.txt \
+	causal_transformer_rotary_positional_expected.test \
+	causal_transformer_rotary_positional_expected.txt \
+	causal_transformer_student_forcing_expected.test \
+	causal_transformer_student_forcing_expected.txt \
 	context_hard_attention_gru_expected.test \
 	context_hard_attention_gru_expected.txt \
 	context_hard_attention_lstm_expected.test \
 	context_hard_attention_lstm_expected.txt \
-	causal_transformer_expected.test \
-	causal_transformer_expected.txt \
-	causal_transformer_student_forcing_expected.test \
-	causal_transformer_student_forcing_expected.txt \
 	gru_expected.test \
 	gru_expected.txt \
 	hard_attention_gru_expected.test \
@@ -28,6 +29,8 @@ all: train.tsv \
 	pointer_generator_lstm_student_forcing_expected.txt \
 	pointer_generator_transformer_expected.test \
 	pointer_generator_transformer_expected.txt \
+	pointer_generator_transformer_rotary_positional_expected.test \
+	pointer_generator_transformer_rotary_positional_expected.txt \
 	pointer_generator_transformer_student_forcing_expected.test \
 	pointer_generator_transformer_student_forcing_expected.txt \
 	soft_attention_gru_expected.test \
@@ -44,6 +47,8 @@ all: train.tsv \
 	transformer_expected.txt \
 	transformer_absolute_positional_expected.test \
 	transformer_absolute_positional_expected.txt \
+	transformer_rotary_positional_expected.test \
+	transformer_rotary_positional_expected.txt \
 	transformer_student_forcing_expected.test \
 	transformer_student_forcing_expected.txt
 

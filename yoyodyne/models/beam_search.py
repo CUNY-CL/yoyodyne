@@ -140,7 +140,7 @@ class Beam:
             device (torch.device): the device to move the data to.
 
         Returns:
-            torch.Tensor: a B x beam_width x seq_length tensor of predictions.
+            torch.Tensor: a B x beam_width x seq_len tensor of predictions.
         """
         return nn.utils.rnn.pad_sequence(
             [torch.tensor(cell.symbols, device=device) for cell in self.cells],
