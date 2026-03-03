@@ -322,7 +322,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
 
 
 class RotaryTransformerEncoder(RotaryTransformerModule, TransformerEncoder):
-    """Transformer encoder using rotary positional encoding.
+    """Transformer encoder with rotary positional encodings.
 
     Args:
         *args: passed to superclass.
@@ -359,7 +359,7 @@ class RotaryTransformerEncoder(RotaryTransformerModule, TransformerEncoder):
 class RotaryFeatureInvariantTransformerEncoder(
     RotaryTransformerModule, FeatureInvariantTransformerEncoder
 ):
-    """FeatureInvariantTransformerEncoder using rotary positional encoding.
+    """FeatureInvariantTransformerEncoder with rotary positional encodings.
 
     Args:
         *args: passed to superclass.
@@ -739,7 +739,7 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
 
 
 class RotaryTransformerDecoder(RotaryTransformerModule, TransformerDecoder):
-    """Transformer decoder using rotary positional encoding.
+    """Transformer decoder with rotary positional encodings.
 
     Args:
         *args: passed to superclass.
@@ -777,7 +777,7 @@ class RotaryTransformerDecoder(RotaryTransformerModule, TransformerDecoder):
 class RotaryCausalTransformerDecoder(
     RotaryTransformerModule, CausalTransformerDecoder
 ):
-    """Causal transformer decoder using rotary positional encoding.
+    """Causal transformer decoder with rotary positional encodings.
 
     Args:
         *args: passed to superclass.
@@ -814,7 +814,7 @@ class RotaryCausalTransformerDecoder(
 class RotaryPointerGeneratorTransformerDecoder(
     RotaryTransformerModule, PointerGeneratorTransformerDecoder
 ):
-    """Pointer-generator transformer decoder using rotary positional encoding.
+    """Pointer-generator transformer decoder with rotary positional encodings.
 
     Args:
         *args: passed to superclass.

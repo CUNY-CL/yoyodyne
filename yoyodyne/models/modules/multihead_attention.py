@@ -43,6 +43,7 @@ class RotaryMultiheadAttention(nn.Module):
         if not batch_first:
             raise Error("RotaryMultiheadAttention requires batch_first")
         self.attention_heads = attention_heads
+        self.batch_first = batch_first
         self.dropout = dropout
         self.embed_dim = embed_dim
         self.head_dim = embed_dim // attention_heads
@@ -52,6 +53,8 @@ class RotaryMultiheadAttention(nn.Module):
                 f"attention_heads ({attention_heads})"
             )
         self.rope = rope
+        self.in_proj_bias = None
+        self.in_proj_weight = None
         # Projections mirroring nn.MultiheadAttention internals.
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
@@ -71,6 +74,7 @@ class RotaryMultiheadAttention(nn.Module):
         key_padding_mask: Optional[torch.Tensor] = None,
         need_weights: bool = False,
         attn_mask: Optional[torch.Tensor] = None,
+        is_causal: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Computes RoPE-augmented multi-head attention.
 
@@ -78,9 +82,11 @@ class RotaryMultiheadAttention(nn.Module):
             query (torch.Tensor): B x query_length x embed_dim.
             key (torch.Tensor): B x source_length x embed_dim.
             value (torch.Tensor): B x source_length x embed_dim.
-            key_padding_mask (Optional[torch.Tensor]): B x source_length.
-            need_weights (bool): whether to return attention weights.
-            attn_mask (Optional[torch.Tensor]): additive or bool mask.
+            key_padding_mask (torch.Tensor, optional): B x source_length.
+            need_weights (bool, optional): whether to return attention weights.
+            attn_mask (torch.Tensor, optional): additive or bool mask.
+            is_causal (bool, optional): if True and attn_mask is not provided,
+                applies a causal mask; ignored otherwise.
 
         Returns:
             Tuple[torch.Tensor, Optional[torch.Tensor]]: output and optionally
@@ -89,6 +95,13 @@ class RotaryMultiheadAttention(nn.Module):
         batch_size = query.size(0)
         query_length = query.size(1)
         source_length = key.size(1)
+        # Generates a causal mask if requested and none was provided.
+        if is_causal and attn_mask is None:
+            attn_mask = nn.Transformer.generate_square_subsequent_mask(
+                query_length,
+                device=query.device,
+                dtype=torch.bool,
+            )
         # -> B x seq_len x attention_heads x head_dim.
         q = self.q_proj(query).view(
             batch_size, query_length, self.attention_heads, self.head_dim
@@ -131,7 +144,7 @@ class RotaryMultiheadAttention(nn.Module):
             )
             additive_kpm = torch.zeros_like(
                 additive_kpm, dtype=q.dtype
-            ).masked_fill(additive_kpm, defaults.NEG_INF)
+            ).masked_fill(additive_kpm.to(torch.bool), defaults.NEG_INF)
         else:
             additive_kpm = None
         if attn_mask is not None:

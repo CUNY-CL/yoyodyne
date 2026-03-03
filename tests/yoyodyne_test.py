@@ -49,19 +49,19 @@ ARCH = [
 ]
 INFLECTION_ARCH = [
     "causal_transformer",
-    "causal_transformer_rotary_positional",
     "context_hard_attention_lstm_separate_features",
     "hard_attention_lstm_separate_features",
     "pointer_generator_lstm_separate_features",
     "pointer_generator_transformer_linear_features",
-    "pointer_generator_transformer_rotary_positional",
     "soft_attention_lstm_gru_features",
     "soft_attention_lstm_linear_features",
     "soft_attention_lstm_separate_features",
     "soft_attention_lstm_shared_features",
+    "rotary_causal_transformer",
+    "rotary_pointer_generator_transformer",
+    "rotary_transformer_shared_features",
     "transformer_invariant_features",
     "transformer_null_positional_features",
-    "transformer_rotary_positional",
     "transformer_shared_features",
 ]
 SEED = 49

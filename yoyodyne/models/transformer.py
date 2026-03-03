@@ -30,8 +30,9 @@ class TransformerModel(base.BaseModel):
 
     # Model arguments.
     attention_heads: int
-    teacher_forcing: bool
     classifier: nn.Linear
+    decoder_positional_encoding: modules.BasePositionalEncoding
+    teacher_forcing: bool
 
     def __init__(
         self,
@@ -162,7 +163,7 @@ class TransformerModel(base.BaseModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            max_length=self.max_target_length + 1,
+            max_length=self.max_decoder_length,
             num_embeddings=self.num_embeddings,
             positional_encoding=self.decoder_positional_encoding,
         )
@@ -225,8 +226,53 @@ class TransformerModel(base.BaseModel):
             return self.max_source_length
 
     @property
+    def max_decoder_length(self) -> int:
+        return self.max_target_length + 1  # Including the START symbol.
+
+    @property
     def name(self) -> str:
         return "transformer"
+
+
+class RotaryTransformerModel(TransformerModel):
+    """Transformer model with rotary positional encodings.
+
+    For consistency, the source encoder (and features encoder, if used) should
+    also use a rotary variant; see the class docstring note below.
+
+    This model does not enforce that the source or features encoders also use
+    RoPE, but mixing rotary and sinusoidal encodings within the same model is
+    not recommended; one should pair this with RotaryTransformerEncoder
+    source and/or features encoders, or use
+    RotaryFeatureInvariantTransformerEncoder as the source encoder.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def __init__(self, *args, **kwargs):
+        if kwargs.get("decoder_positional_encoding") is not None:
+            raise base.ConfigurationError(
+                f"{self.__class__.__name__} does not accept "
+                "decoder_positiona_encoding"
+            )
+        super().__init__(*args, **kwargs)
+
+    def get_decoder(self) -> modules.RotaryTransformerDecoder:
+        return modules.RotaryTransformerDecoder(
+            attention_heads=self.attention_heads,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.decoder_dropout,
+            embedding_size=self.embedding_size,
+            hidden_size=self.decoder_hidden_size,
+            layers=self.decoder_layers,
+            max_length=self.max_decoder_length,
+        )
+
+    @property
+    def name(self) -> str:
+        return f"rotary {super().name}"
 
 
 class CausalTransformerModel(base.BaseModel):
@@ -259,6 +305,7 @@ class CausalTransformerModel(base.BaseModel):
     """
 
     attention_heads: int
+    positional_encoding: modules.BasePositionalEncoding
     teacher_forcing: bool
     classifier: nn.Linear
 
@@ -450,3 +497,34 @@ class CausalTransformerModel(base.BaseModel):
     @property
     def name(self) -> str:
         return "causal transformer"
+
+
+class RotaryCausalTransformerModel(CausalTransformerModel):
+    """Causal transformer model with rotary positional encodings.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def __init__(self, *args, **kwargs):
+        if kwargs.get("positional_encoding") is not None:
+            raise base.ConfigurationError(
+                f"{self.__class__.__name__} does not accept "
+                "positional_encoding"
+            )
+        super().__init__(*args, **kwargs)
+
+    def get_decoder(self) -> modules.RotaryCausalTransformerDecoder:
+        return modules.RotaryCausalTransformerDecoder(
+            attention_heads=self.attention_heads,
+            dropout=self.decoder_dropout,
+            embedding_size=self.embedding_size,
+            hidden_size=self.decoder_hidden_size,
+            layers=self.decoder_layers,
+            max_length=self.max_length,
+        )
+
+    @property
+    def name(self) -> str:
+        return f"rotary {super().name}"
