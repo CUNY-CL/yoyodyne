@@ -25,8 +25,8 @@ all: train.tsv \
 	soft_attention_lstm_separate_features_expected.txt \
 	rotary_causal_transformer_expected.test \
 	rotary_causal_transformer_expected.txt \
-	rotary_pointer_generator_transformer_shared_features_expected.test \
-	rotary_pointer_generator_transformer_shared_features_expected.txt \
+	rotary_pointer_generator_transformer_linear_features_expected.test \
+	rotary_pointer_generator_transformer_linear_features_expected.txt \
 	rotary_transformer_shared_features_expected.test \
 	rotary_transformer_shared_features_expected.txt \
 	transformer_invariant_features_expected.test \

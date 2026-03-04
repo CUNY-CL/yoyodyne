@@ -54,7 +54,7 @@ INFLECTION_ARCH = [
     "pointer_generator_lstm_separate_features",
     "pointer_generator_transformer_linear_features",
     "rotary_causal_transformer",
-    "rotary_pointer_generator_transformer",
+    "rotary_pointer_generator_transformer_linear_features",
     "rotary_transformer_shared_features",
     "soft_attention_lstm_gru_features",
     "soft_attention_lstm_linear_features",
