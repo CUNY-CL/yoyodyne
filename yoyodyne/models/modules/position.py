@@ -117,6 +117,10 @@ class RotaryPositionalEncoding(BasePositionalEncoding):
     no-op in the embedding step and serves only as a container for the
     cos/sin cache and the rotation logic consumed by RoPE attention layers.
 
+    Using this as a positional encoding class in a configuration file is
+    no-op (i.e., equivalent to NullPositionalEncoding); use the appropriate
+    rotary module and model classes to get the desired effect.
+
     After:
         Su, J., Lu, Y., Pan, S., Murtadha, A., Wen, B., and Liu, Y. 2024.
         RoFormer: Enhanced transformer with rotary position embedding.
