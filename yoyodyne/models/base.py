@@ -5,9 +5,8 @@ import logging
 from typing import Callable, Optional, Tuple, Union
 
 import lightning
-from lightning.pytorch import cli
-
 import torch
+from lightning.pytorch import cli
 from torch import nn, optim
 
 from .. import data, defaults, metrics, special

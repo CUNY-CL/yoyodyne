@@ -1,0 +1,7 @@
+class_path: yoyodyne.models.RotaryCausalTransformerModel
+init_args:
+  attention_heads: 4
+  decoder_dropout: 0.2
+  decoder_hidden_size: 512
+  decoder_layers: 4
+  embedding_size: 128

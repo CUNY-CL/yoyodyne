@@ -5,12 +5,12 @@ from .base import BaseModel  # noqa: F401
 from .base import ConfigurationError  # noqa: F401
 from .hard_attention import HardAttentionGRUModel  # noqa: F401
 from .hard_attention import HardAttentionLSTMModel  # noqa: F401
-from .pointer_generator import (
-    RotaryPointerGeneratorTransformerModel,
-)  # noqa: F401
 from .pointer_generator import PointerGeneratorGRUModel  # noqa: F401
 from .pointer_generator import PointerGeneratorLSTMModel  # noqa: F401
 from .pointer_generator import PointerGeneratorTransformerModel  # noqa: F401
+from .pointer_generator import (  # noqa: F401
+    RotaryPointerGeneratorTransformerModel,
+)
 from .rnn import GRUModel  # noqa: F401
 from .rnn import LSTMModel  # noqa: F401
 from .rnn import SoftAttentionGRUModel  # noqa: F401

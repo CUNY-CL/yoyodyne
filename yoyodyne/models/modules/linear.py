@@ -1,10 +1,10 @@
 """Linear module class."""
 
-from ... import data, defaults
-from . import base
-
 import torch
 from torch import nn
+
+from ... import data, defaults
+from . import base
 
 
 class LinearEncoder(base.BaseEncoder):

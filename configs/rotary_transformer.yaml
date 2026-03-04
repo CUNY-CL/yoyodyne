@@ -1,4 +1,4 @@
-class_path: yoyodyne.models.RotaryPointerGeneratorTransformerModel
+class_path: yoyodyne.models.RotaryTransformerModel
 init_args:
   source_encoder:
     class_path: yoyodyne.models.modules.RotaryTransformerEncoder
@@ -7,11 +7,11 @@ init_args:
       embedding_size: ${init_args.embedding_size}
       hidden_size: ${init_args.decoder_hidden_size}
       layers: ${init_args.decoder_layers}
-  features_encoder: true
   decoder_dropout: .3
-  decoder_hidden_size: 1024
+  decoder_hidden_size: 100
   decoder_layers: 4
   embedding_size: 256
+  label_smoothing: .1
   optimizer:
     class_path: torch.optim.Adam
     init_args:

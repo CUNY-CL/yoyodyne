@@ -6,8 +6,8 @@ import itertools
 import pickle
 from typing import Dict, Iterable, List, Optional
 
-from torch import serialization
 import yaml
+from torch import serialization
 
 from .. import defaults, special, util
 

@@ -392,9 +392,9 @@ class CausalTransformerModel(base.BaseModel):
             target_length = batch.target.tensor.size(1) + 1
             attn_mask = self._get_prefix_mask(prefix_length, target_length)
             decoded = self.decoder(tensor, self.embeddings, mask=attn_mask)
-            logits = self.classifier(decoded[:, prefix_length:, :]).transpose(
-                1, 2
-            )
+            # We don't need to run the classifier on the prefix symbols.
+            decoded = decoded[:, prefix_length:, :]
+            logits = self.classifier(decoded).transpose(1, 2)
             return logits[:, :, :-1]  # Ignores END.
         else:
             return self.greedy_decode(prefix)

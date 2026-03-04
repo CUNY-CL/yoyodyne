@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import dataclasses
-
 from typing import Iterable, List
 
 import torch
 
-from . import indexes
 from .. import special
+from . import indexes
 
 
 @dataclasses.dataclass

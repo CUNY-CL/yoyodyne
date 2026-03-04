@@ -6,8 +6,8 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from . import position
 from ... import defaults
+from . import position
 
 
 class Error(Exception):

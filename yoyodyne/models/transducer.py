@@ -3,9 +3,9 @@
 import abc
 from typing import Callable, Dict, List, Optional, Tuple
 
-from maxwell import actions, sed
 import numpy
 import torch
+from maxwell import actions, sed
 from torch import nn
 
 from .. import data, defaults, special, util

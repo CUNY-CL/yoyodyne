@@ -28,14 +28,13 @@ from __future__ import annotations
 
 import dataclasses
 import heapq
-
 from typing import Iterator, List
 
 import torch
 from torch import nn
 
-from . import modules
 from .. import special
+from . import modules
 
 
 @dataclasses.dataclass(order=True)

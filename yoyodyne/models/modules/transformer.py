@@ -353,7 +353,7 @@ class RotaryTransformerEncoder(RotaryTransformerModule, TransformerEncoder):
 
     @property
     def name(self) -> str:
-        return "transformer (rotary positional encoding)"
+        return "rotary transformer"
 
 
 class RotaryFeatureInvariantTransformerEncoder(
@@ -390,7 +390,7 @@ class RotaryFeatureInvariantTransformerEncoder(
 
     @property
     def name(self) -> str:
-        return "feature-invariant transformer (rotary positional encoding)"
+        return "rotary feature-invariant transformer"
 
 
 # Decoder helpers.
@@ -771,7 +771,7 @@ class RotaryTransformerDecoder(RotaryTransformerModule, TransformerDecoder):
 
     @property
     def name(self) -> str:
-        return "transformer (rotary positional encoding)"
+        return "rotary transformer"
 
 
 class RotaryCausalTransformerDecoder(
@@ -808,7 +808,7 @@ class RotaryCausalTransformerDecoder(
 
     @property
     def name(self) -> str:
-        return "causal transformer (rotary positional encoding)"
+        return "rotary causal transformer"
 
 
 class RotaryPointerGeneratorTransformerDecoder(
@@ -861,4 +861,4 @@ class RotaryPointerGeneratorTransformerDecoder(
 
     @property
     def name(self) -> str:
-        return "pointer-generator transformer (rotary positional encoding)"
+        return "rotary pointer-generator transformer"
