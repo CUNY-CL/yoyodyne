@@ -8,6 +8,9 @@ from .hard_attention import HardAttentionLSTMModel  # noqa: F401
 from .pointer_generator import PointerGeneratorGRUModel  # noqa: F401
 from .pointer_generator import PointerGeneratorLSTMModel  # noqa: F401
 from .pointer_generator import PointerGeneratorTransformerModel  # noqa: F401
+from .pointer_generator import (  # noqa: F401
+    RotaryPointerGeneratorTransformerModel,
+)
 from .rnn import GRUModel  # noqa: F401
 from .rnn import LSTMModel  # noqa: F401
 from .rnn import SoftAttentionGRUModel  # noqa: F401
@@ -15,4 +18,6 @@ from .rnn import SoftAttentionLSTMModel  # noqa: F401
 from .transducer import TransducerGRUModel  # noqa: F401
 from .transducer import TransducerLSTMModel  # noqa: F401
 from .transformer import CausalTransformerModel  # noqa: F401
+from .transformer import RotaryCausalTransformerModel  # noqa: F401
+from .transformer import RotaryTransformerModel  # noqa: F401
 from .transformer import TransformerModel  # noqa: F401

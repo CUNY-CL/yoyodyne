@@ -209,14 +209,14 @@ reproducible experiment (modulo hardware non-determism).
 #### Model architecture
 
 A specification for a model includes specification of the overall architecture
-and the source encoder; one may also specify a separate features encoder or use
-`model: features_encoder: true` to indicate that the source encoder should also
-be used for features.
+and for most models, a specification of the source encoder. One may also specify
+a separate features encoder or use `model: features_encoder: true` to indicate
+that the source and features encoders should share parameters.
 
 Each model exposes its own hyperparameters; consult the [example configuration
 files](configs) and model docstrings for more information.
 
-The following are general-purpose models.
+The following are general-purpose models:
 
 -   `yoyodyne.models.SoftAttentionGRUModel`: a GRU decoder with an attention
     mechanism; the initial hidden state is treated as a learned parameter. This
@@ -231,7 +231,7 @@ The following are general-purpose models.
     separate encoder modules, also known as a prefix LM.
 
 The following models are particularly appropriate for when source and target
-share symbols.
+share symbols:
 
 -   `yoyodyne.models.PointerGeneratorGRUModel`: a GRU decoder with a
     pointer-generator mechanism; the initial hidden state is treated as a
@@ -245,7 +245,7 @@ share symbols.
     `yoyodyne.models.modules.TransformerEncoder`s.
 
 The following models are particularly appropriate for transductions which are
-largely monotonic.
+largely monotonic:
 
 -   `yoyodyne.models.HardAttentionGRUModel`: an GRU decoder which models
     generation as a Markov process. By default it assumes a non-monotonic
@@ -260,9 +260,7 @@ largely monotonic.
 
 The following models are also appropriate for transductions which are largely
 monotonic, but require additional precomputation with the
-[`maxwell`](https://github.com/CUNY-CL/maxwell/tree/main) library. With these,
-one is recommended to use `trainer: accelerator: cpu` as they are not optimized
-for GPU (etc.) acceleration.
+[`maxwell`](https://github.com/CUNY-CL/maxwell/tree/main) library:
 
 -   `yoyodyne.models.TransducerGRU`: a GRU decoder with a neural transducer
     mechanism trained with imitation learning. This is most commonly used with
@@ -271,8 +269,8 @@ for GPU (etc.) acceleration.
     `yoyodyne.models.TransducerGRU` but with an LSTM decoder instead. This is
     most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
 
-The following models are not recommended for most users. They generally perform
-poorly and are present only for historical reasons.
+The following models are not recommended for most users; they generally perform
+poorly and are present only for historical or testing reasons:
 
 -   `yoyodyne.models.GRUModel`: a GRU decoder which uses the last non-padding
     hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
@@ -281,6 +279,59 @@ poorly and are present only for historical reasons.
 -   `yoyodyne.models.LSTMModel`: the same as `yoyodyne.models.GRUModel` but with
     an LSTM decoder instead. This is most commonly used with
     `yoyodyne.models.modules.LSTMEncoder`s.
+
+##### Positional encoding
+
+In RNN (e.g., GRU and LSTM) models and modules, information is passed between
+adjacent source, features, and target symbols, providing a sort of inductive
+bias towards locality. In contrast, transformer models and modules are in some
+sense *global*, and any biases towards locality must be injected into the system
+via positional encoding systems.
+
+For core transformer modules (including causal and pointer-generator variants),
+the user can specify the following positional encodings:
+
+-   `yoyodyne.models.modules.AbsolutePositionalEncoding`: a trainable positional
+    encoding scheme with a unique representation for each position $i$ in a
+    sequence.
+-   `yoyodyne.models.modules.NullPositionalEncoding`: this dummy module disables
+    positional encoding; it has no parameters.
+-   `yoyodyne.models.modules.SinusodialPositionalEncoding`: a parameter-free
+    (i.e., non-trainable) positional encoding; this is the default for most
+    modules.
+
+The following snippet, for example, enables absolute positional encoding for the
+source encoder and decoder of an transformer model:
+
+    model:
+      class_path: yoyodyne.models.TransformerModel
+      init_args:
+        source_encoder:
+          class_path: yoyodyne.models.modules.TransformerEncoder
+            init_args:
+              positional_encoding: 
+                class_path: yoyodyne.models.modules.AbsolutePositionalEncoding
+        decoder_positional_encoding:
+          class_path: yoyodyne.models.modules.AbsolutePositionalEncoding
+
+There is one additional positional encoding option: there are variants of the
+core transformer models and modules which support *rotary positional encoding*
+(RoPE). RoPE is implemented as a variant form of multihead attention deep within
+the transformer model and cannot be selected using `positional_encoding` or
+`decoder_positional_encoding` arguments. Rather, it gives rise to the following
+models and modules:
+
+-   `yoyodyne.models.RotaryCausalTransformerModel`
+-   `yoyodyne.models.RotaryPointerGeneratorTransformerModel`
+-   `yoyodyne.models.RotaryTransformerModel`
+-   `yoyodyne.models.modules.RotaryCausalTransformerDecoder`
+-   `yoyodyne.models.modules.RotaryFeatureInvariantTransformerEncoder`
+-   `yoyodyne.models.modules.RotaryPointerGeneratorTransformerDecoder`
+-   `yoyodyne.models.modules.RotaryTransformerDecoder`
+-   `yoyodyne.models.modules.RotaryTransformerEncoder`
+
+Mixing rotary and non-rotary positional encodings within a single model is not
+recommended.
 
 #### Optimization
 

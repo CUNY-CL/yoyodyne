@@ -23,12 +23,18 @@ all: train.tsv \
 	soft_attention_lstm_shared_features_expected.txt \
 	soft_attention_lstm_separate_features_expected.test \
 	soft_attention_lstm_separate_features_expected.txt \
+	rotary_causal_transformer_expected.test \
+	rotary_causal_transformer_expected.txt \
+	rotary_pointer_generator_transformer_linear_features_expected.test \
+	rotary_pointer_generator_transformer_linear_features_expected.txt \
+	rotary_transformer_shared_features_expected.test \
+	rotary_transformer_shared_features_expected.txt \
+	transformer_invariant_features_expected.test \
+	transformer_invariant_features_expected.txt \
 	transformer_null_positional_features_expected.test \
 	transformer_null_positional_features_expected.txt \
 	transformer_shared_features_expected.test \
-	transformer_shared_features_expected.txt \
-	transformer_invariant_features_expected.test \
-	transformer_invariant_features_expected.txt
+	transformer_shared_features_expected.txt
 
 # Data from the CoNLL-SIGMORPHON 2017 shared task on morphological reinflection.
 

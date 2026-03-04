@@ -32,9 +32,9 @@ class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
-        character-level transductions. In Proceedings of the 16th Conference of
-        the European Chapter of the Association for Computational Linguistics:
-        Main Volume, pages 1901-1907.
+        character-level transductions. In _Proceedings of the 16th Conference
+        of the European Chapter of the Association for Computational
+        Linguistics: Main Volume_, pages 1901-1907.
 
     Args:
         optimizer (optim.Optimizer): optimizer.

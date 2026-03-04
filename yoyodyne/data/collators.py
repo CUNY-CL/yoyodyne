@@ -1,7 +1,6 @@
 """Collators and related utilities."""
 
 import dataclasses
-
 from typing import List
 
 from . import batches, datasets

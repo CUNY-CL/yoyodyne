@@ -3,9 +3,9 @@
 import abc
 from typing import Callable, Dict, List, Optional, Tuple
 
-from maxwell import actions, sed
 import numpy
 import torch
+from maxwell import actions, sed
 from torch import nn
 
 from .. import data, defaults, special, util
@@ -25,8 +25,8 @@ class TransducerRNNModel(base.BaseModel):
 
     After:
         Makarov, P., and Clematide, S. 2018. Imitation learning for neural
-        morphological string transduction. In Proceedings of the 2018
-        Conference on Empirical Methods in Natural Language Processing, pages
+        morphological string transduction. In _Proceedings of the 2018
+        Conference on Empirical Methods in Natural Language Processing_, pages
         2877–2882.
 
      Args:
@@ -522,9 +522,9 @@ class TransducerRNNModel(base.BaseModel):
         After:
             Riezler, S., Prescher, D., Kuhn, J., and Johnson, M. 2000.
             Lexicalized stochastic modeling of constraint-based grammars using
-            log-linear measures and EM training. In Proceedings of the 38th
+            log-linear measures and EM training. In _Proceedings of the 38th
             Annual Meeting of the Association for Computational
-            Linguistics, pages 480–487.
+            Linguistics_, pages 480–487.
         """
         opt_act = [
             log[actions] for log, actions in zip(logits, optimal_actions)

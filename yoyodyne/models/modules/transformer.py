@@ -9,11 +9,14 @@ import torch
 from torch import nn
 
 from ... import data, defaults, special
-from . import base, position
+from . import base, position, transformer_layers
 
 
 class Error(Exception):
     pass
+
+
+# Helpers.
 
 
 class AttentionOutput(collections.UserList):
@@ -32,7 +35,7 @@ class AttentionOutput(collections.UserList):
     ) -> None:
         """Stores the second return argument of `module`.
 
-        This is intended to be called on a multiehaded attention, which returns
+        This is intended to be called on a multiheaded attention, which returns
         both the contextualized representation, and the attention weights.
 
         Args:
@@ -44,6 +47,9 @@ class AttentionOutput(collections.UserList):
         """
         _, attention = module_out
         self.append(attention)
+
+
+# Generic modules.
 
 
 class TransformerModule(base.BaseModule):
@@ -84,8 +90,8 @@ class TransformerModule(base.BaseModule):
         self.esq = math.sqrt(self.embedding_size)
         self.hidden_size = hidden_size
         self.layers = layers
-        self.module = self.get_module()
         self.positional_encoding = positional_encoding
+        self.module = self.get_module()
         if max_length is not None:
             self.set_max_length(max_length)
 
@@ -124,6 +130,60 @@ class TransformerModule(base.BaseModule):
             )
 
 
+class RotaryTransformerModule:
+    """Mixin for RoPE length computation.
+
+    This should be used at the top of the MRO for all rotary transformer
+    modules.
+    """
+
+    def set_max_length(self, max_length: int) -> None:
+        if self.positional_encoding is None:
+            self.positional_encoding = position.RotaryPositionalEncoding(
+                embedding_size=self._rope_head_dim,
+                max_length=max_length,
+            )
+            self._set_rope(self.positional_encoding)
+        elif self.positional_encoding.max_length < max_length:
+            raise Error(
+                f"rotary max_length ({self.positional_encoding.max_length}) < "
+                f"max_length ({max_length})"
+            )
+
+    def _set_rope(self, rope: position.RotaryPositionalEncoding) -> None:
+        """Resizes the RoPE cache on all layers to the given max_length.
+
+        This replaces the rope attribute on every layer that holds one,
+        avoiding a full rebuild of the module stack.
+        """
+        for layer in self.module.layers:
+            layer.self_attn.rope = rope
+            if hasattr(layer, "multihead_attn"):
+                layer.multihead_attn.rope = rope
+            if hasattr(layer, "features_multihead_attn"):
+                layer.features_multihead_attn.rope = rope
+
+    @property
+    def _rope_max_length(self) -> int:
+        """The max_length to use when constructing the RoPE cache.
+
+        Falls back to defaults.MAX_LENGTH if set_max_length has not yet been
+        called (i.e., positional_encoding is still None). In that case the
+        the cache will be updated via _set_rope once the true length is known.
+        """
+        if self.positional_encoding is not None:
+            return self.positional_encoding.max_length
+        return defaults.MAX_LENGTH
+
+    @property
+    def _rope_head_dim(self) -> int:
+        """The per-head dimension used to size the RoPE frequency table."""
+        return self.embedding_size // self.attention_heads
+
+
+# Encoders.
+
+
 class TransformerEncoder(TransformerModule, base.BaseEncoder):
     """Transformer encoder.
 
@@ -136,8 +196,8 @@ class TransformerEncoder(TransformerModule, base.BaseEncoder):
     After:
         Xiong, R., Yang, Y., He, D., Zheng, K., Zheng, S., Xing, C., ..., and
         Liu, T.-Y. 2020. On layer normalization in the transformer
-        architecture. In Proceedings of the 37th International Conference on
-        Machine Learning, pages 10524-10533.
+        architecture. In _Proceedings of the 37th International Conference on
+        Machine Learning_, pages 10524-10533.
     """
 
     def forward(
@@ -203,9 +263,9 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
 
     After:
         Wu, S., Cotterell, R., and Hulden, M. 2021. Applying the transformer to
-        character-level transductions. In Proceedings of the 16th Conference of
-        the European Chapter of the Association for Computational Linguistics:
-        Main Volume, pages 1901-1907.
+        character-level transductions. In _Proceedings of the 16th Conference
+        of the European Chapter of the Association for Computational
+        Linguistics: Main Volume_, pages 1901-1907.
     """
 
     def embed(
@@ -258,6 +318,84 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
         return f"feature-invariant {super().name}"
 
 
+# Rotary encoders.
+
+
+class RotaryTransformerEncoder(RotaryTransformerModule, TransformerEncoder):
+    """Transformer encoder with rotary positional encodings.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def get_module(self) -> nn.TransformerEncoder:
+        rope = position.RotaryPositionalEncoding(
+            embedding_size=self._rope_head_dim,
+            max_length=self._rope_max_length,
+        )
+        encoder_layer = transformer_layers.RotaryTransformerEncoderLayer(
+            rope,
+            d_model=self.embedding_size,
+            dim_feedforward=self.hidden_size,
+            nhead=self.attention_heads,
+            dropout=self.dropout,
+            activation="relu",
+            norm_first=True,
+            batch_first=True,
+        )
+        return nn.TransformerEncoder(
+            encoder_layer=encoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
+            enable_nested_tensor=False,
+        )
+
+    @property
+    def name(self) -> str:
+        return "rotary transformer"
+
+
+class RotaryFeatureInvariantTransformerEncoder(
+    RotaryTransformerModule, FeatureInvariantTransformerEncoder
+):
+    """FeatureInvariantTransformerEncoder with rotary positional encodings.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def get_module(self) -> nn.TransformerEncoder:
+        rope = position.RotaryPositionalEncoding(
+            embedding_size=self._rope_head_dim,
+            max_length=self._rope_max_length,
+        )
+        encoder_layer = transformer_layers.RotaryTransformerEncoderLayer(
+            rope,
+            d_model=self.embedding_size,
+            dim_feedforward=self.hidden_size,
+            nhead=self.attention_heads,
+            dropout=self.dropout,
+            activation="relu",
+            norm_first=True,
+            batch_first=True,
+        )
+        return nn.TransformerEncoder(
+            encoder_layer=encoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
+            enable_nested_tensor=False,
+        )
+
+    @property
+    def name(self) -> str:
+        return "rotary feature-invariant transformer"
+
+
+# Decoder helpers.
+
+
 class WrappedTransformerDecoder(nn.TransformerDecoder):
     """Wraps TransformerDecoder API for better variable naming."""
 
@@ -277,6 +415,9 @@ class WrappedTransformerDecoder(nn.TransformerDecoder):
             tgt_is_causal=True,
             tgt_mask=causal_mask,
         )
+
+
+# Decoders.
 
 
 class TransformerDecoder(TransformerModule):
@@ -364,167 +505,51 @@ class TransformerDecoder(TransformerModule):
         return self.embedding_size
 
 
-class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
-    """Transformer decoder layer with separate features.
+class CausalTransformerDecoder(TransformerEncoder):
+    """Decoder for the causal transformer.
 
-    Each decoding step gets a second multihead attention representation
-    w.r.t. the encoded features. This and the original multihead attention
-    representation w.r.t. the encoded symbols are then compressed in a
-    linear layer and finally concatenated.
-
-    The implementation is otherwise identical to nn.TransformerDecoderLayer.
-
-    Args:
-        *args: passed to superclass.
-        *kwargs: passed to superclass.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        factory_kwargs = {
-            "device": kwargs.get("device"),
-            "dtype": kwargs.get("dtype"),
-        }
-        d_model = kwargs["d_model"]
-        self.features_multihead_attn = nn.MultiheadAttention(
-            d_model,  # TODO: Separate feature embedding size?
-            kwargs["nhead"],
-            dropout=kwargs["dropout"],
-            batch_first=kwargs["batch_first"],
-            **factory_kwargs,
-        )
-        # If d_model is not even, an error will result. This is unlikely to
-        # trigger since it must also be divisible by the number of attention
-        # heads.
-        if d_model % 2 != 0:
-            raise Error(
-                f"Feature-invariant transformer d_model ({d_model}) must be "
-                "divisible by 2"
-            )
-        bias = kwargs.get("bias")
-        self.source_linear = nn.Linear(
-            d_model,
-            d_model // 2,
-            bias=bias,
-            **factory_kwargs,
-        )
-        self.features_linear = nn.Linear(
-            d_model,  # TODO: Separate feature embedding size?
-            d_model // 2,
-            bias=bias,
-            **factory_kwargs,
-        )
-
-    def forward(
-        self,
-        source_encoded: torch.Tensor,
-        source_mask: torch.Tensor,
-        target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
-        features_encoded: torch.Tensor,
-        features_mask: torch.Tensor,
-        causal_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        """Pass the inputs (and mask) through the decoder layer.
-
-        This is based closely on the internals in torch.nn.transformer and
-        follows the somewhat-inscrutable variable naming used there.
-
-        Args:
-            source_encoded (torch.Tensor): encoded source sequence.
-            source_mask (torch.Tensor): mask for source.
-            target (torch.Tensor): current embedded target, which
-                may be the full target or previous decoded, of shape
-                B x seq_len x hidden_size.
-            target_mask (torch.Tensor): mask for target.
-            features_encoded (torch.Tensor): encoded features.
-            features_mask (torch.Tensor): mask for features.
-            causal_mask (torch.Tensor).
-
-        Returns:
-            torch.Tensor.
-        """
-        # Self-attention (pre-norm).
-        x = self.norm1(target)
-        sa_output, _ = self.self_attn(
-            x,
-            x,
-            x,
-            attn_mask=causal_mask,
-            key_padding_mask=target_mask,
-        )
-        output = target + self.dropout1(sa_output)
-        # Cross-attention (pre-norm).
-        x = self.norm2(output)
-        # Cross-attends to source.
-        source_attn_out, _ = self.multihead_attn(
-            x, source_encoded, source_encoded, key_padding_mask=source_mask
-        )
-        source_attention = self.source_linear(self.dropout2(source_attn_out))
-        # Cross-attends to features.
-        feat_attn_out, _ = self.features_multihead_attn(
-            x,
-            features_encoded,
-            features_encoded,
-            key_padding_mask=features_mask,
-        )
-        features_attention = self.features_linear(self.dropout2(feat_attn_out))
-        # Concatenates and adds residual connection.
-        attn_output = torch.cat((source_attention, features_attention), dim=2)
-        output = output + attn_output
-        # Feed-forward.
-        # Normalizes before the feed-forward network.
-        output = output + self._ff_block(self.norm3(output))
-        return output
-
-
-class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
-    """Transformer decoder with separate features.
-
-    Adding separate features into the transformer stack is implemented with
-    SeparateFeaturesTransformerDecoderLayer.
+    This borrows some implementation from the vanilla transformer encoder,
+    even though it is used here as a decoder.
     """
 
     def forward(
         self,
-        source_encoded: torch.Tensor,
-        source_mask: torch.Tensor,
-        target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
-        features_encoded: torch.Tensor,
-        features_mask: torch.Tensor,
-        causal_mask: torch.Tensor,
+        symbols: data.PaddedTensor,
+        embeddings: nn.Embedding,
+        mask: torch.Tensor,
+        *args,
+        **kwargs,
     ) -> torch.Tensor:
-        """Passes the inputs (and mask) through the decoder layer.
+        """Encodes the symbols.
+
+        This overrides the superclass definition to take a mask argument.
 
         Args:
-            source_encoded (torch.Tensor): encoded source sequence.
-            source_mask (torch.Tensor): mask for source.
-            target (torch.Tensor): current embedded targets, which
-                may be the full target or previous decoded, of shape
-                B x seq_len x hidden_size.
-            target_mask (torch.Tensor): causal mask for target.
-            features_encoded (torch.Tensor): encoded features.
-            features_mask (torch.Tensor): mask for source.
-            causal_mask (torch.Tensor).
+            symbols (data.PaddedTensor).
+            embeddings (nn.Embedding).
+            mask (torch.Tensor).
+            *args: ignored.
+            **kwargs: ignored.
 
         Returns:
-            torch.Tensor: Output tensor.
+            torch.Tensor: sequence of encoded symbols.
         """
-        output = target
-        for layer in self.layers:
-            output = layer(
-                source_encoded,
-                source_mask,
-                output,
-                target_mask,
-                features_encoded,
-                features_mask,
-                causal_mask,
-            )
-        if self.norm is not None:
-            output = self.norm(output)
-        return output
+        embedded = self.embed(symbols.tensor, embeddings)
+        # Casts this to float.
+        padding_mask = torch.where(
+            symbols.mask,
+            torch.full_like(symbols.mask, defaults.NEG_INF, dtype=torch.float),
+            torch.zeros_like(symbols.mask, dtype=torch.float),
+        )
+        return self.module(
+            embedded,
+            mask=mask,
+            src_key_padding_mask=padding_mask,
+        )
+
+    @property
+    def name(self) -> str:
+        return f"causal {super().name}"
 
 
 class PointerGeneratorTransformerDecoder(TransformerDecoder):
@@ -609,14 +634,16 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
 
     def get_module(self) -> nn.TransformerDecoder:
         if self.has_features_encoder:
-            decoder_layer = SeparateFeaturesTransformerDecoderLayer(
-                d_model=self.decoder_input_size,
-                dim_feedforward=self.hidden_size,
-                nhead=self.attention_heads,
-                dropout=self.dropout,
-                activation="relu",
-                norm_first=True,
-                batch_first=True,
+            decoder_layer = (
+                transformer_layers.SeparateFeaturesTransformerDecoderLayer(
+                    d_model=self.decoder_input_size,
+                    dim_feedforward=self.hidden_size,
+                    nhead=self.attention_heads,
+                    dropout=self.dropout,
+                    activation="relu",
+                    norm_first=True,
+                    batch_first=True,
+                )
             )
             return SeparateFeaturesTransformerDecoder(
                 decoder_layer=decoder_layer,
@@ -659,48 +686,179 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
         return f"pointer-generator {super().name}"
 
 
-class CausalTransformerDecoder(TransformerEncoder):
-    """Decoder for the causal transformer.
+class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
+    """Transformer decoder with separate features.
 
-    This borrows some implementation from the vanilla transformer encoder,
-    even though it is used here as a decoder.
+    Adding separate features into the transformer stack is implemented with
+    SeparateFeaturesTransformerDecoderLayer.
     """
 
     def forward(
         self,
-        symbols: data.PaddedTensor,
-        embeddings: nn.Embedding,
-        mask: torch.Tensor,
-        *args,
-        **kwargs,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        target: torch.Tensor,
+        target_mask: Optional[torch.Tensor],
+        features_encoded: torch.Tensor,
+        features_mask: torch.Tensor,
+        causal_mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Encodes the symbols.
-
-        This overrides the superclass definition to take a mask argument.
+        """Passes the inputs (and mask) through the decoder layer.
 
         Args:
-            symbols (data.PaddedTensor).
-            embeddings (nn.Embedding).
-            mask (torch.Tensor).
-            *args: ignored.
-            **kwargs: ignored.
+            source_encoded (torch.Tensor): encoded source sequence.
+            source_mask (torch.Tensor): mask for source.
+            target (torch.Tensor): current embedded targets, which
+                may be the full target or previous decoded, of shape
+                B x seq_len x hidden_size.
+            target_mask (torch.Tensor): causal mask for target.
+            features_encoded (torch.Tensor): encoded features.
+            features_mask (torch.Tensor): mask for source.
+            causal_mask (torch.Tensor).
 
         Returns:
-            torch.Tensor: sequence of encoded symbols.
+            torch.Tensor: Output tensor.
         """
-        embedded = self.embed(symbols.tensor, embeddings)
-        # Casts this to float.
-        padding_mask = torch.where(
-            symbols.mask,
-            torch.full_like(symbols.mask, defaults.NEG_INF, dtype=torch.float),
-            torch.zeros_like(symbols.mask, dtype=torch.float),
+        output = target
+        for layer in self.layers:
+            output = layer(
+                source_encoded,
+                source_mask,
+                output,
+                target_mask,
+                features_encoded,
+                features_mask,
+                causal_mask,
+            )
+        if self.norm is not None:
+            output = self.norm(output)
+        return output
+
+
+# Rotary decoders.
+
+
+class RotaryTransformerDecoder(RotaryTransformerModule, TransformerDecoder):
+    """Transformer decoder with rotary positional encodings.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def get_module(self) -> WrappedTransformerDecoder:
+        rope = position.RotaryPositionalEncoding(
+            embedding_size=self._rope_head_dim,
+            max_length=self._rope_max_length,
         )
-        return self.module(
-            embedded,
-            mask=mask,
-            src_key_padding_mask=padding_mask,
+        decoder_layer = (
+            transformer_layers.RotaryTransformerDecoderLayer(  # noqa: E501
+                rope,
+                d_model=self.decoder_input_size,
+                dim_feedforward=self.hidden_size,
+                nhead=self.attention_heads,
+                dropout=self.dropout,
+                activation="relu",
+                norm_first=True,
+                batch_first=True,
+            )
+        )
+        return WrappedTransformerDecoder(
+            decoder_layer=decoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
         )
 
     @property
     def name(self) -> str:
-        return f"causal {super().name}"
+        return "rotary transformer"
+
+
+class RotaryCausalTransformerDecoder(
+    RotaryTransformerModule, CausalTransformerDecoder
+):
+    """Causal transformer decoder with rotary positional encodings.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def get_module(self) -> nn.TransformerEncoder:
+        rope = position.RotaryPositionalEncoding(
+            embedding_size=self._rope_head_dim,
+            max_length=self._rope_max_length,
+        )
+        encoder_layer = transformer_layers.RotaryTransformerEncoderLayer(
+            rope,
+            d_model=self.embedding_size,
+            dim_feedforward=self.hidden_size,
+            nhead=self.attention_heads,
+            dropout=self.dropout,
+            activation="relu",
+            norm_first=True,
+            batch_first=True,
+        )
+        return nn.TransformerEncoder(
+            encoder_layer=encoder_layer,
+            num_layers=self.layers,
+            norm=nn.LayerNorm(self.embedding_size),
+            enable_nested_tensor=False,
+        )
+
+    @property
+    def name(self) -> str:
+        return "rotary causal transformer"
+
+
+class RotaryPointerGeneratorTransformerDecoder(
+    RotaryTransformerModule, PointerGeneratorTransformerDecoder
+):
+    """Pointer-generator transformer decoder with rotary positional encodings.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def get_module(self) -> nn.TransformerDecoder:
+        rope = position.RotaryPositionalEncoding(
+            embedding_size=self._rope_head_dim,
+            max_length=self._rope_max_length,
+        )
+        if self.has_features_encoder:
+            decoder_layer = transformer_layers.RotarySeparateFeaturesTransformerDecoderLayer(  # noqa: E501
+                rope,
+                d_model=self.decoder_input_size,
+                dim_feedforward=self.hidden_size,
+                nhead=self.attention_heads,
+                dropout=self.dropout,
+                activation="relu",
+                norm_first=True,
+                batch_first=True,
+            )
+            return SeparateFeaturesTransformerDecoder(
+                decoder_layer=decoder_layer,
+                num_layers=self.layers,
+                norm=nn.LayerNorm(self.embedding_size),
+            )
+        else:
+            decoder_layer = transformer_layers.RotaryTransformerDecoderLayer(
+                rope,
+                d_model=self.decoder_input_size,
+                dim_feedforward=self.hidden_size,
+                nhead=self.attention_heads,
+                dropout=self.dropout,
+                activation="relu",
+                norm_first=True,
+                batch_first=True,
+            )
+            return WrappedTransformerDecoder(
+                decoder_layer=decoder_layer,
+                num_layers=self.layers,
+                norm=nn.LayerNorm(self.embedding_size),
+            )
+
+    @property
+    def name(self) -> str:
+        return "rotary pointer-generator transformer"

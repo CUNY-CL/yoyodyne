@@ -5,6 +5,7 @@ superclass constructor, and register the tensor as a buffer. This enables the
 Trainer to move them to the appropriate device."""
 
 from __future__ import annotations
+
 from typing import List, Optional
 
 import torch

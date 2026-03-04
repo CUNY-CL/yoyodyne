@@ -2,8 +2,9 @@
 
 import logging
 
-from lightning.pytorch import callbacks as pytorch_callbacks, cli
 import omegaconf
+from lightning.pytorch import callbacks as pytorch_callbacks
+from lightning.pytorch import cli
 
 from .. import callbacks, data, models, trainers
 

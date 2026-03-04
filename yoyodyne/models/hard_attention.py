@@ -207,7 +207,7 @@ class HardAttentionRNNModel(base.BaseModel):
         Returns:
             Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: if
                 training, the loss tensor; otherwise, also returns the
-                predictions of shape B x pred_seq_length.
+                predictions of shape B x pred_seq_len.
 
         Raises:
             base.ConfigurationError: Features encoder specified but no feature

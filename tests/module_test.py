@@ -14,10 +14,6 @@ class TestModule:
         module = modules.Attention()
         assert isinstance(module, modules.Attention)
 
-    def test_causal_transformer_decoder(self):
-        module = modules.CausalTransformerDecoder()
-        assert isinstance(module, modules.CausalTransformerDecoder)
-
     @pytest.mark.parametrize(
         "mod",
         [
@@ -53,6 +49,7 @@ class TestModule:
         [
             modules.AbsolutePositionalEncoding,
             modules.NullPositionalEncoding,
+            modules.RotaryPositionalEncoding,
             modules.SinusoidalPositionalEncoding,
         ],
     )
@@ -87,9 +84,13 @@ class TestModule:
     @pytest.mark.parametrize(
         "mod",
         [
+            modules.TransformerDecoder,
             modules.CausalTransformerDecoder,
             modules.PointerGeneratorTransformerDecoder,
-            modules.TransformerDecoder,
+            modules.PointerGeneratorTransformerDecoder,
+            modules.RotaryCausalTransformerDecoder,
+            modules.RotaryPointerGeneratorTransformerDecoder,
+            modules.RotaryTransformerDecoder,
         ],
     )
     def test_transformer_decoders(self, mod):
@@ -99,8 +100,10 @@ class TestModule:
     @pytest.mark.parametrize(
         "mod",
         [
-            modules.FeatureInvariantTransformerEncoder,
             modules.TransformerEncoder,
+            modules.FeatureInvariantTransformerEncoder,
+            modules.RotaryFeatureInvariantTransformerEncoder,
+            modules.RotaryTransformerEncoder,
         ],
     )
     def test_transformer_encoders(self, mod):

@@ -15,7 +15,7 @@ all: train.tsv \
 	gru_expected.txt \
 	hard_attention_gru_expected.test \
 	hard_attention_gru_expected.txt \
-	hard_attention_lstm_expected.test \
+	hard_attention_lstm_expected.txt \
 	hard_attention_lstm_expected.txt \
 	lstm_expected.test \
 	lstm_expected.txt \
@@ -29,6 +29,12 @@ all: train.tsv \
 	pointer_generator_transformer_expected.txt \
 	pointer_generator_transformer_student_forcing_expected.test \
 	pointer_generator_transformer_student_forcing_expected.txt \
+	rotary_causal_transformer_expected.test \
+	rotary_causal_transformer_expected.txt \
+	rotary_pointer_generator_transformer_expected.test \
+	rotary_pointer_generator_transformer_expected.txt \
+	rotary_transformer_expected.test \
+	rotary_transformer_expected.txt \
 	soft_attention_gru_expected.test \
 	soft_attention_gru_expected.txt \
 	soft_attention_lstm_expected.test \

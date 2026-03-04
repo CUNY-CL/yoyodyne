@@ -5,9 +5,8 @@ import logging
 from typing import Callable, Optional, Tuple, Union
 
 import lightning
-from lightning.pytorch import cli
-
 import torch
+from lightning.pytorch import cli
 from torch import nn, optim
 
 from .. import data, defaults, metrics, special
@@ -24,7 +23,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     The following are defaults, but can be overriden by individual models:
 
     * The forward method returns a tensor of shape B x target_vocab_size x
-      seq_length for compatibility with loss and evaluation functions unless
+      seq_len for compatibility with loss and evaluation functions unless
       beam search is enabled.
     * Cross-entropy loss is the loss function.
     * One or more predictions tensor(s) are returned by predict_step.

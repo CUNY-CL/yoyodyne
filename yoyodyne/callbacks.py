@@ -5,8 +5,8 @@ import itertools
 from typing import Optional, Sequence, TextIO, Tuple, Union
 
 import lightning
-from lightning.pytorch import callbacks, trainer
 import torch
+from lightning.pytorch import callbacks, trainer
 
 from . import data, defaults, models, util
 

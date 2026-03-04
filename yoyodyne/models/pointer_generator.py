@@ -90,9 +90,9 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
 
     After:
         See, A., Liu, P. J., and Manning, C. D. 2017. Get to the point:
-        summarization with pointer-generator networks. In Proceedings of the
+        summarization with pointer-generator networks. In _Proceedings of the
         55th Annual Meeting of the Association for Computational Linguistics
-        (Volume 1: Long Papers), pages 1073-1083.
+        (Volume 1: Long Papers)_, pages 1073-1083.
 
     Args:
         *args: passed to superclass.
@@ -172,7 +172,7 @@ class PointerGeneratorRNNModel(PointerGeneratorModel):
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_length and log-likelihoods of shape
+                B x beam_width x seq_len and log-likelihoods of shape
                 B x beam_width.
 
         Raises:
@@ -560,9 +560,9 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
 
     After:
         Singer, A., and Kann, K. 2020. The NYU-CUBoulder Systems for
-        SIGMORPHON 2020 Task 0 and Task 2. In Proceedings of the 17th
+        SIGMORPHON 2020 Task 0 and Task 2. In _Proceedings of the 17th
         SIGMORPHON Workshop on Computational Research in Phonetics, Phonology,
-        and Morphology, pages 90–98.
+        and Morphology_, pages 90–98.
 
     Args:
         *args: passed to the superclass.
@@ -573,6 +573,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
 
     attention_heads: int
     classifier: nn.Linear
+    decoder_positional_encoding: modules.BasePositionalEncoding
     generation_probability: modules.GenerationProbability
     teacher_forcing: bool
 
@@ -580,6 +581,9 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
+        decoder_positional_encoding: Optional[
+            modules.BasePositionalEncoding
+        ] = None,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
@@ -588,6 +592,7 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
+        self.decoder_positional_encoding = decoder_positional_encoding
         self.decoder = self.get_decoder()
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
@@ -607,11 +612,13 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
             ignore=[
                 "classifier",
                 "decoder",
+                # This lives in the decoder.
+                "decoder_positional_encoding",
                 "embeddings",
+                "features_encoder",
                 "generation_probability",
                 "source_encoder",
-                "features_encoder",
-            ]
+            ],
         )
 
     def decode_step(
@@ -698,6 +705,20 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
         scaled_pointer_dist = pointer_dist * (1 - gen_probs)
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_pointer_dist)
+
+    def get_decoder(self) -> modules.PointerGeneratorTransformerDecoder:
+        return modules.PointerGeneratorTransformerDecoder(
+            attention_heads=self.attention_heads,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.decoder_dropout,
+            embedding_size=self.embedding_size,
+            has_features_encoder=self.has_features_encoder,
+            hidden_size=self.decoder_hidden_size,
+            layers=self.decoder_layers,
+            max_length=self.max_decoder_length,
+            num_embeddings=self.num_embeddings,
+            positional_encoding=self.decoder_positional_encoding,
+        )
 
     def init_embeddings(
         self, num_embeddings: int, embedding_size: int
@@ -808,21 +829,6 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
                 batch.source.mask,
             )
 
-    def get_decoder(
-        self,
-    ) -> modules.PointerGeneratorTransformerDecoder:
-        return modules.PointerGeneratorTransformerDecoder(
-            attention_heads=self.attention_heads,
-            decoder_input_size=self.source_encoder.output_size,
-            dropout=self.decoder_dropout,
-            embedding_size=self.embedding_size,
-            has_features_encoder=self.has_features_encoder,
-            hidden_size=self.decoder_hidden_size,
-            layers=self.decoder_layers,
-            max_length=self.max_target_length + 1,
-            num_embeddings=self.num_embeddings,
-        )
-
     def greedy_decode(
         self,
         source: torch.Tensor,
@@ -892,5 +898,55 @@ class PointerGeneratorTransformerModel(PointerGeneratorModel):
         return outputs
 
     @property
+    def max_decoder_length(self) -> int:
+        return self.max_target_length + 1  # Including the START symbol.
+
+    @property
     def name(self) -> str:
         return "pointer-generator transformer"
+
+
+class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
+    """Pointer-generator transformer model using rotary positional encoding.
+
+    RoPE is applied inside attention layers rather than to the token
+    embeddings, so this model does not accept a decoder_positional_encoding
+    argument. Passing one is a configuration error.
+
+    All encoders used with this model should also use rotary positional
+    encoding. Specifically, use RotaryTransformerEncoder or
+    RotaryFeatureInvariantTransformerEncoder as the source_encoder and
+    features_encoder. Mixing rotary decoders with non-rotary encoders
+    is possible but is not recommended.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def __init__(self, *args, **kwargs):
+        if kwargs.get("decoder_positional_encoding") is not None:
+            raise base.ConfigurationError(
+                f"{self.__class__.__name__} does not accept "
+                "decoder_positional_encoding"
+            )
+        super().__init__(*args, **kwargs)
+
+    def get_decoder(
+        self,
+    ) -> modules.RotaryPointerGeneratorTransformerDecoder:
+        return modules.RotaryPointerGeneratorTransformerDecoder(
+            attention_heads=self.attention_heads,
+            decoder_input_size=self.source_encoder.output_size,
+            dropout=self.decoder_dropout,
+            embedding_size=self.embedding_size,
+            has_features_encoder=self.has_features_encoder,
+            hidden_size=self.decoder_hidden_size,
+            layers=self.decoder_layers,
+            max_length=self.max_decoder_length,
+            num_embeddings=self.num_embeddings,
+        )
+
+    @property
+    def name(self) -> str:
+        return f"rotary {super().name}"

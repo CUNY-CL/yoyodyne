@@ -1,4 +1,4 @@
-"""Attention module class."""
+"""Basic attention module classes."""
 
 from typing import Tuple
 
@@ -8,14 +8,18 @@ from torch import nn
 from ... import defaults
 
 
+class Error(Exception):
+    pass
+
+
 class Attention(nn.Module):
-    """Attention module.
+    """Basic attention module.
 
     After:
         Luong, M.-T., Pham, H., and Manning, C. D. 2015. Effective
         approaches to attention-based neural machine translation. In
-        Proceedings of the 2015 Conference on Empirical Methods in
-        Natural Language Processing, pages 1412-1421.
+        _Proceedings of the 2015 Conference on Empirical Methods in
+        Natural Language Processing_, pages 1412-1421.
 
     Args:
         encoder_outputs_size (int, optional).
@@ -68,9 +72,9 @@ class Attention(nn.Module):
         # Masks the scores with -inf at each padded character so that softmax
         # computes a 0 towards the distribution for that cell.
         attention_scores.data.masked_fill_(mask, defaults.NEG_INF)
-        # -> B x 1 x seq_len
+        # -> B x 1 x seq_len.
         weights = nn.functional.softmax(attention_scores, dim=1).unsqueeze(1)
-        # -> B x 1 x decoder_dim
+        # -> B x 1 x decoder_dim.
         weighted = torch.bmm(weights, encoded)
         return weighted, weights
 
@@ -88,7 +92,7 @@ class Attention(nn.Module):
             scores torch.Tensor: weight for each encoded representation of
                 shape B x seq_len.
         """
-        # -> B x seq_len x encoder_dim + hidden_dim.
+        # -> B x seq_len x (encoder_dim + hidden_dim).
         concat = torch.cat((encoded, hidden), dim=2)
         # V * feed-forward with tanh.
         # -> B x seq_len x hidden_size.

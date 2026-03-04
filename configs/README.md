@@ -75,8 +75,11 @@ To use any of the configurations below, run:
 These models all involve a simple sequence-to-sequence transduction without any
 feature conditioning.
 
--   [`causal_transformer.yaml`](causal_transformer.yaml) is a transformer decoder
-    without a separate encoder; the hyperparameters have not yet been tuned.
+-   [`causal_transformer.yaml`](causal_transformer.yaml) is a transformer
+    decoder without a separate encoder; the hyperparameters have not yet been
+    tuned.
+-   [`rotary_causal_transformer.yaml`](rotary_causal_transformer.yaml) is the
+    same but with rotary positional embeddings.
 -   [`frankenformer.yaml`](frankenformer.yaml) is a hybrid system with a
     transformer encoder and an soft attention LSTM decoder. This model is in
     need of hyperparameter tuning before it is ready for deployment.
@@ -107,6 +110,8 @@ feature conditioning.
     hyperparameters similar to those used by Makarov & Clematide (2021).
 -   [`transformer.yaml`](transformer.yaml) is a transformer with hyperparameters
     similar to those of Wu et al. (2021, "A smaller Transformer").
+-   [\`rotary_transformer.yaml](rotary_transformer.yaml) is the same but with
+    rotary positional embeddings.
 
 ## Feature-conditioned configurations
 
@@ -121,8 +126,8 @@ but we illustrate different ways one can enable feature conditioning.
     MED-like variant with a separate linear features encoder.
 -   [`transformer_shared.yaml`](transformer_shared.yaml) is a transformer with a
     shared source and features encoder.
--   [`transformer_invariant.yaml`](transformer.yaml) is a transformer with
-    a shared "feature invariant" source and features encoder.
+-   [`transformer_invariant.yaml`](transformer.yaml) is a transformer with a
+    shared "feature invariant" source and features encoder.
 
 ## Putting it all together
 
