@@ -15,7 +15,7 @@ all: train.tsv \
 	gru_expected.txt \
 	hard_attention_gru_expected.test \
 	hard_attention_gru_expected.txt \
-	hard_attention_lstm_expected.txt \
+	hard_attention_lstm_expected.test \
 	hard_attention_lstm_expected.txt \
 	lstm_expected.test \
 	lstm_expected.txt \
