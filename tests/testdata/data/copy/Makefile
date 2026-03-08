@@ -50,7 +50,11 @@ all: train.tsv \
 	transformer_absolute_positional_expected.test \
 	transformer_absolute_positional_expected.txt \
 	transformer_student_forcing_expected.test \
-	transformer_student_forcing_expected.txt
+	transformer_student_forcing_expected.txt \
+	transducer_gru_expected.test \
+	transducer_gru_expected.txt \
+	transducer_lstm_expected.test \
+	transducer_lstm_expected.txt
 
 %.tsv:
 	$(eval TMPDIR := $(shell mktemp -d))
@@ -58,6 +62,43 @@ all: train.tsv \
 	paste "$(TMPDIR)/copy_$@" <(paste -d'\0' "$(TMPDIR)/copy_$@" "$(TMPDIR)/copy_$@") > "$@"
 	rm -rf "$(TMPDIR)"
 
+# Special rule for transducers, covering the required SED file.
+transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv ../../configs/transducer_%.yaml
+	$(eval TMPDIR := $(shell mktemp -d))
+	maxwell-train --train train.tsv --output "$(TMPDIR)/train.sed"
+	yoyodyne \
+		fit \
+		--checkpoint ../../configs/checkpoint.yaml \
+		--data ../../configs/toy_data.yaml \
+		--data.train train.tsv \
+		--data.val dev.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/transducer_$*.yaml" \
+		--model.sed_path "$(TMPDIR)/train.sed" \
+		--seed_everything 49 \
+		--trainer ../../configs/toy_trainer.yaml \
+		--trainer.default_root_dir "$(TMPDIR)"
+	yoyodyne \
+		test \
+		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+		--data ../../configs/toy_data.yaml \
+		--data.test test.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/transducer_$*.yaml" \
+		--trainer.default_root_dir "$(TMPDIR)" \
+		--trainer.enable_progress_bar false \
+		> "transducer_$*_expected.test"
+	yoyodyne \
+		predict \
+		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+		--data ../../configs/toy_data.yaml \
+		--data.predict test.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/transducer_$*.yaml" \
+		--prediction.path "transducer_$*_expected.txt"
+	rm -rf "$(TMPDIR)"
+
+# Default rule for other architectures.
 %_expected.test %_expected.txt: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \

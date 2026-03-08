@@ -34,7 +34,11 @@ all: train.tsv \
 	transformer_null_positional_features_expected.test \
 	transformer_null_positional_features_expected.txt \
 	transformer_shared_features_expected.test \
-	transformer_shared_features_expected.txt
+	transformer_shared_features_expected.txt \
+	transducer_gru_shared_features_expected.test \
+	transducer_gru_shared_features_expected.txt \
+	transducer_lstm_shared_features_expected.test \
+	transducer_lstm_shared_features_expected.txt
 
 # Data from the CoNLL-SIGMORPHON 2017 shared task on morphological reinflection.
 
@@ -47,6 +51,43 @@ dev.tsv:
 test.tsv:
 	curl -s https://raw.githubusercontent.com/sigmorphon/conll2017/refs/heads/master/answers/task1/turkish-uncovered-test > "$@"
 
+# Special rule for transducers, covering the required SED file.
+transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv ../../configs/transducer_%.yaml
+	$(eval TMPDIR := $(shell mktemp -d))
+	maxwell-train --train train.tsv --output "$(TMPDIR)/train.sed"
+	yoyodyne \
+		fit \
+		--checkpoint ../../configs/checkpoint.yaml \
+		--data ../../configs/toy_data.yaml \
+		--data.train train.tsv \
+		--data.val dev.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/transducer_$*.yaml" \
+		--model.sed_path "$(TMPDIR)/train.sed" \
+		--seed_everything 49 \
+		--trainer ../../configs/toy_trainer.yaml \
+		--trainer.default_root_dir "$(TMPDIR)"
+	yoyodyne \
+		test \
+		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+		--data ../../configs/toy_data.yaml \
+		--data.test test.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/transducer_$*.yaml" \
+		--trainer.default_root_dir "$(TMPDIR)" \
+		--trainer.enable_progress_bar false \
+		> "transducer_$*_expected.test"
+	yoyodyne \
+		predict \
+		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
+		--data ../../configs/toy_data.yaml \
+		--data.predict test.tsv \
+		--data.model_dir "$(TMPDIR)" \
+		--model "../../configs/transducer_$*.yaml" \
+		--prediction.path "transducer_$*_expected.txt"
+	rm -rf "$(TMPDIR)"
+
+# Default rule for other architectures.
 %_expected.test %_expected.txt: train.tsv dev.tsv test.tsv ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
 	yoyodyne \
