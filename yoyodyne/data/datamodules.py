@@ -186,7 +186,7 @@ class DataModule(lightning.LightningDataModule):
                     )
                 if self.has_target and len(target) > self.max_target_length:
                     raise Error(
-                        f"Target sample length ({len(target)}) in {path}"
+                        f"Target sample length ({len(target)}) in {path} "
                         f"(line {lineno}) exceeds max_target_length "
                         f"({self.max_target_length})"
                     )
