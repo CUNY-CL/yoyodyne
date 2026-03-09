@@ -451,7 +451,6 @@ class HardAttentionGRUModel(HardAttentionRNNModel):
                 embedding_size=self.embedding_size,
                 hidden_size=self.decoder_hidden_size,
                 layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
             )
         else:
             return modules.HardAttentionGRUDecoder(
@@ -460,7 +459,6 @@ class HardAttentionGRUModel(HardAttentionRNNModel):
                 embedding_size=self.embedding_size,
                 hidden_size=self.decoder_hidden_size,
                 layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
             )
 
     @property
@@ -480,7 +478,6 @@ class HardAttentionLSTMModel(HardAttentionRNNModel):
                 hidden_size=self.decoder_hidden_size,
                 embedding_size=self.embedding_size,
                 layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
             )
         else:
             return modules.HardAttentionLSTMDecoder(
@@ -489,7 +486,6 @@ class HardAttentionLSTMModel(HardAttentionRNNModel):
                 embedding_size=self.embedding_size,
                 hidden_size=self.decoder_hidden_size,
                 layers=self.decoder_layers,
-                num_embeddings=self.target_vocab_size,
             )
 
     @property

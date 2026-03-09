@@ -46,6 +46,9 @@ ARCH = [
     "transformer",
     "transformer_absolute_positional",
     "transformer_student_forcing",
+    "transducer_gru",
+    "transducer_lstm",
+    "transducer_lstm_student_forcing",
 ]
 INFLECTION_ARCH = [
     "causal_transformer",
@@ -63,6 +66,8 @@ INFLECTION_ARCH = [
     "transformer_invariant_features",
     "transformer_null_positional_features",
     "transformer_shared_features",
+    "transducer_gru_linear_features",
+    "transducer_lstm_linear_features",
 ]
 SEED = 49
 

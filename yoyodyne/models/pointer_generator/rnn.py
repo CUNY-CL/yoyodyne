@@ -463,7 +463,6 @@ class PointerGeneratorGRUModel(PointerGeneratorRNNModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -482,7 +481,6 @@ class PointerGeneratorLSTMModel(PointerGeneratorRNNModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.num_embeddings,
         )
 
     @property

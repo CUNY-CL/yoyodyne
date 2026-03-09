@@ -7,10 +7,12 @@ Also includes ActionVocabulary class for compatibility with the `maxwell`
 dictionary. This class stores valid edit actions for given dataset."""
 
 import dataclasses
-from typing import Any, Dict, Iterable, List, Sequence, Set, Tuple
+import math
+from typing import Any, Dict, Iterable, List, Sequence, Set
 
 import numpy
 from maxwell import actions, sed
+import torch
 
 from .. import data, defaults, special
 
@@ -31,10 +33,16 @@ class ActionVocabulary:
     """Manages encoding of action vocabulary for transducer training."""
 
     # TODO: Port more of the logic to the dataset class.
-    i2w: Dict[int, actions.Edit]
+    i2w: List[actions.Edit]
     w2i: Dict[actions.Edit, int]
+    beg_idx: int
+    end_idx: int
+    del_idx: int
+    copy_idx: int
     start_vocab_idx: int
     target_characters: Set[Any]
+    insertions: List[int]
+    substitutions: List[int]
 
     def __init__(self, index: data.indexes.Index):
         self.target_characters = set()
@@ -53,6 +61,20 @@ class ActionVocabulary:
         # Adds source characters if index has tied embeddings.
         if index.tie_embeddings:
             self.encode_actions([index(s) for s in index.source_vocabulary])
+        self.beg_idx = self.w2i[actions.Start()]
+        self.end_idx = self.w2i[actions.End()]
+        self.del_idx = self.w2i[actions.ConditionalDel()]
+        self.copy_idx = self.w2i[actions.ConditionalCopy()]
+        self.insertions = [
+            i
+            for i, a in enumerate(self.i2w)
+            if isinstance(a, actions.ConditionalIns)
+        ]
+        self.substitutions = [
+            i
+            for i, a in enumerate(self.i2w)
+            if isinstance(a, actions.ConditionalSub)
+        ]
 
     def encode(self, symb: actions.Edit) -> int:
         """Returns index referencing symbol in encoding table.
@@ -119,45 +141,8 @@ class ActionVocabulary:
     def __repr__(self) -> str:
         return f"Vocabulary({str(self.w2i)})"
 
-    def lookup(self, word: str) -> int:
+    def lookup(self, word: actions.Edit) -> int:
         return self.w2i[word]
-
-    def to_i2w(self) -> List[str]:
-        return self.i2w[len(self.start_vocab_idx) :]  # noqa: E203
-
-    @property
-    def substitutions(
-        self,
-    ) -> List[Tuple[int, actions.ConditionalEdit]]:
-        return [
-            i
-            for i, a in enumerate(self.i2w)
-            if isinstance(a, actions.ConditionalSub)
-        ]
-
-    @property
-    def insertions(self) -> List[Tuple[int, actions.ConditionalEdit]]:
-        return [
-            i
-            for i, a in enumerate(self.i2w)
-            if isinstance(a, actions.ConditionalIns)
-        ]
-
-    @property
-    def beg_idx(self) -> int:
-        return self.i2w.index(actions.Start())
-
-    @property
-    def end_idx(self) -> int:
-        return self.i2w.index(actions.End())
-
-    @property
-    def del_idx(self) -> int:
-        return self.i2w.index(actions.ConditionalDel())
-
-    @property
-    def copy_idx(self) -> int:
-        return self.i2w.index(actions.ConditionalCopy())
 
 
 @dataclasses.dataclass
@@ -248,12 +233,18 @@ class Expert:
     actions: ActionVocabulary
     aligner: sed.StochasticEditDistance
     oracle_factor: int
-    roll_in: int
+    model_roll_in_prob: float
 
-    def __init__(self, actions, aligner, oracle_factor=defaults.ORACLE_FACTOR):
+    def __init__(
+        self,
+        actions: ActionVocabulary,
+        aligner: sed.StochasticEditDistance,
+        oracle_factor: int = defaults.ORACLE_FACTOR,
+    ):
         self.actions = actions
         self.oracle_factor = oracle_factor
-        self.roll_in = 1
+        # Probability of sampling from the model; initially zero.
+        self.model_roll_in_prob = 0.0
         self.aligner = aligner
 
     def find_valid_actions(
@@ -278,43 +269,51 @@ class Expert:
         attention = source[alignment] if input_not_empty else None
         action_prefixes = []
         for prefix in prefixes:
-            prefix_insert = (
-                prefix.leftmost_of_suffix
-            )  # First symbol in target string not overlapping with prediction.
-            if prefix_insert is None:  # No remaining symbols in target.
+            prefix_insert = prefix.leftmost_of_suffix
+            if prefix_insert is None:
                 valid_action = {actions.End()}
-            else:  # More symbols to go. Insertion is always valid.
+            else:
                 valid_action = {actions.Ins(prefix_insert)}
             if input_not_empty:
                 if prefix_insert is not None:
-                    # The target symbol and source symbol are same. Copy.
                     if prefix_insert == attention:
-                        # TODO: These actions are in maxwell. Remove?
                         valid_action.add(
                             actions.Copy(attention, prefix_insert)
                         )
-                    # Target and source symbol are different. Sub.
                     else:
                         valid_action.add(
                             actions.Sub(old=attention, new=prefix_insert)
                         )
-                # Source symbol deleted. Further actions can occur.
                 valid_action.add(actions.Del(attention))
             action_prefix = ActionPrefix(valid_action, prefix)
             action_prefixes.append(action_prefix)
         return action_prefixes
 
-    def roll_in_schedule(self, epoch: int) -> float:
-        """Gets probability of sampling from oracle given current epoch."""
+    def roll_in_schedule(self, epoch: int) -> None:
+        """Updates the model roll-in probability for the given epoch.
+
+        Uses an inverse-sigmoid (logistic) decay schedule so that the model
+        starts by following the expert and gradually explores its own policy.
+
+        Args:
+            epoch (int): current training epoch (0-indexed).
+        """
         if self.aligner is None:
             raise AlignerError("No aligner for oracle predictions")
-        self.roll_in = 1 - self.oracle_factor / (
-            self.oracle_factor + numpy.exp(epoch / self.oracle_factor)
+        self.model_roll_in_prob = 1 - self.oracle_factor / (
+            self.oracle_factor + math.exp(epoch / self.oracle_factor)
         )
 
     def explore(self) -> bool:
-        """Randomly determines whether expert should advise model."""
-        return numpy.random.rand() <= self.roll_in
+        """Randomly determines whether the model should sample its own policy.
+
+        Returns True with probability `model_roll_in_prob`, meaning the model
+        samples from its own distribution rather than following the expert.
+
+        Returns:
+            bool: True if model should sample its own action.
+        """
+        return torch.rand(1).item() <= self.model_roll_in_prob
 
     def roll_out(
         self,
@@ -379,6 +378,8 @@ class Expert:
             target (Sequence[Any]): target string for edit actions.
             alignment (int): index for current symbol to edit in source string.
             prediction (Sequence[Any]): current prediction from previous edits.
+            max_action_seq_len (int): maximum action sequence length before
+                forcing End action.
 
         Returns:
             Dict[Edit, float]: edit actions and their respective scores.
@@ -430,6 +431,6 @@ def get_expert(
     Returns:
         expert.Expert.
     """
-    actions = ActionVocabulary(index)
+    vocab = ActionVocabulary(index)
     aligner = sed.StochasticEditDistance(sed.ParamDict.read_params(path))
-    return Expert(actions, aligner, oracle_factor)
+    return Expert(vocab, aligner, oracle_factor)

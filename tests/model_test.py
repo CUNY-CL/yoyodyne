@@ -3,12 +3,27 @@
 The theory here is that a lot of breakages break model __init__.
 """
 
-from yoyodyne import models
+import os
+import string
+
+import pytest
+from yoyodyne import data, models
 from yoyodyne.models import modules
 
 # These are ordinarily set by CLI linking.
 VOCAB_SIZE = 32
 TARGET_VOCAB_SIZE = 32
+
+SED_PATH = os.path.join(os.path.dirname(__file__), "testdata", "toy.sed")
+
+
+# Minimal index matching the toy SED's vocabulary.
+@pytest.fixture
+def toy_index():
+    return data.Index(
+        source_vocabulary=list(string.ascii_lowercase),
+        target_vocabulary=list(string.ascii_lowercase),
+    )
 
 
 class TestModel:
@@ -205,7 +220,21 @@ class TestModel:
         )
         assert isinstance(model, models.SoftAttentionLSTMModel)
 
-    # TODO(#329): add transducer testing.
+    def test_transducer_gru(self, toy_index):
+        model = models.TransducerGRUModel(
+            SED_PATH,
+            index=toy_index,
+            source_encoder=modules.GRUEncoder(),
+        )
+        assert isinstance(model, models.TransducerGRUModel)
+
+    def test_transducer_lstm(self, toy_index):
+        model = models.TransducerLSTMModel(
+            SED_PATH,
+            index=toy_index,
+            source_encoder=modules.LSTMEncoder(),
+        )
+        assert isinstance(model, models.TransducerLSTMModel)
 
     def test_transformer(self):
         model = models.TransformerModel(

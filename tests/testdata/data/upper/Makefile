@@ -54,7 +54,9 @@ all: train.tsv \
 	transducer_gru_expected.test \
 	transducer_gru_expected.txt \
 	transducer_lstm_expected.test \
-	transducer_lstm_expected.txt
+	transducer_lstm_expected.txt \
+	transducer_lstm_student_forcing_expected.test \
+	transducer_lstm_student_forcing_expected.txt
 
 %.tsv:
 	$(eval TMPDIR := $(shell mktemp -d))
@@ -85,6 +87,7 @@ transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv
 		--data.test test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/transducer_$*.yaml" \
+		--model.sed_path "$(TMPDIR)/train.sed" \
 		--trainer.default_root_dir "$(TMPDIR)" \
 		--trainer.enable_progress_bar false \
 		> "transducer_$*_expected.test"
@@ -95,6 +98,7 @@ transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv
 		--data.predict test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/transducer_$*.yaml" \
+		--model.sed_path "$(TMPDIR)/train.sed" \
 		--prediction.path "transducer_$*_expected.txt"
 	rm -rf "$(TMPDIR)"
 

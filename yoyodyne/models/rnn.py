@@ -323,7 +323,6 @@ class GRUModel(RNNModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -346,7 +345,6 @@ class LSTMModel(RNNModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -365,7 +363,6 @@ class SoftAttentionGRUModel(GRUModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.num_embeddings,
         )
 
     @property
@@ -384,7 +381,6 @@ class SoftAttentionLSTMModel(LSTMModel):
             embedding_size=self.embedding_size,
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
-            num_embeddings=self.num_embeddings,
         )
 
     @property

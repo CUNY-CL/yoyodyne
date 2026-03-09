@@ -35,10 +35,10 @@ all: train.tsv \
 	transformer_null_positional_features_expected.txt \
 	transformer_shared_features_expected.test \
 	transformer_shared_features_expected.txt \
-	transducer_gru_shared_features_expected.test \
-	transducer_gru_shared_features_expected.txt \
-	transducer_lstm_shared_features_expected.test \
-	transducer_lstm_shared_features_expected.txt
+	transducer_gru_linear_features_expected.test \
+	transducer_gru_linear_features_expected.txt \
+	transducer_lstm_linear_features_expected.test \
+	transducer_lstm_linear_features_expected.txt
 
 # Data from the CoNLL-SIGMORPHON 2017 shared task on morphological reinflection.
 
@@ -58,32 +58,34 @@ transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv
 	yoyodyne \
 		fit \
 		--checkpoint ../../configs/checkpoint.yaml \
-		--data ../../configs/toy_data.yaml \
+		--data ../../configs/tur_inflection_data.yaml \
 		--data.train train.tsv \
 		--data.val dev.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/transducer_$*.yaml" \
 		--model.sed_path "$(TMPDIR)/train.sed" \
 		--seed_everything 49 \
-		--trainer ../../configs/toy_trainer.yaml \
+        --trainer ../../configs/real_trainer.yaml \
 		--trainer.default_root_dir "$(TMPDIR)"
 	yoyodyne \
 		test \
 		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/toy_data.yaml \
+		--data ../../configs/tur_inflection_data.yaml \
 		--data.test test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/transducer_$*.yaml" \
+		--model.sed_path "$(TMPDIR)/train.sed" \
 		--trainer.default_root_dir "$(TMPDIR)" \
 		--trainer.enable_progress_bar false \
 		> "transducer_$*_expected.test"
 	yoyodyne \
 		predict \
 		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/toy_data.yaml \
+		--data ../../configs/tur_inflection_data.yaml \
 		--data.predict test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/transducer_$*.yaml" \
+		--model.sed_path "$(TMPDIR)/train.sed" \
 		--prediction.path "transducer_$*_expected.txt"
 	rm -rf "$(TMPDIR)"
 
