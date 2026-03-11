@@ -164,7 +164,6 @@ class TransformerModel(base.BaseModel):
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
             max_length=self.max_decoder_length,
-            num_embeddings=self.num_embeddings,
             positional_encoding=self.decoder_positional_encoding,
         )
 

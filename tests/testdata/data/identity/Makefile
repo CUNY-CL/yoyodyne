@@ -3,6 +3,7 @@ SHELL := /bin/bash
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
+	train.sed \
 	causal_transformer_expected.test \
 	causal_transformer_expected.txt \
 	causal_transformer_student_forcing_expected.test \
@@ -63,47 +64,12 @@ all: train.tsv \
 	paste "$(TMPDIR)/identity_$@" "$(TMPDIR)/identity_$@" > "$@"
 	rm -rf "$(TMPDIR)"
 
-# Special rule for transducers, covering the required SED file.
-transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv ../../configs/transducer_%.yaml
-	$(eval TMPDIR := $(shell mktemp -d))
-	maxwell-train --train train.tsv --output "$(TMPDIR)/train.sed"
-	yoyodyne \
-		fit \
-		--checkpoint ../../configs/checkpoint.yaml \
-		--data ../../configs/toy_data.yaml \
-		--data.train train.tsv \
-		--data.val dev.tsv \
-		--data.model_dir "$(TMPDIR)" \
-		--model "../../configs/transducer_$*.yaml" \
-		--model.sed_path "$(TMPDIR)/train.sed" \
-		--seed_everything 49 \
-		--trainer ../../configs/toy_trainer.yaml \
-		--trainer.default_root_dir "$(TMPDIR)"
-	yoyodyne \
-		test \
-		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/toy_data.yaml \
-		--data.test test.tsv \
-		--data.model_dir "$(TMPDIR)" \
-		--model "../../configs/transducer_$*.yaml" \
-		--model.sed_path "$(TMPDIR)/train.sed" \
-		--trainer.default_root_dir "$(TMPDIR)" \
-		--trainer.enable_progress_bar false \
-		> "transducer_$*_expected.test"
-	yoyodyne \
-		predict \
-		--ckpt_path "$(TMPDIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/toy_data.yaml \
-		--data.predict test.tsv \
-		--data.model_dir "$(TMPDIR)" \
-		--model "../../configs/transducer_$*.yaml" \
-		--model.sed_path "$(TMPDIR)/train.sed" \
-		--prediction.path "transducer_$*_expected.txt"
-	rm -rf "$(TMPDIR)"
+train.sed: train.tsv
+	maxwell-train --train train.tsv --output "$@"
 
-# Default rule for other architectures.
-%_expected.test %_expected.txt: train.tsv dev.tsv test.tsv ../../configs/%.yaml
+%_expected.test %_expected.txt: train.tsv dev.tsv test.tsv train.sed ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval SED_ARG := $(if $(filter transducer%,$*),--model.sed_path train.sed,))
 	yoyodyne \
 		fit \
 		--checkpoint ../../configs/checkpoint.yaml \
@@ -112,6 +78,7 @@ transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv
 		--data.val dev.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		$(SED_ARG) \
 		--seed_everything 49 \
 		--trainer ../../configs/toy_trainer.yaml \
 		--trainer.default_root_dir "$(TMPDIR)"
@@ -122,6 +89,7 @@ transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv
 		--data.test test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		$(SED_ARG) \
 		--trainer.default_root_dir "$(TMPDIR)" \
 		--trainer.enable_progress_bar false \
 		> "$*_expected.test"
@@ -132,5 +100,6 @@ transducer_%_expected.test transducer_%_expected.txt: train.tsv dev.tsv test.tsv
 		--data.predict test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		$(SED_ARG) \
 		--prediction.path "$*_expected.txt"
 	rm -rf "$(TMPDIR)"

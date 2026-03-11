@@ -145,6 +145,12 @@ class TestYoyodyne:
         self.assertNonEmptyFileExists(dev_path)
         test_path = os.path.join(testdata_dir, "test.tsv")
         self.assertNonEmptyFileExists(test_path)
+        if arch.startswith("transducer"):
+            sed_path = os.path.join(testdata_dir, "train.sed")
+            self.assertNonEmptyFileExists(sed_path)
+            sed_args = [f"--model.sed_path={sed_path}"]
+        else:
+            sed_args = []
         model_dir = os.path.join(self.tempdir.name, "models")
         model_config_path = os.path.join(CONFIG_DIR, f"{arch}.yaml")
         self.assertNonEmptyFileExists(model_config_path)
@@ -158,6 +164,7 @@ class TestYoyodyne:
                 f"--data.val={dev_path}",
                 f"--data.model_dir={model_dir}",
                 f"--model={model_config_path}",
+                *sed_args,
                 f"--seed_everything={SEED}",
                 f"--trainer={trainer_config_path}",
             ]
@@ -179,6 +186,7 @@ class TestYoyodyne:
                         f"--data.test={test_path}",
                         f"--data.model_dir={model_dir}",
                         f"--model={model_config_path}",
+                        *sed_args,
                         "--trainer.enable_progress_bar=false",
                     ]
                 )
@@ -196,6 +204,7 @@ class TestYoyodyne:
                 f"--data.model_dir={model_dir}",
                 f"--data.predict={test_path}",
                 f"--model={model_config_path}",
+                *sed_args,
                 f"--prediction.path={predicted_path}",
             ]
         )
