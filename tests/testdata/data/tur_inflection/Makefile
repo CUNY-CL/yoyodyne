@@ -3,6 +3,7 @@ SHELL := /bin/bash
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
+	train.sed \
 	causal_transformer_expected.test \
 	causal_transformer_expected.txt \
 	context_hard_attention_lstm_separate_features_expected.test \
@@ -34,7 +35,11 @@ all: train.tsv \
 	transformer_null_positional_features_expected.test \
 	transformer_null_positional_features_expected.txt \
 	transformer_shared_features_expected.test \
-	transformer_shared_features_expected.txt
+	transformer_shared_features_expected.txt \
+	transducer_gru_linear_features_expected.test \
+	transducer_gru_linear_features_expected.txt \
+	transducer_lstm_linear_features_expected.test \
+	transducer_lstm_linear_features_expected.txt
 
 # Data from the CoNLL-SIGMORPHON 2017 shared task on morphological reinflection.
 
@@ -47,8 +52,12 @@ dev.tsv:
 test.tsv:
 	curl -s https://raw.githubusercontent.com/sigmorphon/conll2017/refs/heads/master/answers/task1/turkish-uncovered-test > "$@"
 
-%_expected.test %_expected.txt: train.tsv dev.tsv test.tsv ../../configs/%.yaml
+train.sed: train.tsv
+	maxwell-train --train train.tsv --output "$@"
+
+%_expected.test %_expected.txt: train.tsv dev.tsv test.tsv train.sed ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval SED_ARG := $(if $(filter transducer%,$*),--model.sed_path train.sed,))
 	yoyodyne \
         fit \
         --checkpoint ../../configs/checkpoint.yaml \
@@ -57,6 +66,7 @@ test.tsv:
         --data.val dev.tsv \
         --data.model_dir "$(TMPDIR)" \
         --model "../../configs/$*.yaml" \
+		$(SED_ARG) \
         --seed_everything 49 \
         --trainer ../../configs/real_trainer.yaml \
         --trainer.default_root_dir "$(TMPDIR)"
@@ -67,6 +77,7 @@ test.tsv:
         --data.test test.tsv \
         --data.model_dir "$(TMPDIR)" \
         --model "../../configs/$*.yaml" \
+		$(SED_ARG) \
         --trainer.default_root_dir "$(TMPDIR)" \
         --trainer.enable_progress_bar false \
         > "$*_expected.test"
@@ -77,5 +88,6 @@ test.tsv:
         --data.predict test.tsv \
         --data.model_dir "$(TMPDIR)" \
         --model "../../configs/$*.yaml" \
+		$(SED_ARG) \
         --prediction.path "$*_expected.txt"
 	rm -rf "$(TMPDIR)"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import pickle
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import yaml
 from torch import serialization
@@ -27,7 +27,7 @@ class Index:
     """
 
     source_vocabulary: List[str]
-    features_vocabulary = Optional[List[str]]
+    features_vocabulary: Optional[List[str]]
     target_vocabulary: List[str]
     tie_embeddings: bool
     _index2symbol: List[str]
@@ -156,6 +156,19 @@ class Index:
             tie_embeddings=node_value.get("tie_embeddings"),
         )
 
+    def __reduce__(self) -> Tuple[Any, Tuple[Dict[str, Any]]]:
+        return (
+            _reconstruct_index,
+            (
+                {
+                    "source_vocabulary": self.source_vocabulary,
+                    "features_vocabulary": self.features_vocabulary,
+                    "target_vocabulary": self.target_vocabulary,
+                    "tie_embeddings": self.tie_embeddings,
+                },
+            ),
+        )
+
     # Properties.
 
     @property
@@ -190,6 +203,10 @@ class Index:
 # This whitelists the Index for safe serialization.
 
 
-serialization.add_safe_globals([Index])
+def _reconstruct_index(state: Dict[str, Any]) -> Index:
+    return Index(**state)
+
+
+serialization.add_safe_globals([Index, _reconstruct_index])
 yaml.add_representer(Index, Index._yaml_representer, Dumper=yaml.SafeDumper)
 yaml.add_constructor("!Index", Index._yaml_constructor, Loader=yaml.SafeLoader)

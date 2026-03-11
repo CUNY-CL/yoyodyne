@@ -3,6 +3,7 @@ SHELL := /bin/bash
 all: train.tsv \
 	dev.tsv \
 	test.tsv \
+	train.sed \
 	causal_transformer_expected.test \
 	causal_transformer_expected.txt \
 	causal_transformer_student_forcing_expected.test \
@@ -50,7 +51,13 @@ all: train.tsv \
 	transformer_absolute_positional_expected.test \
 	transformer_absolute_positional_expected.txt \
 	transformer_student_forcing_expected.test \
-	transformer_student_forcing_expected.txt
+	transformer_student_forcing_expected.txt \
+	transducer_gru_expected.test \
+	transducer_gru_expected.txt \
+	transducer_lstm_expected.test \
+	transducer_lstm_expected.txt \
+	transducer_lstm_student_forcing_expected.test \
+	transducer_lstm_student_forcing_expected.txt
 
 # Data from the SIGMORPHON 2021 shared task on grapheme-to-phoneme conversion.
 
@@ -63,8 +70,12 @@ dev.tsv:
 test.tsv:
 	curl -s https://raw.githubusercontent.com/sigmorphon/2021-task1/refs/heads/main/data/low/ice_test.tsv > "$@"
 
-%_expected.test %_expected.txt: train.tsv dev.tsv test.tsv ../../configs/%.yaml
+train.sed: train.tsv
+	maxwell-train --train train.tsv --target_sep ' ' --output "$@"
+
+%_expected.test %_expected.txt: train.tsv dev.tsv test.tsv train.sed ../../configs/%.yaml
 	$(eval TMPDIR := $(shell mktemp -d))
+	$(eval SED_ARG := $(if $(filter transducer%,$*),--model.sed_path train.sed,))
 	yoyodyne \
 		fit \
 		--checkpoint ../../configs/checkpoint.yaml \
@@ -73,6 +84,7 @@ test.tsv:
 		--data.val dev.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		$(SED_ARG) \
 		--seed_everything 49 \
 		--trainer ../../configs/real_trainer.yaml \
 		--trainer.default_root_dir "$(TMPDIR)"
@@ -83,6 +95,7 @@ test.tsv:
 		--data.test test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		$(SED_ARG) \
 		--trainer.default_root_dir "$(TMPDIR)" \
 		--trainer.enable_progress_bar false \
 		> "$*_expected.test"
@@ -93,5 +106,6 @@ test.tsv:
 		--data.predict test.tsv \
 		--data.model_dir "$(TMPDIR)" \
 		--model "../../configs/$*.yaml" \
+		$(SED_ARG) \
 		--prediction.path "$*_expected.txt"
 	rm -rf "$(TMPDIR)"
