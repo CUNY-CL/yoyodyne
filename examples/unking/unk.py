@@ -85,7 +85,7 @@ def _process_and_write(
                 target_replaced += tr
                 target_total += tt
                 writer.writerow(
-                    [" ".join(source), " ".join(target), " ".join(features)] 
+                    [" ".join(source), " ".join(target), " ".join(features)]
                 )
         else:
             for source, target in parser.samples(input_path):
