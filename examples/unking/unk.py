@@ -6,7 +6,14 @@ counts per column. Output TSVs contain only the processed source, target (and
 optionally, features) columns; other columns can be merged back in using UNIX
 `cut` and `paste` if desired. Processed columns all have space separators.
 
-Columns are written in the order source, target, features.
+The resulting TSV files have the following format:
+
+    source_col: 1
+    features_col: 3   # If present.
+    target_col: 2
+    source_sep: " "
+    features_sep: " "  # If present.
+    target_sep: " "
 """
 
 import argparse
