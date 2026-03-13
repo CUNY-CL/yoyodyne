@@ -2,9 +2,11 @@
 """Replaces low-frequency symbols with UNK.
 
 Frequencies are computed over training and validation data, using separate
-counts per column. Output TSVs contained only the process source, target (and
+counts per column. Output TSVs contain only the processed source, target (and
 optionally, features) columns; other columns can be merged back in using UNIX
 `cut` and `paste` if desired. Processed columns all have space separators.
+
+Columns are written in the order source, target, features.
 """
 
 import argparse
@@ -23,14 +25,18 @@ def _build_counters(
     path: str,
 ) -> tuple[collections.Counter, collections.Counter, collections.Counter]:
     source_counter = collections.Counter()
-    target_counter = collections.Counter()
     features_counter = collections.Counter()
-    for source, target, features in parser.samples(path):
-        source_counter.update(source)
-        target_counter.update(target)
-        if features is not None:
+    target_counter = collections.Counter()
+    if parser.has_features:
+        for source, features, target in parser.samples(path):
+            source_counter.update(source)
             features_counter.update(features)
-    return source_counter, target_counter, features_counter
+            target_counter.update(target)
+    else:
+        for source, target in parser.samples(path):
+            source_counter.update(source)
+            target_counter.update(target)
+    return source_counter, features_counter, target_counter
 
 
 def _unk_symbols(
@@ -55,36 +61,45 @@ def _process_and_write(
     input_path: str,
     output_path: str,
     source_counter: collections.Counter,
-    target_counter: collections.Counter,
     features_counter: collections.Counter,
+    target_counter: collections.Counter,
     freq: int,
 ) -> tuple[tuple[int, int], tuple[int, int], tuple[int, int]]:
     """Writes UNK-replaced TSV; returns (replaced, total) per column."""
     source_replaced = source_total = 0
-    target_replaced = target_total = 0
     features_replaced = features_total = 0
+    target_replaced = target_total = 0
     with open(output_path, "w") as sink:
         writer = csv.writer(sink, delimiter="\t", lineterminator=os.linesep)
-        for source, target, features in parser.samples(input_path):
-            source, sr, st = _unk_symbols(source, source_counter, freq)
-            target, tr, tt = _unk_symbols(target, target_counter, freq)
-            source_replaced += sr
-            source_total += st
-            target_replaced += tr
-            target_total += tt
-            row = [" ".join(source), " ".join(target)]
-            if features is not None:
+        if parser.has_features:
+            for source, features, target in parser.samples(input_path):
+                source, sr, st = _unk_symbols(source, source_counter, freq)
+                source_replaced += sr
+                source_total += st
                 features, fr, ft = _unk_symbols(
                     features, features_counter, freq
                 )
                 features_replaced += fr
                 features_total += ft
-                row.append(" ".join(features))
-            writer.writerow(row)
+                target, tr, tt = _unk_symbols(target, target_counter, freq)
+                target_replaced += tr
+                target_total += tt
+                writer.writerow(
+                    [" ".join(source), " ".join(target), " ".join(features)] 
+                )
+        else:
+            for source, target in parser.samples(input_path):
+                source, sr, st = _unk_symbols(source, source_counter, freq)
+                source_replaced += sr
+                source_total += st
+                target, tr, tt = _unk_symbols(target, target_counter, freq)
+                target_replaced += tr
+                target_total += tt
+                writer.writerow([" ".join(source), " ".join(target)])
     return (
         (source_replaced, source_total),
-        (target_replaced, target_total),
         (features_replaced, features_total),
+        (target_replaced, target_total),
     )
 
 
@@ -97,11 +112,11 @@ def _log_stats(
     stats: tuple[tuple[int, int], tuple[int, int], tuple[int, int]],
     has_features: bool,
 ) -> None:
-    (sr, st), (tr, tt), (fr, ft) = stats
+    (sr, st), (fr, ft), (tr, tt) = stats
     logging.info("%s source UNK rate: %s", label, _pct(sr, st))
-    logging.info("%s target UNK rate: %s", label, _pct(tr, tt))
     if has_features:
         logging.info("%s features UNK rate: %s", label, _pct(fr, ft))
+    logging.info("%s target UNK rate: %s", label, _pct(tr, tt))
 
 
 def main(args: argparse.Namespace) -> None:
@@ -117,49 +132,38 @@ def main(args: argparse.Namespace) -> None:
         target_col=args.target_col,
         source_sep=args.source_sep,
         features_sep=args.features_sep,
+        target_sep=args.target_sep,
     )
-    source_counter, target_counter, features_counter = _build_counters(
+    # Build combined frequency distributions from train (and optionally val).
+    source_counter, features_counter, target_counter = _build_counters(
         parser, args.train_input
     )
     if has_val:
-        val_source, val_target, val_features = _build_counters(
+        val_source, val_features, val_target = _build_counters(
             parser, args.val_input
         )
         source_counter += val_source
-        target_counter += val_target
         features_counter += val_features
-    train_stats = _process_and_write(
-        parser,
-        args.train_input,
-        args.train_output,
-        source_counter,
-        target_counter,
-        features_counter,
-        args.freq,
-    )
-    val_stats = None
-    if has_val:
-        val_stats = _process_and_write(
+        target_counter += val_target
+    # Process each split; None label indicates stats should not be logged.
+    splits = [
+        (args.train_input, args.train_output, "train"),
+        (args.val_input, args.val_output, "val"),
+        (args.test_input, args.test_output, "test"),
+    ]
+    for input_path, output_path, label in splits:
+        if input_path is None:
+            continue
+        stats = _process_and_write(
             parser,
-            args.val_input,
-            args.val_output,
+            input_path,
+            output_path,
             source_counter,
-            target_counter,
             features_counter,
+            target_counter,
             args.freq,
         )
-    _process_and_write(
-        parser,
-        args.test_input,
-        args.test_output,
-        source_counter,
-        target_counter,
-        features_counter,
-        args.freq,
-    )
-    _log_stats("train", train_stats, parser.has_features)
-    if val_stats is not None:
-        _log_stats("val", val_stats, parser.has_features)
+        _log_stats(label, stats, parser.has_features)
 
 
 if __name__ == "__main__":
@@ -180,17 +184,17 @@ if __name__ == "__main__":
         help="1-indexed column for the source column. Default: %(default)s.",
     )
     parser.add_argument(
-        "--target_col",
-        type=int,
-        default=defaults.TARGET_COL,
-        help="1-indexed column for the target column. Default: %(default)s.",
-    )
-    parser.add_argument(
         "--features_col",
         type=int,
         default=0,
         help="1-indexed column for the features column; 0 disables features. "
         "Default: %(default)s.",
+    )
+    parser.add_argument(
+        "--target_col",
+        type=int,
+        default=defaults.TARGET_COL,
+        help="1-indexed column for the target column. Default: %(default)s.",
     )
     parser.add_argument(
         "--source_sep",
@@ -205,6 +209,14 @@ if __name__ == "__main__":
         type=str,
         default=defaults.FEATURES_SEP,
         help="String used to split features string into symbols; "
+        "an empty string indicates that each Unicode codepoint "
+        "is its own symbol. Default: %(default)r.",
+    )
+    parser.add_argument(
+        "--target_sep",
+        type=str,
+        default=defaults.TARGET_SEP,
+        help="String used to split the target string into symbols; "
         "an empty string indicates that each Unicode codepoint "
         "is its own symbol. Default: %(default)r.",
     )
