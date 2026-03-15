@@ -139,6 +139,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             else None
         )
         self.ser = metrics.SER() if compute_ser else None
+        self.loss_func = self._get_loss_func()
         self.embeddings = self.init_embeddings(
             self.num_embeddings, self.embedding_size
         )
@@ -177,7 +178,6 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             self.features_encoder = features_encoder
             self.features_encoder.set_max_length(self.max_features_length)
             self.has_features_encoder = True
-        self.loss_func = self._get_loss_func()
 
     def _get_loss_func(
         self,
