@@ -48,7 +48,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.save_hyperparameters(
             ignore=[
                 ...
-                # All modules.
+                # Modules.
                 "decoder",
                 "embeddings",
                 "features_encoder",

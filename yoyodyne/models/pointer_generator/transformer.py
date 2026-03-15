@@ -65,7 +65,7 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         self._log_model()
         self.save_hyperparameters(
             ignore=[
-                # Modules,.
+                # Modules.
                 "classifier",
                 "decoder",
                 "decoder_positional_encoding",
