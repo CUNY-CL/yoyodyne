@@ -17,8 +17,6 @@ Current limitations:
   larger batches.
 * We hard-code the use of log-likelihoods; the addition of two log
   probabilities is equivalent to multiplying real numbers.
-* Beam search is designed to support RNN-based models and interface issues
-  might arise with other architectures.
 * Not much attention has been paid to keeping data on device.
 
 See rnn.py for sample usage.
@@ -28,7 +26,7 @@ from __future__ import annotations
 
 import dataclasses
 import heapq
-from typing import Iterator, List
+from typing import Iterator, List, Optional
 
 import torch
 from torch import nn
@@ -46,32 +44,37 @@ class Cell:
     A cell is "final" once it has decoded the END symbol.
 
     Args:
-        state (modules.RNNState).
         symbols (List[int], optional).
         score (float, optional).
+        state (modules.RNNState, optional): RNN state, or None for stateless
+            decoders like transformers.
     """
 
-    state: modules.RNNState = dataclasses.field(compare=False)
     symbols: List[int] = dataclasses.field(
         compare=False, default_factory=lambda: [special.START_IDX]
     )
     score: float = dataclasses.field(compare=True, default=0.0)
+    state: Optional[modules.RNNState] = dataclasses.field(
+        compare=False, default=None
+    )
 
     def extensions(
-        self, state: modules.RNNState, scores: torch.Tensor
+        self,
+        scores: torch.Tensor,
+        state: Optional[modules.RNNState] = None,
     ) -> Iterator[Cell]:
         """Generates extension cells.
 
         Args:
-            state (modules.RNNState).
             scores (torch.Tensor):
+            state (modules.RNNState, optional).
 
         Yields:
             Cell: all single-symbol extensions of the current cell.
         """
         for symbol, score in enumerate(scores):
             yield Cell(
-                state, self.symbols + [symbol], self.score + score.item()
+                self.symbols + [symbol], self.score + score.item(), state
             )
 
     @property
@@ -81,6 +84,34 @@ class Cell:
     @property
     def final(self) -> bool:
         return self.symbols[-1] == special.END_IDX
+
+
+class Heap:
+    """Wrapper round Python's heap implementation.
+
+    Args:
+        heap (List[Cell], optional).
+    """
+
+    heap: List[Cell]
+
+    def __init__(self):
+        self.heap = []
+
+    def __len__(self) -> int:
+        return len(self.heap)
+
+    def clear(self) -> None:
+        self.heap.clear()
+
+    def push(self, cell: Cell) -> None:
+        heapq.heappush(self.heap, cell)
+
+    def pop(self) -> Cell:
+        return heapq.heappop(self.heap)
+
+    def items(self) -> Iterator[Cell]:
+        yield from self.heap
 
 
 class Beam:
@@ -93,19 +124,20 @@ class Beam:
 
     Args:
         beam_width (int).
-        state (modules.RNNState).
+        state (modules.RNNState, optional): RNN state, or None for stateless
+            decoders like transformers.
     """
 
     beam_width: int
     # Current cells.
     cells: List[Cell]
     # Heap of the next set of cells.
-    heap: List[Cell]
+    heap: Heap
 
-    def __init__(self, beam_width, state: modules.RNNState):
+    def __init__(self, beam_width, state: Optional[modules.RNNState] = None):
         self.beam_width = beam_width
-        self.cells = [Cell(state)]
-        self.heap = []
+        self.cells = [Cell(state=state)]
+        self.heap = Heap()
 
     def __len__(self) -> int:
         return len(self.cells)
@@ -116,14 +148,13 @@ class Beam:
         Args:
             cell (Cell).
         """
-        if len(self.heap) < self.beam_width:
-            heapq.heappush(self.heap, cell)
-        else:
-            heapq.heappushpop(self.heap, cell)
+        self.heap.push(cell)
+        if len(self.heap) > self.beam_width:
+            self.heap.pop()
 
     def update(self) -> None:
         """Replaces the current cells and clears the heap."""
-        self.cells = sorted(self.heap, reverse=True)
+        self.cells = sorted(self.heap.items(), reverse=True)
         self.heap.clear()
 
     @property

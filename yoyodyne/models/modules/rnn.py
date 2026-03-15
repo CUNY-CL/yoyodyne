@@ -10,6 +10,8 @@ respectively, taking responsibility for packing and padding; WrappedGRUDecoder
 and WrappedLSTMDecoder are similar wrappers for decoder modules.
 """
 
+from __future__ import annotations
+
 import abc
 from typing import Optional, Tuple
 

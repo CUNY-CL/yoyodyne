@@ -523,32 +523,6 @@ This mode is invoked using the `predict` subcommand, like so:
 
     yoyodyne predict --config path/to/config.yaml --ckpt_path path/to/checkpoint.ckpt
 
-Vanilla RNN models (like `yoyodyne.models.SoftAttentionGRUModel` or
-`yoyodyne.models.SoftAttentionLSTMModel`) and pointer-generator RNN models (like
-`yoyodyne.models.PointerGeneratorGRUModel` or
-`yoyodyne.models.PointerGeneratorLSTMModel`) support beam search during
-prediction. This is enabled by setting a `beam_width` \> 1, but also requires a
-`batch_size` of 1:
-
-    ...
-    data:
-      ...
-      batch_size: 1
-      ...
-    model:
-      class_path: yoyodyne.models.SoftAttentionLSTMModel
-      init_args:
-        ...
-        beam_width: 5
-        ...
-    prediction:
-      path: /Users/Shinji/predictions.tsv
-    ...
-
-The resulting prediction files will be a 10-column TSV file consisting of the
-top 5 target hypotheses and their log-likelihoods (collated together), rather
-than single-file text files just containing the top hypothesis.
-
 ## Examples
 
 The [`examples`](examples) directory contains interesting examples, including:
@@ -618,16 +592,41 @@ impossible to attend directly to features symbols.
 
 #### Decoding strategies
 
+##### Beam search
+
 Each model supports greedy decoding implemented via a `greedy_decode` method;
-some also support beam decoding via `beam_decode`
-(cf. [#17](https://github.com/CUNY-CL/yoyodyne/issues/17)).
+many models (vanilla RNNs, pointer-generator RNNs and all transformers) support
+beam search during prediction (though not during training, validation, or
+testing) via a `beam_decode` method. Beam search decoding is enabled by setting
+`beam_width` to some value \> 1; `batch_size` must also be set to 1.
+
+    ...
+    data:
+      ...
+      batch_size: 1
+      ...
+    model:
+      class_path: yoyodyne.models.SoftAttentionLSTMModel
+      init_args:
+        ...
+        beam_width: 5
+        ...
+    prediction:
+      path: /Users/Shinji/predictions.tsv
+    ...
+
+The resulting prediction files will be a 10-column TSV file consisting of the
+top 5 target hypotheses and their log-likelihoods (collated together), rather
+than single-file text files just containing the top hypothesis.
+
+##### Teacher and student forcing
 
 Some models can only be treated with teacher forcing, but others can also be
-trained with student forcing
-(cf. [#77](https://github.com/CUNY-CL/yoyodyne/issues/77)). When using student
-forcing with transformer models, one should set `data: max_target_length: ...`
-to a value appropriate for the data to avoid unnecessary attention computations,
-which are quadratic in the maximum target length.
+trained with student forcing by setting `model: teacher_forcing: false`. When
+using student forcing with transformer models, one should set
+`data: max_target_length: ...` to a value appropriate for the data to avoid
+unnecessary attention computations, which are quadratic in the maximum target
+length.
 
 ### Testing
 

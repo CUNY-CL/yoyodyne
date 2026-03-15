@@ -47,10 +47,16 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self._log_model()
         self.save_hyperparameters(
             ignore=[
-                ...   # List other modules created here.
-                "source_encoder",
-                "features_encoder",
+                ...
+                # All modules.
                 "decoder",
+                "embeddings",
+                "features_encoder",
+                "source_encoder",
+                ...,
+                # Options that can change between training and prediction.
+                "beam_width",
+                ...,
             ]
         )
 
