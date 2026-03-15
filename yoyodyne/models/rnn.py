@@ -1,8 +1,8 @@
 """RNN model classes.
 
 RNNModel is the base class; it has encoder and decoder modules, the classifier,
-and the initial decoder hidden state and provides methods for greedy and beam
-decoding. Subclassing is used to inject the concrete decoder modules.
+and the initial decoder hidden state. Subclassing is used to inject the
+concrete decoder modules.
 """
 
 import abc
@@ -53,11 +53,14 @@ class RNNModel(base.BaseModel):
         self._log_model()
         self.save_hyperparameters(
             ignore=[
+                # Modules.
                 "classifier",
                 "decoder",
                 "embeddings",
                 "features_encoder",
                 "source_encoder",
+                # Options that can change between training and prediction.
+                "beam_width",
             ]
         )
 
@@ -101,12 +104,12 @@ class RNNModel(base.BaseModel):
                 else:
                     symbol = torch.tensor([[cell.symbol]], device=self.device)
                     logits, state = self.decode_step(
-                        symbol, context, mask, state
+                        symbol, context, mask, cell.state
                     )
                     scores = nn.functional.log_softmax(
-                        logits.squeeze(1), dim=0
-                    )
-                    for new_cell in cell.extensions(state, scores):
+                        logits.squeeze(1), dim=1
+                    ).squeeze(0)
+                    for new_cell in cell.extensions(scores, state):
                         beam.push(new_cell)
             beam.update()
             if beam.final:

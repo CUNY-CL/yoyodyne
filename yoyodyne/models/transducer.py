@@ -79,6 +79,7 @@ class TransducerRNNModel(base.BaseModel):
         self._log_model()
         self.save_hyperparameters(
             ignore=[
+                # Modules.
                 "classifier",
                 "decoder",
                 "embeddings",

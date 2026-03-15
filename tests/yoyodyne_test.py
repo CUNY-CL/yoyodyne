@@ -8,6 +8,7 @@ import difflib
 import os
 import re
 import tempfile
+from typing import Dict, Optional, Tuple
 
 import pytest
 
@@ -21,6 +22,7 @@ TOY_DATA = ["copy", "identity", "reverse", "upper"]
 TOY_DATA_CONFIG_PATH = os.path.join(CONFIG_DIR, "toy_data.yaml")
 TOY_TRAINER_CONFIG_PATH = os.path.join(CONFIG_DIR, "toy_trainer.yaml")
 REAL_TRAINER_CONFIG_PATH = os.path.join(CONFIG_DIR, "real_trainer.yaml")
+# Ones we'll test on any datasets except inflection.
 ARCH = [
     "causal_transformer",
     "causal_transformer_student_forcing",
@@ -50,6 +52,21 @@ ARCH = [
     "transducer_lstm",
     "transducer_lstm_student_forcing",
 ]
+# Ones we'll test beam decoding on. We set aside student forcing and rotary
+# positional encoding because they are orthogonal. No beam-capable arch is a
+# transducer.
+BEAM_ARCH = [
+    "causal_transformer",
+    "gru",
+    "lstm",
+    "pointer_generator_gru",
+    "pointer_generator_lstm",
+    "pointer_generator_transformer",
+    "soft_attention_gru",
+    "soft_attention_lstm",
+    "transformer",
+]
+# Specific tests for the inflection data, which is larger and has features.
 INFLECTION_ARCH = [
     "causal_transformer",
     "context_hard_attention_lstm_separate_features",
@@ -71,12 +88,81 @@ INFLECTION_ARCH = [
 ]
 SEED = 49
 
+# Session-scoped state for checkpoint caching. Keyed by (data, arch).
+_checkpoints: Dict[Tuple[str, str], str] = {}
+_session_tempdir: Optional[tempfile.TemporaryDirectory] = None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def session_tempdir():
+    """Creates a single tempdir for the session to hold trained checkpoints."""
+    global _session_tempdir
+    _session_tempdir = tempfile.TemporaryDirectory(prefix="yoyodyne_test-")
+    yield
+    _session_tempdir.cleanup()
+
+
+def _get_or_train(
+    data: str,
+    arch: str,
+    data_config_path: str,
+    trainer_config_path: str,
+) -> str:
+    """Returns a checkpoint path for the given data/arch, training if needed.
+
+    Checkpoints are cached for the duration of the test session so that
+    test_toy and test_toy_beam can share the same trained model.
+
+    Args:
+        data (str).
+        arch (str).
+        data_config_path (str).
+        trainer_config_path (str).
+
+    Returns:
+        str: path to the checkpoint.
+    """
+    key = (data, arch)
+    if key in _checkpoints:
+        return _checkpoints[key]
+    testdata_dir = os.path.join(TESTDATA_DIR, data)
+    train_path = os.path.join(testdata_dir, "train.tsv")
+    dev_path = os.path.join(testdata_dir, "dev.tsv")
+    if arch.startswith("transducer"):
+        sed_path = os.path.join(testdata_dir, "train.sed")
+        sed_args = [f"--model.sed_path={sed_path}"]
+    else:
+        sed_args = []
+    # Include data and arch in the model dir to avoid collisions between
+    # different (data, arch) pairs in the shared session tempdir.
+    model_dir = os.path.join(_session_tempdir.name, "models", data, arch)
+    model_config_path = os.path.join(CONFIG_DIR, f"{arch}.yaml")
+    main.python_interface(
+        [
+            "fit",
+            f"--checkpoint={CHECKPOINT_CONFIG_PATH}",
+            f"--data={data_config_path}",
+            f"--data.train={train_path}",
+            f"--data.val={dev_path}",
+            f"--data.model_dir={model_dir}",
+            f"--model={model_config_path}",
+            *sed_args,
+            f"--seed_everything={SEED}",
+            f"--trainer={trainer_config_path}",
+        ]
+    )
+    checkpoint_path = (
+        f"{model_dir}/lightning_logs/version_0/checkpoints/last.ckpt"
+    )
+    _checkpoints[key] = checkpoint_path
+    return checkpoint_path
+
 
 class TestYoyodyne:
 
     @pytest.fixture(autouse=True)
     def setup_tempdir(self):
-        """Replaces setUp and tearDown."""
+        """Creates a per-test tempdir for output files (predictions, etc.)."""
         self.tempdir = tempfile.TemporaryDirectory(prefix="yoyodyne_test-")
         yield
         self.tempdir.cleanup()
@@ -113,6 +199,13 @@ class TestYoyodyne:
             data, arch, TOY_DATA_CONFIG_PATH, TOY_TRAINER_CONFIG_PATH
         )
 
+    @pytest.mark.parametrize("data", TOY_DATA)
+    @pytest.mark.parametrize("arch", BEAM_ARCH)
+    def test_toy_beam(self, data: str, arch: str):
+        self._test_beam_procedure(
+            data, arch, TOY_DATA_CONFIG_PATH, TOY_TRAINER_CONFIG_PATH
+        )
+
     @pytest.mark.parametrize("arch", ARCH)
     def test_ice_g2p(self, arch: str):
         data_config_path = os.path.join(CONFIG_DIR, "ice_g2p_data.yaml")
@@ -139,10 +232,6 @@ class TestYoyodyne:
     ):
         """Helper for test running."""
         testdata_dir = os.path.join(TESTDATA_DIR, data)
-        train_path = os.path.join(testdata_dir, "train.tsv")
-        self.assertNonEmptyFileExists(train_path)
-        dev_path = os.path.join(testdata_dir, "dev.tsv")
-        self.assertNonEmptyFileExists(dev_path)
         test_path = os.path.join(testdata_dir, "test.tsv")
         self.assertNonEmptyFileExists(test_path)
         if arch.startswith("transducer"):
@@ -151,27 +240,13 @@ class TestYoyodyne:
             sed_args = [f"--model.sed_path={sed_path}"]
         else:
             sed_args = []
-        model_dir = os.path.join(self.tempdir.name, "models")
         model_config_path = os.path.join(CONFIG_DIR, f"{arch}.yaml")
         self.assertNonEmptyFileExists(model_config_path)
         self.assertNonEmptyFileExists(trainer_config_path)
-        main.python_interface(
-            [
-                "fit",
-                f"--checkpoint={CHECKPOINT_CONFIG_PATH}",
-                f"--data={data_config_path}",
-                f"--data.train={train_path}",
-                f"--data.val={dev_path}",
-                f"--data.model_dir={model_dir}",
-                f"--model={model_config_path}",
-                *sed_args,
-                f"--seed_everything={SEED}",
-                f"--trainer={trainer_config_path}",
-            ]
+        checkpoint_path = _get_or_train(
+            data, arch, data_config_path, trainer_config_path
         )
-        checkpoint_path = (
-            f"{model_dir}/lightning_logs/version_0/checkpoints/last.ckpt"
-        )
+        model_dir = os.path.join(_session_tempdir.name, "models", data, arch)
         self.assertNonEmptyFileExists(checkpoint_path)
         evaluation_path = os.path.join(
             self.tempdir.name, f"{data}_{arch}.test"
@@ -211,6 +286,48 @@ class TestYoyodyne:
         self.assertNonEmptyFileExists(predicted_path)
         expected_path = os.path.join(
             TESTDATA_DIR, data, f"{arch}_expected.txt"
+        )
+        self.assertFileIdentity(predicted_path, expected_path)
+
+    def _test_beam_procedure(
+        self,
+        data: str,
+        arch: str,
+        data_config_path: str,
+        trainer_config_path: str,
+    ):
+        """Helper for beam decoding tests."""
+        testdata_dir = os.path.join(TESTDATA_DIR, data)
+        test_path = os.path.join(testdata_dir, "test.tsv")
+        self.assertNonEmptyFileExists(test_path)
+        # No beam-capable arch is a transducer, so no sed_args needed.
+        model_config_path = os.path.join(CONFIG_DIR, f"{arch}.yaml")
+        self.assertNonEmptyFileExists(model_config_path)
+        self.assertNonEmptyFileExists(trainer_config_path)
+        checkpoint_path = _get_or_train(
+            data, arch, data_config_path, trainer_config_path
+        )
+        model_dir = os.path.join(_session_tempdir.name, "models", data, arch)
+        self.assertNonEmptyFileExists(checkpoint_path)
+        predicted_path = os.path.join(
+            self.tempdir.name, f"{data}_{arch}_beam.txt"
+        )
+        main.python_interface(
+            [
+                "predict",
+                f"--ckpt_path={checkpoint_path}",
+                f"--data={data_config_path}",
+                "--data.batch_size=1",
+                f"--data.model_dir={model_dir}",
+                f"--data.predict={test_path}",
+                f"--model={model_config_path}",
+                "--model.beam_width=5",
+                f"--prediction.path={predicted_path}",
+            ]
+        )
+        self.assertNonEmptyFileExists(predicted_path)
+        expected_path = os.path.join(
+            TESTDATA_DIR, data, f"{arch}_beam_expected.txt"
         )
         self.assertFileIdentity(predicted_path, expected_path)
 

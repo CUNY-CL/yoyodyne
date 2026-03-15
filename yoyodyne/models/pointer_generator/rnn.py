@@ -74,12 +74,15 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         self._log_model()
         self.save_hyperparameters(
             ignore=[
+                # Modules.
                 "classifier",
                 "decoder",
                 "embeddings",
                 "generation_probability",
                 "features_encoder",
                 "source_encoder",
+                # Options that can change between training and prediction.
+                "beam_width",
             ]
         )
 
@@ -136,18 +139,16 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
                         source_mask,
                         symbol,
                         cell.state,
-                        features_encoded,
-                        features_mask,
+                        features_encoded=features_encoded,
+                        features_mask=features_mask,
                     )
-                    logits = nn.functional.log_softmax(
-                        prediction.squeeze(), dim=0
-                    )
-                    for new_cell in cell.extensions(state, logits):
+                    scores = prediction.squeeze()
+                    for new_cell in cell.extensions(scores, state):
                         beam.push(new_cell)
             beam.update()
             if beam.final:
                 break
-        return beam.predictions(self.device), beam.logits(self.device)
+        return beam.predictions(self.device), beam.scores(self.device)
 
     def decode_step(
         self,
