@@ -79,19 +79,19 @@ train.sed: train.tsv
 	yoyodyne \
 		fit \
 		--checkpoint ../../configs/checkpoint.yaml \
-		--data ../../configs/toy_data.yaml \
+		--data ../../configs/ice_g2p_data.yaml \
 		--data.model_dir "$(MODEL_DIR)" \
 		--data.train train.tsv \
 		--data.val dev.tsv \
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
 		--seed_everything 49 \
-		--trainer ../../configs/toy_trainer.yaml \
+		--trainer ../../configs/real_trainer.yaml \
 		--trainer.default_root_dir "$(MODEL_DIR)"
 	yoyodyne \
 		test \
 		--ckpt_path "$(MODEL_DIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/toy_data.yaml \
+		--data ../../configs/ice_g2p_data.yaml \
 		--data.model_dir "$(MODEL_DIR)" \
 		--data.test test.tsv \
 		--model "../../configs/$*.yaml" \
@@ -102,7 +102,7 @@ train.sed: train.tsv
 	yoyodyne \
 		predict \
 		--ckpt_path "$(MODEL_DIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
-		--data ../../configs/toy_data.yaml \
+		--data ../../configs/ice_g2p_data.yaml \
 		--data.model_dir "$(MODEL_DIR)" \
 		--data.predict test.tsv \
 		--model "../../configs/$*.yaml" \
@@ -110,4 +110,4 @@ train.sed: train.tsv
 		--prediction.path "$*_expected.txt"
 
 clean:
-	rm -rf models
+	rm -rf lightning_logs models

@@ -128,4 +128,4 @@ train.sed: train.tsv
 		--prediction.path "$@"
 
 clean:
-	rm -rf models
+	rm -rf lightning_logs models
