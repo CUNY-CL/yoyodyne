@@ -42,21 +42,6 @@ def train_sweep(
     run_sweep(argv)
 
 
-def run_sweep(argv: List[str]) -> None:
-    """Actually runs the sweep.
-
-    Args:
-        argv: command-line arguments.
-
-    We encapsulate each run by using a separate subprocess, which ought to
-    ensure that memory is returned (etc.).
-    """
-    process = subprocess.Popen(argv, stderr=subprocess.PIPE, text=True)
-    for line in process.stderr:
-        logging.info(line.rstrip())
-    wandb.finish(exit_code=process.wait())
-
-
 def populate_config(
     config: Dict[str, Any],
     temp_config_handle,
@@ -69,11 +54,33 @@ def populate_config(
         config: config dictionary (will be modified in place).
         temp_config_handle: temporary configuration file handle.
     """
-    wandb.init()
-    for key, value in wandb.config.items():
-        util.recursive_insert(config, key, value)
+    with wandb.init() as run:
+        # Informs W&B how I want these metrics summarized.
+        wandb.define_metric("train_loss", summary="min")
+        wandb.define_metric("val_accuracy", summary="max")
+        wandb.define_metric("val_loss", summary="min")
+        wandb.define_metric("val_ser", summary="min")
+        for key, value in run.config.items():
+            util.recursive_insert(config, key, value)
     yaml.safe_dump(config, temp_config_handle)
     temp_config_handle.flush()
+
+
+def run_sweep(argv: List[str]) -> None:
+    """Actually runs the sweep.
+
+    Args:
+        argv: command-line arguments.
+
+    We encapsulate each run by using a separate subprocess, which ought to
+    ensure that memory is returned (etc.).
+    """
+    process = subprocess.Popen(argv, stderr=subprocess.PIPE, text=True)
+    for line in process.stderr:
+        logging.info(line.rstrip())
+    exit_code = process.wait()
+    if exit_code != 0:
+        logging.error("Subprocess exited with code %d", exit_code)
 
 
 def main() -> None:
