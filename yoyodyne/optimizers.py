@@ -24,8 +24,8 @@ BETA2 = 0.999
 # which varies from optimizer to optimizer; the rest can be done safely with
 # `*args` and `**kwargs.
 #
-# One can use these subclasses if separate betas are desired. For example
-# use, see examples/wandb_sweeps.
+# One can use these subclasses if separate betas are desired. For an example
+# see examples/wandb_sweeps.
 
 
 class Adam(optim.Adam):
