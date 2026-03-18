@@ -410,14 +410,15 @@ class HardAttentionRNNModel(base.BaseModel):
 
     def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
         loss, predictions = self(batch)
-        self.log(
-            "val_loss",
-            loss,
-            batch_size=len(batch),
-            logger=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
+        if not self.trainer.sanity_checking:
+            self.log(
+                "val_loss",
+                loss,
+                batch_size=len(batch),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
         predictions, target = self._align(predictions, batch.target.tensor)
         self._update_metrics(predictions, target)
 

@@ -387,8 +387,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         predictions = self(batch)
         predictions, target = self._align(predictions, batch.target.tensor)
         loss = self.loss_func(predictions, target)
-        self.log(
-            "val_loss",
+        if not self.trainer.sanity_checking:
+            self.log(
+                "val_loss",
             loss,
             batch_size=len(batch),
             logger=True,
@@ -398,7 +399,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self._update_metrics(predictions, target)
 
     def on_validation_epoch_end(self) -> None:
-        self._log_metrics_on_epoch_end("val")
+        if not self.trainer.sanity_checking:
+            self._log_metrics_on_epoch_end("val")
 
     # Helpers to make it run.
 
