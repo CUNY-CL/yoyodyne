@@ -40,8 +40,10 @@ Suppose one wants to add a metric called Wham. Then one must:
                 prog_bar=True,
             )
 
-* Optionally, add the metric's W&B display preferences in the
-  `populate_metrics` method of `cli/sweep.py`.
+* Optionally, add the metric's W&B display preferences to `on_fit_start`:
+
+        wandb.define_metric("val_wham", summary="min")
+        # Or "max" as appropriate.
 """
 
 import torch

@@ -8,6 +8,7 @@ import lightning
 import torch
 from lightning.pytorch import cli
 from torch import nn, optim
+import wandb
 
 from .. import data, defaults, metrics, special
 from . import modules
@@ -294,6 +295,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         if torch.are_deterministic_algorithms_enabled():
             logging.info("(Only) warning about non-deterministic algorithms")
             torch.use_deterministic_algorithms(True, warn_only=True)
+        # Informs W&B how I want key metrics summarized.
+        if wandb.run is not None:
+            wandb.define_metric("train_loss", summary="min")
+            wandb.define_metric("val_accuracy", summary="max")
+            wandb.define_metric("val_loss", summary="min")
+            wandb.define_metric("val_ser", summary="min")
 
     def predict_step(
         self,
