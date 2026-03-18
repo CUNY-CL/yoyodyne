@@ -289,7 +289,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             )
         return predictions, target
 
-    def on_fit_start(self):
+    def on_fit_start(self) -> None:
         # Rather than crashing, we simply warn about lack of deterministic
         # algorithms.
         if torch.are_deterministic_algorithms_enabled():
