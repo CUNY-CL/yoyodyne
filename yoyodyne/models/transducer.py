@@ -641,14 +641,15 @@ class TransducerRNNModel(base.BaseModel):
 
     def validation_step(self, batch: data.Batch, batch_idx: int) -> None:
         predictions, loss = self(batch)
-        self.log(
-            "val_loss",
-            loss,
-            batch_size=len(batch),
-            logger=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
+        if not self.trainer.sanity_checking:
+            self.log(
+                "val_loss",
+                loss,
+                batch_size=len(batch),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
         # This needs to conform to target size for evaluation.
         length = batch.target.tensor.size(1)
         self._update_metrics(

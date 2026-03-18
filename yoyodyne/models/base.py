@@ -8,6 +8,7 @@ import lightning
 import torch
 from lightning.pytorch import cli
 from torch import nn, optim
+import wandb
 
 from .. import data, defaults, metrics, special
 from . import modules
@@ -288,12 +289,18 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             )
         return predictions, target
 
-    def on_fit_start(self):
+    def on_fit_start(self) -> None:
         # Rather than crashing, we simply warn about lack of deterministic
         # algorithms.
         if torch.are_deterministic_algorithms_enabled():
             logging.info("(Only) warning about non-deterministic algorithms")
             torch.use_deterministic_algorithms(True, warn_only=True)
+        # Informs W&B how I want key metrics summarized.
+        if wandb.run is not None:
+            wandb.define_metric("train_loss", summary="min")
+            wandb.define_metric("val_accuracy", summary="max")
+            wandb.define_metric("val_loss", summary="min")
+            wandb.define_metric("val_ser", summary="min")
 
     def predict_step(
         self,
@@ -387,18 +394,20 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         predictions = self(batch)
         predictions, target = self._align(predictions, batch.target.tensor)
         loss = self.loss_func(predictions, target)
-        self.log(
-            "val_loss",
-            loss,
-            batch_size=len(batch),
-            logger=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
+        if not self.trainer.sanity_checking:
+            self.log(
+                "val_loss",
+                loss,
+                batch_size=len(batch),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
         self._update_metrics(predictions, target)
 
     def on_validation_epoch_end(self) -> None:
-        self._log_metrics_on_epoch_end("val")
+        if not self.trainer.sanity_checking:
+            self._log_metrics_on_epoch_end("val")
 
     # Helpers to make it run.
 

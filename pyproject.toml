@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yoyodyne"
-version = "0.5.11"
+version = "0.5.12"
 description = "Small-vocabulary neural sequence-to-sequence models"
 license = "Apache-2.0"
 readme = "README.md"
