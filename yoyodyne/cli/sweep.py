@@ -56,6 +56,7 @@ def populate_config(
     """
     with wandb.init() as run:
         # Informs W&B how I want these metrics summarized.
+        # TODO: if subsequent metrics are added, we need to add them here too.
         wandb.define_metric("train_loss", summary="min")
         wandb.define_metric("val_accuracy", summary="max")
         wandb.define_metric("val_loss", summary="min")

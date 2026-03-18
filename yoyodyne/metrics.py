@@ -39,6 +39,9 @@ Suppose one wants to add a metric called Wham. Then one must:
                 on_epoch=True,
                 prog_bar=True,
             )
+
+* Optionally, add the metric's W&B display preferences in the
+  `populate_metrics` method of `cli/sweep.py`.
 """
 
 import torch

@@ -390,12 +390,12 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         if not self.trainer.sanity_checking:
             self.log(
                 "val_loss",
-            loss,
-            batch_size=len(batch),
-            logger=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
+                loss,
+                batch_size=len(batch),
+                logger=True,
+                on_epoch=True,
+                prog_bar=True,
+            )
         self._update_metrics(predictions, target)
 
     def on_validation_epoch_end(self) -> None:
