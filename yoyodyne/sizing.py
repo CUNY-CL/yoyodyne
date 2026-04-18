@@ -2,7 +2,6 @@
 
 import logging
 import math
-from typing import Tuple
 
 import lightning
 from lightning.pytorch.tuner import tuning
@@ -16,7 +15,7 @@ class Error(Exception):
 
 def _optimal_batch_size(
     desired_batch_size: int, max_batch_size: int
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     r"""Computes optimal batch size and number of gradient accumulation steps.
 
     Given the desired batch size $b$ and a max batch size $n_{\textrm{max}}$,

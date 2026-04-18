@@ -6,7 +6,6 @@ concrete decoder modules.
 """
 
 import abc
-from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -68,7 +67,7 @@ class RNNModel(base.BaseModel):
         self,
         context: torch.Tensor,
         mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
         Decoding halts once all sequences in a batch have reached END. It is
@@ -122,7 +121,7 @@ class RNNModel(base.BaseModel):
         context: torch.Tensor,
         mask: torch.Tensor,
         state: modules.RNNState,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Single step of the decoder.
 
         Args:
@@ -148,7 +147,7 @@ class RNNModel(base.BaseModel):
     def forward(
         self,
         batch: data.Batch,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
         Args:
@@ -218,7 +217,7 @@ class RNNModel(base.BaseModel):
         self,
         context: torch.Tensor,
         mask: torch.Tensor,
-        target: Optional[torch.Tensor] = None,
+        target: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Decodes greedily during training and validation.
 

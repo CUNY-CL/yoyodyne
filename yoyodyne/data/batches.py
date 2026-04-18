@@ -6,8 +6,6 @@ Trainer to move them to the appropriate device."""
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 import torch
 from torch import nn
 
@@ -31,7 +29,7 @@ class PaddedTensor(nn.Module):
 
     def __init__(
         self,
-        tensorlist: List[torch.Tensor],
+        tensorlist: list[torch.Tensor],
     ):
         super().__init__()
         pad_len = max(len(tensor) for tensor in tensorlist)
@@ -97,8 +95,8 @@ class Batch(nn.Module):
     """
 
     source: PaddedTensor
-    features: Optional[PaddedTensor]
-    target: Optional[PaddedTensor]
+    features: PaddedTensor | None
+    target: PaddedTensor | None
 
     def __init__(self, source, features=None, target=None):
         super().__init__()

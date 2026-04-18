@@ -8,7 +8,6 @@ import difflib
 import os
 import re
 import tempfile
-from typing import Dict, Optional, Tuple
 
 import pytest
 
@@ -89,8 +88,8 @@ INFLECTION_ARCH = [
 SEED = 49
 
 # Session-scoped state for checkpoint caching. Keyed by (data, arch).
-_checkpoints: Dict[Tuple[str, str], str] = {}
-_session_tempdir: Optional[tempfile.TemporaryDirectory] = None
+_checkpoints: dict[tuple[str, str], str] = {}
+_session_tempdir: tempfile.TemporaryDirectory | None = None
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -1,7 +1,7 @@
 """Data modules."""
 
 import logging
-from typing import Iterable, Optional, Set
+from typing import Iterable
 
 import lightning
 from torch.utils import data
@@ -48,10 +48,10 @@ class DataModule(lightning.LightningDataModule):
             exceeds this limit.
     """
 
-    train: Optional[str]
-    val: Optional[str]
-    predict: Optional[str]
-    test: Optional[str]
+    train: str | None
+    val: str | None
+    predict: str | None
+    test: str | None
     parser: tsv.TsvParser
     batch_size: int
     index: indexes.Index
@@ -62,10 +62,10 @@ class DataModule(lightning.LightningDataModule):
         # Paths.
         *,
         model_dir: str,
-        train: Optional[str] = None,
-        val: Optional[str] = None,
-        predict: Optional[str] = None,
-        test: Optional[str] = None,
+        train: str | None = None,
+        val: str | None = None,
+        predict: str | None = None,
+        test: str | None = None,
         # TSV parsing arguments.
         source_col: int = defaults.SOURCE_COL,
         features_col: int = defaults.FEATURES_COL,
@@ -115,9 +115,9 @@ class DataModule(lightning.LightningDataModule):
 
     def _make_index(self, tie_embeddings: bool) -> indexes.Index:
         """Creates the index from a training set."""
-        source_vocabulary: Set[str] = set()
-        features_vocabulary: Set[str] = set()
-        target_vocabulary: Set[str] = set()
+        source_vocabulary: set[str] = set()
+        features_vocabulary: set[str] = set()
+        target_vocabulary: set[str] = set()
         if self.has_features:
             if self.has_target:
                 for source, features, target in self.parser.samples(

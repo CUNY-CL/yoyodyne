@@ -13,7 +13,6 @@ and WrappedLSTMDecoder are similar wrappers for decoder modules.
 from __future__ import annotations
 
 import abc
-from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -60,7 +59,7 @@ class RNNState(nn.Module):
     """Represents the state of an RNN."""
 
     hidden: torch.Tensor
-    cell: Optional[torch.Tensor]  # LSTMs only.
+    cell: torch.Tensor | None  # LSTMs only.
 
     def __init__(self, hidden, cell=None):
         super().__init__()
@@ -211,7 +210,7 @@ class WrappedGRUDecoder(nn.GRU):
 
     def forward(
         self, symbol: torch.Tensor, state: RNNState
-    ) -> Tuple[torch.Tensor, RNNState]:
+    ) -> tuple[torch.Tensor, RNNState]:
         decoded, hidden = super().forward(symbol, state.hidden)
         return decoded, RNNState(hidden)
 
@@ -221,7 +220,7 @@ class WrappedLSTMDecoder(nn.LSTM):
 
     def forward(
         self, symbol: torch.Tensor, state: RNNState
-    ) -> Tuple[torch.Tensor, RNNState]:
+    ) -> tuple[torch.Tensor, RNNState]:
         assert state.cell is not None, "expected cell state"
         decoded, (hidden, cell) = super().forward(
             symbol, (state.hidden, state.cell)
@@ -261,7 +260,7 @@ class RNNDecoder(RNNModule):
         context: torch.Tensor,
         mask: torch.Tensor,
         state: RNNState,
-    ) -> Tuple[torch.Tensor, RNNState]:
+    ) -> tuple[torch.Tensor, RNNState]:
         """Single decode pass.
 
         Args:
@@ -392,7 +391,7 @@ class SoftAttentionRNNDecoder(RNNDecoder):
         context: torch.Tensor,
         mask: torch.Tensor,
         state: RNNState,
-    ) -> Tuple[torch.Tensor, RNNState]:
+    ) -> tuple[torch.Tensor, RNNState]:
         """Single decode pass.
 
         Args:

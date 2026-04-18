@@ -1,7 +1,5 @@
 """Transformer model classes."""
 
-from typing import Optional, Tuple
-
 import torch
 from torch import nn
 
@@ -38,9 +36,9 @@ class TransformerModel(base.BaseModel):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
-        decoder_positional_encoding: Optional[
-            modules.BasePositionalEncoding
-        ] = None,
+        decoder_positional_encoding: (
+            modules.BasePositionalEncoding | None
+        ) = None,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
@@ -80,7 +78,7 @@ class TransformerModel(base.BaseModel):
         self,
         encoded: torch.Tensor,
         mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
         Decoding halts once all sequences in the beam have reached END. It is
@@ -365,7 +363,7 @@ class CausalTransformerModel(base.BaseModel):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
-        positional_encoding: Optional[modules.BasePositionalEncoding] = None,
+        positional_encoding: modules.BasePositionalEncoding | None = None,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
@@ -406,7 +404,7 @@ class CausalTransformerModel(base.BaseModel):
     def beam_decode(
         self,
         prefix: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
         Decoding halts once all sequences in the beam have reached END. It is

@@ -1,7 +1,5 @@
 """Pointer-generator RNN model classes."""
 
-from typing import Optional, Tuple, Union
-
 import torch
 from torch import nn
 
@@ -92,8 +90,8 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Decodes with beam search.
 
@@ -158,9 +156,9 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         symbol: torch.Tensor,
         state: modules.RNNState,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Single decoder step.
 
         This predicts a distribution for one symbol.
@@ -238,7 +236,7 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
     def forward(
         self,
         batch: data.Batch,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
         Args:
@@ -330,9 +328,9 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         *,
-        target: Optional[torch.Tensor] = None,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
+        target: torch.Tensor | None = None,
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Decodes greedily during training and validation.
 
@@ -394,8 +392,8 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Decodes greedily during prediction and testing.
 

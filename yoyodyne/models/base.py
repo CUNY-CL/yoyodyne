@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable
 
 import lightning
 import torch
@@ -85,8 +85,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     max_features_length: int
     max_target_length: int
 
-    source_encoder: Optional[modules.BaseEncoder]
-    features_encoder: Optional[modules.BaseEncoder]
+    source_encoder: modules.BaseEncoder | None
+    features_encoder: modules.BaseEncoder | None
     decoder: modules.BaseModule
     embedding: nn.Embedding
 
@@ -94,9 +94,9 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     scheduler: optim.lr_scheduler.LRScheduler
 
     beam_width: int
-    accuracy: Optional[metrics.Accuracy]
-    ser: Optional[metrics.SER]
-    loss_func: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]
+    accuracy: metrics.Accuracy | None
+    ser: metrics.SER | None
+    loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None
 
     def __init__(
         self,
@@ -108,14 +108,14 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         decoder_layers: int = defaults.LAYERS,
         decoder_dropout: float = defaults.DROPOUT,
         embedding_size: int = defaults.EMBEDDING_SIZE,
-        features_encoder: Union[modules.BaseEncoder, bool] = False,
+        features_encoder: modules.BaseEncoder | bool = False,
         label_smoothing: float = defaults.LABEL_SMOOTHING,
         max_source_length: int = defaults.MAX_LENGTH,
         max_features_length: int = defaults.MAX_LENGTH,
         max_target_length: int = defaults.MAX_LENGTH,
         optimizer: cli.OptimizerCallable = defaults.OPTIMIZER,
         scheduler: cli.LRSchedulerCallable = defaults.SCHEDULER,
-        source_encoder: Optional[modules.BaseEncoder] = None,
+        source_encoder: modules.BaseEncoder | None = None,
         target_vocab_size: int = -1,  # Dummy value filled in via link.
         vocab_size: int = -1,  # Dummy value filled in via link.
         **kwargs,  # Ignored here.
@@ -182,7 +182,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     def _get_loss_func(
         self,
-    ) -> Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None:
         """Returns the actual function used to compute loss.
 
         This is overridden by certain classes which compute loss as a side
@@ -254,7 +254,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     def _align(
         self, predictions: torch.Tensor, target: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Pads predictions and target tensors along sequence dimension.
 
         This is useful for methods (e.g., student forcing training, or
@@ -306,7 +306,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self,
         batch: data.Batch,
         batch_idx: int,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Runs one predict step.
 
         If beam_width > 1 this invokes the forward method directly and returns

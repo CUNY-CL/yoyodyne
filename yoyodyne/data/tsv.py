@@ -5,7 +5,7 @@ separators."""
 
 import csv
 import dataclasses
-from typing import Iterator, List, Tuple, Union
+from typing import Iterator
 
 from .. import defaults
 
@@ -14,11 +14,11 @@ class Error(Exception):
     pass
 
 
-SampleType = Union[
-    List[str],
-    Tuple[List[str], List[str]],
-    Tuple[List[str], List[str], List[str]],
-]
+SampleType = (
+    list[str]
+    | tuple[list[str], list[str]]
+    | tuple[list[str], list[str], list[str]]
+)
 
 
 @dataclasses.dataclass
@@ -78,7 +78,7 @@ class TsvParser:
             for row in csv.reader(source, delimiter="\t"):
                 yield self._row_to_sample(row)
 
-    def _row_to_sample(self, row: List[str]) -> SampleType:
+    def _row_to_sample(self, row: list[str]) -> SampleType:
         """Internal helper to convert a split row into a SampleType."""
         source = self.source_symbols(self._get_string(row, self.source_col))  #
         if self.has_features:
@@ -99,7 +99,7 @@ class TsvParser:
         return source
 
     @staticmethod
-    def _get_string(row: List[str], col: int) -> str:
+    def _get_string(row: list[str], col: int) -> str:
         """Returns a string from a row by index.
 
         Args:
@@ -121,36 +121,36 @@ class TsvParser:
     # String parsing methods.
 
     @staticmethod
-    def _get_symbols(string: str, sep: str) -> List[str]:
+    def _get_symbols(string: str, sep: str) -> list[str]:
         return list(string) if not sep else string.split(sep)
 
-    def source_symbols(self, string: str) -> List[str]:
+    def source_symbols(self, string: str) -> list[str]:
         symbols = self._get_symbols(string, self.source_sep)
         # If not tied, then we distinguish the source vocab with {...}.
         if not self.tie_embeddings:
             return [f"{{{symbol}}}" for symbol in symbols]
         return symbols
 
-    def features_symbols(self, string: str) -> List[str]:
+    def features_symbols(self, string: str) -> list[str]:
         # We deliberately obfuscate these to avoid overlap with source.
         return [
             f"[{symbol}]"
             for symbol in self._get_symbols(string, self.features_sep)
         ]
 
-    def target_symbols(self, string: str) -> List[str]:
+    def target_symbols(self, string: str) -> list[str]:
         return self._get_symbols(string, self.target_sep)
 
     # Deserialization methods.
 
-    def source_string(self, symbols: List[str]) -> str:
+    def source_string(self, symbols: list[str]) -> str:
         return self.source_sep.join(symbols)
 
-    def features_string(self, symbols: List[str]) -> str:
+    def features_string(self, symbols: list[str]) -> str:
         return self.features_sep.join(
             # This indexing strips off the obfuscation.
             [symbol[1:-1] for symbol in symbols],
         )
 
-    def target_string(self, symbols: List[str]) -> str:
+    def target_string(self, symbols: list[str]) -> str:
         return self.target_sep.join(symbols)

@@ -8,7 +8,7 @@ dictionary. This class stores valid edit actions for given dataset."""
 
 import dataclasses
 import math
-from typing import Any, Dict, Iterable, List, Sequence, Set
+from typing import Any, Iterable, Sequence
 
 import numpy
 from maxwell import actions, sed
@@ -33,16 +33,16 @@ class ActionVocabulary:
     """Manages encoding of action vocabulary for transducer training."""
 
     # TODO: Port more of the logic to the dataset class.
-    i2w: List[actions.Edit]
-    w2i: Dict[actions.Edit, int]
+    i2w: list[actions.Edit]
+    w2i: dict[actions.Edit, int]
     beg_idx: int
     end_idx: int
     del_idx: int
     copy_idx: int
     start_vocab_idx: int
-    target_characters: Set[Any]
-    insertions: List[int]
-    substitutions: List[int]
+    target_characters: set[Any]
+    insertions: list[int]
+    substitutions: list[int]
 
     def __init__(self, index: data.indexes.Index):
         self.target_characters = set()
@@ -169,7 +169,7 @@ class Prefix:
 class ActionPrefix:
     """Class for wrapping possible actions associated with given prefix."""
 
-    action: Set[actions.Edit]
+    action: set[actions.Edit]
     prefix: Prefix
 
 
@@ -252,7 +252,7 @@ class Expert:
         source: Sequence[Any],
         alignment: int,
         prefixes: Iterable[Prefix],
-    ) -> List[ActionPrefix]:
+    ) -> list[ActionPrefix]:
         """Provides edit actions for source symbol and prefix.
 
         Args:
@@ -321,7 +321,7 @@ class Expert:
         target: Sequence[Any],
         alignment: int,
         action_prefixes: Iterable[ActionPrefix],
-    ) -> Dict[actions.Edit, float]:
+    ) -> dict[actions.Edit, float]:
         """Scores potential actions by a predicted 'cost to go' for target.
 
         Score sums potential edit sequence with cost of action.
@@ -370,7 +370,7 @@ class Expert:
         alignment: int,
         prediction: Sequence[Any],
         max_action_seq_len: int = 150,
-    ) -> Dict[actions.Edit, float]:
+    ) -> dict[actions.Edit, float]:
         """Provides potential actions given source, target, and prediction.
 
         Args:
@@ -398,7 +398,7 @@ class Expert:
     @staticmethod
     def find_prefixes(
         prediction: Sequence[Any], target: Sequence[Any]
-    ) -> List[Prefix]:
+    ) -> list[Prefix]:
         """Creates prefix objects for prediction and target.
 
         Args:

@@ -1,7 +1,5 @@
 """Basic attention module classes."""
 
-from typing import Tuple
-
 import torch
 from torch import nn
 
@@ -45,7 +43,7 @@ class Attention(nn.Module):
         encoded: torch.Tensor,
         hidden: torch.Tensor,
         mask: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Computes the attention distribution.
 
         This computes attention for the encoder outputs w.r.t. the previous

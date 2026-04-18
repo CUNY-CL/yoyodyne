@@ -3,7 +3,6 @@
 import abc
 import collections
 import math
-from typing import Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -30,8 +29,8 @@ class AttentionOutput(collections.UserList):
     def __call__(
         self,
         module: nn.Module,
-        module_in: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        module_out: Tuple[torch.Tensor, torch.Tensor],
+        module_in: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        module_out: tuple[torch.Tensor, torch.Tensor],
     ) -> None:
         """Stores the second return argument of `module`.
 
@@ -72,8 +71,8 @@ class TransformerModule(base.BaseModule):
     esq: float
     hidden_size: int
     layers: int
-    module: Union[nn.TransformerEncoder, nn.TransformerDecoder]
-    positional_encoding: Optional[position.BasePositionalEncoding]
+    module: nn.TransformerEncoder | nn.TransformerDecoder
+    positional_encoding: position.BasePositionalEncoding | None
 
     def __init__(
         self,
@@ -81,8 +80,8 @@ class TransformerModule(base.BaseModule):
         attention_heads: int = defaults.ATTENTION_HEADS,
         hidden_size: int = defaults.HIDDEN_SIZE,
         layers: int = defaults.LAYERS,
-        max_length: Optional[int] = None,
-        positional_encoding: Optional[position.BasePositionalEncoding] = None,
+        max_length: int | None = None,
+        positional_encoding: position.BasePositionalEncoding | None = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -404,7 +403,7 @@ class WrappedTransformerDecoder(nn.TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
+        target_mask: torch.Tensor | None,
         causal_mask: torch.Tensor,
     ) -> torch.Tensor:
         return super().forward(
@@ -447,9 +446,9 @@ class TransformerDecoder(TransformerModule):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
+        target_mask: torch.Tensor | None,
         embeddings: nn.Embedding,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Performs single pass of decoder module.
 
         Args:
@@ -587,12 +586,12 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
+        target_mask: torch.Tensor | None,
         embeddings: nn.Embedding,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Performs single pass of decoder module.
 
         Args:
@@ -698,7 +697,7 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
+        target_mask: torch.Tensor | None,
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
         causal_mask: torch.Tensor,

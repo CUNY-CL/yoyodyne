@@ -8,7 +8,7 @@ import sys
 import tempfile
 import traceback
 import warnings
-from typing import Any, Dict, List
+from typing import Any
 
 import wandb
 import yaml
@@ -19,8 +19,8 @@ warnings.filterwarnings("ignore", ".*is a wandb run already in progress.*")
 
 
 def train_sweep(
-    config: Dict[str, Any],
-    argv_template: List[str],
+    config: dict[str, Any],
+    argv_template: list[str],
 ) -> None:
     """Runs a single training run.
 
@@ -43,7 +43,7 @@ def train_sweep(
 
 
 def populate_config(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     temp_config_handle,
 ) -> None:
     """Populates temporary configuration file.
@@ -61,7 +61,7 @@ def populate_config(
     temp_config_handle.flush()
 
 
-def run_sweep(argv: List[str]) -> None:
+def run_sweep(argv: list[str]) -> None:
     """Actually runs the sweep.
 
     Args:
