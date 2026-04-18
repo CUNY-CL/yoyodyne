@@ -4,8 +4,6 @@ Hard attention models use unadulterated RNN encoders, but extend RNN decoders.
 There are separate decoders for zeroth-order (HardAttentionRNNDecoder) and
 first-order (ContextHardAttentionRNNDecoder) decoders."""
 
-from typing import Tuple
-
 import torch
 from torch import nn
 
@@ -46,7 +44,7 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         symbol: torch.Tensor,
         state: rnn.RNNState,
         embeddings: nn.Embedding,
-    ) -> Tuple[torch.Tensor, torch.Tensor, rnn.RNNState]:
+    ) -> tuple[torch.Tensor, torch.Tensor, rnn.RNNState]:
         """Single decode pass.
 
         Args:

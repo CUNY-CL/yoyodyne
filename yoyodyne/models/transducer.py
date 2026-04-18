@@ -1,7 +1,7 @@
 """Transducer model classes."""
 
 import abc
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable
 
 import torch
 from maxwell import actions, sed
@@ -51,7 +51,7 @@ class TransducerRNNModel(base.BaseModel):
         self,
         sed_path: str,
         *args,
-        index: Optional[data.Index] = None,  # Dummy value filled in via link.
+        index: data.Index | None = None,  # Dummy value filled in via link.
         oracle_factor: int = defaults.ORACLE_FACTOR,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
@@ -90,7 +90,7 @@ class TransducerRNNModel(base.BaseModel):
 
     def _get_loss_func(
         self,
-    ) -> Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]]:
+    ) -> Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None:
         # Prevents base model from constructing a loss function we don't need;
         # the transducer computes loss as it goes.
         return None
@@ -108,7 +108,7 @@ class TransducerRNNModel(base.BaseModel):
     def forward(
         self,
         batch: data.Batch,
-    ) -> Tuple[List[List[int]], torch.Tensor]:
+    ) -> tuple[list[list[int]], torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -163,9 +163,9 @@ class TransducerRNNModel(base.BaseModel):
         source: torch.Tensor,
         encoded: torch.Tensor,
         source_mask: torch.Tensor,
-        target: Optional[torch.Tensor] = None,
-        target_mask: Optional[torch.Tensor] = None,
-    ) -> Tuple[List[List[int]], torch.Tensor]:
+        target: torch.Tensor | None = None,
+        target_mask: torch.Tensor | None = None,
+    ) -> tuple[list[list[int]], torch.Tensor]:
         """Decodes a sequence given the encoded input.
 
         Prediction is performed as a side effect of training, so we also
@@ -195,7 +195,7 @@ class TransducerRNNModel(base.BaseModel):
             (batch_size,), self.actions.beg_idx, device=self.device
         )
         loss = torch.zeros(batch_size, device=self.device)
-        prediction: List[List[int]] = [[] for _ in range(batch_size)]
+        prediction: list[list[int]] = [[] for _ in range(batch_size)]
         state = self.decoder.initial_state(batch_size)
         context = self.decoder.get_context(source, encoded)
         # Converting encodings for prediction.
@@ -270,12 +270,12 @@ class TransducerRNNModel(base.BaseModel):
 
     def _batch_expert_rollout(
         self,
-        source: List[List[int]],
-        target: List[List[int]],
+        source: list[list[int]],
+        target: list[list[int]],
         alignment: torch.Tensor,
-        prediction: List[List[int]],
+        prediction: list[list[int]],
         nonfinal: torch.Tensor,
-    ) -> List[List[int]]:
+    ) -> list[list[int]]:
         """Performs expert rollout over batch.
 
         Args:
@@ -305,11 +305,11 @@ class TransducerRNNModel(base.BaseModel):
 
     def _expert_rollout(
         self,
-        source: List[int],
-        target: List[int],
+        source: list[int],
+        target: list[int],
         alignment: int,
-        prediction: List[int],
-    ) -> List[int]:
+        prediction: list[int],
+    ) -> list[int]:
         """Rolls out with optimal expert policy.
 
         Args:
@@ -344,7 +344,7 @@ class TransducerRNNModel(base.BaseModel):
         alignment: torch.Tensor,
         lengths: torch.Tensor,
         nonfinal: torch.Tensor,
-        optim_actions: Optional[List[List[int]]] = None,
+        optim_actions: list[list[int]] | None = None,
     ) -> torch.Tensor:
         """Decodes logits to find edit action.
 
@@ -380,7 +380,7 @@ class TransducerRNNModel(base.BaseModel):
         logits = self._action_probability_mask(logits, valid_actions)
         return self._choose_action(logits, nonfinal_list, optim_actions)
 
-    def _compute_valid_actions(self, end_of_input: bool) -> List[int]:
+    def _compute_valid_actions(self, end_of_input: bool) -> list[int]:
         """Gives all possible actions for remaining length of edits.
 
         Args:
@@ -398,7 +398,7 @@ class TransducerRNNModel(base.BaseModel):
         return valid_actions
 
     def _action_probability_mask(
-        self, logits: torch.Tensor, valid_actions: List[List[int]]
+        self, logits: torch.Tensor, valid_actions: list[list[int]]
     ) -> torch.Tensor:
         """Masks non-valid actions in logits.
 
@@ -423,8 +423,8 @@ class TransducerRNNModel(base.BaseModel):
     def _choose_action(
         self,
         logits: torch.Tensor,
-        nonfinal: List[bool],
-        optim_actions: Optional[List[List[int]]] = None,
+        nonfinal: list[bool],
+        optim_actions: list[list[int]] | None = None,
     ) -> torch.Tensor:
         """Chooses transducer action from log-probability distribution.
 
@@ -480,8 +480,8 @@ class TransducerRNNModel(base.BaseModel):
     # TODO: Merge action classes in Maxwell to remove the need for this method.
     @staticmethod
     def _remap_actions(
-        action_scores: Dict[actions.Edit, float],
-    ) -> Dict[actions.Edit, float]:
+        action_scores: dict[actions.Edit, float],
+    ) -> dict[actions.Edit, float]:
         """Maps generative oracle edits to their conditional counterparts.
 
         The Maxwell expert emits generative edit actions while the transducer
@@ -496,7 +496,7 @@ class TransducerRNNModel(base.BaseModel):
             Dict[actions.Edit, float]: edit action-weight pairs using
                 conditional edit types.
         """
-        remapped: Dict[actions.Edit, float] = {}
+        remapped: dict[actions.Edit, float] = {}
         for action, score in action_scores.items():
             if isinstance(action, actions.GenerativeEdit):
                 remapped[action.conditional_counterpart()] = score
@@ -512,9 +512,9 @@ class TransducerRNNModel(base.BaseModel):
     def _update_prediction(
         self,
         action: torch.Tensor,
-        source: List[List[int]],
+        source: list[list[int]],
         alignment: torch.Tensor,
-        prediction: List[List[int]],
+        prediction: list[list[int]],
     ) -> torch.Tensor:
         """Batch updates prediction and alignment information from actions.
 
@@ -559,7 +559,7 @@ class TransducerRNNModel(base.BaseModel):
     @staticmethod
     def _log_sum_softmax_loss(
         logits: torch.Tensor,
-        optimal_actions: List[List[int]],
+        optimal_actions: list[list[int]],
     ) -> torch.Tensor:
         """Computes per-item negative marginal log-likelihood loss.
 
@@ -658,7 +658,7 @@ class TransducerRNNModel(base.BaseModel):
         )
 
     def _convert_predictions(
-        self, predictions: List[List[int]], length: int
+        self, predictions: list[list[int]], length: int
     ) -> torch.Tensor:
         """Converts a batch of predictions to the proper form.
 
@@ -682,7 +682,7 @@ class TransducerRNNModel(base.BaseModel):
         )
 
     def _resize_prediction(
-        self, prediction: List[int], length: int
+        self, prediction: list[int], length: int
     ) -> torch.Tensor:
         """Resizes the prediction and converts to tensor.
 

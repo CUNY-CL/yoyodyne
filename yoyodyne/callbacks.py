@@ -2,7 +2,7 @@
 
 import csv
 import itertools
-from typing import Optional, Sequence, TextIO, Tuple, Union
+from typing import Sequence, TextIO
 
 import lightning
 import torch
@@ -19,7 +19,7 @@ class PredictionWriter(callbacks.BasePredictionWriter):
     """
 
     path: str
-    sink: Optional[TextIO]
+    sink: TextIO | None
 
     # path is given a default argument to silence a warning if no prediction
     # callback is configured.
@@ -51,7 +51,7 @@ class PredictionWriter(callbacks.BasePredictionWriter):
         self,
         trainer: trainer.Trainer,
         model: models.BaseModel,
-        predictions: Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor],
+        predictions: tuple[torch.Tensor, torch.Tensor] | torch.Tensor,
         batch_indices: Sequence[int] | None,
         batch: data.Batch,
         batch_idx: int,

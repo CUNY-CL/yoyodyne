@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import Any, Dict
+from typing import Any
 
 import torch
 import yaml
@@ -66,7 +66,7 @@ def pad_tensor_after_end(
     return predictions
 
 
-def load_config(path: str) -> Dict[str, Any]:
+def load_config(path: str) -> dict[str, Any]:
     """Loads a YAML config file, parsing the LINKS field separately.
 
     Args:
@@ -79,7 +79,7 @@ def load_config(path: str) -> Dict[str, Any]:
         return yaml.safe_load(source)
 
 
-def recursive_insert(config: Dict[str, Any], key: str, value) -> None:
+def recursive_insert(config: dict[str, Any], key: str, value) -> None:
     """Recursively inserts values into a nested dictionary.
 
     Args:

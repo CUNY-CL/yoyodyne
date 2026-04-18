@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import pickle
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Iterable
 
 import yaml
 from torch import serialization
@@ -26,19 +26,19 @@ class Index:
         tie_embeddings (bool).
     """
 
-    source_vocabulary: List[str]
-    features_vocabulary: Optional[List[str]]
-    target_vocabulary: List[str]
+    source_vocabulary: list[str]
+    features_vocabulary: list[str] | None
+    target_vocabulary: list[str]
     tie_embeddings: bool
-    _index2symbol: List[str]
-    _symbol2index: Dict[str, int]
+    _index2symbol: list[str]
+    _symbol2index: dict[str, int]
 
     def __init__(
         self,
         *,
         source_vocabulary: Iterable[str],
-        features_vocabulary: Optional[Iterable[str]] = None,
-        target_vocabulary: Optional[Iterable[str]] = None,
+        features_vocabulary: Iterable[str] | None = None,
+        target_vocabulary: Iterable[str] | None = None,
         tie_embeddings: bool = defaults.TIE_EMBEDDINGS,
     ):
         super().__init__()
@@ -156,7 +156,7 @@ class Index:
             tie_embeddings=node_value.get("tie_embeddings"),
         )
 
-    def __reduce__(self) -> Tuple[Any, Tuple[Dict[str, Any]]]:
+    def __reduce__(self) -> tuple[Any, tuple[dict[str, Any]]]:
         return (
             _reconstruct_index,
             (
@@ -172,7 +172,7 @@ class Index:
     # Properties.
 
     @property
-    def symbols(self) -> List[str]:
+    def symbols(self) -> list[str]:
         return list(self._symbol2index.keys())
 
     @property
@@ -203,7 +203,7 @@ class Index:
 # This whitelists the Index for safe serialization.
 
 
-def _reconstruct_index(state: Dict[str, Any]) -> Index:
+def _reconstruct_index(state: dict[str, Any]) -> Index:
     return Index(**state)
 
 

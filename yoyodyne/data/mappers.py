@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Iterable, List
+from typing import Iterable
 
 import torch
 
@@ -85,7 +85,7 @@ class Mapper:
     def _decode(
         self,
         indices: torch.Tensor,
-    ) -> List[str]:
+    ) -> list[str]:
         """Decodes a tensor.
 
         Decoding halts at END; other special symbols are omitted.
@@ -109,17 +109,17 @@ class Mapper:
     def decode_source(
         self,
         indices: torch.Tensor,
-    ) -> List[str]:
+    ) -> list[str]:
         return self._decode(indices)
 
     def decode_features(
         self,
         indices: torch.Tensor,
-    ) -> List[str]:
+    ) -> list[str]:
         return self._decode(indices)
 
     def decode_target(
         self,
         indices: torch.Tensor,
-    ) -> List[str]:
+    ) -> list[str]:
         return self._decode(indices)

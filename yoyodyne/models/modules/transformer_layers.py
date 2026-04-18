@@ -1,7 +1,5 @@
 """Transformer layer classes."""
 
-from typing import Optional
-
 import torch
 from torch import nn
 
@@ -147,7 +145,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         target: torch.Tensor,
-        target_mask: Optional[torch.Tensor],
+        target_mask: torch.Tensor | None,
         features_encoded: torch.Tensor,
         features_mask: torch.Tensor,
         causal_mask: torch.Tensor,

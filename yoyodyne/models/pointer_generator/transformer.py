@@ -1,7 +1,5 @@
 """Pointer-generator transformer model classes."""
 
-from typing import Optional, Tuple
-
 import torch
 from torch import nn
 
@@ -36,9 +34,9 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         self,
         *args,
         attention_heads: int = defaults.ATTENTION_HEADS,
-        decoder_positional_encoding: Optional[
-            modules.BasePositionalEncoding
-        ] = None,
+        decoder_positional_encoding: (
+            modules.BasePositionalEncoding | None
+        ) = None,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
@@ -84,9 +82,9 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
         Decoding halts once all sequences in the beam have reached END. It is
@@ -155,8 +153,8 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         target: torch.Tensor,
         target_mask: torch.Tensor,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Single decoder step.
 
@@ -374,8 +372,8 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         source_encoded: torch.Tensor,
         source_mask: torch.Tensor,
         *,
-        features_encoded: Optional[torch.Tensor] = None,
-        features_mask: Optional[torch.Tensor] = None,
+        features_encoded: torch.Tensor | None = None,
+        features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Decodes greedily during prediction and testing.
 

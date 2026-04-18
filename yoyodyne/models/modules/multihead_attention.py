@@ -1,7 +1,6 @@
 """Multihead attention module classes."""
 
 import math
-from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -71,11 +70,11 @@ class RotaryMultiheadAttention(nn.Module):
         query: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
-        key_padding_mask: Optional[torch.Tensor] = None,
+        key_padding_mask: torch.Tensor | None = None,
         need_weights: bool = False,
-        attn_mask: Optional[torch.Tensor] = None,
+        attn_mask: torch.Tensor | None = None,
         is_causal: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Computes RoPE-augmented multi-head attention.
 
         Args:

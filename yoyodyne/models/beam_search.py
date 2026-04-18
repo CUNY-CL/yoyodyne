@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import dataclasses
 import heapq
-from typing import Iterator, List, Optional
+from typing import Iterator
 
 import torch
 from torch import nn
@@ -50,18 +50,18 @@ class Cell:
             decoders like transformers.
     """
 
-    symbols: List[int] = dataclasses.field(
+    symbols: list[int] = dataclasses.field(
         compare=False, default_factory=lambda: [special.START_IDX]
     )
     score: float = dataclasses.field(compare=True, default=0.0)
-    state: Optional[modules.RNNState] = dataclasses.field(
+    state: modules.RNNState | None = dataclasses.field(
         compare=False, default=None
     )
 
     def extensions(
         self,
         scores: torch.Tensor,
-        state: Optional[modules.RNNState] = None,
+        state: modules.RNNState | None = None,
     ) -> Iterator[Cell]:
         """Generates extension cells.
 
@@ -93,7 +93,7 @@ class Heap:
         heap (List[Cell], optional).
     """
 
-    heap: List[Cell]
+    heap: list[Cell]
 
     def __init__(self):
         self.heap = []
@@ -130,11 +130,11 @@ class Beam:
 
     beam_width: int
     # Current cells.
-    cells: List[Cell]
+    cells: list[Cell]
     # Heap of the next set of cells.
     heap: Heap
 
-    def __init__(self, beam_width, state: Optional[modules.RNNState] = None):
+    def __init__(self, beam_width, state: modules.RNNState | None = None):
         self.beam_width = beam_width
         self.cells = [Cell(state=state)]
         self.heap = Heap()

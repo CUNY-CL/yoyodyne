@@ -3,7 +3,7 @@
 import abc
 import dataclasses
 import mmap
-from typing import BinaryIO, Iterator, List, Optional
+from typing import BinaryIO, Iterator
 
 import torch
 from torch import nn
@@ -25,8 +25,8 @@ class Item(nn.Module):
     """
 
     source: torch.Tensor
-    features: Optional[torch.Tensor]
-    target: Optional[torch.Tensor]
+    features: torch.Tensor | None
+    target: torch.Tensor | None
 
     def __init__(self, source, features=None, target=None):
         super().__init__()
@@ -107,9 +107,9 @@ class MappableDataset(AbstractDataset, data.Dataset):
 
     sequential: bool = False
 
-    _offsets: List[int] = dataclasses.field(default_factory=list, init=False)
-    _mmap: Optional[mmap.mmap] = dataclasses.field(default=None, init=False)
-    _fobj: Optional[BinaryIO] = dataclasses.field(default=None, init=False)
+    _offsets: list[int] = dataclasses.field(default_factory=list, init=False)
+    _mmap: mmap.mmap | None = dataclasses.field(default=None, init=False)
+    _fobj: BinaryIO | None = dataclasses.field(default=None, init=False)
 
     def __post_init__(self):
         self._offsets = []

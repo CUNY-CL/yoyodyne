@@ -1,7 +1,6 @@
 """Hard monotonic neural HMM classes."""
 
 import abc
-from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -122,7 +121,7 @@ class HardAttentionRNNModel(base.BaseModel):
         mask: torch.Tensor,
         symbol: torch.Tensor,
         state: modules.RNNState,
-    ) -> Tuple[torch.Tensor, torch.Tensor, modules.RNNState]:
+    ) -> tuple[torch.Tensor, torch.Tensor, modules.RNNState]:
         """Single decoder step.
 
         Args:
@@ -199,7 +198,7 @@ class HardAttentionRNNModel(base.BaseModel):
         """
         return embeddings.normal_embedding(num_embeddings, embedding_size)
 
-    def forward(self, batch: data.Batch) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, batch: data.Batch) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -254,7 +253,7 @@ class HardAttentionRNNModel(base.BaseModel):
         self,
         encoded: torch.Tensor,
         mask: torch.Tensor,
-        target_length: Optional[int] = None,
+        target_length: int | None = None,
     ) -> torch.Tensor:
         """Decodes a sequence given the encoded input.
 

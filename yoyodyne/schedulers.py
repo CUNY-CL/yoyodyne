@@ -1,7 +1,6 @@
 """Custom schedulers."""
 
 import math
-from typing import List
 
 from torch import optim
 
@@ -19,7 +18,7 @@ class Dummy(optim.lr_scheduler.LRScheduler):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.optimizer})"
 
-    def get_lr(self) -> List[float]:
+    def get_lr(self) -> list[float]:
         return [group["lr"] for group in self.optimizer.param_groups]
 
 
