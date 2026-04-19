@@ -316,7 +316,6 @@ class TestYoyodyne:
                 "predict",
                 f"--ckpt_path={checkpoint_path}",
                 f"--data={data_config_path}",
-                "--data.batch_size=1",
                 f"--data.model_dir={model_dir}",
                 f"--data.predict={test_path}",
                 f"--model={model_config_path}",
