@@ -120,7 +120,6 @@ train.sed: train.tsv
 		predict \
 		--ckpt_path "$(MODEL_DIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
 		--data ../../configs/toy_data.yaml \
-		--data.batch_size 1 \
 		--data.model_dir "$(MODEL_DIR)" \
 		--data.predict test.tsv \
 		--model "../../configs/$(BASE).yaml" \
