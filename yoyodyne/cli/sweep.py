@@ -44,7 +44,7 @@ def train_sweep(
 
 def populate_config(
     config: dict[str, Any],
-    temp_config_handle,
+    temp_config_handle: tempfile.NamedTemporaryFile,
 ) -> None:
     """Populates temporary configuration file.
 

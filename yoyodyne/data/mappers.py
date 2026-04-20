@@ -35,7 +35,7 @@ class Mapper:
         """Encodes a tensor.
 
         Args:
-            ymbols (Iterable[str]).
+            symbols (Iterable[str]).
 
         Returns:
             torch.Tensor: the encoded tensor.
@@ -91,10 +91,10 @@ class Mapper:
         Decoding halts at END; other special symbols are omitted.
 
         Args:
-            indices (torch.Tensor): 1d tensor of indices.
+            indices (torch.Tensor): tensor of indices.
 
         Yields:
-            List[str]: Decoded symbols.
+            list[str]: Decoded symbols.
         """
         symbols = []
         for idx in indices:

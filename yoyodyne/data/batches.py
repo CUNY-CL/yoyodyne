@@ -21,7 +21,7 @@ class PaddedTensor(nn.Module):
     Mask and string length tensors can be generated as needed.
 
     Args:
-        tensorlist (List[torch.Tensor]): a list of tensors.
+        tensorlist (list[torch.Tensor]).
     """
 
     pad_idx: int

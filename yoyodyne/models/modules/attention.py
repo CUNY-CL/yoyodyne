@@ -57,7 +57,7 @@ class Attention(nn.Module):
             mask (torch.Tensor): encoder mask of shape B x seq_len.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: weights for the encoded states
+            tuple[torch.Tensor, torch.Tensor]: weights for the encoded states
                 and the weighted sum of encoder representations.
         """
         # Gets last hidden layer.
@@ -79,16 +79,15 @@ class Attention(nn.Module):
     def _score(
         self, encoded: torch.Tensor, hidden: torch.Tensor
     ) -> torch.Tensor:
-        """Computes the scores with concat attention.
+        """Computes the scores with attention.
 
         Args:
-            encoded (torch.Tensor): encoded timesteps from the encoder.
+            encoded (torch.Tensor).
             hidden (torch.Tensor): decoder hidden state repeated to match
                 encoder dim.
 
         Returns:
-            scores torch.Tensor: weight for each encoded representation of
-                shape B x seq_len.
+            (torch.Tensor): scores.
         """
         # -> B x seq_len x (encoder_dim + hidden_dim).
         concat = torch.cat((encoded, hidden), dim=2)

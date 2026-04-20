@@ -12,10 +12,11 @@ from . import data, defaults, models, util
 
 
 class PredictionWriter(callbacks.BasePredictionWriter):
-    """Writes predictions.
+    """Callback for writing out predictions.
 
     Args:
-        path: Path for the predictions file.
+        path (str): string path for the predictions file.
+        target_sep (str):
     """
 
     path: str

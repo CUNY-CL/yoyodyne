@@ -26,7 +26,7 @@ class RNNModule(base.BaseModule):
 
     Args:
         *args: passed to superclass.
-        hidden_size (int, optional): size of the hidden layer.
+        hidden_size (int, optional).
         layers (int, optional): number of layers.
         **kwargs: passed to superclass.
     """
@@ -239,7 +239,7 @@ class RNNDecoder(RNNModule):
 
     Args:
         *args: passed to superclass.
-        decoder_input_size (int, optional): decoder input size.
+        decoder_input_size (int, optional).
         **kwargs: passed to superclass.
     """
 
@@ -271,7 +271,7 @@ class RNNDecoder(RNNModule):
             state (RNNState).
 
         Returns:
-            Tuple[torch.Tensor, RNNState].
+            tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol, embeddings)
         decoded, state = self.module(
@@ -402,7 +402,7 @@ class SoftAttentionRNNDecoder(RNNDecoder):
             state (RNNState).
 
         Returns:
-            Tuple[torch.Tensor, RNNState].
+            tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol, embeddings)
         # Here we weigh the context using attention.

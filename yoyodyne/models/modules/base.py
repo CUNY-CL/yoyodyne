@@ -17,7 +17,7 @@ class BaseModule(abc.ABC, lightning.LightningModule):
     Args:
         *args: ignored.
         dropout (float, optional): dropout probability.
-        embedding_size (int, optional): the dimensionality of the embedding.
+        embedding_size (int, optional).
         **kwargs: ignored.
     """
 

@@ -30,7 +30,7 @@ def pad_tensor_after_end(
     rest of the batch is finishing decoding.
 
     Args:
-        predictions (torch.Tensor): prediction tensor.
+        predictions (torch.Tensor).
 
     Returns:
         torch.Tensor: finalized predictions.
@@ -79,13 +79,13 @@ def load_config(path: str) -> dict[str, Any]:
         return yaml.safe_load(source)
 
 
-def recursive_insert(config: dict[str, Any], key: str, value) -> None:
+def recursive_insert(config: dict[str, Any], key: str, value: Any) -> None:
     """Recursively inserts values into a nested dictionary.
 
     Args:
-        config: the config dictionary.
-        key: a string with the arguments separated by ".".
-        value: the value to insert.
+        config (dict[str, Any]: the config dictionary.
+        key (str): a string with the arguments separated by ".".
+        value (Any): the value to insert.
     """
     *most, last = key.split(".")
     ptr = config

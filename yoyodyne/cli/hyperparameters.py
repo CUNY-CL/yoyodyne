@@ -19,10 +19,10 @@ def dot_to_nested_dict(flat_dict: dict[str, Any]) -> dict[str, Any]:
     """Converts dot notation dictionary to nested dictionary.
 
     Args:
-        flat_dict: Dictionary with dot-separated keys.
+        flat_dict (dict[str, Any]: dictionary with dot-separated keys.
 
     Returns:
-        Nested dictionary with proper structure.
+        dict[str, Any]: nested dictionary with hierarchical structure.
     """
     nested = {}
     for key, value in flat_dict.items():

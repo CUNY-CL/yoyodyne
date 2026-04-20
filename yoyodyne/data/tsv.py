@@ -41,7 +41,7 @@ class TsvParser:
         target_sep (str, optional): string used to split target string into
             symbols; an empty string indicates that each Unicode codepoint is
             its own symbol.
-        tie_embeddings (bool, optional): Whether or not source and
+        tie_embeddings (bool, optional): whether or not source and
             target embeddings are tied. If not, then source symbols
             are wrapped in {...}.
     """
@@ -103,7 +103,7 @@ class TsvParser:
         """Returns a string from a row by index.
 
         Args:
-           row (List[str]): the split row.
+           row (list[str]): the split row.
            col (int): the column index.
         Returns:
            str: symbol from that string.

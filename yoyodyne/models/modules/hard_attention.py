@@ -48,16 +48,14 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         """Single decode pass.
 
         Args:
-            encoded (torch.Tensor): encoded source sequence of shape
-                B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask for the encoded source batch of
-                shape B x seq_len.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
             symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
-            state (RNNState): RNN state.
-            embeddings (nn.Embedding): embeddings.
+            state (RNNState).
+            embeddings (nn.Embedding).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor, RNNState]: the emission and
+            tuple[torch.Tensor, torch.Tensor, RNNState]: the emission and
                 transition tensors and RNN state.
         """
         embedded = self.embed(symbol, embeddings)
@@ -72,10 +70,9 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
         """Gets emission probabilities for current timestep.
 
         Args:
-            decoded (torch.Tensor): output from decoder for current timestep of
+            decoded (torch.Tensor).
                 shape B x 1 x decoder_dim.
-            encoded (torch.Tensor): encoded source sequence of shape
-                B x seq_len x encoder_dim.
+            encoded (torch.Tensor).
 
         Returns:
             torch.Tensor: emissions.
@@ -106,11 +103,10 @@ class HardAttentionRNNDecoder(rnn.RNNDecoder):
             1530-1537.
 
         Args:
-            decoded (torch.Tensor): output from decoder for current timesstep
+            decoded (torch.Tensor): output from decoder for current timestep
                 of shape B x 1 x decoder_dim.
-            encoded (torch.Tensor): encoded source sequence of shape
-                B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask of shape B x seq_len.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
 
         Returns:
             torch.Tensor: alignment scores across the source sequence of shape
@@ -203,10 +199,8 @@ class ContextHardAttentionRNNDecoder(HardAttentionRNNDecoder):
         Args:
             decoded (torch.Tensor): output from decoder for current timesstep
                 of shape B x 1 x decoder_dim.
-            encoded (torch.Tensor): encoded input sequence of shape
-                B x seq_len x encoder_dim.
-            mask (torch.Tensor): mask for the encoded input batch of
-                shape B x seq_len.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
 
         Returns:
             torch.Tensor: alignment scores across the source sequence of shape

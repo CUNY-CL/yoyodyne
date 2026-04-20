@@ -262,7 +262,7 @@ class Expert:
                 overlap between target and source strings. (Can be multiple.)
 
         Returns:
-            List[ActionPrefix]: edit actions and current prefix
+            list[ActionPrefix]: edit actions and current prefix
                 overlap between target and prediction associated with action.
         """
         input_not_empty = alignment < len(source)
@@ -334,7 +334,7 @@ class Expert:
                 actions-prefix pairs to evaluate.
 
         Returns:
-            Dict[Edit, float]: edit actions and their respective scores.
+            dict[Edit, float]: edit actions and their respective scores.
         """
         costs_to_go = {}
         for action_prefix in action_prefixes:
@@ -382,7 +382,7 @@ class Expert:
                 forcing End action.
 
         Returns:
-            Dict[Edit, float]: edit actions and their respective scores.
+            dict[Edit, float]: edit actions and their respective scores.
         """
         prefixes = self.find_prefixes(prediction, target)
         valid_actions = (
@@ -406,7 +406,7 @@ class Expert:
             target (Sequence[Any]): target string for edit actions.
 
         Returns:
-            List[Prefix]: prefix objects that index overlap between
+            list[Prefix]: prefix objects that index overlap between
                prediction and target with minimal edit distance.
         """
         prefix_matrix = edit_distance(prediction, target)

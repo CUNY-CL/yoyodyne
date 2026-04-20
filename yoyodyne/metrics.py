@@ -9,7 +9,7 @@ Suppose one wants to add a metric called Wham. Then one must:
 
 * Implement `Wham(torchmetrics.Metric)` in this module.
 * Add the following to the `BaseModel` in `models/base.py`:
-    - add `wham: Optional[metrics.Wham]` to the member type declarations
+    - add `wham: metrics.Wham | None` to the member type declarations
     - add `compute_wham=False` to the constructor's arguments
     - add `self.wham = metric.Wham(...) if compute_wham else None` to the
       body of the constructor

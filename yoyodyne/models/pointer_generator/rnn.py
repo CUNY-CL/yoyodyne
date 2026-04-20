@@ -8,6 +8,71 @@ from .. import beam_search, defaults, embeddings, modules
 from . import base
 
 
+def _split_state(
+    state: modules.RNNState, batch_size: int
+) -> list[modules.RNNState]:
+    """Splits a batched RNN state into a list of per-item states.
+
+    Args:
+        state (modules.RNNState): shape layers x B x hidden_size, or None.
+        batch_size (int).
+
+    Returns:
+        list[modules.RNNState]: B states each of shape
+            layers x 1 x hidden_size.
+    """
+    if state is None:
+        return [None] * batch_size
+    if isinstance(state, tuple):
+        # LSTM: (h, c) each of shape layers x B x hidden_size.
+        h, c = state
+        return [
+            (h[:, i : i + 1, :], c[:, i : i + 1, :]) for i in range(batch_size)
+        ]
+    # GRU: shape layers x B x hidden_size.
+    return [state[:, i : i + 1, :] for i in range(batch_size)]
+
+
+def _batch_states(states: list[modules.RNNState]) -> modules.RNNState:
+    """Concatenates a list of per-item states into a single batched state.
+
+    Args:
+        states (list[modules.RNNState]): B states each of shape
+            layers x 1 x hidden_size.
+
+    Returns:
+        modules.RNNState: shape layers x B x hidden_size.
+    """
+    if states[0] is None:
+        return None
+    if isinstance(states[0], tuple):
+        h = torch.cat([s[0] for s in states], dim=1)
+        c = torch.cat([s[1] for s in states], dim=1)
+        return (h, c)
+    return torch.cat(states, dim=1)
+
+
+def _split_output_states(
+    state: modules.RNNState, n: int
+) -> list[modules.RNNState]:
+    """Splits a batched output state back into per-item states.
+
+    Args:
+        state (modules.RNNState): shape layers x B x hidden_size, or None.
+        n (int): number of items B.
+
+    Returns:
+        list[modules.RNNState]: B states each of shape
+            layers x 1 x hidden_size.
+    """
+    if state is None:
+        return [None] * n
+    if isinstance(state, tuple):
+        h, c = state
+        return [(h[:, i : i + 1, :], c[:, i : i + 1, :]) for i in range(n)]
+    return [state[:, i : i + 1, :] for i in range(n)]
+
+
 class PointerGeneratorRNNModel(base.PointerGeneratorModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
@@ -93,60 +158,98 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         features_encoded: torch.Tensor | None = None,
         features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Decodes with beam search.
+        """Decodes with beam search, supporting arbitrary batch sizes.
 
-        Implementationally this is almost identical to the method of the same
-        name in RNNModel.
+        Each item in the batch gets its own independent beam of width
+        beam_width. Decoding halts once every beam across every batch item
+        has reached END, or max_target_length steps have elapsed.
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
-                weights.
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
-            features_encoded (torch.Tensor, optional): encoded feaure symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: predictions of shape
+            tuple[torch.Tensor, torch.Tensor]: predictions of shape
                 B x beam_width x seq_len and log-likelihoods of shape
                 B x beam_width.
-
-        Raises:
-            NotImplementedError: Beam search is not implemented for
-                batch_size > 1.
         """
-        # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
-        if batch_size != 1:
-            raise NotImplementedError(
-                "Beam search is not implemented for batch_size > 1"
-            )
-        state = self.decoder.initial_state(batch_size)
-        # The start symbol is not needed here because the beam puts that in
-        # automatically.
-        beam = beam_search.Beam(self.beam_width, state)
+        batched_state = self.decoder.initial_state(batch_size)
+        per_item_states = _split_state(batched_state, batch_size)
+        batched_beam = beam_search.BatchedBeam(
+            self.beam_width, batch_size, per_item_states
+        )
         for _ in range(self.max_target_length):
-            for cell in beam.cells:
-                if cell.final:
-                    beam.push(cell)
-                else:
-                    symbol = torch.tensor([[cell.symbol]], device=self.device)
-                    prediction, state = self.decode_step(
-                        source,
-                        source_encoded,
-                        source_mask,
-                        symbol,
-                        cell.state,
-                        features_encoded=features_encoded,
-                        features_mask=features_mask,
-                    )
-                    scores = prediction.squeeze()
-                    for new_cell in cell.extensions(scores, state):
-                        beam.push(new_cell)
-            beam.update()
-            if beam.final:
+            if batched_beam.final:
                 break
-        return beam.predictions(self.device), beam.scores(self.device)
+            self._beam_decode_step(
+                batched_beam,
+                source,
+                source_encoded,
+                source_mask,
+                features_encoded,
+                features_mask,
+            )
+        return (
+            batched_beam.predictions(self.device),
+            batched_beam.scores(self.device),
+        )
+
+    def _beam_decode_step(
+        self,
+        batched_beam: beam_search.BatchedBeam,
+        source: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        features_encoded: torch.Tensor | None,
+        features_mask: torch.Tensor | None,
+    ) -> None:
+        """Runs one decode step for all active cells and updates the beam.
+
+        Args:
+            batched_beam (beam_search.BatchedBeam): beam to update in place.
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
+        """
+        symbols, item_indices, states, index_map = (
+            batched_beam._collect_active(self.device)
+        )
+        if not index_map:
+            return
+        expanded_source = source[item_indices]
+        expanded_source_encoded = source_encoded[item_indices]
+        expanded_source_mask = source_mask[item_indices]
+        expanded_features_encoded = (
+            features_encoded[item_indices]
+            if features_encoded is not None
+            else None
+        )
+        expanded_features_mask = (
+            features_mask[item_indices] if features_mask is not None else None
+        )
+        # decode_step already returns log-probs:
+        # B x 1 x vocab_size -> B x vocab_size.
+        batched_cell_state = _batch_states(states)
+        log_probs, new_batched_state = self.decode_step(
+            expanded_source,
+            expanded_source_encoded,
+            expanded_source_mask,
+            symbols,
+            batched_cell_state,
+            features_encoded=expanded_features_encoded,
+            features_mask=expanded_features_mask,
+        )
+        scores = log_probs.squeeze(dim=1)
+        new_states = _split_output_states(new_batched_state, symbols.size(0))
+        batched_beam.push_final_cells()
+        batched_beam.fan_out_stateful(scores, new_states, index_map)
+        batched_beam.update()
 
     def decode_step(
         self,
@@ -158,25 +261,22 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         *,
         features_encoded: torch.Tensor | None = None,
         features_mask: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Single decoder step.
-
-        This predicts a distribution for one symbol.
+    ) -> tuple[torch.Tensor, modules.RNNState]:
+        """Single decoder step; predicts a distribution for one symbol.
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
-                weights.
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
-            symbol (torch.Tensor): next symbol.
-            state (modules.RNNState): RNN state.
-            features_encoded (torch.Tensor, optional): encoded features
-                symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source (torch.Tensor): shape B x src_len.
+            source_encoded (torch.Tensor): shape B x src_len x encoder_dim.
+            source_mask (torch.Tensor): shape B x src_len.
+            symbol (torch.Tensor): shape B x 1.
+            state (modules.RNNState).
+            features_encoded (torch.Tensor, optional):
+                shape B x feat_len x encoder_dim.
+            features_mask (torch.Tensor, optional): shape B x feat_len.
 
         Returns:
-            Tuple[torch.Tensor, modules.RNNState]: predictions for that state
-                and the RNN state.
+            tuple[torch.Tensor, modules.RNNState]: log-probs of shape
+                B x 1 x vocab_size and the updated RNN state.
         """
         # TODO: there are a few Law of Demeter violations here. Is there an
         # obvious refactoring?
@@ -225,8 +325,8 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         """Initializes the embedding layer.
 
         Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
+            num_embeddings (int).
+            embedding_size (int).
 
         Returns:
             nn.Embedding: embedding layer.
@@ -239,17 +339,16 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
     ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
+        Beam search returns a tuple with a tensor of top predictions
+        and the likelihoods (unnormalized sub of sequence log-probabilities)
+        for each prediction; greedy search just returns the tensor of the
+        one-best predictions.
+
         Args:
             batch (data.Batch).
 
         Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam search
-                returns a tuple with a tensor of predictions of shape
-                B x beam_width x seq_len and a tensor of B x shape beam_width
-                with the likelihood (the unnormalized sum of sequence
-                log-probabilities) for each prediction; greedy search returns
-                a tensor of predictions of shape
-                B x target_vocab_size x seq_len.
+            tuple[torch.Tensor, torch.Tensor] | torch.Tensor.
 
         Raises:
             base.ConfigurationError: Features encoder specified but no feature
@@ -408,10 +507,6 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             source_mask (torch.Tensor).
             features_encoded (torch.Tensor, optional).
             features_mask (torch.Tensor, optional).
-            target (torch.Tensor, optional): target symbols; if provided,
-                these are used for teacher forcing.
-            target_length (int, optional): maximum target length during
-                decoding. If not specified, max_target_length is used.
 
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.

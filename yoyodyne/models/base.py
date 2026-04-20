@@ -265,7 +265,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             target (torch.Tensor): B X L indices.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor].
+            tuple[torch.Tensor, torch.Tensor].
         """
         # Identifies which dimension represents the sequence length, and
         # returns early if they're already aligned.
@@ -319,7 +319,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             batch_idx (int).
 
         Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor].
+            euple[torch.Tensor, torch.Tensor] | torch.Tensor.
         """
         if self.beam_width > 1:
             return self(batch)

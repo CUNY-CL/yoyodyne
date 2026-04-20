@@ -87,63 +87,91 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
-        Decoding halts once all sequences in the beam have reached END. It is
-        not currently possible to combine this with loss computation or
-        teacher forcing.
-
-        The implementation assumes batch size is 1, but both inputs and outputs
-        are still assumed to have a leading dimension representing batch size.
+        Each item in the batch gets its own independent beam of width
+        beam_width. Decoding halts once every beam across every batch item
+        has reached END, or max_target_length steps have elapsed.
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
-                weights.
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
-            features_encoded (torch.Tensor, optional): encoded feature symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
-
-        Raises:
-            NotImplementedError: Beam search is not implemented for
-                batch_size > 1.
+            tuple[torch.Tensor, torch.Tensor]: predictions and the associated
+                log-likelihoods.
         """
-        # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
-        if batch_size != 1:
-            raise NotImplementedError(
-                "Beam search is not supported for batch_size > 1"
-            )
-        beam = beam_search.Beam(self.beam_width)
+        batched_beam = beam_search.BatchedBeam(
+            self.beam_width, batch_size, [None] * batch_size
+        )
         for _ in range(self.max_target_length):
-            for cell in beam.cells:
-                if cell.final:
-                    beam.push(cell)
-                else:
-                    predictions = torch.tensor(
-                        cell.symbols, device=self.device
-                    ).unsqueeze(0)
-                    log_probs = self.decode_step(
-                        source,
-                        source_encoded,
-                        source_mask,
-                        predictions,
-                        None,
-                        features_encoded=features_encoded,
-                        features_mask=features_mask,
-                    )
-                    # decode_step returns log-probs for all target positions;
-                    # we only need the last one.
-                    scores = log_probs[:, -1, :].squeeze(0)
-                    for new_cell in cell.extensions(scores):
-                        beam.push(new_cell)
-            beam.update()
-            if beam.final:
+            if batched_beam.final:
                 break
-        return beam.predictions(self.device), beam.scores(self.device)
+            self._beam_decode_step(
+                batched_beam,
+                source,
+                source_encoded,
+                source_mask,
+                features_encoded,
+                features_mask,
+            )
+        return (
+            batched_beam.predictions(self.device),
+            batched_beam.scores(self.device),
+        )
+
+    def _beam_decode_step(
+        self,
+        batched_beam: beam_search.BatchedBeam,
+        source: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        features_encoded: torch.Tensor | None,
+        features_mask: torch.Tensor | None,
+    ) -> None:
+        """Runs one decode step for all active cells and updates the beam.
+
+        Args:
+            batched_beam (beam_search.BatchedBeam).
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
+        """
+        sequences, item_indices, index_map = (
+            batched_beam.collect_active_sequences(self.device)
+        )
+        if not index_map:
+            return
+        expanded_source = source[item_indices]
+        expanded_source_encoded = source_encoded[item_indices]
+        expanded_source_mask = source_mask[item_indices]
+        expanded_features_encoded = (
+            features_encoded[item_indices]
+            if features_encoded is not None
+            else None
+        )
+        expanded_features_mask = (
+            features_mask[item_indices] if features_mask is not None else None
+        )
+        log_probs = self.decode_step(
+            expanded_source,
+            expanded_source_encoded,
+            expanded_source_mask,
+            sequences,
+            None,
+            features_encoded=expanded_features_encoded,
+            features_mask=expanded_features_mask,
+        )
+        # decode_step returns log-probs for all target positions but we only
+        # need the last position's log-probs.
+        scores = log_probs[:, :-1, :]
+        batched_beam.push_final_cells()
+        batched_beam.fan_out_stateless(scores, index_map)
+        batched_beam.update()
 
     def decode_step(
         self,
@@ -156,27 +184,22 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         features_encoded: torch.Tensor | None = None,
         features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Single decoder step.
+        """Single decoder step; returns log-probs for all target positions.
 
-        This will work on any sequence length, and returns output
-        probabilities for all targets, meaning we can use this method for
-        student forcing, in which only a single new token is decoded at a time,
-        or for teacher forcing, in which all tokens are be decoded in
-        parallel using a diagonal mask.
+        Works for both student forcing (one new token at a time) and teacher
+        forcing (all tokens in parallel with a diagonal mask).
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
-                weights.
-            source_encoded (torch.Tensor): encoded source_symbols.
-            source_mask (torch.Tensor): mask for the source.
-            target (torch.Tensor): tensor of predictions thus far.
-            target_mask (torch.Tensor): mask for the target.
-            features_encoded (torch.Tensor, optional): encoded features
-                symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            target (torch.Tensor).
+            target_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            torch.Tensor: predictions for that state.
+            torch.Tensor: log-probs.
         """
         self.decoder.attention_output.clear()
         if self.has_features_encoder:
@@ -260,7 +283,7 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
     def forward(
         self,
         batch: data.Batch,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
         Args:
@@ -383,12 +406,12 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         maximum target length is reached, whichever comes first.
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
+            source (torch.Tensor): source symbols, needed to compute pointer
                 weights.
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
-            features_encoded (torch.Tensor, optional): encoded feaure symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.

@@ -27,7 +27,7 @@ def isspecial(idx: int) -> bool:
     """Determines if a symbol is in the special range.
 
     Args:
-        idx (int):
+        idx (int).
 
     Returns:
         bool.

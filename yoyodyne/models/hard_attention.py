@@ -94,10 +94,9 @@ class HardAttentionRNNModel(base.BaseModel):
         Following Wu & Cotterell this is scaled by max sequence length.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols
-                of shape B x src_len x (encoder_hidden * num_directions).
-            mask (torch.Tensor): mask.
-            target (torch.Tensor): target symbols.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
+            target (torch.Tensor).
 
         Returns:
             torch.Tensor: loss.
@@ -132,7 +131,7 @@ class HardAttentionRNNModel(base.BaseModel):
             state (modules.RNNState): RNN state.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: emission
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]: emission
                 probabilities, transition probabilities, and the RNN state.
         """
         emissions, transitions, state = self.decoder(
@@ -190,24 +189,24 @@ class HardAttentionRNNModel(base.BaseModel):
         """Initializes the embedding layer.
 
         Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
+            num_embeddings (int).
+            embedding_size (int).
 
         Returns:
             nn.Embedding: embedding layer.
         """
         return embeddings.normal_embedding(num_embeddings, embedding_size)
 
-    def forward(self, batch: data.Batch) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, batch: data.Batch
+    ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
         Args:
             batch (data.Batch).
 
         Returns:
-            Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]: if
-                training, the loss tensor; otherwise, also returns the
-                predictions of shape B x pred_seq_len.
+            tuple[torch.Tensor, torch.Tensor] | torch.tensor.
 
         Raises:
             base.ConfigurationError: Features encoder specified but no feature
@@ -265,11 +264,9 @@ class HardAttentionRNNModel(base.BaseModel):
         This performs student forcing.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols of shape
-                B x src_len x (encoder_hidden * num_directions)
-            mask (torch.Tensor): mask.
-            target (int, optional): maximum target length for this batch.
-                decoding continues until this length is reached.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
+            target_length (int, optional): maximum target length for batch.
 
         Returns:
             torch.Tensor: predictions of shape B x pred_seq_len.
@@ -353,7 +350,7 @@ class HardAttentionRNNModel(base.BaseModel):
             symbol (torch.Tensor): target symbol(s) of shape B.
 
         Returns:
-            torch.Tensor: log-probs of that symbol for each source state,
+            torch.Tensor: log-probs of that symbol for each source state
                 of shape B x 1 x src_len.
         """
         src_len = emissions.size(1)
