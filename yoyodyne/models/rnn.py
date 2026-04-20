@@ -84,8 +84,8 @@ class RNNModel(base.BaseModel):
                 B x beam_width.
         """
         batch_size = context.size(0)
-        per_item_states = self._split_state(
-            self.decoder.initial_state(batch_size), batch_size
+        per_item_states = self.decoder.initial_state(batch_size).split(
+            batch_size
         )
         batched_beam = beam_search.BatchedBeam(
             self.beam_width, batch_size, per_item_states
@@ -98,31 +98,6 @@ class RNNModel(base.BaseModel):
             batched_beam.predictions(self.device),
             batched_beam.scores(self.device),
         )
-
-    def _split_state(
-        self, state: modules.RNNState, batch_size: int
-    ) -> list[modules.RNNState]:
-        """Splits a batched RNN state into a list of per-item states.
-
-        Args:
-            state (modules.RNNState): shape layers x B x hidden_size, or None.
-            batch_size (int).
-
-        Returns:
-            list[modules.RNNState]: B states each of shape
-                layers x 1 x hidden_size.
-        """
-        if state is None:
-            return [None] * batch_size
-        if isinstance(state, tuple):
-            # LSTM: (h, c) each of shape layers x B x hidden_size.
-            h, c = state
-            return [
-                (h[:, i : i + 1, :], c[:, i : i + 1, :])
-                for i in range(batch_size)
-            ]
-        # GRU: shape layers x B x hidden_size.
-        return [state[:, i : i + 1, :] for i in range(batch_size)]
 
     def _beam_decode_step(
         self,
@@ -140,67 +115,23 @@ class RNNModel(base.BaseModel):
             context (torch.Tensor): shape B x src_len x encoder_dim.
             mask (torch.Tensor): shape B x src_len.
         """
-        symbols, item_indices, states, index_map = (
-            batched_beam._collect_active(self.device)
+        symbols, item_indices, states, index_map = batched_beam.collect_active(
+            self.device
         )
         if not index_map:
             return
         expanded_context = context[item_indices]
         expanded_mask = mask[item_indices]
-        batched_cell_state = self._batch_states(states)
+        batched_cell_state = modules.RNNState.batch(states)
         logits, new_batched_state = self.decode_step(
             symbols, expanded_context, expanded_mask, batched_cell_state
         )
         # logits: B x 1 x vocab_size -> B x vocab_size log-probs.
         scores = nn.functional.log_softmax(logits.squeeze(dim=1), dim=1)
-        new_states = self._split_output_states(
-            new_batched_state, symbols.size(0)
-        )
-        batched_beam._push_final_cells()
+        new_states = new_batched_state.split(symbols.size(0))
+        batched_beam.push_final_cells()
         batched_beam.fan_out_stateful(scores, new_states, index_map)
         batched_beam.update()
-
-    @staticmethod
-    def _batch_states(
-        states: list[modules.RNNState],
-    ) -> modules.RNNState:
-        """Concatenates a list of per-item states into a single batched state.
-
-        Args:
-            states (list[modules.RNNState]): B states each of shape
-                layers x 1 x hidden_size.
-
-        Returns:
-            modules.RNNState: shape layers x B x hidden_size.
-        """
-        if states[0] is None:
-            return None
-        if isinstance(states[0], tuple):
-            h = torch.cat([s[0] for s in states], dim=1)
-            c = torch.cat([s[1] for s in states], dim=1)
-            return (h, c)
-        return torch.cat(states, dim=1)
-
-    @staticmethod
-    def _split_output_states(
-        state: modules.RNNState, n: int
-    ) -> list[modules.RNNState]:
-        """Splits a batched output state back into per-item states.
-
-        Args:
-            state (modules.RNNState): shape layers x B x hidden_size, or None.
-            n (int): number of items B.
-
-        Returns:
-            list[modules.RNNState]: B states each of shape
-                layers x 1 x hidden_size.
-        """
-        if state is None:
-            return [None] * n
-        if isinstance(state, tuple):
-            h, c = state
-            return [(h[:, i : i + 1, :], c[:, i : i + 1, :]) for i in range(n)]
-        return [state[:, i : i + 1, :] for i in range(n)]
 
     def decode_step(
         self,

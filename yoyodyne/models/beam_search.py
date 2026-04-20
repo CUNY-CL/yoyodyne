@@ -155,7 +155,7 @@ class SingleBeam:
     def final(self) -> bool:
         return all(cell.final for cell in self.cells)
 
-    def _active_cells(self) -> list[tuple[int, Cell]]:
+    def active_cells(self) -> list[tuple[int, Cell]]:
         """Returns (cell_index, cell) pairs for non-final cells."""
         return [(i, c) for i, c in enumerate(self.cells) if not c.final]
 
@@ -222,7 +222,7 @@ class BatchedBeam:
         for beam_idx, beam in enumerate(self.beams):
             if beam.final:
                 continue
-            for cell_idx, cell in beam._active_cells():
+            for cell_idx, cell in beam.active_cells():
                 symbols_list.append(cell.symbol)
                 item_indices_list.append(beam_idx)
                 states.append(cell.state)
@@ -283,7 +283,7 @@ class BatchedBeam:
         for beam_idx, beam in enumerate(self.beams):
             if beam.final:
                 continue
-            for cell_idx, cell in beam._active_cells():
+            for cell_idx, cell in beam.active_cells():
                 seq_list.append(
                     torch.tensor(cell.symbols, dtype=torch.long, device=device)
                 )
@@ -318,7 +318,7 @@ class BatchedBeam:
             for new_cell in cell.extensions(scores_batch[n]):
                 beam.push(new_cell)
 
-    def _push_final_cells(self) -> None:
+    def push_final_cells(self) -> None:
         """Re-enqueues already-final cells so they survive the update step."""
         for beam in self.beams:
             for cell in beam.cells:

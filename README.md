@@ -598,13 +598,9 @@ Each model supports greedy decoding implemented via a `greedy_decode` method;
 many models (vanilla RNNs, pointer-generator RNNs and all transformers) support
 beam search during prediction (though not during training, validation, or
 testing) via a `beam_decode` method. Beam search decoding is enabled by setting
-`beam_width` to some value \> 1; `batch_size` must also be set to 1.
+`beam_width` to some value \> 1.
 
     ...
-    data:
-      ...
-      batch_size: 1
-      ...
     model:
       class_path: yoyodyne.models.SoftAttentionLSTMModel
       init_args:

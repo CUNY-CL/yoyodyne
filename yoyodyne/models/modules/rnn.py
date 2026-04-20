@@ -66,6 +66,30 @@ class RNNState(nn.Module):
         self.register_buffer("hidden", hidden)
         self.register_buffer("cell", cell)
 
+    # These functions are used by beam search.
+
+    def split(self, batch_size: int) -> list[RNNState]:
+        """Splits a batched RNN state into a list of per-item states."""
+        if self.cell is not None:
+            return [
+                RNNState(
+                    self.hidden[:, i : i + 1, :], self.cell[:, i : i + 1, :]
+                )
+                for i in range(batch_size)
+            ]
+        return [
+            RNNState(self.hidden[:, i : i + 1, :]) for i in range(batch_size)
+        ]
+
+    @classmethod
+    def batch(cls, states: list[RNNState]) -> RNNState:
+        """Concatenates a list of per-item states into a batched state."""
+        hidden = torch.cat([state.hidden for state in states], dim=1)
+        if states[0].cell is not None:
+            cell = torch.cat([state.cell for state in states], dim=1)
+            return cls(hidden, cell)
+        return cls(hidden)
+
 
 class WrappedRNNEncoder:
     """Wraps RNN encoder modules to work with packing.
