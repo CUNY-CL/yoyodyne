@@ -168,7 +168,7 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         )
         # decode_step returns log-probs for all target positions but we only
         # need the last position's log-probs.
-        scores = log_probs[:, :-1, :]
+        scores = log_probs[:, -1, :]
         batched_beam.push_final_cells()
         batched_beam.fan_out_stateless(scores, index_map)
         batched_beam.update()

@@ -59,6 +59,7 @@ class Cell:
             decoders like transformers.
     """
 
+
     symbols: list[int] = dataclasses.field(
         compare=False, default_factory=lambda: [special.START_IDX]
     )
@@ -132,14 +133,12 @@ class SingleBeam:
         state (modules.RNNState, optional): initial RNN state for this item.
     """
 
-    beam_width: int
-    cells: list[Cell]
     heap: Heap
+    cells: list[Cell]
 
     def __init__(self, beam_width: int, state: modules.RNNState | None = None):
-        self.beam_width = beam_width
-        self.cells = [Cell(state=state)]
         self.heap = Heap(beam_width)
+        self.cells = [Cell(state=state)]
 
     def __len__(self) -> int:
         return len(self.cells)
