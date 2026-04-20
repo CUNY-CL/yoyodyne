@@ -59,7 +59,6 @@ class Cell:
             decoders like transformers.
     """
 
-
     symbols: list[int] = dataclasses.field(
         compare=False, default_factory=lambda: [special.START_IDX]
     )
@@ -175,7 +174,6 @@ class BatchedBeam:
         batch_size: int,
         states: list[modules.RNNState | None],
     ):
-        self.beam_width = beam_width
         self.beams: list[SingleBeam] = [
             SingleBeam(beam_width, state) for state in states
         ]
@@ -345,7 +343,7 @@ class BatchedBeam:
             batch_first=True,
             padding_value=special.PAD_IDX,
         )
-        return flat.view(len(self.beams), self.beam_width, flat.size(1))
+        return flat.view(len(self.beams), -1, flat.size(1))
 
     def scores(self, device: torch.device) -> torch.Tensor:
         """Tensor of sequence log-likelihood scores.
