@@ -47,7 +47,6 @@ class TransformerModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.decoder_positional_encoding = decoder_positional_encoding
         if self.has_features_encoder and (
             self.source_encoder.output_size
             != self.features_encoder.output_size
@@ -57,7 +56,7 @@ class TransformerModel(base.BaseModel):
                 f"({self.source_encoder.output_size}) and features "
                 f"encoding ({self.features_encoder.output_size})"
             )
-        self.decoder = self.get_decoder()
+        self.decoder = self.get_decoder(decoder_positional_encoding)
         self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
@@ -211,7 +210,10 @@ class TransformerModel(base.BaseModel):
         else:
             return self.greedy_decode(encoded, mask)
 
-    def get_decoder(self) -> modules.TransformerDecoder:
+    def get_decoder(
+        self,
+        positional_encoding: modules.BasePositionalEncoding | None = None,
+    ) -> modules.TransformerDecoder:
         return modules.TransformerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
@@ -220,7 +222,7 @@ class TransformerModel(base.BaseModel):
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
             max_length=self.max_decoder_length,
-            positional_encoding=self.decoder_positional_encoding,
+            positional_encoding=positional_encoding,
         )
 
     def greedy_decode(
@@ -314,7 +316,9 @@ class RotaryTransformerModel(TransformerModel):
             )
         super().__init__(*args, **kwargs)
 
-    def get_decoder(self) -> modules.RotaryTransformerDecoder:
+    def get_decoder(
+        self, positional_encoding=None
+    ) -> modules.RotaryTransformerDecoder:
         return modules.RotaryTransformerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
@@ -390,9 +394,8 @@ class CausalTransformerModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.positional_encoding = positional_encoding
         self.teacher_forcing = teacher_forcing
-        self.decoder = self.get_decoder()
+        self.decoder = self.get_decoder(positional_encoding)
         self._log_model()
         self.save_hyperparameters(
             ignore=[
@@ -512,7 +515,10 @@ class CausalTransformerModel(base.BaseModel):
         else:
             return self.greedy_decode(prefix)
 
-    def get_decoder(self) -> modules.CausalTransformerDecoder:
+    def get_decoder(
+        self,
+        positional_encoding: modules.BasePositionalEncoding | None = None,
+    ) -> modules.CausalTransformerDecoder:
         return modules.CausalTransformerDecoder(
             attention_heads=self.attention_heads,
             dropout=self.decoder_dropout,
@@ -520,7 +526,7 @@ class CausalTransformerModel(base.BaseModel):
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
             max_length=self.max_length,
-            positional_encoding=self.positional_encoding,
+            positional_encoding=positional_encoding,
         )
 
     def greedy_decode(self, prefix: torch.Tensor) -> torch.Tensor:
@@ -628,7 +634,9 @@ class RotaryCausalTransformerModel(CausalTransformerModel):
             )
         super().__init__(*args, **kwargs)
 
-    def get_decoder(self) -> modules.RotaryCausalTransformerDecoder:
+    def get_decoder(
+        self, positional_encoding=None
+    ) -> modules.RotaryCausalTransformerDecoder:
         return modules.RotaryCausalTransformerDecoder(
             attention_heads=self.attention_heads,
             dropout=self.decoder_dropout,

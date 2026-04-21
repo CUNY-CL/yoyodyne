@@ -45,8 +45,6 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.decoder_positional_encoding = decoder_positional_encoding
-        self.decoder = self.get_decoder()
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
                 self.embedding_size,
@@ -59,6 +57,7 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
                 self.embedding_size,
                 self.source_encoder.output_size,
             )
+        self.decoder = self.get_decoder(decoder_positional_encoding)
         self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
@@ -253,7 +252,10 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
         scaled_output_dist = output_dist * gen_probs
         return torch.log(scaled_output_dist + scaled_pointer_dist)
 
-    def get_decoder(self) -> modules.PointerGeneratorTransformerDecoder:
+    def get_decoder(
+        self,
+        positional_encoding: modules.BasePositionalEncoding | None = None,
+    ) -> modules.PointerGeneratorTransformerDecoder:
         return modules.PointerGeneratorTransformerDecoder(
             attention_heads=self.attention_heads,
             decoder_input_size=self.source_encoder.output_size,
@@ -263,7 +265,7 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
             hidden_size=self.decoder_hidden_size,
             layers=self.decoder_layers,
             max_length=self.max_decoder_length,
-            positional_encoding=self.decoder_positional_encoding,
+            positional_encoding=positional_encoding,
         )
 
     def init_embeddings(
@@ -493,7 +495,7 @@ class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
         super().__init__(*args, **kwargs)
 
     def get_decoder(
-        self,
+        self, positional_encoding=None
     ) -> modules.RotaryPointerGeneratorTransformerDecoder:
         return modules.RotaryPointerGeneratorTransformerDecoder(
             attention_heads=self.attention_heads,
