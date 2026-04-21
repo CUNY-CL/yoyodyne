@@ -394,8 +394,8 @@ class CausalTransformerModel(base.BaseModel):
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.teacher_forcing = teacher_forcing
         self.decoder = self.get_decoder(positional_encoding)
+        self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
             ignore=[

@@ -52,7 +52,6 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             self.features_attention = modules.Attention(
                 self.features_encoder.output_size, self.decoder_hidden_size
             )
-        self.decoder = self.get_decoder()
         self.generation_probability = modules.GenerationProbability(
             self.embedding_size,
             self.decoder_hidden_size,
@@ -68,6 +67,7 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
                 f"Number of encoder layers ({self.source_encoder.layers}) and "
                 f"decoder layers ({self.decoder_layers}) must match"
             )
+        self.decoder = self.get_decoder()
         self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(

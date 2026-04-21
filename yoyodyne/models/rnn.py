@@ -44,11 +44,11 @@ class RNNModel(base.BaseModel):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
         self.decoder = self.get_decoder()
+        self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
             ignore=[

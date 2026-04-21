@@ -42,9 +42,6 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
     ):
         super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
-        self.classifier = nn.Linear(
-            self.embedding_size, self.target_vocab_size
-        )
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
                 self.embedding_size,
@@ -57,6 +54,9 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
                 self.embedding_size,
                 self.source_encoder.output_size,
             )
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
         self.decoder = self.get_decoder(decoder_positional_encoding)
         self.teacher_forcing = teacher_forcing
         self._log_model()

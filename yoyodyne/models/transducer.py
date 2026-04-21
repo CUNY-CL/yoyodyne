@@ -68,7 +68,6 @@ class TransducerRNNModel(base.BaseModel):
         self.actions = actions
         self.expert = expert.Expert(self.actions, aligner, oracle_factor)
         self.vocab_offset = vocab_offset
-        self.teacher_forcing = teacher_forcing
         # These are optimizations to avoid extra dereferences.
         self.insertions = self.actions.insertions
         self.substitutions = self.actions.substitutions
@@ -76,6 +75,7 @@ class TransducerRNNModel(base.BaseModel):
             self.decoder_hidden_size, self.target_vocab_size
         )
         self.decoder = self.get_decoder()
+        self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
             ignore=[
