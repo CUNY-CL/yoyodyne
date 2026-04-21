@@ -44,9 +44,6 @@ class TransformerModel(base.BaseModel):
     ):
         super().__init__(*args, **kwargs)
         self.attention_heads = attention_heads
-        self.classifier = nn.Linear(
-            self.embedding_size, self.target_vocab_size
-        )
         if self.has_features_encoder and (
             self.source_encoder.output_size
             != self.features_encoder.output_size
@@ -58,6 +55,9 @@ class TransformerModel(base.BaseModel):
             )
         self.decoder = self.get_decoder(decoder_positional_encoding)
         self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.embedding_size, self.target_vocab_size
+        )
         self._log_model()
         self.save_hyperparameters(
             ignore=[

@@ -284,7 +284,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             )
         )
         return self.dropout_layer(
-            self.positional_encoding(embedded + type_embedded, symbols)
+            self.positional_encoding(symbols, embedded + type_embedded)
         )
 
     def forward(
