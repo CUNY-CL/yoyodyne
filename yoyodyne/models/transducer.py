@@ -71,11 +71,11 @@ class TransducerRNNModel(base.BaseModel):
         # These are optimizations to avoid extra dereferences.
         self.insertions = self.actions.insertions
         self.substitutions = self.actions.substitutions
+        self.decoder = self.get_decoder()
+        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
-        self.decoder = self.get_decoder()
-        self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
             ignore=[

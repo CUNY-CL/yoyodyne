@@ -391,11 +391,11 @@ class CausalTransformerModel(base.BaseModel):
             **kwargs,
         )
         self.attention_heads = attention_heads
+        self.decoder = self.get_decoder(positional_encoding)
+        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.decoder = self.get_decoder(positional_encoding)
-        self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
             ignore=[

@@ -54,11 +54,11 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
                 self.embedding_size,
                 self.source_encoder.output_size,
             )
+        self.decoder = self.get_decoder(decoder_positional_encoding)
+        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.embedding_size, self.target_vocab_size
         )
-        self.decoder = self.get_decoder(decoder_positional_encoding)
-        self.teacher_forcing = teacher_forcing
         self._log_model()
         self.save_hyperparameters(
             ignore=[

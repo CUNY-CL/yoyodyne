@@ -57,10 +57,6 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             self.decoder_hidden_size,
             self.decoder_input_size,
         )
-        self.classifier = nn.Linear(
-            self.decoder_hidden_size + self.decoder_input_size,
-            self.target_vocab_size,
-        )
         # Compatibility check.
         if self.source_encoder.layers != self.decoder_layers:
             raise base.ConfigurationError(
@@ -69,6 +65,10 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             )
         self.decoder = self.get_decoder()
         self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.decoder_hidden_size + self.decoder_input_size,
+            self.target_vocab_size,
+        )
         self._log_model()
         self.save_hyperparameters(
             ignore=[
