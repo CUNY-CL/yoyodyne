@@ -62,10 +62,10 @@ class HardAttentionRNNModel(base.BaseModel):
         super().__init__(*args, **kwargs)
         self.attention_context = attention_context
         self.enforce_monotonic = enforce_monotonic
+        self.decoder = self.get_decoder()
         self.classifier = nn.Linear(
             self.decoder.output_size, self.target_vocab_size
         )
-        self.decoder = self.get_decoder()
         self._log_model()
         self.save_hyperparameters(
             ignore=[
