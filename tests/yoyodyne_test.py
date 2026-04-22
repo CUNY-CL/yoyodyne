@@ -3,7 +3,6 @@
 See testdata/data for code for regenerating data and accuracy/loss statistics.
 """
 
-import contextlib
 import difflib
 import re
 import os
