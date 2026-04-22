@@ -1,3 +1,4 @@
+accelerator: cpu
 callbacks:
   - class_path: lightning.pytorch.callbacks.LearningRateMonitor
     init_args:
@@ -11,4 +12,3 @@ gradient_clip_val: 3
 logger:
   - class_path: lightning.pytorch.loggers.CSVLogger
 max_epochs: 50
-precision: bf16-mixed

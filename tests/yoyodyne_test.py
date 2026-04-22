@@ -5,13 +5,12 @@ See testdata/data for code for regenerating data and accuracy/loss statistics.
 
 import contextlib
 import difflib
-import os
 import re
+import os
+import subprocess
 import tempfile
 
 import pytest
-
-from yoyodyne.cli import main
 
 DIR = os.path.relpath(os.path.dirname(__file__), os.getcwd())
 CONFIG_DIR = os.path.join(DIR, "testdata/configs")
@@ -87,8 +86,9 @@ INFLECTION_ARCH = [
 ]
 SEED = 49
 
-# Session-scoped state for checkpoint caching. Keyed by (data, arch).
-_checkpoints: dict[tuple[str, str], str] = {}
+# Session-scoped state for checkpoint caching. Keyed by (data, arch,
+# data_config_path, trainer_config_path).
+_checkpoints: dict[tuple[str, str, str, str], str] = {}
 _session_tempdir: tempfile.TemporaryDirectory | None = None
 
 
@@ -121,7 +121,7 @@ def _get_or_train(
     Returns:
         str: path to the checkpoint.
     """
-    key = (data, arch)
+    key = (data, arch, data_config_path, trainer_config_path)
     if key in _checkpoints:
         return _checkpoints[key]
     testdata_dir = os.path.join(TESTDATA_DIR, data)
@@ -136,14 +136,15 @@ def _get_or_train(
     # different (data, arch) pairs in the shared session tempdir.
     model_dir = os.path.join(_session_tempdir.name, "models", data, arch)
     model_config_path = os.path.join(CONFIG_DIR, f"{arch}.yaml")
-    main.python_interface(
+    subprocess.check_call(
         [
+            "yoyodyne",
             "fit",
             f"--checkpoint={CHECKPOINT_CONFIG_PATH}",
             f"--data={data_config_path}",
+            f"--data.model_dir={model_dir}",
             f"--data.train={train_path}",
             f"--data.val={dev_path}",
-            f"--data.model_dir={model_dir}",
             f"--model={model_config_path}",
             *sed_args,
             f"--seed_everything={SEED}",
@@ -250,28 +251,33 @@ class TestYoyodyne:
         evaluation_path = os.path.join(
             self.tempdir.name, f"{data}_{arch}.test"
         )
+        result = subprocess.run(
+            [
+                "yoyodyne",
+                "test",
+                f"--ckpt_path={checkpoint_path}",
+                f"--data={data_config_path}",
+                f"--data.test={test_path}",
+                f"--data.model_dir={model_dir}",
+                f"--model={model_config_path}",
+                *sed_args,
+                "--trainer.enable_progress_bar=false",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
         with open(evaluation_path, "w") as sink:
-            with contextlib.redirect_stdout(sink):
-                main.python_interface(
-                    [
-                        "test",
-                        f"--ckpt_path={checkpoint_path}",
-                        f"--data={data_config_path}",
-                        f"--data.test={test_path}",
-                        f"--data.model_dir={model_dir}",
-                        f"--model={model_config_path}",
-                        *sed_args,
-                        "--trainer.enable_progress_bar=false",
-                    ]
-                )
+            sink.write(result.stdout)
         self.assertNonEmptyFileExists(evaluation_path)
         expected_path = os.path.join(
             TESTDATA_DIR, data, f"{arch}_expected.test"
         )
         self.assertFileIdentity(evaluation_path, expected_path)
         predicted_path = os.path.join(self.tempdir.name, f"{data}_{arch}.txt")
-        main.python_interface(
+        subprocess.check_call(
             [
+                "yoyodyne",
                 "predict",
                 f"--ckpt_path={checkpoint_path}",
                 f"--data={data_config_path}",
@@ -311,8 +317,9 @@ class TestYoyodyne:
         predicted_path = os.path.join(
             self.tempdir.name, f"{data}_{arch}_beam.txt"
         )
-        main.python_interface(
+        subprocess.check_call(
             [
+                "yoyodyne",
                 "predict",
                 f"--ckpt_path={checkpoint_path}",
                 f"--data={data_config_path}",
@@ -370,9 +377,10 @@ class TestYoyodyne:
         data_config_path = os.path.join(CONFIG_DIR, f"{data}_data.yaml")
         model_config_path = os.path.join(CONFIG_DIR, f"{arch}.yaml")
         self.assertNonEmptyFileExists(model_config_path)
-        with pytest.raises(ValueError):
-            main.python_interface(
+        with pytest.raises(subprocess.CalledProcessError):
+            subprocess.check_call(
                 [
+                    "yoyodyne",
                     "validate",
                     f"--checkpoint={CHECKPOINT_CONFIG_PATH}",
                     f"--data={data_config_path}",
