@@ -93,7 +93,7 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         features_encoded: torch.Tensor | None = None,
         features_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Decodes with beam search, supporting arbitrary batch sizes.
+        """Decodes with beam search.
 
         Each item in the batch gets its own independent beam of width
         beam_width. Decoding halts once every beam across every batch item
