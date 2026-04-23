@@ -75,13 +75,12 @@ class RNNModel(base.BaseModel):
         has reached END, or max_target_length steps have elapsed.
 
         Args:
-            context (torch.Tensor): shape B x src_len x encoder_dim.
-            mask (torch.Tensor): shape B x src_len.
+            context (torch.Tensor).
+            mask (torch.Tensor).
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
+            tuple[torch.Tensor, torch.Tensor]: predictions and
+                log-likelihoods.
         """
         batch_size = context.size(0)
         per_item_states = self.decoder.initial_state(batch_size).split(
@@ -252,7 +251,7 @@ class RNNModel(base.BaseModel):
                 these are used for teacher forcing.
 
         Returns:
-            torch.Tensor: predictions of B x target_vocab_size x seq_len.
+            torch.Tensor: predictions.
         """
         batch_size = context.size(0)
         symbol = self.start_symbol(batch_size)
