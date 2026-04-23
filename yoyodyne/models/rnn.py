@@ -111,9 +111,9 @@ class RNNModel(base.BaseModel):
         scores and new states back into the per-item beams.
 
         Args:
-            batched_beam (beam_search.BatchedBeam): beam to update in place.
-            context (torch.Tensor): shape B x src_len x encoder_dim.
-            mask (torch.Tensor): shape B x src_len.
+            batched_beam (beam_search.BatchedBeam).
+            context (torch.Tensor).
+            mask (torch.Tensor).
         """
         symbols, item_indices, states, index_map = batched_beam.collect_active(
             self.device
