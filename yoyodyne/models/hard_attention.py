@@ -124,11 +124,10 @@ class HardAttentionRNNModel(base.BaseModel):
         """Single decoder step.
 
         Args:
-            encoded (torch.Tensor): encoded source symbols of shape
-                B x src_len x (encoder_hidden * num_directions).
-            mask (torch.Tensor): mask.
+            encoded (torch.Tensor).
+            mask (torch.Tensor).
             symbol (torch.Tensor): target symbol for current state.
-            state (modules.RNNState): RNN state.
+            state (modules.RNNState).
 
         Returns:
             tuple[torch.Tensor, torch.Tensor, torch.Tensor]: emission

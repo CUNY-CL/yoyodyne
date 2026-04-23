@@ -78,7 +78,7 @@ class TransformerModel(base.BaseModel):
         encoded: torch.Tensor,
         mask: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Decodes with beam search, supporting arbitrary batch sizes.
+        """Decodes with beam search.
 
         Each item in the batch gets its own independent beam of width
         beam_width. Decoding halts once every beam across every batch item
@@ -145,7 +145,7 @@ class TransformerModel(base.BaseModel):
             predictions (torch.Tensor).
 
         Returns:
-            torch.Tensor: logits of shape B x vocab_size.
+            torch.Tensor: logits.
         """
         decoded, _ = self.decoder(
             encoded, mask, predictions, None, self.embeddings
@@ -412,7 +412,7 @@ class CausalTransformerModel(base.BaseModel):
         self,
         prefix: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Decodes with beam search, supporting arbitrary batch sizes.
+        """Decodes with beam search.
 
         Each item in the batch gets its own independent beam of width
         beam_width. Decoding halts once every beam across every batch item
@@ -446,7 +446,7 @@ class CausalTransformerModel(base.BaseModel):
         """Runs one decode step for all active cells and updates the beam.
 
         Args:
-            batched_beam (beam_search.BatchedBeam): beam to update in place.
+            batched_beam (beam_search.BatchedBeam).
             prefix (torch.Tensor).
         """
         sequences, item_indices, index_map = (
@@ -473,7 +473,7 @@ class CausalTransformerModel(base.BaseModel):
             predictions (torch.Tensor).
 
         Returns:
-            torch.Tensor: logits of shape B x vocab_size.
+            torch.Tensor: logits.
         """
         sequence = torch.cat((prefix, predictions), dim=1)
         tensor = data.PaddedTensor.from_tensor(sequence)

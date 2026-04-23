@@ -107,9 +107,8 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             features_mask (torch.Tensor, optional).
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
+            tuple[torch.Tensor, torch.Tensor]: predictions and
+                    log-likelihoods.
         """
         batch_size = source_mask.size(0)
         per_item_states = self.decoder.initial_state(batch_size).split(
@@ -199,18 +198,17 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         """Single decoder step; predicts a distribution for one symbol.
 
         Args:
-            source (torch.Tensor): shape B x src_len.
-            source_encoded (torch.Tensor): shape B x src_len x encoder_dim.
-            source_mask (torch.Tensor): shape B x src_len.
-            symbol (torch.Tensor): shape B x 1.
+            source (torch.Tensor),
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            symbol (torch.Tensor).
             state (modules.RNNState).
-            features_encoded (torch.Tensor, optional):
-                shape B x feat_len x encoder_dim.
-            features_mask (torch.Tensor, optional): shape B x feat_len.
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            tuple[torch.Tensor, modules.RNNState]: log-probs of shape
-                B x 1 x vocab_size and the updated RNN state.
+            tuple[torch.Tensor, modules.RNNState]: log-probabilities and the
+                updated RNN state.
         """
         # TODO: there are a few Law of Demeter violations here. Is there an
         # obvious refactoring?

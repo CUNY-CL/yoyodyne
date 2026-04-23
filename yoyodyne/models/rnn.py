@@ -148,8 +148,8 @@ class RNNModel(base.BaseModel):
             state (modules.RNNState).
 
         Returns:
-            tuple[torch.Tensor, modules.RNNState]: logits of shape
-                B x 1 x vocab_size and the updated RNN state.
+            tuple[torch.Tensor, modules.RNNState]: logits and the updated RNN
+                state.
         """
         decoded, state = self.decoder(
             symbol, self.embeddings, context, mask, state
