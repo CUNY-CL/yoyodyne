@@ -638,8 +638,7 @@ transductions over a small alphabet:
 -   `reverse`
 -   `upper` (i.e., map to uppercase)
 
-These are configured to train for 20 epochs, training for no more than 2
-minutes.
+These are configured to train for 20 epochs.
 
 In contrast, the two "real" data sets target existing problems:
 
@@ -648,8 +647,7 @@ In contrast, the two "real" data sets target existing problems:
 -   `tur_inflection`: Turkish inflection generation data from the
     [CoNLl-SIGMORPHON 2017 shared task](https://aclanthology.org/K17-2001/)
 
-These are instead configured to train for up to 50 epochs (with early stopping),
-training for no more than 10 minutes.
+These are instead configured to train for up to 50 epochs (with early stopping).
 
 There are also a few tests which confirm that specific misconfigurations raise
 exceptions.
