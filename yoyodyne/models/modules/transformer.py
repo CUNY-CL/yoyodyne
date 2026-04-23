@@ -602,7 +602,7 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
             target_mask (torch.Tensor).
             embeddings (nn.Embedding).
             features_encoded (torch.Tensor, optional).
-            features_mask (torch.Tensor, optional)
+            features_mask (torch.Tensor, optional).
 
         Returns:
             tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
