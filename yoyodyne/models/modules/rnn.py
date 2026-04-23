@@ -26,7 +26,7 @@ class RNNModule(base.BaseModule):
 
     Args:
         *args: passed to superclass.
-        hidden_size (int, optional): size of the hidden layer.
+        hidden_size (int, optional).
         layers (int, optional): number of layers.
         **kwargs: passed to superclass.
     """
@@ -65,6 +65,30 @@ class RNNState(nn.Module):
         super().__init__()
         self.register_buffer("hidden", hidden)
         self.register_buffer("cell", cell)
+
+    # These functions are used by beam search.
+
+    def split(self, batch_size: int) -> list[RNNState]:
+        """Splits a batched RNN state into a list of per-item states."""
+        if self.cell is not None:
+            return [
+                RNNState(
+                    self.hidden[:, i : i + 1, :], self.cell[:, i : i + 1, :]
+                )
+                for i in range(batch_size)
+            ]
+        return [
+            RNNState(self.hidden[:, i : i + 1, :]) for i in range(batch_size)
+        ]
+
+    @classmethod
+    def batch(cls, states: list[RNNState]) -> RNNState:
+        """Concatenates a list of per-item states into a batched state."""
+        hidden = torch.cat([state.hidden for state in states], dim=1)
+        if states[0].cell is not None:
+            cell = torch.cat([state.cell for state in states], dim=1)
+            return cls(hidden, cell)
+        return cls(hidden)
 
 
 class WrappedRNNEncoder:
@@ -239,7 +263,7 @@ class RNNDecoder(RNNModule):
 
     Args:
         *args: passed to superclass.
-        decoder_input_size (int, optional): decoder input size.
+        decoder_input_size (int, optional).
         **kwargs: passed to superclass.
     """
 
@@ -271,7 +295,7 @@ class RNNDecoder(RNNModule):
             state (RNNState).
 
         Returns:
-            Tuple[torch.Tensor, RNNState].
+            tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol, embeddings)
         decoded, state = self.module(
@@ -402,7 +426,7 @@ class SoftAttentionRNNDecoder(RNNDecoder):
             state (RNNState).
 
         Returns:
-            Tuple[torch.Tensor, RNNState].
+            tuple[torch.Tensor, RNNState].
         """
         embedded = self.embed(symbol, embeddings)
         # Here we weigh the context using attention.

@@ -60,6 +60,7 @@ all: train.tsv \
 	transformer_absolute_positional_expected.test \
 	transformer_absolute_positional_expected.txt \
 	transformer_student_forcing_expected.test \
+	transformer_student_forcing_expected.txt \
 	transducer_gru_expected.test \
 	transducer_gru_expected.txt \
 	transducer_lstm_expected.test \
@@ -120,7 +121,6 @@ train.sed: train.tsv
 		predict \
 		--ckpt_path "$(MODEL_DIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
 		--data ../../configs/toy_data.yaml \
-		--data.batch_size 1 \
 		--data.model_dir "$(MODEL_DIR)" \
 		--data.predict test.tsv \
 		--model "../../configs/$(BASE).yaml" \

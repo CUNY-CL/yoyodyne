@@ -156,14 +156,14 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         follows the somewhat-inscrutable variable naming used there.
 
         Args:
-            source_encoded (torch.Tensor): encoded source sequence.
-            source_mask (torch.Tensor): mask for source.
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
             target (torch.Tensor): current embedded target, which
                 may be the full target or previous decoded, of shape
                 B x seq_len x hidden_size.
-            target_mask (torch.Tensor): mask for target.
-            features_encoded (torch.Tensor): encoded features.
-            features_mask (torch.Tensor): mask for features.
+            target_mask (torch.Tensor).
+            features_encoded (torch.Tensor).
+            features_mask (torch.Tensor).
             causal_mask (torch.Tensor).
 
         Returns:

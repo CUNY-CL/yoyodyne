@@ -36,7 +36,7 @@ class WarmupInverseSquareRoot(optim.lr_scheduler.LambdaLR):
         Linguistics: Main Volume_, pages 1901-1907.
 
     Args:
-        optimizer (optim.Optimizer): optimizer.
+        optimizer (optim.Optimizer).
         warmup_epochs (int): number of warmup epochs.
         *args: ignored.
         **kwargs: ignored.

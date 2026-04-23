@@ -22,7 +22,7 @@ class Collator:
         """Pads source.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (list[datasets.Item]).
 
         Returns:
             batches.PaddedTensor.
@@ -38,7 +38,7 @@ class Collator:
         """Pads features.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (list[datasets.Item]).
 
         Returns:
             batches.PaddedTensor.
@@ -53,7 +53,7 @@ class Collator:
         """Pads target.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (list[datasets.Item]).
 
         Returns:
             batches.PaddedTensor.
@@ -66,7 +66,7 @@ class Collator:
         """Pads all elements of an itemlist.
 
         Args:
-            itemlist (List[datasets.Item]).
+            itemlist (list[datasets.Item]).
 
         Returns:
             batches.Batch.

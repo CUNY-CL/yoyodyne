@@ -3,30 +3,40 @@
 A Cell is a (possibly partial) hypothesis containing the decoder output,
 the symbol sequence, and the hypothesis's log-likelihood. Cells can
 generate their candidate extensions (in the form of new Cells) when
-provided with additional decoder output; they also know when they have reached
-a final state (i.e., when END has been generated).
+provided with additional decoder output; they also know when they have
+reached a final state (i.e., when END has been generated).
 
-A Beam holds a collection of Cells and an in-progress heap.
+A SingleBeam holds the Cells for one batch item and an in-progress heap.
 
-Current limitations:
+A BatchedBeam holds one SingleBeam per batch item and exposes batched
+decode helpers so that all active cells across all items can be stepped
+in a single forward pass.
+
+BatchedBeam supports two decoding styles:
+
+* Stateful (RNN-style): collect_active gathers one symbol per active cell;
+  the model steps with that symbol and a per-cell state, then fan_out_stateful
+  distributes updated states and scores back.
+* Stateless (transformer-style): collect_active_sequences gathers the full
+  padded symbol history for every active cell; the model runs its full
+  attention stack over those sequences, then fan_out_stateless distributes
+  scores back without tracking any state.
+
+Remaining limitations:
 
 * Beam search uses Python's heap implementation; this is reasonably performant
   in cPython (it uses a C extension module where available) but there may be a
   better pure PyTorch solution.
-* Beam search assumes a batch size of 1; it is not clear how to extend it to
-  larger batches.
 * We hard-code the use of log-likelihoods; the addition of two log
   probabilities is equivalent to multiplying real numbers.
 * Not much attention has been paid to keeping data on device.
-
-See rnn.py for sample usage.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import dataclasses
 import heapq
-from typing import Iterator
 
 import torch
 from torch import nn
@@ -37,14 +47,13 @@ from . import modules
 
 @dataclasses.dataclass(order=True)
 class Cell:
-    """Represents a (potentially partial) hypotheses in the beam search.
+    """A (potentially partial) hypothesis in the beam search.
 
-    Only the log-likelihood field is used for comparison.
-
-    A cell is "final" once it has decoded the END symbol.
+    Only the score field is used for comparison. A cell is "final" once it
+    has decoded the END symbol.
 
     Args:
-        symbols (List[int], optional).
+        symbols (list[int], optional).
         score (float, optional).
         state (modules.RNNState, optional): RNN state, or None for stateless
             decoders like transformers.
@@ -63,14 +72,14 @@ class Cell:
         scores: torch.Tensor,
         state: modules.RNNState | None = None,
     ) -> Iterator[Cell]:
-        """Generates extension cells.
+        """Yields all single-symbol extensions of this cell.
 
         Args:
-            scores (torch.Tensor):
+            scores (torch.Tensor): tensor of per-symbol log-probs.
             state (modules.RNNState, optional).
 
         Yields:
-            Cell: all single-symbol extensions of the current cell.
+            Cell.
         """
         for symbol, score in enumerate(scores):
             yield Cell(
@@ -87,16 +96,15 @@ class Cell:
 
 
 class Heap:
-    """Wrapper round Python's heap implementation.
+    """Min-heap wrapper that retains only the top-k cells by score.
 
     Args:
-        heap (List[Cell], optional).
+        max_size (int): maximum number of cells to retain.
     """
 
-    heap: list[Cell]
-
-    def __init__(self):
-        self.heap = []
+    def __init__(self, max_size: int):
+        self.heap: list[Cell] = []
+        self.max_size = max_size
 
     def __len__(self) -> int:
         return len(self.heap)
@@ -106,6 +114,8 @@ class Heap:
 
     def push(self, cell: Cell) -> None:
         heapq.heappush(self.heap, cell)
+        if len(self.heap) > self.max_size:
+            heapq.heappop(self.heap)
 
     def pop(self) -> Cell:
         return heapq.heappop(self.heap)
@@ -114,46 +124,28 @@ class Heap:
         yield from self.heap
 
 
-class Beam:
-    """The beam.
-
-    This stores stores the current set of beam cells and an in-progress heap of
-    the next set separately.
-
-    A beam is "final" once every cell has decoded the END symbol.
+class SingleBeam:
+    """Beam for a single batch item.
 
     Args:
         beam_width (int).
-        state (modules.RNNState, optional): RNN state, or None for stateless
-            decoders like transformers.
+        state (modules.RNNState, optional): initial RNN state for this item.
     """
 
-    beam_width: int
-    # Current cells.
-    cells: list[Cell]
-    # Heap of the next set of cells.
     heap: Heap
+    cells: list[Cell]
 
-    def __init__(self, beam_width, state: modules.RNNState | None = None):
-        self.beam_width = beam_width
+    def __init__(self, beam_width: int, state: modules.RNNState | None = None):
+        self.heap = Heap(beam_width)
         self.cells = [Cell(state=state)]
-        self.heap = Heap()
 
     def __len__(self) -> int:
         return len(self.cells)
 
     def push(self, cell: Cell) -> None:
-        """Inserts the cell into the heap, maintaining the specified beam size.
-
-        Args:
-            cell (Cell).
-        """
         self.heap.push(cell)
-        if len(self.heap) > self.beam_width:
-            self.heap.pop()
 
     def update(self) -> None:
-        """Replaces the current cells and clears the heap."""
         self.cells = sorted(self.heap.items(), reverse=True)
         self.heap.clear()
 
@@ -161,34 +153,213 @@ class Beam:
     def final(self) -> bool:
         return all(cell.final for cell in self.cells)
 
-    def predictions(self, device: torch.device) -> torch.Tensor:
-        """Converts the best sequences into a padded tensor of predictions.
+    def active_cells(self) -> list[tuple[int, Cell]]:
+        """Returns (cell_index, cell) pairs for non-final cells."""
+        return [(i, c) for i, c in enumerate(self.cells) if not c.final]
 
-        This implementation assumes batch size is 1.
+
+class BatchedBeam:
+    """Collection of per-item beams for a full batch.
+
+    Args:
+        beam_width (int).
+        batch_size (int).
+        states (list[modules.RNNState]): one initial state per batch item.
+            Pass a list of Nones for stateless decoders.
+    """
+
+    def __init__(
+        self,
+        beam_width: int,
+        batch_size: int,
+        states: list[modules.RNNState | None],
+    ):
+        self.beams: list[SingleBeam] = [
+            SingleBeam(beam_width, state) for state in states
+        ]
+
+    def __len__(self) -> int:
+        return len(self.beams)
+
+    @property
+    def final(self) -> bool:
+        return all(beam.final for beam in self.beams)
+
+    def update(self) -> None:
+        for beam in self.beams:
+            beam.update()
+
+    def collect_active(
+        self,
+        device: torch.device,
+    ) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        list[modules.RNNState],
+        list[tuple[int, int]],
+    ]:
+        """Collects the last symbol and state for every active cell.
 
         Args:
-            device (torch.device): the device to move the data to.
+            device (torch.device).
 
         Returns:
-            torch.Tensor: a B x beam_width x seq_len tensor of predictions.
+            symbols (torch.Tensor): last decoded symbol per cell of
+                shape N x 1.
+            item_indices (torch.Tensor): batch item index per cell of
+                shape N.
+            states (list[modules.RNNState]): per-cell RNN states of length N.
+            index_map (list[tuple[int, int]]): (beam_idx, cell_idx) per cell
+                of length N; used to route results back after the forward pass.
         """
-        return nn.utils.rnn.pad_sequence(
-            [torch.tensor(cell.symbols, device=device) for cell in self.cells],
+        symbols_list: list[int] = []
+        item_indices_list: list[int] = []
+        states: list[modules.RNNState] = []
+        index_map: list[tuple[int, int]] = []
+        for beam_idx, beam in enumerate(self.beams):
+            if beam.final:
+                continue
+            for cell_idx, cell in beam.active_cells():
+                symbols_list.append(cell.symbol)
+                item_indices_list.append(beam_idx)
+                states.append(cell.state)
+                index_map.append((beam_idx, cell_idx))
+        symbols = torch.tensor(
+            symbols_list, dtype=torch.long, device=device
+        ).unsqueeze(dim=1)
+        item_indices = torch.tensor(
+            item_indices_list, dtype=torch.long, device=device
+        )
+        return symbols, item_indices, states, index_map
+
+    def fan_out_stateful(
+        self,
+        scores_batch: torch.Tensor,
+        new_states: list[modules.RNNState],
+        index_map: list[tuple[int, int]],
+    ) -> None:
+        """Distributes scored extensions back to the appropriate beams.
+
+        For stateful (RNN-style) decoding; passes the updated state into
+        each extension cell.
+
+        Args:
+            scores_batch (torch.Tensor): log-probs per active cell of shape
+                N x vocab_size.
+            new_states (list[modules.RNNState]): updated states of length N.
+            index_map (list[tuple[int, int]]): as returned by collect_active.
+        """
+        for n, (beam_idx, cell_idx) in enumerate(index_map):
+            beam = self.beams[beam_idx]
+            cell = beam.cells[cell_idx]
+            for new_cell in cell.extensions(scores_batch[n], new_states[n]):
+                beam.push(new_cell)
+
+    def collect_active_sequences(
+        self,
+        device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor, list[tuple[int, int]]]:
+        """Collects the full symbol history for every active cell.
+
+        Used for stateless (transformer-style) decoding, where the model
+        needs the complete symbol sequence at each step.
+
+        Args:
+            device (torch.device).
+
+        Returns:
+            sequences (torch.Tensor): padded symbol histories of shape
+                N x max_seq_len.
+            item_indices (torch.Tensor): batch item index per cell of shape N.
+            index_map (list[tuple[int, int]]): (beam_idx, cell_idx) per cell
+                of length N; used to route results back after the forward pass.
+        """
+        seq_list: list[torch.Tensor] = []
+        item_indices_list: list[int] = []
+        index_map: list[tuple[int, int]] = []
+        for beam_idx, beam in enumerate(self.beams):
+            if beam.final:
+                continue
+            for cell_idx, cell in beam.active_cells():
+                seq_list.append(
+                    torch.tensor(cell.symbols, dtype=torch.long, device=device)
+                )
+                item_indices_list.append(beam_idx)
+                index_map.append((beam_idx, cell_idx))
+        sequences = nn.utils.rnn.pad_sequence(
+            seq_list, batch_first=True, padding_value=special.PAD_IDX
+        )
+        item_indices = torch.tensor(
+            item_indices_list, dtype=torch.long, device=device
+        )
+        return sequences, item_indices, index_map
+
+    def fan_out_stateless(
+        self,
+        scores_batch: torch.Tensor,
+        index_map: list[tuple[int, int]],
+    ) -> None:
+        """Distributes scored extensions back to the appropriate beams.
+
+        For stateless (transformer-style) decoding; no state is tracked.
+
+        Args:
+            scores_batch (torch.Tensor): log-probs per active cell of
+                shape N x vocab_size.
+            index_map (list[tuple[int, int]]): as returned by
+                collect_active_sequences.
+        """
+        for n, (beam_idx, cell_idx) in enumerate(index_map):
+            beam = self.beams[beam_idx]
+            cell = beam.cells[cell_idx]
+            for new_cell in cell.extensions(scores_batch[n]):
+                beam.push(new_cell)
+
+    def push_final_cells(self) -> None:
+        """Re-enqueues already-final cells so they survive the update step."""
+        for beam in self.beams:
+            for cell in beam.cells:
+                if cell.final:
+                    beam.push(cell)
+
+    def predictions(self, device: torch.device) -> torch.Tensor:
+        """Padded tensor of the best decoded sequences.
+
+        All cell symbol lists are padded in one pass to a uniform seq_len,
+        then reshaped.
+
+        Args:
+            device (torch.device).
+
+        Returns:
+            torch.Tensor.
+        """
+        flat = nn.utils.rnn.pad_sequence(
+            [
+                torch.tensor(cell.symbols, device=device)
+                for beam in self.beams
+                for cell in beam.cells
+            ],
             batch_first=True,
             padding_value=special.PAD_IDX,
-        ).unsqueeze(0)
+        )
+        return flat.view(len(self.beams), -1, flat.size(1))
 
     def scores(self, device: torch.device) -> torch.Tensor:
-        """Converts the sequence scores into tensors.
-
-        This implementation assumes batch size is 1.
+        """Tensor of sequence log-likelihood scores.
 
         Args:
-            device (torch.device): the device to move the data to.
+            device (torch.device).
 
         Returns:
-            torch.Tensor: a B x beam_width tensor of log-likelihoods.
+            torch.Tensor.
         """
-        return torch.tensor(
-            [cell.score for cell in self.cells], device=device
-        ).unsqueeze(0)
+        return torch.stack(
+            [
+                torch.tensor(
+                    [cell.score for cell in beam.cells], device=device
+                )
+                for beam in self.beams
+            ],
+            dim=0,
+        )

@@ -52,15 +52,10 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             self.features_attention = modules.Attention(
                 self.features_encoder.output_size, self.decoder_hidden_size
             )
-        self.decoder = self.get_decoder()
         self.generation_probability = modules.GenerationProbability(
             self.embedding_size,
             self.decoder_hidden_size,
             self.decoder_input_size,
-        )
-        self.classifier = nn.Linear(
-            self.decoder_hidden_size + self.decoder_input_size,
-            self.target_vocab_size,
         )
         # Compatibility check.
         if self.source_encoder.layers != self.decoder_layers:
@@ -68,7 +63,12 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
                 f"Number of encoder layers ({self.source_encoder.layers}) and "
                 f"decoder layers ({self.decoder_layers}) must match"
             )
+        self.decoder = self.get_decoder()
         self.teacher_forcing = teacher_forcing
+        self.classifier = nn.Linear(
+            self.decoder_hidden_size + self.decoder_input_size,
+            self.target_vocab_size,
+        )
         self._log_model()
         self.save_hyperparameters(
             ignore=[
@@ -95,58 +95,94 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
     ) -> torch.Tensor:
         """Decodes with beam search.
 
-        Implementationally this is almost identical to the method of the same
-        name in RNNModel.
+        Each item in the batch gets its own independent beam of width
+        beam_width. Decoding halts once every beam across every batch item
+        has reached END, or max_target_length steps have elapsed.
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
-                weights.
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
-            features_encoded (torch.Tensor, optional): encoded feaure symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
-
-        Raises:
-            NotImplementedError: Beam search is not implemented for
-                batch_size > 1.
+            tuple[torch.Tensor, torch.Tensor]: predictions and
+                    log-likelihoods.
         """
-        # TODO: modify to work with batches larger than 1.
         batch_size = source_mask.size(0)
-        if batch_size != 1:
-            raise NotImplementedError(
-                "Beam search is not implemented for batch_size > 1"
-            )
-        state = self.decoder.initial_state(batch_size)
-        # The start symbol is not needed here because the beam puts that in
-        # automatically.
-        beam = beam_search.Beam(self.beam_width, state)
+        per_item_states = self.decoder.initial_state(batch_size).split(
+            batch_size
+        )
+        batched_beam = beam_search.BatchedBeam(
+            self.beam_width, batch_size, per_item_states
+        )
         for _ in range(self.max_target_length):
-            for cell in beam.cells:
-                if cell.final:
-                    beam.push(cell)
-                else:
-                    symbol = torch.tensor([[cell.symbol]], device=self.device)
-                    prediction, state = self.decode_step(
-                        source,
-                        source_encoded,
-                        source_mask,
-                        symbol,
-                        cell.state,
-                        features_encoded=features_encoded,
-                        features_mask=features_mask,
-                    )
-                    scores = prediction.squeeze()
-                    for new_cell in cell.extensions(scores, state):
-                        beam.push(new_cell)
-            beam.update()
-            if beam.final:
+            if batched_beam.final:
                 break
-        return beam.predictions(self.device), beam.scores(self.device)
+            self._beam_decode_step(
+                batched_beam,
+                source,
+                source_encoded,
+                source_mask,
+                features_encoded,
+                features_mask,
+            )
+        return (
+            batched_beam.predictions(self.device),
+            batched_beam.scores(self.device),
+        )
+
+    def _beam_decode_step(
+        self,
+        batched_beam: beam_search.BatchedBeam,
+        source: torch.Tensor,
+        source_encoded: torch.Tensor,
+        source_mask: torch.Tensor,
+        features_encoded: torch.Tensor | None,
+        features_mask: torch.Tensor | None,
+    ) -> None:
+        """Runs one decode step for all active cells and updates the beam.
+
+        Args:
+            batched_beam (beam_search.BatchedBeam): beam to update in place.
+            source (torch.Tensor).
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
+        """
+        symbols, item_indices, states, index_map = batched_beam.collect_active(
+            self.device
+        )
+        if not index_map:
+            return
+        expanded_source = source[item_indices]
+        expanded_source_encoded = source_encoded[item_indices]
+        expanded_source_mask = source_mask[item_indices]
+        expanded_features_encoded = (
+            features_encoded[item_indices]
+            if features_encoded is not None
+            else None
+        )
+        expanded_features_mask = (
+            features_mask[item_indices] if features_mask is not None else None
+        )
+        batched_cell_state = modules.RNNState.batch(states)
+        log_probs, new_batched_state = self.decode_step(
+            expanded_source,
+            expanded_source_encoded,
+            expanded_source_mask,
+            symbols,
+            batched_cell_state,
+            features_encoded=expanded_features_encoded,
+            features_mask=expanded_features_mask,
+        )
+        scores = log_probs.squeeze(dim=1)
+        new_states = new_batched_state.split(symbols.size(0))
+        batched_beam.push_final_cells()
+        batched_beam.fan_out_stateful(scores, new_states, index_map)
+        batched_beam.update()
 
     def decode_step(
         self,
@@ -158,25 +194,21 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         *,
         features_encoded: torch.Tensor | None = None,
         features_mask: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Single decoder step.
-
-        This predicts a distribution for one symbol.
+    ) -> tuple[torch.Tensor, modules.RNNState]:
+        """Single decoder step; predicts a distribution for one symbol.
 
         Args:
-            source (torch.Tensor): source symbols, used to compute pointer
-                weights.
-            source_encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for the source.
-            symbol (torch.Tensor): next symbol.
-            state (modules.RNNState): RNN state.
-            features_encoded (torch.Tensor, optional): encoded features
-                symbols.
-            features_mask (torch.Tensor, optional): mask for the features.
+            source (torch.Tensor),
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
+            symbol (torch.Tensor).
+            state (modules.RNNState).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            Tuple[torch.Tensor, modules.RNNState]: predictions for that state
-                and the RNN state.
+            tuple[torch.Tensor, modules.RNNState]: log-probabilities and the
+                updated RNN state.
         """
         # TODO: there are a few Law of Demeter violations here. Is there an
         # obvious refactoring?
@@ -225,8 +257,8 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         """Initializes the embedding layer.
 
         Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
+            num_embeddings (int).
+            embedding_size (int).
 
         Returns:
             nn.Embedding: embedding layer.
@@ -239,17 +271,16 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
     ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
+        Beam search returns a tuple with a tensor of top predictions
+        and the likelihoods (unnormalized sub of sequence log-probabilities)
+        for each prediction; greedy search just returns the tensor of the
+        one-best predictions.
+
         Args:
             batch (data.Batch).
 
         Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam search
-                returns a tuple with a tensor of predictions of shape
-                B x beam_width x seq_len and a tensor of B x shape beam_width
-                with the likelihood (the unnormalized sum of sequence
-                log-probabilities) for each prediction; greedy search returns
-                a tensor of predictions of shape
-                B x target_vocab_size x seq_len.
+            tuple[torch.Tensor, torch.Tensor] | torch.Tensor.
 
         Raises:
             base.ConfigurationError: Features encoder specified but no feature
@@ -408,10 +439,6 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             source_mask (torch.Tensor).
             features_encoded (torch.Tensor, optional).
             features_mask (torch.Tensor, optional).
-            target (torch.Tensor, optional): target symbols; if provided,
-                these are used for teacher forcing.
-            target_length (int, optional): maximum target length during
-                decoding. If not specified, max_target_length is used.
 
         Returns:
             torch.Tensor: predictions of B x target_vocab_size x seq_len.

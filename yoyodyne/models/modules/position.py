@@ -20,8 +20,8 @@ class BasePositionalEncoding(abc.ABC, lightning.LightningModule):
     @abc.abstractmethod
     def forward(
         self,
-        embedded: torch.Tensor,
         symbol: torch.Tensor,
+        embedded: torch.Tensor,
     ) -> torch.Tensor: ...
 
     @property
@@ -53,17 +53,17 @@ class AbsolutePositionalEncoding(BasePositionalEncoding):
 
     def forward(
         self,
-        embedded: torch.Tensor,
         symbol: torch.Tensor,
+        embedded: torch.Tensor,
     ) -> torch.Tensor:
         """Computes the positional encoding.
 
         Args:
-            embedded (torch.Tensor): embedded sequence.
-            symbol (torch.Tensor): symbol indices to encode.
+            symbol (torch.Tensor).
+            embedded (torch.Tensor).
 
         Returns:
-            torch.Tensor: positional embedding.
+            torch.Tensor.
         """
         indices = torch.arange(symbol.size(1), device=symbol.device)
         if indices.size(0) > self.max_length:
@@ -95,8 +95,8 @@ class NullPositionalEncoding(BasePositionalEncoding):
 
     def forward(
         self,
-        embedded: torch.Tensor,
         symbol: torch.Tensor,
+        embedded: torch.Tensor,
     ) -> torch.Tensor:
         return embedded
 
@@ -154,8 +154,8 @@ class RotaryPositionalEncoding(BasePositionalEncoding):
 
     def forward(
         self,
-        embedded: torch.Tensor,
         symbol: torch.Tensor,
+        embedded: torch.Tensor,
     ) -> torch.Tensor:
         """No-op: RoPE is applied inside attention, not to embeddings."""
         return embedded
@@ -171,13 +171,16 @@ class RotaryPositionalEncoding(BasePositionalEncoding):
     def rotate(self, x: torch.Tensor, seq_len: int) -> torch.Tensor:
         """Applies the RoPE rotation to a Q or K tensor.
 
+        Note that the head_dim dimension must match the embedding_size used
+        at construction. The resulting tensor is the same shape as the input
+        tensor.
+
         Args:
-            x (torch.Tensor): shape (B, seq_len, num_heads, head_dim).
-                Note: head_dim must equal embedding_size used at construction.
+            x (torch.Tensor): shape B x seq_len x num_heads x head_dim.
             seq_len (int): actual sequence length.
 
         Returns:
-            torch.Tensor: same shape as x, with RoPE applied.
+            torch.Tensor.
         """
         cos = self.cos_table[:seq_len, :]
         sin = self.sin_table[:seq_len, :]
@@ -222,17 +225,17 @@ class SinusoidalPositionalEncoding(BasePositionalEncoding):
 
     def forward(
         self,
-        embedded: torch.Tensor,
         symbol: torch.Tensor,
+        embedded: torch.Tensor,
     ) -> torch.Tensor:
         """Computes the positional encoding.
 
         Args:
-            embedded (torch.Tensor): embedded sequence.
-            symbol (torch.Tensor): symbol indices to encode.
+            symbol (torch.Tensor).
+            embedded (torch.Tensor).
 
         Returns:
-            torch.Tensor: positional embedding.
+            torch.Tensor.
         """
         indices = torch.arange(symbol.size(1), device=symbol.device)
         if indices.size(0) > self.max_length:

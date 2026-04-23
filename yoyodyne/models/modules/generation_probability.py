@@ -12,8 +12,8 @@ class GenerationProbability(nn.Module):
     """Generation probability for a pointer-generator.
 
     Args:
-        embedding_size (int, optional): embedding dimensions.
-        hidden_size (int, optional): decoder hidden state dimensions.
+        embedding_size (int, optional).
+        hidden_size (int, optional).
         attention_size (int, optional): dimensions of combined encoder
             attentions.
     """

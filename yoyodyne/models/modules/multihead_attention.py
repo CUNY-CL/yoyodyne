@@ -88,7 +88,7 @@ class RotaryMultiheadAttention(nn.Module):
                 applies a causal mask; ignored otherwise.
 
         Returns:
-            Tuple[torch.Tensor, Optional[torch.Tensor]]: output and optionally
+            tuple[torch.Tensor, torch.Tensor | None]: output and optionally
                 attention weights.
         """
         batch_size = query.size(0)

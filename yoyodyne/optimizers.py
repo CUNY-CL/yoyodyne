@@ -16,7 +16,7 @@ BETA2 = 0.999
 # convert the scalar to a tuple is necessarily going to be a hack.
 #
 # Here we minimally modify the optimizer constructors so that one passes
-# `beta1: float` and `beta2: float` in place of `betas: Tuple[float, float]`.
+# `beta1: float` and `beta2: float` in place of `betas: tuple[float, float]`.
 # This is implemented by subclassing each one separately rather than
 # fancy metaprogramming. The one complexity is that it is necesssary to
 # explicitly copy the signature of the function up to but not including

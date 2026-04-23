@@ -39,10 +39,10 @@ class AttentionOutput(collections.UserList):
 
         Args:
             module (nn.Module): ignored.
-            module_in (Tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
+            module_in (tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
                 ignored.
-            module_out (Tuple[torch.Tensor, torch.Tensor]): Output from
-                the module. The second tensor is the attention weights.
+            module_out (tuple[torch.Tensor, torch.Tensor]): output from
+                the module; the second tensor is the attention weights.
         """
         _, attention = module_out
         self.append(attention)
@@ -57,7 +57,7 @@ class TransformerModule(base.BaseModule):
     Args:
         *args: passed to superclass.
         attention_heads (int, optional): number of attention heads.
-        hidden_size (int, optional): size of the hidden layer.
+        hidden_size (int, optional).
         layers (int, optional): number of layers.
         max_length (int, optional): maximum length for positional encoding.
             If not provided, one must call `set_max_length` before use.
@@ -99,7 +99,7 @@ class TransformerModule(base.BaseModule):
     ) -> torch.Tensor:
         """Embeds the symbols and adds positional encoding."""
         embedded = self.esq * embeddings(symbols)
-        return self.dropout_layer(self.positional_encoding(embedded, symbols))
+        return self.dropout_layer(self.positional_encoding(symbols, embedded))
 
     @abc.abstractmethod
     def get_module(self) -> base.BaseModule: ...
@@ -284,7 +284,7 @@ class FeatureInvariantTransformerEncoder(TransformerEncoder):
             )
         )
         return self.dropout_layer(
-            self.positional_encoding(embedded + type_embedded, symbols)
+            self.positional_encoding(symbols, embedded + type_embedded)
         )
 
     def forward(
@@ -452,16 +452,16 @@ class TransformerDecoder(TransformerModule):
         """Performs single pass of decoder module.
 
         Args:
-            source_encoded (torch.Tensor): encoded source sequence.
-            source_mask (torch.Tensor): mask for source.
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
             target (torch.Tensor): current state of targets, which may be the
                 full target or previous decoded, of shape
                 B x seq_len x hidden_size.
-            target_mask (torch.Tensor): mask for target.
-            embeddings (nn.Embedding): embeddings.
+            target_mask (torch.Tensor).
+            embeddings (nn.Embedding).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
+            tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
         target_embedded = self.embed(target, embeddings)
@@ -595,17 +595,17 @@ class PointerGeneratorTransformerDecoder(TransformerDecoder):
         """Performs single pass of decoder module.
 
         Args:
-            source_encoded (torch.Tensor): encoded source sequence.
-            source_mask (torch.Tensor): mask for source.
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
             target (torch.Tensor): current targets, which may be the full
                 target or previous decoded, of shape B x seq_len x hidden_size.
-            target_mask (torch.Tensor): mask for target.
-            embeddings (nn.Embedding): embedding.
-            features_encoded (Optional[torch.Tensor]): encoded features.
-            features_mask (Optional[torch.Tensor]): mask for features.
+            target_mask (torch.Tensor).
+            embeddings (nn.Embedding).
+            features_encoded (torch.Tensor, optional).
+            features_mask (torch.Tensor, optional).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
+            tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
                 embedded targets.
         """
         target_embedded = self.embed(target, embeddings)
@@ -705,14 +705,14 @@ class SeparateFeaturesTransformerDecoder(nn.TransformerDecoder):
         """Passes the inputs (and mask) through the decoder layer.
 
         Args:
-            source_encoded (torch.Tensor): encoded source sequence.
-            source_mask (torch.Tensor): mask for source.
+            source_encoded (torch.Tensor).
+            source_mask (torch.Tensor).
             target (torch.Tensor): current embedded targets, which
                 may be the full target or previous decoded, of shape
                 B x seq_len x hidden_size.
-            target_mask (torch.Tensor): causal mask for target.
-            features_encoded (torch.Tensor): encoded features.
-            features_mask (torch.Tensor): mask for source.
+            target_mask (torch.Tensor).
+            features_encoded (torch.Tensor).
+            features_mask (torch.Tensor).
             causal_mask (torch.Tensor).
 
         Returns:

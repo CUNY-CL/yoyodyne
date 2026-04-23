@@ -68,14 +68,14 @@ class TransducerRNNModel(base.BaseModel):
         self.actions = actions
         self.expert = expert.Expert(self.actions, aligner, oracle_factor)
         self.vocab_offset = vocab_offset
-        self.teacher_forcing = teacher_forcing
         # These are optimizations to avoid extra dereferences.
         self.insertions = self.actions.insertions
         self.substitutions = self.actions.substitutions
+        self.decoder = self.get_decoder()
+        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
-        self.decoder = self.get_decoder()
         self._log_model()
         self.save_hyperparameters(
             ignore=[
@@ -115,7 +115,7 @@ class TransducerRNNModel(base.BaseModel):
             batch (data.Batch).
 
         Returns:
-            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
+            tuple[list[list[int]], torch.Tensor]: encoded prediction values
                 and loss tensor; due to transducer setup, prediction is
                 performed during training, so these are returned together.
 
@@ -174,12 +174,12 @@ class TransducerRNNModel(base.BaseModel):
         Args:
             source (torch.Tensor): source symbols.
             encoded (torch.Tensor): encoded source symbols.
-            source_mask (torch.Tensor): mask for source input.
+            source_mask (torch.Tensor).
             target (torch.Tensor, optional): encoded target input.
-            target_mask (torch.Tensor, optional): mask for target input.
+            target_mask (torch.Tensor, optional).
 
         Returns:
-            Tuple[List[List[int]], torch.Tensor]: encoded prediction values
+            tuple[list[list[int]], torch.Tensor]: encoded prediction values
                 and loss tensor.
         """
         batch_size = source_mask.size(0)
@@ -279,14 +279,14 @@ class TransducerRNNModel(base.BaseModel):
         """Performs expert rollout over batch.
 
         Args:
-            source (List[List[int]]): source token-id sequences.
-            target (List[List[int]]): target token-id sequences.
+            source (list[list[int]]): source token-id sequences.
+            target (list[list[int]]): target token-id sequences.
             alignment (torch.Tensor): current alignment positions of shape B.
-            prediction (List[List[int]]): current predictions per item.
+            prediction (list[list[int]]): current predictions per item.
             nonfinal (torch.Tensor): completion flags of shape B.
 
         Returns:
-            List[List[int]]: optimal action index lists, one per batch item.
+            list[list[int]]: optimal action index lists, one per batch item.
                 Completed items have [self.actions.end_idx].
         """
         # Bulk conversions to CPU lists.
@@ -313,13 +313,13 @@ class TransducerRNNModel(base.BaseModel):
         """Rolls out with optimal expert policy.
 
         Args:
-            source (List[int]): input token-id sequence.
-            target (List[int]): target token-id sequence.
+            source (list[int]): input token-id sequence.
+            target (list[int]): target token-id sequence.
             alignment (int): position in source to edit.
-            prediction (List[int]): current prediction token ids.
+            prediction (list[int]): current prediction token ids.
 
         Returns:
-            List[int]: optimal action encodings (may be empty if no actions
+            list[int]: optimal action encodings (may be empty if no actions
                 are valid, which should not occur in normal operation).
         """
         raw_action_scores = self.expert.score(
@@ -359,7 +359,7 @@ class TransducerRNNModel(base.BaseModel):
             lengths (torch.Tensor): length of each item in batch of shape B.
             nonfinal (torch.Tensor): boolean values designating which items
                 have not terminated edits of shape B.
-            optim_actions (List[List[int]], optional): optimal actions
+            optim_actions (list[list[int]], optional): optimal actions
                 determined by expert, present when loss is being calculated.
 
         Returns:
@@ -388,7 +388,7 @@ class TransducerRNNModel(base.BaseModel):
                 if true, only insertions and end are available.
 
         Returns:
-            List[int]: valid action indices.
+            list[int]: valid action indices.
         """
         valid_actions = [self.actions.end_idx]
         valid_actions.extend(self.insertions)
@@ -404,7 +404,7 @@ class TransducerRNNModel(base.BaseModel):
 
         Args:
             logits (torch.Tensor): raw logits of shape B x num_actions.
-            valid_actions (List[List[int]]): per-item lists of valid action
+            valid_actions (list[list[int]]): per-item lists of valid action
                 indices.
 
         Returns:
@@ -434,8 +434,8 @@ class TransducerRNNModel(base.BaseModel):
         Args:
             logits (torch.Tensor): masked logit values of shape
                 B x num_actions.
-            nonfinal (List[bool]): per-item completion flags.
-            optim_actions (List[List[int]]], optional): encoded actions to use
+            nonfinal (list[bool]): per-item completion flags.
+            optim_actions (list[list[int]]], optional): encoded actions to use
                 for action selection during teacher-forced training.
 
         Returns:
@@ -490,10 +490,10 @@ class TransducerRNNModel(base.BaseModel):
         This will be removed once Maxwell emits conditional edits directly.
 
         Args:
-            action_scores (Dict[actions.Edit, float]): weights for each action.
+            action_scores (dict[actions.Edit, float]): weights for each action.
 
         Returns:
-            Dict[actions.Edit, float]: edit action-weight pairs using
+            dict[actions.Edit, float]: edit action-weight pairs using
                 conditional edit types.
         """
         remapped: dict[actions.Edit, float] = {}
@@ -521,10 +521,10 @@ class TransducerRNNModel(base.BaseModel):
         Args:
             action (torch.Tensor): action indices, one per item in batch of
                 shape B.
-            source (List[List[int]]): source token-id sequences, one per item.
+            source (list[list[int]]): source token-id sequences, one per item.
             alignment (torch.Tensor): index of current source symbol for each
                 item in batch of shape B.
-            prediction (List[List[int]]): current token-id predictions for each
+            prediction (list[list[int]]): current token-id predictions for each
                item in batch; this is modified in-place.
 
         Returns:
@@ -568,20 +568,20 @@ class TransducerRNNModel(base.BaseModel):
         This is equivalent to minimizing the negative marginal log-likelihood
         of the set of optimal actions.
 
-        Args:
-            logits (torch.Tensor): raw logits of shape B x num_actions.
-            optimal_actions (List[List[int]]): per-item lists of optimal action
-                indices; each inner list must be non-empty.
-
-        Returns:
-            torch.Tensor: per-item NLL values of shape B.
-
         After:
             Riezler, S., Prescher, D., Kuhn, J., and Johnson, M. 2000.
             Lexicalized stochastic modeling of constraint-based grammars using
             log-linear measures and EM training. In _Proceedings of the 38th
             Annual Meeting of the Association for Computational
             Linguistics_, pages 480–487.
+
+        Args:
+            logits (torch.Tensor): raw logits of shape B x num_actions.
+            optimal_actions (list[list[int]]): per-item lists of optimal action
+                indices; each inner list must be non-empty.
+
+        Returns:
+            torch.Tensor: per-item NLL values of shape B.
         """
         # Numerator: logsumexp over optimal action logits, per item.
         # TODO: consider padding to a fixed width and using a masked logsumexp.
@@ -666,7 +666,7 @@ class TransducerRNNModel(base.BaseModel):
         redundant END to PAD.
 
         Args:
-            predictions (List[List[int]]): lists of prediction token indices.
+            predictions (list[list[int]]): lists of prediction token indices.
             length (int): desired sequence length.
 
         Returns:
@@ -692,7 +692,7 @@ class TransducerRNNModel(base.BaseModel):
         it is padded using END.
 
         Args:
-            prediction (List[int]): prediction token indices.
+            prediction (list[int]): prediction token indices.
             length (int): desired length.
 
         Returns:
@@ -719,8 +719,8 @@ class TransducerRNNModel(base.BaseModel):
         """Initializes the embedding layer.
 
         Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
+            num_embeddings (int).
+            embedding_size (int).
 
         Returns:
             nn.Embedding: embedding layer.

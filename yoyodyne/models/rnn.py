@@ -44,11 +44,11 @@ class RNNModel(base.BaseModel):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.decoder = self.get_decoder()
         self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
             self.decoder_hidden_size, self.target_vocab_size
         )
-        self.decoder = self.get_decoder()
         self._log_model()
         self.save_hyperparameters(
             ignore=[
@@ -70,50 +70,67 @@ class RNNModel(base.BaseModel):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Decodes with beam search.
 
-        Decoding halts once all sequences in a batch have reached END. It is
-        not currently possible to combine this with loss computation or
-        teacher forcing.
-
-        The implementation assumes batch size is 1, but both inputs and outputs
-        are still assumed to have a leading dimension representing batch size.
+        Each item in the batch gets its own independent beam of width
+        beam_width. Decoding halts once every beam across every batch item
+        has reached END, or max_target_length steps have elapsed.
 
         Args:
             context (torch.Tensor).
             mask (torch.Tensor).
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
+            tuple[torch.Tensor, torch.Tensor]: predictions and
+                log-likelihoods.
         """
-        # TODO: modify to work with batches larger than 1.
         batch_size = context.size(0)
-        if batch_size != 1:
-            raise NotImplementedError(
-                "Beam search is not supported for batch_size > 1"
-            )
-        state = self.decoder.initial_state(batch_size)
-        # The start symbol is not needed here because the beam puts that in
-        # automatically.
-        beam = beam_search.Beam(self.beam_width, state)
+        per_item_states = self.decoder.initial_state(batch_size).split(
+            batch_size
+        )
+        batched_beam = beam_search.BatchedBeam(
+            self.beam_width, batch_size, per_item_states
+        )
         for _ in range(self.max_target_length):
-            for cell in beam.cells:
-                if cell.final:
-                    beam.push(cell)
-                else:
-                    symbol = torch.tensor([[cell.symbol]], device=self.device)
-                    logits, state = self.decode_step(
-                        symbol, context, mask, cell.state
-                    )
-                    scores = nn.functional.log_softmax(
-                        logits.squeeze(1), dim=1
-                    ).squeeze(0)
-                    for new_cell in cell.extensions(scores, state):
-                        beam.push(new_cell)
-            beam.update()
-            if beam.final:
+            if batched_beam.final:
                 break
-        return beam.predictions(self.device), beam.scores(self.device)
+            self._beam_decode_step(batched_beam, context, mask)
+        return (
+            batched_beam.predictions(self.device),
+            batched_beam.scores(self.device),
+        )
+
+    def _beam_decode_step(
+        self,
+        batched_beam: beam_search.BatchedBeam,
+        context: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> None:
+        """Runs one decode step for all active cells and updates the beam.
+
+        Collects active cells, runs a single batched forward pass, then fans
+        scores and new states back into the per-item beams.
+
+        Args:
+            batched_beam (beam_search.BatchedBeam).
+            context (torch.Tensor).
+            mask (torch.Tensor).
+        """
+        symbols, item_indices, states, index_map = batched_beam.collect_active(
+            self.device
+        )
+        if not index_map:
+            return
+        expanded_context = context[item_indices]
+        expanded_mask = mask[item_indices]
+        batched_cell_state = modules.RNNState.batch(states)
+        logits, new_batched_state = self.decode_step(
+            symbols, expanded_context, expanded_mask, batched_cell_state
+        )
+        # logits: B x 1 x vocab_size -> B x vocab_size log-probs.
+        scores = nn.functional.log_softmax(logits.squeeze(dim=1), dim=1)
+        new_states = new_batched_state.split(symbols.size(0))
+        batched_beam.push_final_cells()
+        batched_beam.fan_out_stateful(scores, new_states, index_map)
+        batched_beam.update()
 
     def decode_step(
         self,
@@ -121,17 +138,18 @@ class RNNModel(base.BaseModel):
         context: torch.Tensor,
         mask: torch.Tensor,
         state: modules.RNNState,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, modules.RNNState]:
         """Single step of the decoder.
 
         Args:
-            symbol (torch.Tensor): previously decoded symbol(s) of shape B x 1.
+            symbol (torch.Tensor).
             context (torch.Tensor).
             mask (torch.Tensor).
-            state (RNNState).
+            state (modules.RNNState).
 
         Returns:
-            Tuple[torch.Tensor, modules.RNNState]: logits and the RNN state.
+            tuple[torch.Tensor, modules.RNNState]: logits and the updated RNN
+                state.
         """
         decoded, state = self.decoder(
             symbol, self.embeddings, context, mask, state
@@ -150,17 +168,15 @@ class RNNModel(base.BaseModel):
     ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         """Forward pass.
 
+        Beam search returns a tuple with a tensor of top predictions
+        and the log-likelihoods for each prediction; greedy search just
+        returns the tensor of the one-best predictions.
+
         Args:
             batch (data.Batch).
 
         Returns:
-            Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]: beam search
-                returns a tuple with a tensor of predictions of shape
-                B x beam_width x seq_len and a tensor of B x shape beam_width
-                with the likelihood (the unnormalized sum of sequence
-                log-probabilities) for each prediction; greedy search returns
-                a tensor of predictions of shape
-                B x seq_len x target_vocab_size.
+            tuple[torch.Tensor, torch.Tensor] | torch.Tensor.
 
         Raises:
             base.ConfigurationError: Features encoder specified but no feature
@@ -235,7 +251,7 @@ class RNNModel(base.BaseModel):
                 these are used for teacher forcing.
 
         Returns:
-            torch.Tensor: predictions of B x target_vocab_size x seq_len.
+            torch.Tensor: predictions.
         """
         batch_size = context.size(0)
         symbol = self.start_symbol(batch_size)
@@ -302,8 +318,8 @@ class RNNModel(base.BaseModel):
         """Initializes the embedding layer.
 
         Args:
-            num_embeddings (int): number of embeddings.
-            embedding_size (int): dimension of embeddings.
+            num_embeddings (int).
+            embedding_size (int).
 
         Returns:
             nn.Embedding: embedding layer.
