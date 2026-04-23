@@ -89,9 +89,8 @@ class TransformerModel(base.BaseModel):
             mask (torch.Tensor).
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
+            tuple[torch.Tensor, torch.Tensor]: predictions and
+                log-likelihoods.
         """
         batch_size = encoded.size(0)
         batched_beam = beam_search.BatchedBeam(
@@ -115,7 +114,7 @@ class TransformerModel(base.BaseModel):
         """Runs one decode step for all active cells and updates the beam.
 
         Args:
-            batched_beam (beam_search.BatchedBeam): beam to update in place.
+            batched_beam (beam_search.BatchedBeam).
             encoded (torch.Tensor).
             mask (torch.Tensor).
         """
@@ -423,9 +422,8 @@ class CausalTransformerModel(base.BaseModel):
             prefix (torch.Tensor).
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor]: predictions of shape
-                B x beam_width x seq_len and log-likelihoods of shape
-                B x beam_width.
+            tuple[torch.Tensor, torch.Tensor]: predictions and
+                log-likelihoods.
         """
         batch_size = prefix.size(0)
         batched_beam = beam_search.BatchedBeam(
