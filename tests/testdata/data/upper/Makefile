@@ -60,6 +60,7 @@ all: train.tsv \
     transformer_absolute_positional_expected.test \
     transformer_absolute_positional_expected.txt \
     transformer_student_forcing_expected.test \
+    transformer_student_forcing_expected.txt \
     transducer_gru_expected.test \
     transducer_gru_expected.txt \
     transducer_lstm_expected.test \
@@ -90,8 +91,7 @@ train.sed: train.tsv
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
 		--seed_everything 49 \
-		--trainer ../../configs/toy_trainer.yaml \
-		--trainer.default_root_dir "$(MODEL_DIR)"
+		--trainer ../../configs/toy_trainer.yaml
 	yoyodyne \
 		test \
 		--ckpt_path "$(MODEL_DIR)/lightning_logs/version_0/checkpoints/last.ckpt" \
@@ -100,7 +100,6 @@ train.sed: train.tsv
 		--data.test test.tsv \
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
-		--trainer.default_root_dir "$(MODEL_DIR)" \
 		--trainer.enable_progress_bar false \
 		> "$*_expected.test"
 	yoyodyne \

@@ -60,6 +60,7 @@ all: train.tsv \
     transformer_absolute_positional_expected.test \
     transformer_absolute_positional_expected.txt \
     transformer_student_forcing_expected.test \
+	transformer_student_forcing_expected.txt \
     transducer_gru_expected.test \
     transducer_gru_expected.txt \
     transducer_lstm_expected.test \
