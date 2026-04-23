@@ -458,7 +458,7 @@ class TransformerDecoder(TransformerModule):
                 full target or previous decoded, of shape
                 B x seq_len x hidden_size.
             target_mask (torch.Tensor).
-            embeddings (nn.Embedding)....
+            embeddings (nn.Embedding).
 
         Returns:
             tuple[torch.Tensor, torch.Tensor]: decoder outputs and the
