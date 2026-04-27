@@ -118,8 +118,8 @@ class TsvParser:
             return row[col - 1]
         except IndexError:
             raise Error(
-                f"Column {col} requested but row only has {len(row)} column(s). "
-                f"Row: {row!r}"
+                f"Column {col} requested but row only has {len(row)} "
+                f"column(s). Row: {row!r}"
             )
 
     @property
