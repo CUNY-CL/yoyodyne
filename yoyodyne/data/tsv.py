@@ -75,12 +75,17 @@ class TsvParser:
     def samples(self, path: str) -> Iterator[SampleType]:
         """Yields source, and features and/or target if available."""
         with open(path, "r", encoding=defaults.ENCODING) as source:
-            for row in csv.reader(source, delimiter="\t"):
-                yield self._row_to_sample(row)
+            for lineno, row in enumerate(
+                csv.reader(source, delimiter="\t"), 1
+            ):
+                try:
+                    yield self._row_to_sample(row)
+                except Error as error:
+                    raise Error(f"{path}, line {lineno}: {error}") from error
 
     def _row_to_sample(self, row: list[str]) -> SampleType:
         """Internal helper to convert a split row into a SampleType."""
-        source = self.source_symbols(self._get_string(row, self.source_col))  #
+        source = self.source_symbols(self._get_string(row, self.source_col))
         if self.has_features:
             features = self.features_symbols(
                 self._get_string(row, self.features_col)
@@ -108,7 +113,14 @@ class TsvParser:
         Returns:
            str: symbol from that string.
         """
-        return row[col - 1]  # -1 because we're using one-based indexing.
+        try:
+            # -1 because we're using one-based indexing.
+            return row[col - 1]
+        except IndexError:
+            raise Error(
+                f"Column {col} requested but row only has {len(row)} column(s). "
+                f"Row: {row!r}"
+            )
 
     @property
     def has_features(self) -> bool:
