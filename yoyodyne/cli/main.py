@@ -81,28 +81,25 @@ def main() -> None:
         datefmt="%d-%b-%y %H:%M:%S",
         level="INFO",
     )
-    # Select the model.
-    YoyodyneCLI(
-        models.BaseModel,
-        data.DataModule,
-        parser_kwargs={"parser_mode": "omegaconf"},
-        save_config_callback=None,
-        subclass_mode_model=True,
-        # Prevents predictions from accumulating in memory; see the
-        # documentation in `trainers.py` for more context.
-        trainer_class=trainers.Trainer,
-    )
+    _run_cli()
 
 
-def python_interface(args: cli.ArgsType = None) -> None:
+def python_interface(args: cli.ArgsType | None = None) -> None:
     """Interface to use models through Python."""
+    return _run_cli(args)
+
+
+def _run_cli(args: cli.ArgsType | None = None) -> None:
     YoyodyneCLI(
         models.BaseModel,
         data.DataModule,
         parser_kwargs={"parser_mode": "omegaconf"},
         save_config_callback=None,
         subclass_mode_model=True,
-        # See above for explanation.
         trainer_class=trainers.Trainer,
+        trainer_defaults={
+            "callbacks": [callbacks.CompactModelSummary()],
+            "enable_model_summary": False,
+        },
         args=args,
     )

@@ -7,8 +7,40 @@ from typing import Sequence, TextIO
 import lightning
 import torch
 from lightning.pytorch import callbacks, trainer
+from lightning.pytorch.utilities import model_summary
+from rich import console, table
 
 from . import data, defaults, models, util
+
+_console = console.Console()
+
+
+class CompactModelSummary(callbacks.ModelSummary):
+    """ModelSummary callback that hides zero-parameter rows."""
+
+    _console = console.Console()
+
+    def on_fit_start(
+        self, trainer: trainer.Trainer, pl_module: lightning.LightningModule
+    ) -> None:
+        # Prevents redundant logging in multi-GPU setups.
+        if not trainer.is_global_zero:
+            return
+        summary = model_summary.ModelSummary(pl_module)
+        rows = [
+            (name, layer.layer_type, layer.num_parameters)
+            for name, layer in summary._layer_summary.items()
+            if layer.num_parameters > 0
+        ]
+        param_table = table.Table(
+            show_header=True, header_style="bold magenta"
+        )
+        param_table.add_column("Name")
+        param_table.add_column("Type")
+        param_table.add_column("Parameters", justify="right")
+        for name, type_, params in rows:
+            param_table.add_row(name, type_, f"{params:,}")
+        self._console.print(param_table)
 
 
 class PredictionWriter(callbacks.BasePredictionWriter):

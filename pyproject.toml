@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yoyodyne"
-version = "0.5.15"
+version = "0.5.16"
 description = "Small-vocabulary neural sequence-to-sequence models"
 license = "Apache-2.0"
 readme = "README.md"
@@ -37,7 +37,8 @@ dependencies = [
     "lightning==2.6.0",
     "maxwell>=0.2.6",
     "numpy>=2.0.0,<3.0.0",
-    "omegaconf==2.3.0",
+    "omegaconf>=2.3.0",
+    "rich>=15.0.0",
     "torch==2.9.1",
     # Not directly needed but can cause pinning problems.
     "torchaudio==2.9.1",
