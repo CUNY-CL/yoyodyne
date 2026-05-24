@@ -3,7 +3,6 @@
 import abc
 import math
 
-import lightning
 import torch
 from torch import nn
 
@@ -14,7 +13,7 @@ class Error(Exception):
     pass
 
 
-class BasePositionalEncoding(abc.ABC, lightning.LightningModule):
+class BasePositionalEncoding(abc.ABC, nn.Module):
     """Abstract base class for positional encodings."""
 
     @abc.abstractmethod
