@@ -260,6 +260,7 @@ class TestYoyodyne:
                 f"--data.model_dir={model_dir}",
                 f"--model={model_config_path}",
                 *sed_args,
+                "--trainer.accelerator=cpu",
                 "--trainer.enable_progress_bar=false",
             ],
             check=True,
@@ -285,6 +286,7 @@ class TestYoyodyne:
                 f"--model={model_config_path}",
                 *sed_args,
                 f"--prediction.path={predicted_path}",
+                "--trainer.accelerator=cpu",
             ]
         )
         self.assertNonEmptyFileExists(predicted_path)
@@ -327,6 +329,7 @@ class TestYoyodyne:
                 f"--model={model_config_path}",
                 "--model.beam_width=5",
                 f"--prediction.path={predicted_path}",
+                "--trainer.accelerator=cpu",
             ]
         )
         self.assertNonEmptyFileExists(predicted_path)

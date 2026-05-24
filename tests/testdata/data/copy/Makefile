@@ -101,6 +101,7 @@ train.sed: train.tsv
 		--data.test test.tsv \
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
+		--trainer.accelerator cpu \
 		--trainer.default_root_dir "$(MODEL_DIR)" \
 		--trainer.enable_progress_bar false \
 		> "$*_expected.test"
@@ -112,7 +113,8 @@ train.sed: train.tsv
 		--data.predict test.tsv \
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
-		--prediction.path "$*_expected.txt"
+		--prediction.path "$*_expected.txt" \
+		--trainer.accelerator cpu
 
 %_beam_expected.txt: %_expected.txt
 	$(eval BASE := $(patsubst %_beam,%,$*))
@@ -125,7 +127,8 @@ train.sed: train.tsv
 		--data.predict test.tsv \
 		--model "../../configs/$(BASE).yaml" \
 		--model.beam_width 5 \
-		--prediction.path "$@"
+		--prediction.path "$@" \
+		--trainer.accelerator cpu
 
 clean:
 	rm -rf lightning_logs models
