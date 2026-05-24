@@ -79,6 +79,7 @@ train.sed: train.tsv
 		--data.model_dir "$(MODEL_DIR)" \
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
+		--trainer.accelerator cpu \
 		--trainer.default_root_dir "$(MODEL_DIR)" \
 		--trainer.enable_progress_bar false \
 		> "$*_expected.test"
@@ -90,8 +91,8 @@ train.sed: train.tsv
 		--data.model_dir "$(MODEL_DIR)" \
 		--model "../../configs/$*.yaml" \
 		$(SED_ARG) \
-		--prediction.path "$*_expected.txt"
-	rm -rf "$(MODEL_DIR)"
+		--prediction.path "$*_expected.txt" \
+		--trainer.accelerator cpu
 
 clean:
 	rm -rf lightning_logs models
