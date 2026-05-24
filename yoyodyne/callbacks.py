@@ -26,21 +26,23 @@ class CompactModelSummary(callbacks.ModelSummary):
         # Prevents redundant logging in multi-GPU setups.
         if not trainer.is_global_zero:
             return
-        summary = model_summary.ModelSummary(pl_module)
-        rows = [
-            (name, layer.layer_type, layer.num_parameters)
-            for name, layer in summary._layer_summary.items()
-            if layer.num_parameters > 0
-        ]
         param_table = table.Table(
             show_header=True, header_style="bold magenta"
         )
         param_table.add_column("Name")
         param_table.add_column("Type")
         param_table.add_column("Parameters", justify="right")
-        for name, type_, params in rows:
-            param_table.add_row(name, type_, f"{params:,}")
-        self._console.print(param_table)
+        summary = model_summary.ModelSummary(pl_module)
+        for name, layer in summary._layer_summary.items():
+            if layer.num_parameters == 0:
+                continue
+            param_table.add_row(
+                name, layer.layer_type, f"{layer.num_parameters:,}"
+            )
+        _console.print(param_table)
+        _console.print(
+            f"Trainable parameters: {summary.trainable_parameters:,}"
+        )
 
 
 class PredictionWriter(callbacks.BasePredictionWriter):
