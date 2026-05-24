@@ -4,11 +4,11 @@ import torch
 from torch import nn
 
 from ... import data, special
-from .. import beam_search, defaults, embeddings, modules
-from . import base
+from .. import base as models_base, beam_search, defaults, embeddings, modules
+from . import base as pointer_generator_base
 
 
-class PointerGeneratorRNNModel(base.PointerGeneratorModel):
+class PointerGeneratorRNNModel(pointer_generator_base.PointerGeneratorModel):
     """Abstract base class for pointer-generator models with RNN backends.
 
     If features are provided, a separate features attention module computes
@@ -33,8 +33,8 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         **kwargs: passed to superclass.
 
     Raises:
-        base.ConfigurationError: Number of encoder layers and decoder layers
-            must match.
+        models_base.ConfigurationError: Number of encoder layers and decoder
+            layers must match.
     """
 
     classifier: nn.Linear
@@ -59,7 +59,7 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
         )
         # Compatibility check.
         if self.source_encoder.layers != self.decoder_layers:
-            raise base.ConfigurationError(
+            raise models_base.ConfigurationError(
                 f"Number of encoder layers ({self.source_encoder.layers}) and "
                 f"decoder layers ({self.decoder_layers}) must match"
             )
@@ -283,17 +283,17 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
             tuple[torch.Tensor, torch.Tensor] | torch.Tensor.
 
         Raises:
-            base.ConfigurationError: Features encoder specified but no feature
-                column specified.
-            base.ConfigurationError: Features column specified but no feature
-                encoder specified.
+            models_base.ConfigurationError: Features encoder specified but no
+                feature column specified.
+            models_base.ConfigurationError: Features column specified but no
+                feature encoder specified.
         """
         source_encoded = self.source_encoder(
             batch.source, self.embeddings, is_source=True
         )
         if self.has_features_encoder:
             if not batch.has_features:
-                raise base.ConfigurationError(
+                raise models_base.ConfigurationError(
                     "Features encoder specified but "
                     "no feature column specified"
                 )
@@ -331,7 +331,7 @@ class PointerGeneratorRNNModel(base.PointerGeneratorModel):
                     features_mask=batch.features.mask,
                 )
         elif batch.has_features:
-            raise base.ConfigurationError(
+            raise models_base.ConfigurationError(
                 "Features column specified but no feature encoder specified"
             )
         elif self.beam_width > 1:

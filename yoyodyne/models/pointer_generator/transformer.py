@@ -4,11 +4,13 @@ import torch
 from torch import nn
 
 from ... import data, special
-from .. import beam_search, defaults, embeddings, modules
-from . import base
+from .. import base as models_base, beam_search, defaults, embeddings, modules
+from . import base as pointer_generator_base
 
 
-class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
+class PointerGeneratorTransformerModel(
+    pointer_generator_base.PointerGeneratorModel
+):
     """Pointer-generator model with a transformer backend.
 
     After:
@@ -295,17 +297,17 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
             torch.Tensor.
 
         Raises:
-            base.ConfigurationError: Features encoder specified but no feature
-                column specified.
-            base.ConfigurationError: Features column specified but no feature
-                encoder specified.
+            models_base.ConfigurationError: Features encoder specified but no
+                feature column specified.
+            models_base.ConfigurationError: Features column specified but no
+                feature encoder specified.
         """
         source_encoded = self.source_encoder(
             batch.source, self.embeddings, is_source=True
         )
         if self.has_features_encoder:
             if not batch.has_features:
-                raise base.ConfigurationError(
+                raise models_base.ConfigurationError(
                     "Features encoder specified but "
                     "no feature column specified"
                 )
@@ -354,7 +356,7 @@ class PointerGeneratorTransformerModel(base.PointerGeneratorModel):
                     features_mask=batch.features.mask,
                 )
         elif batch.has_features:
-            raise base.ConfigurationError(
+            raise models_base.ConfigurationError(
                 "Feature column specified but no feature encoder specified"
             )
         if (self.training or self.validating) and self.teacher_forcing:
@@ -488,7 +490,7 @@ class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
 
     def __init__(self, *args, **kwargs):
         if kwargs.get("decoder_positional_encoding") is not None:
-            raise base.ConfigurationError(
+            raise models_base.ConfigurationError(
                 f"{self.__class__.__name__} does not accept "
                 "decoder_positional_encoding"
             )
