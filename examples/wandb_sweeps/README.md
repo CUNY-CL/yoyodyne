@@ -58,6 +58,16 @@ the run's "Overview" on W&B, and then run:
     `--config` file but note that hyperparameters set by the sweep will override
     those specified in the `--config`.
 
+-   Your config file (`configs/tune.yaml`) here needs to enable a `WandbLogger`
+    or else none of the information emitted during the run will be logged to
+    W&B. This might look like:
+
+        ...
+        trainer:
+          logger:
+          - class_path: lightning.pytorch.loggers.WandbLogger
+        ...
+
 -   By default `random` and `bayes` search run indefinitely, until they are
     killed. To specify a fixed number of samples, provide the `--count`
     argument.

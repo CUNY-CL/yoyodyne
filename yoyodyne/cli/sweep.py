@@ -3,6 +3,7 @@
 import argparse
 import functools
 import logging
+import os
 import subprocess
 import sys
 import tempfile
@@ -28,18 +29,23 @@ def train_sweep(
         config: config dictionary (base config, will be copied).
         argv_template: command-line arguments template with None placeholder
             for the config path in 4th position.
+
+    Raises:
+        RuntimeError: Subprocess exited with non-zero code.
     """
-    with wandb.init() as run:
-        # Creates a fresh temp file for this run
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as temp_config:
-            populate_config(config.copy(), temp_config, run)
-            temp_config_path = temp_config.name
-        argv = argv_template.copy()
-        assert argv[3] is None
-        argv[3] = temp_config_path
-        run_sweep(argv)
+    run = wandb.init()
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".yaml", delete=False
+    ) as temp_config:
+        populate_config(config.copy(), temp_config, run)
+        temp_config_path = temp_config.name
+    argv = argv_template.copy()
+    assert argv[3] is None
+    argv[3] = temp_config_path
+    exit_code = run_sweep(argv)
+    wandb.finish(exit_code=exit_code)
+    if exit_code != 0:
+        raise RuntimeError(f"Subprocess exited with code {exit_code}")
 
 
 def populate_config(
@@ -54,7 +60,7 @@ def populate_config(
     Args:
         config: config dictionary (will be modified in place).
         temp_config_handle: temporary configuration file handle.
-        run: the run object.
+        run: run object.
     """
     for key, value in run.config.items():
         util.recursive_insert(config, key, value)
@@ -62,26 +68,25 @@ def populate_config(
     temp_config_handle.flush()
 
 
-def run_sweep(argv: list[str]) -> None:
+def run_sweep(argv: list[str]) -> int:
     """Actually runs the sweep.
-
-    The exception is caught by the W&B agent and recorded as a crash.
 
     Args:
         argv: command-line arguments.
 
-    Raises:
-        RuntimeError.
+    Returns:
+        Exit code.
 
     We encapsulate each run by using a separate subprocess, which ought to
     ensure that memory is returned (etc.).
     """
-    process = subprocess.Popen(argv, stderr=subprocess.PIPE, text=True)
+    env = {k: v for k, v in os.environ.items() if k != "WANDB_SERVICE"}
+    process = subprocess.Popen(
+        argv, env=env, stderr=subprocess.PIPE, text=True
+    )
     for line in process.stderr:
         logging.info(line.rstrip())
-    exit_code = process.wait()
-    if exit_code != 0:
-        raise RuntimeError(f"Subprocess exited with code {exit_code}")
+    return process.wait()
 
 
 def main() -> None:
