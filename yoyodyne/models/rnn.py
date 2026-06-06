@@ -30,26 +30,24 @@ class RNNModel(base.BaseModel):
 
     Args:
         *args: passed to superclass.
-        student_forcing (float, optional): probability of each token being student forced
+        teacher_forcing (float, optional): probability of each token being teacher forced
             forcing be used?
         **kwargs: passed to superclass.
     """
 
     # teacher_forcing: bool
-    student_forcing: float
+    teacher_forcing: float
     classifier: nn.Linear
 
     def __init__(
         self,
         *args,
         # teacher_forcing: bool = defaults.TEACHER_FORCING,
-        student_forcing: float = defaults.STUDENT_FORCING,
+        teacher_forcing: float = defaults.TEACHER_FORCING,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        # self.teacher_forcing = teacher_forcing
-        self.student_forcing = student_forcing
-        # self.student_forcing = distributions.Bernoulli(student_forcing)
+        self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(self.decoder_hidden_size, self.target_vocab_size)
         self.decoder = self.get_decoder()
         self._log_model()
@@ -193,7 +191,7 @@ class RNNModel(base.BaseModel):
                 return self.greedy_decode_train_validate(
                     context,
                     mask,
-                    batch.target.tensor if self.student_forcing != 0 else None,
+                    batch.target.tensor if self.teacher_forcing != 0 else None,
                 )
             else:
                 return self.greedy_decode_predict_test(context, mask)
@@ -229,11 +227,14 @@ class RNNModel(base.BaseModel):
         symbol = self.start_symbol(batch_size)
         state = self.decoder.initial_state(batch_size)
         predictions = []
-        if self.student_forcing == 1.0:
+        if (
+            self.teacher_forcing == 0.0
+        ):  # fixed the 1.0 scenario by just flipping this if statement
             target_length = self.max_target_length
             # should I be deciding target length based on student forcing float?
         else:
             target_length = target.size(1)
+
         final = torch.zeros(batch_size, device=self.device, dtype=bool)
         for t in range(target_length):
             # implenting nikolaj constant at bengio et al token level
@@ -241,13 +242,17 @@ class RNNModel(base.BaseModel):
             predictions.append(logits.squeeze(1))
             # generates coinflip tensor for student forcing
             forcing_tensor = torch.full(
-                (batch_size, 1), self.student_forcing, device=self.device
+                (batch_size, 1), self.teacher_forcing, device=self.device
             )
             sample = torch.bernoulli(forcing_tensor).bool()
-            # maybe do this when first declared
-            student_symbol = logits.argmax(dim=2)
-            teacher_symbol = target[:, t].unsqueeze(1)
-            symbol = torch.where(sample, student_symbol, teacher_symbol)
+            if self.teacher_forcing == 1.0:
+                symbol = target[:, t].unsqueeze(1)
+            elif self.teacher_forcing == 0.0:
+                symbol = logits.argmax(dim=2)
+            else:
+                student_symbol = logits.argmax(dim=2)
+                teacher_symbol = target[:, t].unsqueeze(1)
+                symbol = torch.where(sample, student_symbol, teacher_symbol)
             final = torch.logical_or(final, symbol == special.END_IDX)
             if final.all():
                 break

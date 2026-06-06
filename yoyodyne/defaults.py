@@ -45,8 +45,7 @@ SCHEDULER = schedulers.Dummy
 
 # Decoding arguments.
 BEAM_WIDTH = 1
-TEACHER_FORCING = True
-STUDENT_FORCING = 0.0
+TEACHER_FORCING = 1.0
 
 # Extra evaluation metrics.
 EVAL_METRICS = set()
