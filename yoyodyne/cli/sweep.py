@@ -7,7 +7,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import traceback
 import warnings
 from typing import Any
 
@@ -83,6 +82,7 @@ def run_sweep(argv: list[str]) -> int:
     We encapsulate each run by using a separate subprocess, which ought to
     ensure that memory is returned (etc.).
     """
+    # Prevents the subprocess from connecting to the parent's service daemon.
     env = {k: v for k, v in os.environ.items() if k != "WANDB_SERVICE"}
     process = subprocess.Popen(
         argv,
@@ -129,16 +129,10 @@ def main() -> None:
         None,  # Placeholder to be replaced in each run.
         *sys.argv[1:],
     ]
-    try:
-        wandb.agent(
-            sweep_id=args.sweep_id,
-            entity=args.entity,
-            project=args.project,
-            function=functools.partial(train_sweep, config, argv_template),
-            count=args.count,
-        )
-    except Exception:
-        # Exits gracefully, so W&B logs the error.
-        logging.fatal(traceback.format_exc())
-        wandb.finish(exit_code=1)
-        exit(1)
+    wandb.agent(
+        sweep_id=args.sweep_id,
+        entity=args.entity,
+        project=args.project,
+        function=functools.partial(train_sweep, config, argv_template),
+        count=args.count,
+    )
