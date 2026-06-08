@@ -33,18 +33,21 @@ def train_sweep(
     Raises:
         RuntimeError: Subprocess exited with non-zero code.
     """
-    run = wandb.init()
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as temp_config:
-        populate_config(config.copy(), temp_config, run)
-        temp_config_path = temp_config.name
+    with wandb.init() as run:
+        run_id = run.id
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".yaml", delete=False
+        ) as temp_config:
+            populate_config(config.copy(), temp_config, run)
+            temp_config_path = temp_config.name
     argv = argv_template.copy()
     assert argv[3] is None
     argv[3] = temp_config_path
     exit_code = run_sweep(argv)
-    wandb.finish(exit_code=exit_code)
     if exit_code != 0:
+        # Reopens the run to record failure.
+        with wandb.init(id=run_id, resume="must"):
+            wandb.finish(exit_code=exit_code)
         raise RuntimeError(f"Subprocess exited with code {exit_code}")
 
 
@@ -82,7 +85,10 @@ def run_sweep(argv: list[str]) -> int:
     """
     env = {k: v for k, v in os.environ.items() if k != "WANDB_SERVICE"}
     process = subprocess.Popen(
-        argv, env=env, stderr=subprocess.PIPE, text=True
+        argv,
+        env=env,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     for line in process.stderr:
         logging.info(line.rstrip())
