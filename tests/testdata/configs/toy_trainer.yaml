@@ -8,7 +8,7 @@ callbacks:
       monitor: val_loss
       patience: 5
 deterministic: true  # Slower but we're testing...
+gradient_clip_val: 3
 logger:
   - class_path: lightning.pytorch.loggers.CSVLogger
-gradient_clip_val: 3
 max_epochs: 20

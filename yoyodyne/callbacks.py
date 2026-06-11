@@ -12,8 +12,6 @@ from rich import console, table
 
 from . import data, defaults, models, util
 
-_console = console.Console()
-
 
 class CompactModelSummary(callbacks.ModelSummary):
     """ModelSummary callback that hides zero-parameter rows."""
@@ -39,8 +37,8 @@ class CompactModelSummary(callbacks.ModelSummary):
             param_table.add_row(
                 name, layer.layer_type, f"{layer.num_parameters:,}"
             )
-        _console.print(param_table)
-        _console.print(
+        self._console.print(param_table)
+        self._console.print(
             f"Trainable parameters: {summary.trainable_parameters:,}"
         )
 
