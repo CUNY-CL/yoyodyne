@@ -374,8 +374,6 @@ class HardAttentionTransformerDecoder(transformer.TransformerModule):
             alignment_probs.log().unsqueeze(1).expand(-1, encoded.size(1), -1)
         )
 
-    # FIXME determine whether this is ever used.
-
     def initial_state(self, batch_size: int) -> torch.Tensor:
         """Returns the initial (empty) prefix state.
 
