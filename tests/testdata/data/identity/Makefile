@@ -22,8 +22,6 @@ all: train.tsv \
 	hard_attention_gru_expected.txt \
 	hard_attention_lstm_expected.test \
 	hard_attention_lstm_expected.txt \
-	hard_attention_transformer_expected.txt \
-	hard_attention_transformer_expected.test \
 	lstm_expected.test \
 	lstm_expected.txt \
 	lstm_beam_expected.txt \
@@ -44,8 +42,6 @@ all: train.tsv \
 	rotary_causal_transformer_expected.txt \
 	rotary_context_hard_attention_transformer_expected.txt \
 	rotary_context_hard_attention_transformer_expected.test \
-	rotary_hard_attention_transformer_expected.txt \
-	rotary_hard_attention_transformer_expected.test \
 	rotary_pointer_generator_transformer_expected.test \
 	rotary_pointer_generator_transformer_expected.txt \
 	rotary_transformer_expected.test \
