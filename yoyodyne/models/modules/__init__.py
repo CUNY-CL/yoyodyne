@@ -6,9 +6,17 @@ from .base import BaseModule  # noqa: F401
 from .generation_probability import GenerationProbability  # noqa: F401
 from .hard_attention import ContextHardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import ContextHardAttentionLSTMDecoder  # noqa: F401
+from .hard_attention import (  # noqa: F401
+    ContextHardAttentionTransformerDecoder,
+)
 from .hard_attention import HardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import HardAttentionLSTMDecoder  # noqa: F401
 from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
+from .hard_attention import HardAttentionTransformerDecoder  # noqa: F401
+from .hard_attention import (  # noqa: F401
+    RotaryContextHardAttentionTransformerDecoder,
+)
+from .hard_attention import RotaryHardAttentionTransformerDecoder  # noqa: F401
 from .linear import LinearEncoder  # noqa: F401
 from .position import AbsolutePositionalEncoding  # noqa: F401
 from .position import BasePositionalEncoding  # noqa: F401

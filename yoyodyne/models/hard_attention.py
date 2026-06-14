@@ -488,3 +488,122 @@ class HardAttentionLSTMModel(HardAttentionRNNModel):
     @property
     def name(self) -> str:
         return "hard attention LSTM"
+
+
+class HardAttentionTransformerModel(HardAttentionRNNModel):
+    """Hard attention with transformer backend.
+
+    Replaces the RNN cell with a causally-masked self-attention-only stack.
+    Cross-attention to the source is omitted: source context enters through
+    the emission concatenation and the transition dot-product, matching the
+    RNN decoder's design and avoiding double-counting source-position
+    information that the HMM DP already handles.
+
+    The transformer decoder's forward() method has the same single-step
+    interface as the RNN decoders, so the inherited _loss() and greedy_decode()
+    drive it without modification. The "state" is the accumulated target
+    prefix rather than an RNN hidden-state tuple. Training re-runs the
+    transformer over the growing prefix at each step (O(T^2) attention
+    operations vs O(T) for the RNN), which is negligible for short target
+    sequences.
+
+    When attention_context > 0, a ContextHardAttentionTransformerDecoder is
+    used, giving first-order windowed transitions just as the RNN context
+    variants do.
+
+    Args:
+        *args: passed to HardAttentionRNNModel.
+        attention_heads (int, optional): number of self-attention heads.
+        **kwargs: passed to HardAttentionRNNModel.
+    """
+
+    attention_heads: int
+
+    def __init__(
+        self,
+        *args,
+        attention_heads: int = defaults.ATTENTION_HEADS,
+        **kwargs,
+    ):
+        # Must be set before super().__init__ calls get_decoder.
+        self.attention_heads = attention_heads
+        super().__init__(*args, **kwargs)
+
+    def get_decoder(self):
+        if self.attention_context > 0:
+            return modules.ContextHardAttentionTransformerDecoder(
+                attention_context=self.attention_context,
+                attention_heads=self.attention_heads,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.decoder_dropout,
+                embedding_size=self.embedding_size,
+                hidden_size=self.decoder_hidden_size,
+                layers=self.decoder_layers,
+                max_length=self.max_decoder_length,
+            )
+        else:
+            return modules.HardAttentionTransformerDecoder(
+                attention_heads=self.attention_heads,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.decoder_dropout,
+                embedding_size=self.embedding_size,
+                hidden_size=self.decoder_hidden_size,
+                layers=self.decoder_layers,
+                max_length=self.max_decoder_length,
+            )
+
+    def init_embeddings(
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+    ) -> nn.Embedding:
+        return embeddings.xavier_embedding(num_embeddings, embedding_size)
+
+    @property
+    def max_decoder_length(self) -> int:
+        # +1 for the START symbol prepended at each step.
+        return self.max_target_length + 1
+
+    @property
+    def name(self) -> str:
+        return "hard attention transformer"
+
+
+class RotaryHardAttentionTransformerModel(HardAttentionTransformerModel):
+    """Hard attention transformer with rotary positional encodings.
+
+    Pairs with RotaryTransformerEncoder (or RotaryFeatureInvariantTransformer
+    Encoder) as the source encoder; mixing rotary and sinusoidal encodings
+    within the same model is not recommended.
+
+    Args:
+        *args: passed to HardAttentionTransformerModel.
+        **kwargs: passed to HardAttentionTransformerModel.
+    """
+
+    def get_decoder(self):
+        if self.attention_context > 0:
+            return modules.RotaryContextHardAttentionTransformerDecoder(
+                attention_context=self.attention_context,
+                attention_heads=self.attention_heads,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.decoder_dropout,
+                embedding_size=self.embedding_size,
+                hidden_size=self.decoder_hidden_size,
+                layers=self.decoder_layers,
+                max_length=self.max_decoder_length,
+            )
+        else:
+            return modules.RotaryHardAttentionTransformerDecoder(
+                attention_heads=self.attention_heads,
+                decoder_input_size=self.decoder_input_size,
+                dropout=self.decoder_dropout,
+                embedding_size=self.embedding_size,
+                hidden_size=self.decoder_hidden_size,
+                layers=self.decoder_layers,
+                max_length=self.max_decoder_length,
+            )
+
+    @property
+    def name(self) -> str:
+        return "rotary hard attention transformer"

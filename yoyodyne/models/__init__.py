@@ -5,6 +5,8 @@ from .base import BaseModel  # noqa: F401
 from .base import ConfigurationError  # noqa: F401
 from .hard_attention import HardAttentionGRUModel  # noqa: F401
 from .hard_attention import HardAttentionLSTMModel  # noqa: F401
+from .hard_attention import HardAttentionTransformerModel  # noqa: F401
+from .hard_attention import RotaryHardAttentionTransformerModel  # noqa: F401
 from .pointer_generator import PointerGeneratorGRUModel  # noqa: F401
 from .pointer_generator import PointerGeneratorLSTMModel  # noqa: F401
 from .pointer_generator import PointerGeneratorTransformerModel  # noqa: F401
