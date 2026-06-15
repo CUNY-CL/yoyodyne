@@ -308,7 +308,6 @@ class HardAttentionTransformerDecoder(transformer.TransformerModule):
         )
 
     def get_module(self) -> nn.TransformerEncoder:
-        """Builds a causally-masked self-attention-only stack."""
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=self.embedding_size,
             dim_feedforward=self.hidden_size,
