@@ -80,15 +80,21 @@ configuration snippet:
 
     ...
     model:
+      class_path: yoyodyne.models.TranformerModel
       init_args:
         ...
+        decoder_attention_heads: 4
         decoder_hidden_size: 512
         source_encoder:
+          class_path: yoyodyne.models.modules.TransformerEncoder
           init_args:
-            hidden_size: ${model.decoder_hidden_size}
+            attention_heads: ${model.init_args.decoder_attention_heads}
+            hidden_size: ${model.init_args.decoder_hidden_size}
         features_encoder:
+          class_path: yoyodyne.models.modules.TransformerEncoder
           init_args:
-            hidden_size: ${model.decoder_hidden_size}
+            attention_heads: ${model.init_args.decoder_attention_heads}
+            hidden_size: ${model.init_args.decoder_hidden_size}
     ...
 
 #### Custom variable resolvers
@@ -336,8 +342,9 @@ and modules:
 -   `yoyodyne.models.modules.RotaryTransformerDecoder`
 -   `yoyodyne.models.modules.RotaryTransformerEncoder`
 
-Mixing rotary and non-rotary positional encodings within a single model is not
-recommended.
+In practice we find that the RoPE variants usually out-perform the non-rotary
+variants. Mixing rotary and non-rotary positional encodings within a single
+model is not recommended.
 
 #### Optimization
 

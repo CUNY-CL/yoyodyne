@@ -110,7 +110,7 @@ feature conditioning.
     hyperparameters similar to those used by Makarov & Clematide (2021).
 -   [`transformer.yaml`](transformer.yaml) is a transformer with hyperparameters
     similar to those of Wu et al. (2021, "A smaller Transformer").
--   [\`rotary_transformer.yaml](rotary_transformer.yaml) is the same but with
+-   [`rotary_transformer.yaml`](rotary_transformer.yaml) is the same but with
     rotary positional embeddings.
 
 ## Feature-conditioned configurations

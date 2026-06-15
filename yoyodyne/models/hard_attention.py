@@ -521,28 +521,28 @@ class HardAttentionTransformerModel(HardAttentionModel):
     variants do.
 
     Args:
-        *args: passed to HardAttentionModel.
-        attention_heads (int, optional): number of self-attention heads.
-        **kwargs: passed to HardAttentionModel.
+        *args: passed to superclass.
+        decoder_attention_heads (int, optional).
+        **kwargs: passed to superclass.
     """
 
-    attention_heads: int
+    decoder_attention_heads: int
 
     def __init__(
         self,
         *args,
-        attention_heads: int = defaults.ATTENTION_HEADS,
+        decoder_attention_heads: int = defaults.ATTENTION_HEADS,
         **kwargs,
     ):
         # Must be set before super().__init__ calls get_decoder.
-        self.attention_heads = attention_heads
+        self.decoder_attention_heads = decoder_attention_heads
         super().__init__(*args, **kwargs)
 
     def get_decoder(self):
         if self.attention_context > 0:
             return modules.ContextHardAttentionTransformerDecoder(
                 attention_context=self.attention_context,
-                attention_heads=self.attention_heads,
+                attention_heads=self.decoder_attention_heads,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
@@ -552,7 +552,7 @@ class HardAttentionTransformerModel(HardAttentionModel):
             )
         else:
             return modules.HardAttentionTransformerDecoder(
-                attention_heads=self.attention_heads,
+                attention_heads=self.decoder_attention_heads,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
@@ -595,15 +595,15 @@ class RotaryHardAttentionTransformerModel(HardAttentionTransformerModel):
     within the same model is not recommended.
 
     Args:
-        *args: passed to HardAttentionTransformerModel.
-        **kwargs: passed to HardAttentionTransformerModel.
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
     """
 
     def get_decoder(self):
         if self.attention_context > 0:
             return modules.RotaryContextHardAttentionTransformerDecoder(
                 attention_context=self.attention_context,
-                attention_heads=self.attention_heads,
+                attention_heads=self.decoder_attention_heads,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
@@ -613,7 +613,7 @@ class RotaryHardAttentionTransformerModel(HardAttentionTransformerModel):
             )
         else:
             return modules.RotaryHardAttentionTransformerDecoder(
-                attention_heads=self.attention_heads,
+                attention_heads=self.decoder_attention_heads,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.decoder_dropout,
                 embedding_size=self.embedding_size,
