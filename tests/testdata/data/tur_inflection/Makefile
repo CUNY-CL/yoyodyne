@@ -8,28 +8,28 @@ all: train.tsv \
 	causal_transformer_expected.txt \
 	context_hard_attention_lstm_separate_features_expected.test \
 	context_hard_attention_lstm_separate_features_expected.txt \
-	hard_attention_lstm_separate_features_expected.test \
-	hard_attention_lstm_separate_features_expected.txt \
 	pointer_generator_lstm_separate_features_expected.test \
 	pointer_generator_lstm_separate_features_expected.txt \
 	pointer_generator_transformer_linear_features_expected.test \
 	pointer_generator_transformer_linear_features_expected.txt \
+	rotary_causal_transformer_expected.test \
+	rotary_causal_transformer_expected.txt \
+	rotary_context_hard_attention_transformer_separate_features_expected.test \
+	rotary_context_hard_attention_transformer_separate_features_expected.txt \
+	rotary_pointer_generator_transformer_linear_features_expected.test \
+	rotary_pointer_generator_transformer_linear_features_expected.txt \
+	rotary_transformer_shared_features_expected.test \
+	rotary_transformer_shared_features_expected.txt \
 	soft_attention_lstm_gru_features_expected.test \
 	soft_attention_lstm_gru_features_expected.txt \
 	soft_attention_lstm_linear_features_expected.test \
 	soft_attention_lstm_linear_features_expected.txt \
 	soft_attention_lstm_separate_features_expected.test \
 	soft_attention_lstm_separate_features_expected.txt \
-	soft_attention_lstm_shared_features_expected.test \
-	soft_attention_lstm_shared_features_expected.txt \
 	soft_attention_lstm_separate_features_expected.test \
 	soft_attention_lstm_separate_features_expected.txt \
-	rotary_causal_transformer_expected.test \
-	rotary_causal_transformer_expected.txt \
-	rotary_pointer_generator_transformer_linear_features_expected.test \
-	rotary_pointer_generator_transformer_linear_features_expected.txt \
-	rotary_transformer_shared_features_expected.test \
-	rotary_transformer_shared_features_expected.txt \
+	soft_attention_lstm_shared_features_expected.test \
+	soft_attention_lstm_shared_features_expected.txt \
 	transformer_invariant_features_expected.test \
 	transformer_invariant_features_expected.txt \
 	transformer_null_positional_features_expected.test \

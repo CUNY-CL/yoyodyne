@@ -25,6 +25,7 @@ ARCH = [
     "causal_transformer_student_forcing",
     "context_hard_attention_gru",
     "context_hard_attention_lstm",
+    "context_hard_attention_transformer",
     "gru",
     "hard_attention_gru",
     "hard_attention_lstm",
@@ -35,6 +36,7 @@ ARCH = [
     "pointer_generator_transformer",
     "pointer_generator_transformer_student_forcing",
     "rotary_causal_transformer",
+    "rotary_context_hard_attention_transformer",
     "rotary_pointer_generator_transformer",
     "rotary_transformer",
     "soft_attention_gru",
@@ -65,12 +67,10 @@ BEAM_ARCH = [
 ]
 # Specific tests for the inflection data, which is larger and has features.
 INFLECTION_ARCH = [
-    "causal_transformer",
     "context_hard_attention_lstm_separate_features",
-    "hard_attention_lstm_separate_features",
     "pointer_generator_lstm_separate_features",
-    "pointer_generator_transformer_linear_features",
     "rotary_causal_transformer",
+    "rotary_context_hard_attention_transformer_separate_features",
     "rotary_pointer_generator_transformer_linear_features",
     "rotary_transformer_shared_features",
     "soft_attention_lstm_gru_features",

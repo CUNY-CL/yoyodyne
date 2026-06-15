@@ -13,6 +13,8 @@ all: train.tsv \
 	context_hard_attention_gru_expected.txt \
 	context_hard_attention_lstm_expected.test \
 	context_hard_attention_lstm_expected.txt \
+	context_hard_attention_transformer_expected.txt \
+	context_hard_attention_transformer_expected.test \
 	gru_expected.test \
 	gru_expected.txt \
 	gru_beam_expected.txt \
@@ -38,6 +40,8 @@ all: train.tsv \
 	pointer_generator_transformer_student_forcing_expected.txt \
 	rotary_causal_transformer_expected.test \
 	rotary_causal_transformer_expected.txt \
+	rotary_context_hard_attention_transformer_expected.txt \
+	rotary_context_hard_attention_transformer_expected.test \
 	rotary_pointer_generator_transformer_expected.test \
 	rotary_pointer_generator_transformer_expected.txt \
 	rotary_transformer_expected.test \

@@ -221,14 +221,12 @@ The following are general-purpose models:
 -   `yoyodyne.models.SoftAttentionGRUModel`: a GRU decoder with an attention
     mechanism; the initial hidden state is treated as a learned parameter. This
     is most commonly used with `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.SoftAttentionLSTMModel`: the same as
-    `yoyodyne.models.SoftAttentionGRUModel` but with an LSTM decoder instead.
-    This is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
--   `yoyodyne.models.TransformerModel`: a transformer decoder; sinusodial
-    positional encodings and layer normalization are used. This is most commonly
-    used with `yoyodyne.models.modules.TransformerEncoder`s.
--   `yoyodyne.models.CausalTransformerModel`: a transformer decoder without
-    separate encoder modules, also known as a prefix LM.
+-   `yoyodyne.models.SoftAttentionLSTMModel`: the same but with an LSTM decoder
+    instead. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.TransformerModel`: the same but with a transformer decoder
+    instead. This is most commonly used with
+    `yoyodyne.models.modules.TransformerEncoder`s.
 
 The following models are particularly appropriate for when source and target
 share symbols:
@@ -237,11 +235,11 @@ share symbols:
     pointer-generator mechanism; the initial hidden state is treated as a
     learned parameter. This is most commonly used with
     `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.PointerGeneratorLSTMModel`: the same as
-    `yoyodyne.models.PointerGeneratorGRUModel` but with an LSTM decoder instead.
-    This is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
--   `yoyodyne.models.PointerGeneratorTransformerModel`: a transformer decoder
-    with a pointer-generator mechanism. This is most commonly used with
+-   `yoyodyne.models.PointerGeneratorLSTMModel`: the same but with an LSTM
+    decoder instead. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.PointerGeneratorTransformerModel`: the same but with a
+    transformer decoder. This is most commonly used with
     `yoyodyne.models.modules.TransformerEncoder`s.
 
 The following models are particularly appropriate for transductions which are
@@ -254,9 +252,12 @@ largely monotonic:
     specifying `model: attention_context: 1` (or larger values) one can widen
     the context window for state transitions. This is most commonly used with
     `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.HardAttentionLSTMModel`: the same as
-    `yoyodyne.models.HardAttentionGRUModel` but with an LSTM decoder instead.
-    This is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.HardAttentionLSTMModel`: the same but with an LSTM decoder
+    instead. This is most commonly used with
+    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.HardAttentionTransformerModel`: the same but with a
+    transformer decoder instead. This is most commonly used with
+    `yoyodyne.models.modules.TransformerEncoder`s\`.
 
 The following models are also appropriate for transductions which are largely
 monotonic, but require additional precomputation with the
@@ -265,20 +266,20 @@ monotonic, but require additional precomputation with the
 -   `yoyodyne.models.TransducerGRU`: a GRU decoder with a neural transducer
     mechanism trained with imitation learning. This is most commonly used with
     `yoyodyne.models.modules.LSTMEncoder`s.
--   `yoyodyne.models.TransducerLSTM`: the same as
-    `yoyodyne.models.TransducerGRU` but with an LSTM decoder instead. This is
-    most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.TransducerLSTM`: the same but with an LSTM decoder instead.
+    This is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
 
 The following models are not recommended for most users; they generally perform
 poorly and are present only for historical or testing reasons:
 
+-   `yoyodyne.models.CausalTransformerModel`: a transformer decoder without
+    separate encoder modules, also known as a prefix LM.
 -   `yoyodyne.models.GRUModel`: a GRU decoder which uses the last non-padding
     hidden state(s) of the encoder(s) in lieu of attention; the initial hidden
     state is treated as a learned parameter. This is most commonly used with
     `yoyodyne.models.modules.GRUEncoder`s.
--   `yoyodyne.models.LSTMModel`: the same as `yoyodyne.models.GRUModel` but with
-    an LSTM decoder instead. This is most commonly used with
-    `yoyodyne.models.modules.LSTMEncoder`s.
+-   `yoyodyne.models.LSTMModel`: the same but with an LSTM decoder instead. This
+    is most commonly used with `yoyodyne.models.modules.LSTMEncoder`s.
 
 ##### Positional encoding
 
@@ -286,13 +287,13 @@ In RNN (e.g., GRU and LSTM) models and modules, information is passed between
 adjacent source, features, and target symbols, providing a sort of inductive
 bias towards locality. In contrast, transformer models and modules are in some
 sense *global*, and any biases towards locality must be injected into the system
-via positional encoding systems.
+via the positional encoding system.
 
 For core transformer modules (including causal and pointer-generator variants),
 the user can specify the following positional encodings:
 
 -   `yoyodyne.models.modules.AbsolutePositionalEncoding`: a trainable positional
-    encoding scheme with a unique representation for each position $i$ in a
+    encoding scheme with a unique representation for each position in the
     sequence.
 -   `yoyodyne.models.modules.NullPositionalEncoding`: this dummy module disables
     positional encoding; it has no parameters.
@@ -319,13 +320,18 @@ core transformer models and modules which support *rotary positional encoding*
 (RoPE). RoPE is implemented as a variant form of multihead attention deep within
 the transformer model and cannot be selected using `positional_encoding` or
 `decoder_positional_encoding` arguments. Rather, it gives rise to the following
-models and modules:
+models:
 
 -   `yoyodyne.models.RotaryCausalTransformerModel`
+-   `yoyodyne.models.RotaryHardAttentionTransformerModel`
 -   `yoyodyne.models.RotaryPointerGeneratorTransformerModel`
 -   `yoyodyne.models.RotaryTransformerModel`
+
+and modules:
+
 -   `yoyodyne.models.modules.RotaryCausalTransformerDecoder`
 -   `yoyodyne.models.modules.RotaryFeatureInvariantTransformerEncoder`
+-   `yoyodyne.models.modules.RotaryHardAttentionTransformerDecoder`
 -   `yoyodyne.models.modules.RotaryPointerGeneratorTransformerDecoder`
 -   `yoyodyne.models.modules.RotaryTransformerDecoder`
 -   `yoyodyne.models.modules.RotaryTransformerEncoder`
