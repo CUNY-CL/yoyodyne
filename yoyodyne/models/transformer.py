@@ -18,7 +18,7 @@ class TransformerModel(base.BaseModel):
 
     Args:
         *args: passed to superclass.
-        attention_heads (int, optional).
+        decoder_attention_heads (int, optional).
         decoder_positional_encoding (modules.BasePositionalEncoding, optional):
             a positional encoding object for the decoder; if not specified, a
             sinusoidal encoding of the appropriate size will be allocated.
@@ -27,7 +27,7 @@ class TransformerModel(base.BaseModel):
     """
 
     # Model arguments.
-    attention_heads: int
+    decoder_attention_heads: int
     classifier: nn.Linear
     decoder_positional_encoding: modules.BasePositionalEncoding
     teacher_forcing: bool
@@ -35,7 +35,7 @@ class TransformerModel(base.BaseModel):
     def __init__(
         self,
         *args,
-        attention_heads: int = defaults.ATTENTION_HEADS,
+        decoder_attention_heads: int = defaults.ATTENTION_HEADS,
         decoder_positional_encoding: (
             modules.BasePositionalEncoding | None
         ) = None,
@@ -43,7 +43,7 @@ class TransformerModel(base.BaseModel):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.attention_heads = attention_heads
+        self.decoder_attention_heads = decoder_attention_heads
         if self.has_features_encoder and (
             self.source_encoder.output_size
             != self.features_encoder.output_size
@@ -214,7 +214,7 @@ class TransformerModel(base.BaseModel):
         positional_encoding: modules.BasePositionalEncoding | None = None,
     ) -> modules.TransformerDecoder:
         return modules.TransformerDecoder(
-            attention_heads=self.attention_heads,
+            attention_heads=self.decoder_attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
@@ -319,7 +319,7 @@ class RotaryTransformerModel(TransformerModel):
         self, positional_encoding=None
     ) -> modules.RotaryTransformerDecoder:
         return modules.RotaryTransformerDecoder(
-            attention_heads=self.attention_heads,
+            attention_heads=self.decoder_attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,

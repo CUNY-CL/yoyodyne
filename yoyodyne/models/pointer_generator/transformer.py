@@ -21,12 +21,12 @@ class PointerGeneratorTransformerModel(
 
     Args:
         *args: passed to the superclass.
-        attention_heads (int, optional).
+        decoder_attention_heads (int, optional).
         teacher_forcing (bool, optional).
         **kwargs: passed to the superclass.
     """
 
-    attention_heads: int
+    decoder_attention_heads: int
     classifier: nn.Linear
     decoder_positional_encoding: modules.BasePositionalEncoding
     generation_probability: modules.GenerationProbability
@@ -35,7 +35,7 @@ class PointerGeneratorTransformerModel(
     def __init__(
         self,
         *args,
-        attention_heads: int = defaults.ATTENTION_HEADS,
+        decoder_attention_heads: int = defaults.ATTENTION_HEADS,
         decoder_positional_encoding: (
             modules.BasePositionalEncoding | None
         ) = None,
@@ -43,7 +43,7 @@ class PointerGeneratorTransformerModel(
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.attention_heads = attention_heads
+        self.decoder_attention_heads = decoder_attention_heads
         if self.has_features_encoder:
             self.generation_probability = modules.GenerationProbability(
                 self.embedding_size,
@@ -259,7 +259,7 @@ class PointerGeneratorTransformerModel(
         positional_encoding: modules.BasePositionalEncoding | None = None,
     ) -> modules.PointerGeneratorTransformerDecoder:
         return modules.PointerGeneratorTransformerDecoder(
-            attention_heads=self.attention_heads,
+            attention_heads=self.decoder_attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
@@ -500,7 +500,7 @@ class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
         self, positional_encoding=None
     ) -> modules.RotaryPointerGeneratorTransformerDecoder:
         return modules.RotaryPointerGeneratorTransformerDecoder(
-            attention_heads=self.attention_heads,
+            attention_heads=self.decoder_attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,
