@@ -9,7 +9,7 @@ from .. import data, defaults, special
 from . import base, embeddings, modules
 
 
-class HardAttentionRNNModel(base.BaseModel):
+class HardAttentionModel(base.BaseModel):
     """Abstract base class for hard attention models.
 
     Learns probability distribution of target string by modeling transduction
@@ -26,9 +26,6 @@ class HardAttentionRNNModel(base.BaseModel):
     source encoding with the features encoding, averaged across the length
     dimension and then scattered along the source length dimension, on the
     encoding dimension.
-
-    During training, the model is essentially doing teacher forcing, and we
-    pass the target length.
 
     After:
         Wu, S. and Cotterell, R. 2019. Exact hard monotonic attention for
@@ -179,22 +176,6 @@ class HardAttentionRNNModel(base.BaseModel):
         transitions = transitions.masked_fill(mask, -1e7)
         transitions = transitions - transitions.logsumexp(dim=2, keepdim=True)
         return transitions
-
-    def init_embeddings(
-        self,
-        num_embeddings: int,
-        embedding_size: int,
-    ) -> nn.Embedding:
-        """Initializes the embedding layer.
-
-        Args:
-            num_embeddings (int).
-            embedding_size (int).
-
-        Returns:
-            nn.Embedding: embedding layer.
-        """
-        return embeddings.normal_embedding(num_embeddings, embedding_size)
 
     def forward(
         self, batch: data.Batch
@@ -436,6 +417,34 @@ class HardAttentionRNNModel(base.BaseModel):
     def name(self) -> str: ...
 
 
+class HardAttentionRNNModel(HardAttentionModel):
+    """Abstract base class for RNN-backed hard attention models.
+
+    During training, the model does teacher forcing, passing the target length
+    to the decoder.
+
+    Args:
+        *args: passed to superclass.
+        **kwargs: passed to superclass.
+    """
+
+    def init_embeddings(
+        self,
+        num_embeddings: int,
+        embedding_size: int,
+    ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int).
+            embedding_size (int).
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
+        return embeddings.normal_embedding(num_embeddings, embedding_size)
+
+
 class HardAttentionGRUModel(HardAttentionRNNModel):
     """Hard attention with GRU backend."""
 
@@ -490,7 +499,7 @@ class HardAttentionLSTMModel(HardAttentionRNNModel):
         return "hard attention LSTM"
 
 
-class HardAttentionTransformerModel(HardAttentionRNNModel):
+class HardAttentionTransformerModel(HardAttentionModel):
     """Hard attention with transformer backend.
 
     Replaces the RNN cell with a causally-masked self-attention-only stack.
@@ -512,9 +521,9 @@ class HardAttentionTransformerModel(HardAttentionRNNModel):
     variants do.
 
     Args:
-        *args: passed to HardAttentionRNNModel.
+        *args: passed to HardAttentionModel.
         attention_heads (int, optional): number of self-attention heads.
-        **kwargs: passed to HardAttentionRNNModel.
+        **kwargs: passed to HardAttentionModel.
     """
 
     attention_heads: int
@@ -557,6 +566,15 @@ class HardAttentionTransformerModel(HardAttentionRNNModel):
         num_embeddings: int,
         embedding_size: int,
     ) -> nn.Embedding:
+        """Initializes the embedding layer.
+
+        Args:
+            num_embeddings (int).
+            embedding_size (int).
+
+        Returns:
+            nn.Embedding: embedding layer.
+        """
         return embeddings.xavier_embedding(num_embeddings, embedding_size)
 
     @property
