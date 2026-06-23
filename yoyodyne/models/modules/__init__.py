@@ -31,12 +31,14 @@ from .rnn import RNNDecoder  # noqa: F401
 from .rnn import RNNState  # noqa: F401
 from .rnn import SoftAttentionGRUDecoder  # noqa: F401
 from .rnn import SoftAttentionLSTMDecoder  # noqa: F401
+from .pointer_generator import PointerGeneratorTransformerDecoder  # noqa: F401
+from .pointer_generator import (  # noqa: F401
+    RotaryPointerGeneratorTransformerDecoder,
+)
 from .transformer import CausalTransformerDecoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder  # noqa: F401
-from .transformer import PointerGeneratorTransformerDecoder  # noqa: F401
 from .transformer import RotaryCausalTransformerDecoder  # noqa: F401
 from .transformer import RotaryFeatureInvariantTransformerEncoder  # noqa: F401
-from .transformer import RotaryPointerGeneratorTransformerDecoder  # noqa: F401
 from .transformer import RotaryTransformerDecoder  # noqa: F401
 from .transformer import RotaryTransformerEncoder  # noqa: F401
 from .transformer import SeparateFeaturesTransformerDecoder  # noqa: F401
