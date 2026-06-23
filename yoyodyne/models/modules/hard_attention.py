@@ -287,7 +287,8 @@ class HardAttentionTransformerDecoder(transformer.TransformerModule):
 
     Args:
         *args: passed to TransformerModule.
-        decoder_input_size (int): dimensionality of the source encoder output.
+        decoder_input_size (int, optional): dimensionality of the source
+            encoder output.
         **kwargs: passed to TransformerModule.
     """
 
@@ -296,7 +297,10 @@ class HardAttentionTransformerDecoder(transformer.TransformerModule):
     scale_encoded: nn.Linear
 
     def __init__(
-        self, *args, decoder_input_size: int = defaults.HIDDEN_SIZE, **kwargs
+        self,
+        *args,
+        decoder_input_size: int = defaults.EMBEDDING_SIZE,
+        **kwargs,
     ):
         # Must be set before super().__init__ so output_size is available
         # when output_proj and scale_encoded are built below.
