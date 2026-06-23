@@ -6,10 +6,6 @@ from torch import nn
 from ... import defaults
 
 
-class Error(Exception):
-    pass
-
-
 class Attention(nn.Module):
     """Basic attention module.
 

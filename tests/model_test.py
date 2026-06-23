@@ -35,6 +35,23 @@ class TestModel:
         )
         assert isinstance(model, models.CausalTransformerModel)
 
+    def test_feature_invariant_transformer(self):
+        model = models.TransformerModel(
+            source_encoder=modules.FeatureInvariantTransformerEncoder(),
+            features_encoder=True,
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.TransformerModel)
+
+    def test_gru(self):
+        model = models.GRUModel(
+            source_encoder=modules.GRUEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.GRUModel)
+
     def test_hard_attention_gru(self):
         model = models.HardAttentionGRUModel(
             source_encoder=modules.GRUEncoder(),
@@ -85,6 +102,66 @@ class TestModel:
             vocab_size=VOCAB_SIZE,
         )
         assert isinstance(model, models.HardAttentionLSTMModel)
+
+    def test_hard_attention_transformer(self):
+        model = models.HardAttentionTransformerModel(
+            source_encoder=modules.TransformerEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.HardAttentionTransformerModel)
+
+    def test_lstm(self):
+        model = models.LSTMModel(
+            source_encoder=modules.LSTMEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.LSTMModel)
+
+    def test_lstm_linear_features(self):
+        model = models.LSTMModel(
+            source_encoder=modules.LSTMEncoder(),
+            features_encoder=modules.LinearEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.LSTMModel)
+
+    def test_lstm_separate_features(self):
+        model = models.LSTMModel(
+            source_encoder=modules.LSTMEncoder(),
+            features_encoder=modules.LSTMEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.LSTMModel)
+
+    def test_lstm_shared_features(self):
+        model = models.LSTMModel(
+            source_encoder=modules.LSTMEncoder(),
+            features_encoder=True,
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.LSTMModel)
+
+    def test_lstm_transformer_features(self):
+        model = models.LSTMModel(
+            source_encoder=modules.LSTMEncoder(),
+            features_encoder=modules.TransformerEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.LSTMModel)
+
+    def test_lstm_transformer_source(self):
+        model = models.LSTMModel(
+            source_encoder=modules.TransformerEncoder(),
+            target_vocab_size=TARGET_VOCAB_SIZE,
+            vocab_size=VOCAB_SIZE,
+        )
+        assert isinstance(model, models.LSTMModel)
 
     def test_pointer_generator_gru(self):
         model = models.PointerGeneratorGRUModel(
@@ -143,66 +220,6 @@ class TestModel:
             vocab_size=VOCAB_SIZE,
         )
         assert isinstance(model, models.PointerGeneratorTransformerModel)
-
-    def test_gru(self):
-        model = models.GRUModel(
-            source_encoder=modules.GRUEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.GRUModel)
-
-    def test_lstm(self):
-        model = models.LSTMModel(
-            source_encoder=modules.LSTMEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.LSTMModel)
-
-    def test_lstm_linear_features(self):
-        model = models.LSTMModel(
-            source_encoder=modules.LSTMEncoder(),
-            features_encoder=modules.LinearEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.LSTMModel)
-
-    def test_lstm_separate_features(self):
-        model = models.LSTMModel(
-            source_encoder=modules.LSTMEncoder(),
-            features_encoder=modules.LSTMEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.LSTMModel)
-
-    def test_lstm_shared_features(self):
-        model = models.LSTMModel(
-            source_encoder=modules.LSTMEncoder(),
-            features_encoder=True,
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.LSTMModel)
-
-    def test_lstm_transformer_features(self):
-        model = models.LSTMModel(
-            source_encoder=modules.LSTMEncoder(),
-            features_encoder=modules.TransformerEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.LSTMModel)
-
-    def test_lstm_transformer_source(self):
-        model = models.LSTMModel(
-            source_encoder=modules.TransformerEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.LSTMModel)
 
     def test_soft_attention_gru(self):
         model = models.SoftAttentionGRUModel(
@@ -269,15 +286,6 @@ class TestModel:
         model = models.TransformerModel(
             source_encoder=modules.TransformerEncoder(),
             features_encoder=modules.TransformerEncoder(),
-            target_vocab_size=TARGET_VOCAB_SIZE,
-            vocab_size=VOCAB_SIZE,
-        )
-        assert isinstance(model, models.TransformerModel)
-
-    def test_feature_invariant_transformer(self):
-        model = models.TransformerModel(
-            source_encoder=modules.FeatureInvariantTransformerEncoder(),
-            features_encoder=True,
             target_vocab_size=TARGET_VOCAB_SIZE,
             vocab_size=VOCAB_SIZE,
         )

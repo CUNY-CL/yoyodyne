@@ -17,32 +17,47 @@ class TestModule:
     @pytest.mark.parametrize(
         "mod",
         [
+            modules.CausalTransformerDecoder,
             modules.ContextHardAttentionGRUDecoder,
             modules.ContextHardAttentionLSTMDecoder,
+            modules.ContextHardAttentionTransformerDecoder,
+            modules.GRUDecoder,
+            modules.HardAttentionGRUDecoder,
+            modules.HardAttentionLSTMDecoder,
+            modules.HardAttentionTransformerDecoder,
+            modules.LSTMDecoder,
+            modules.PointerGeneratorTransformerDecoder,
+            modules.RotaryCausalTransformerDecoder,
+            modules.RotaryPointerGeneratorTransformerDecoder,
+            modules.RotaryTransformerDecoder,
+            modules.SoftAttentionGRUDecoder,
+            modules.SoftAttentionLSTMDecoder,
+            modules.TransformerDecoder,
         ],
     )
-    def test_context_hard_attention_rnn_decoders(self, mod):
+    def test_decoder(self, mod):
+        module = mod()
+        assert isinstance(module, mod)
+
+    @pytest.mark.parametrize(
+        "mod",
+        [
+            modules.FeatureInvariantTransformerEncoder,
+            modules.GRUEncoder,
+            modules.LinearEncoder,
+            modules.LSTMEncoder,
+            modules.RotaryFeatureInvariantTransformerEncoder,
+            modules.RotaryTransformerEncoder,
+            modules.TransformerEncoder,
+        ],
+    )
+    def test_encoder(self, mod):
         module = mod()
         assert isinstance(module, mod)
 
     def test_generation_probability(self):
         module = modules.GenerationProbability()
         assert isinstance(module, modules.GenerationProbability)
-
-    @pytest.mark.parametrize(
-        "mod",
-        [
-            modules.HardAttentionGRUDecoder,
-            modules.HardAttentionLSTMDecoder,
-        ],
-    )
-    def test_hard_attention_rnn_decoders(self, mod):
-        module = mod()
-        assert isinstance(module, mod)
-
-    def test_linear_encoder(self):
-        module = modules.LinearEncoder()
-        assert isinstance(module, modules.LinearEncoder)
 
     @pytest.mark.parametrize(
         "mod",
@@ -54,58 +69,5 @@ class TestModule:
         ],
     )
     def test_positional_encodings(self, mod):
-        module = mod()
-        assert isinstance(module, mod)
-
-    @pytest.mark.parametrize(
-        "mod",
-        [modules.GRUDecoder, modules.LSTMDecoder],
-    )
-    def test_rnn_decoders(self, mod):
-        module = mod()
-        assert isinstance(module, mod)
-
-    @pytest.mark.parametrize(
-        "mod",
-        [modules.GRUEncoder, modules.LSTMEncoder],
-    )
-    def test_rnn_encoders(self, mod):
-        module = mod()
-        assert isinstance(module, mod)
-
-    @pytest.mark.parametrize(
-        "mod",
-        [modules.SoftAttentionGRUDecoder, modules.SoftAttentionLSTMDecoder],
-    )
-    def test_soft_attention_rnn_decoders(self, mod):
-        module = mod()
-        assert isinstance(module, mod)
-
-    @pytest.mark.parametrize(
-        "mod",
-        [
-            modules.TransformerDecoder,
-            modules.CausalTransformerDecoder,
-            modules.PointerGeneratorTransformerDecoder,
-            modules.PointerGeneratorTransformerDecoder,
-            modules.RotaryCausalTransformerDecoder,
-            modules.RotaryPointerGeneratorTransformerDecoder,
-            modules.RotaryTransformerDecoder,
-        ],
-    )
-    def test_transformer_decoders(self, mod):
-        module = mod()
-        assert isinstance(module, mod)
-
-    @pytest.mark.parametrize(
-        "mod",
-        [
-            modules.TransformerEncoder,
-            modules.FeatureInvariantTransformerEncoder,
-            modules.RotaryFeatureInvariantTransformerEncoder,
-            modules.RotaryTransformerEncoder,
-        ],
-    )
-    def test_transformer_encoders(self, mod):
         module = mod()
         assert isinstance(module, mod)
