@@ -1,5 +1,6 @@
 class_path: yoyodyne.models.RotaryCausalTransformerModel
 init_args:
+  compute_gflop: true
   compute_ser: true
   decoder_dropout: .2
   decoder_hidden_size: 256

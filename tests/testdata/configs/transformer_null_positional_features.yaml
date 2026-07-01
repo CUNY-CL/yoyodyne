@@ -16,6 +16,7 @@ init_args:
       layers: ${init_args.decoder_layers}
       positional_encoding:
         class_path: yoyodyne.models.modules.NullPositionalEncoding
+  compute_gflop: true
   compute_ser: true
   decoder_dropout: .2
   decoder_hidden_size: 256
