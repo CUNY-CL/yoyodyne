@@ -2,12 +2,14 @@
 
 import abc
 import logging
-from typing import Callable
+import contextlib
+from typing import Callable, Iterator
 
 import lightning
 import torch
 from lightning.pytorch import cli
 from torch import nn, optim
+from torch.utils import flop_counter
 import wandb
 
 from .. import data, defaults, metrics, special
@@ -65,6 +67,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         *args: ignored.
         beam_width (int,  optional): width of beam for decoding.
         compute_accuracy (bool, optional): compute accuracy?
+        compute_gflop (bool, optional): compute GFLOP per epoch?
         compute_ser (bool, optional): compute SER?
         decoder_hidden_size (int, optional): dimensionality of decoder layers.
         decoder_layers (int, optional): number of decoder layers.
@@ -95,6 +98,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
 
     beam_width: int
     accuracy: metrics.Accuracy | None
+    flop: flop_counter.FlopCounterMode | None
     ser: metrics.SER | None
     loss_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None
 
@@ -103,6 +107,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         *args,  # Ignored here.
         beam_width: int = defaults.BEAM_WIDTH,
         compute_accuracy: bool = True,
+        compute_gflop: bool = False,
         compute_ser: bool = False,
         decoder_hidden_size: int = defaults.HIDDEN_SIZE,
         decoder_layers: int = defaults.LAYERS,
@@ -137,6 +142,11 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         self.accuracy = (
             metrics.Accuracy(self.target_vocab_size)
             if compute_accuracy
+            else None
+        )
+        self.flop = (
+            flop_counter.FlopCounterMode(display=False)
+            if compute_gflop
             else None
         )
         self.ser = metrics.SER() if compute_ser else None
@@ -236,6 +246,10 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         return self.accuracy is not None
 
     @property
+    def has_flop(self) -> bool:
+        return self.flop is not None
+
+    @property
     def has_ser(self) -> bool:
         return self.ser is not None
 
@@ -245,6 +259,16 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         return self.trainer and (
             self.trainer.validating or self.trainer.sanity_checking
         )
+
+    @contextlib.contextmanager
+    def flop_profiler(self) -> Iterator[None]:
+        context = (
+            self.flop
+            if self.has_flop and self.current_epoch == 0
+            else contextlib.nullcontext()
+        )
+        with context:
+            yield
 
     def start_symbol(self, batch_size: int) -> torch.Tensor:
         """Generates a tensor of start symbols for the batch."""
@@ -297,6 +321,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             torch.use_deterministic_algorithms(True, warn_only=True)
         # Informs W&B how I want key metrics summarized.
         if wandb.run is not None:
+            wandb.define_metric("train_gflop", summary="min")
             wandb.define_metric("train_loss", summary="min")
             wandb.define_metric("val_accuracy", summary="max")
             wandb.define_metric("val_loss", summary="min")
@@ -329,7 +354,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
     def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
         """Runs one step of training.
 
-        Training loss is tracked.
+        Training loss is tracked. If compute_gflop is enabled, we also compute
+        the total GFLOP for the first epoch.
 
         Args:
             batch (data.Batch)
@@ -338,7 +364,8 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         Returns:
             torch.Tensor: training loss.
         """
-        predictions = self(batch)
+        with self.flop_profiler():
+            predictions = self(batch)
         predictions, target = self._align(predictions, batch.target.tensor)
         loss = self.loss_func(predictions, target)
         self.log(
@@ -351,6 +378,19 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             prog_bar=True,
         )
         return loss
+
+    def on_train_epoch_end(self) -> None:
+        if self.has_flop and self.current_epoch == 0:
+            self.log(
+                "train_gflop",
+                self.flop.get_total_flops() / 1e9,
+                logger=True,
+                on_epoch=True,
+                on_step=False,
+            )
+            # We null this to free memory and ensure it's not called on
+            # subsequent epochs.
+            self.flop = None
 
     def on_test_epoch_start(self) -> None:
         self._reset_metrics()
