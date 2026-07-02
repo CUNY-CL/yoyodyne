@@ -15,6 +15,7 @@ init_args:
       hidden_size: ${init_args.decoder_hidden_size}
       layers: 4
   attention_context: 1
+  compute_gflop: true
   compute_ser: true
   decoder_dropout: .2
   decoder_layers: 4

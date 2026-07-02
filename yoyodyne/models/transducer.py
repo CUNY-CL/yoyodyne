@@ -626,8 +626,8 @@ class TransducerRNNModel(base.BaseModel):
         Returns:
             torch.Tensor: training loss.
         """
-        # Forward pass produces loss.
-        _, loss = self(batch)
+        with self.flop_profiler():
+            _, loss = self(batch)
         self.log(
             "train_loss",
             loss,

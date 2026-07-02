@@ -11,6 +11,7 @@ init_args:
         class_path: yoyodyne.models.modules.AbsolutePositionalEncoding
         init_args:
           embedding_size: ${init_args.embedding_size}
+  compute_gflop: true
   compute_ser: true
   decoder_dropout: .2
   decoder_hidden_size: 256

@@ -372,7 +372,8 @@ class HardAttentionModel(base.BaseModel):
         self._update_metrics(predictions, target)
 
     def training_step(self, batch: data.Batch, batch_idx: int) -> torch.Tensor:
-        loss = self(batch)
+        with self.flop_profiler():
+            loss = self(batch)
         self.log(
             "train_loss",
             loss,
@@ -513,7 +514,7 @@ class HardAttentionTransformerModel(HardAttentionModel):
     drive it without modification. The "state" is the accumulated target
     prefix rather than an RNN hidden-state tuple. Training re-runs the
     transformer over the growing prefix at each step (O(T^2) attention
-    operations vs O(T) for the RNN), which is negligible for short target
+    operations vs. O(T) for the RNN), which is negligible for short target
     sequences.
 
     When attention_context > 0, a ContextHardAttentionTransformerDecoder is
