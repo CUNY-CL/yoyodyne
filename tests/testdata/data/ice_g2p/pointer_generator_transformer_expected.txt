@@ -1,9 +1,9 @@
 a t l s
-ø y s t ʏ r iː k
-ø yː ð n
-p a n t a iː k n ɪ
-p ɔ r k a r s t ɪ
-p r a sː ɪ l a
+ø y s t ʏ r iː k ɪ
+ø yː ð
+p a n t a r iː k ɪ
+p ɔ r k a r s t ɪ r
+p r a s l iː l a
 p r a u h t
 p ɪ ɣ j a
 p ɪ ɣ ð
@@ -11,36 +11,36 @@ p a iː t a
 p o uː k a
 t r a ɣ a
 t r e iː v
-t œ ɣ
+t ø y ɣ
 ɛː v
-e i n i ŋ k
+e i t n i ŋ k
 ɛ t l a
 ɛ l s k a
-e i r t ɪ
+ɛ r ɪ n t ɪ
 ɛ ð l ɪ l ɛː ɣ a
 f a t l a
-f a u ŋ k ɛ l ɪ
+f a u ŋ k ɛ l s ɪ
 f ɪ nː l a n t
 f j o uː r ɪ ð
 f ɔ r t m a iː m ɪ
-f ʏ l̥ t r ɪː r ɪ
-f ɪ r ɪ l l ɛː s t ʏ r
+f ʏ t l t r ɪ
+f ɪ r ɪ r l ɛː s t ʏ r
 f a iː r
 f a iː r a
 f a iː r ɪ
-k a u ŋ k r iː n ɪ
-k a r ð a r
+k a k n r iː n ɪ
+k aː r a r ð
 k aː s
 c ɛ r ð ɪ
-k r e iː n a r k ð
+k r e iː n a r k ð ʏ r
 k v ʏ ð
 k o uː ð ʏ r
 h a t l a
-r̥ ɛː r a
+h ɛː r a
 r̥ o uː p a
 h a uː m a r̥ k
 h a iː ɣ ʏ r
-r̥ j ɛː r
+r̥ j ɛː
 h œ t l
 h œ r ð ʏ r
 h uː s
@@ -50,40 +50,40 @@ kʰ ɔː m a
 kʰ v a ð
 cʰ ɪ nː a
 l e iː k a
-l e iː k f j ɛː l aː ɣ
+l e iː k f j ɛː l aː ɣ a
 l e iː r
-l a uː t r a k ð
+l a uː t r a i ŋ k
 l o uː ð
-l iː s ɪ k n
+l iː s ɪ u ŋ k
 l iː ð r a iː ð ɪ
 m a nː a
 m a nː ɪ
 m ɛ ð l ɪ m ʏ r
-m ɪ h k n a
-m ɪ n t a v ɛ l
+m ɪ nː a
+m ɪ n t a v ɛ t l
 pʰ ɪ l̥ t ʏ r
 s a p n a
 s aː l a
 s a m p a n t
-s a m cʰ ɔː m ʏ l aː ɣ a
+s a m kʰ ɔː m ʏ l aː ɣ a
 s a nː a r l ɛː ɣ a
-s ɪː ɣ
-s ɪ h t a
+s ɪ ɣ
+s ɪ h t j a
 s k ɔː r a
-s l a uː t ʏ r
+s t l a uː t ʏ r
 s ɔː v a
-s p ɛ n a n t ɪ
-s t a fː a
+s p ɛ nː a n t ɪ
+s t aː v a
 s t j o uː r
 s t j o uː r a
 s v ɪː ð ɪ
 s v a iː ð ɪ
-s ɛ r s t a h k ʏ r
+s ɛ r s t a r̥ k ʏ r
 s iː r a
 s o uː l
 tʰ ɪ l f ɪ nː i ŋ k
 tʰ r e iː s t a
-tʰ ɪ r̥ k l a n t
+tʰ ɪ r̥ k a n t
 v aː ð a
 v ɛː r a
 v ɛ r̥ k
@@ -91,7 +91,7 @@ v ɛ r ð m a iː t ɪ
 v iː s t
 a uː r a
 o uː t ɪ
-œ h k m aː ð ʏ r
+œː k ʏ m a ð ʏ r
 uː t ɪ
 iː s a
 θ ɛː m a
