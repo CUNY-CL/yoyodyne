@@ -7,7 +7,7 @@ from typing import Callable, Iterator
 
 import lightning
 import torch
-from lightning.pytorch import cli
+from lightning.pytorch import cli, utilities
 from torch import nn, optim
 from torch.utils import flop_counter
 import wandb
@@ -254,6 +254,10 @@ class BaseModel(abc.ABC, lightning.LightningModule):
         return self.ser is not None
 
     @property
+    def num_parameters(self) -> int:
+        return utilities.model_summary.ModelSummary(self).trainable_parameters
+
+    @property
     def validating(self) -> bool:
         # Parallel to the built-in self.training.
         return self.trainer and (
@@ -321,6 +325,7 @@ class BaseModel(abc.ABC, lightning.LightningModule):
             torch.use_deterministic_algorithms(True, warn_only=True)
         # Informs W&B how I want key metrics summarized.
         if wandb.run is not None:
+            wandb.run.summary["parameters"] = self.num_parameters
             wandb.define_metric("train_gflop", summary="min")
             wandb.define_metric("train_loss", summary="min")
             wandb.define_metric("val_accuracy", summary="max")
