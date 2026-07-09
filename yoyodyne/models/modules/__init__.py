@@ -7,16 +7,16 @@ from .generation_probability import GenerationProbability  # noqa: F401
 from .hard_attention import ContextHardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import ContextHardAttentionLSTMDecoder  # noqa: F401
 from .hard_attention import (  # noqa: F401
+    ContextHardAttentionRotaryTransformerDecoder,
+)
+from .hard_attention import (  # noqa: F401
     ContextHardAttentionTransformerDecoder,
 )
 from .hard_attention import HardAttentionGRUDecoder  # noqa: F401
 from .hard_attention import HardAttentionLSTMDecoder  # noqa: F401
 from .hard_attention import HardAttentionRNNDecoder  # noqa: F401
+from .hard_attention import HardAttentionRotaryTransformerDecoder  # noqa: F401
 from .hard_attention import HardAttentionTransformerDecoder  # noqa: F401
-from .hard_attention import (  # noqa: F401
-    RotaryContextHardAttentionTransformerDecoder,
-)
-from .hard_attention import RotaryHardAttentionTransformerDecoder  # noqa: F401
 from .linear import LinearEncoder  # noqa: F401
 from .position import AbsolutePositionalEncoding  # noqa: F401
 from .position import BasePositionalEncoding  # noqa: F401
@@ -31,14 +31,14 @@ from .rnn import RNNDecoder  # noqa: F401
 from .rnn import RNNState  # noqa: F401
 from .rnn import SoftAttentionGRUDecoder  # noqa: F401
 from .rnn import SoftAttentionLSTMDecoder  # noqa: F401
-from .pointer_generator import PointerGeneratorTransformerDecoder  # noqa: F401
 from .pointer_generator import (  # noqa: F401
-    RotaryPointerGeneratorTransformerDecoder,
+    PointerGeneratorRotaryTransformerDecoder,
 )
+from .pointer_generator import PointerGeneratorTransformerDecoder  # noqa: F401
+from .transformer import CausalRotaryTransformerDecoder  # noqa: F401
 from .transformer import CausalTransformerDecoder  # noqa: F401
+from .transformer import FeatureInvariantRotaryTransformerEncoder  # noqa: F401
 from .transformer import FeatureInvariantTransformerEncoder  # noqa: F401
-from .transformer import RotaryCausalTransformerDecoder  # noqa: F401
-from .transformer import RotaryFeatureInvariantTransformerEncoder  # noqa: F401
 from .transformer import RotaryTransformerDecoder  # noqa: F401
 from .transformer import RotaryTransformerEncoder  # noqa: F401
 from .transformer import SeparateFeaturesTransformerDecoder  # noqa: F401

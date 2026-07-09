@@ -300,7 +300,7 @@ class RotaryTransformerModel(TransformerModel):
     RoPE, but mixing rotary and sinusoidal encodings within the same model is
     not recommended; one should pair this with RotaryTransformerEncoder
     source and/or features encoders, or use
-    RotaryFeatureInvariantTransformerEncoder as the source encoder.
+    FeatureInvariantRotaryTransformerEncoder as the source encoder.
 
     Args:
         *args: passed to superclass.
@@ -616,7 +616,7 @@ class CausalTransformerModel(base.BaseModel):
         return "causal transformer"
 
 
-class RotaryCausalTransformerModel(CausalTransformerModel):
+class CausalRotaryTransformerModel(CausalTransformerModel):
     """Causal transformer model with rotary positional encodings.
 
     Args:
@@ -634,8 +634,8 @@ class RotaryCausalTransformerModel(CausalTransformerModel):
 
     def get_decoder(
         self, positional_encoding=None
-    ) -> modules.RotaryCausalTransformerDecoder:
-        return modules.RotaryCausalTransformerDecoder(
+    ) -> modules.CausalRotaryTransformerDecoder:
+        return modules.CausalRotaryTransformerDecoder(
             attention_heads=self.attention_heads,
             dropout=self.decoder_dropout,
             embedding_size=self.embedding_size,

@@ -588,7 +588,7 @@ class HardAttentionTransformerModel(HardAttentionModel):
         return "hard attention transformer"
 
 
-class RotaryHardAttentionTransformerModel(HardAttentionTransformerModel):
+class HardAttentionRotaryTransformerModel(HardAttentionTransformerModel):
     """Hard attention transformer with rotary positional encodings.
 
     Pairs with RotaryTransformerEncoder (or RotaryFeatureInvariantTransformer
@@ -602,7 +602,7 @@ class RotaryHardAttentionTransformerModel(HardAttentionTransformerModel):
 
     def get_decoder(self):
         if self.attention_context > 0:
-            return modules.RotaryContextHardAttentionTransformerDecoder(
+            return modules.ContextHardAttentionRotaryTransformerDecoder(
                 attention_context=self.attention_context,
                 attention_heads=self.decoder_attention_heads,
                 decoder_input_size=self.decoder_input_size,
@@ -613,7 +613,7 @@ class RotaryHardAttentionTransformerModel(HardAttentionTransformerModel):
                 max_length=self.max_decoder_length,
             )
         else:
-            return modules.RotaryHardAttentionTransformerDecoder(
+            return modules.HardAttentionRotaryTransformerDecoder(
                 attention_heads=self.decoder_attention_heads,
                 decoder_input_size=self.decoder_input_size,
                 dropout=self.decoder_dropout,
