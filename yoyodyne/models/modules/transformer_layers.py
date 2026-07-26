@@ -203,7 +203,7 @@ class SeparateFeaturesTransformerDecoderLayer(nn.TransformerDecoderLayer):
         return output
 
 
-class RotarySeparateFeaturesTransformerDecoderLayer(
+class SeparateFeaturesRotaryTransformerDecoderLayer(
     SeparateFeaturesTransformerDecoderLayer
 ):
     """SeparateFeaturesTransformerDecoderLayer using RoPE.

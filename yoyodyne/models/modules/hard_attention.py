@@ -524,7 +524,7 @@ class ContextHardAttentionTransformerDecoder(HardAttentionTransformerDecoder):
         return "contextual hard attention transformer"
 
 
-class RotaryHardAttentionTransformerDecoder(
+class HardAttentionRotaryTransformerDecoder(
     transformer.RotaryTransformerModule,
     HardAttentionTransformerDecoder,
 ):
@@ -565,7 +565,7 @@ class RotaryHardAttentionTransformerDecoder(
         return "rotary hard attention transformer"
 
 
-class RotaryContextHardAttentionTransformerDecoder(
+class ContextHardAttentionRotaryTransformerDecoder(
     transformer.RotaryTransformerModule,
     ContextHardAttentionTransformerDecoder,
 ):

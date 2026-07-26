@@ -355,7 +355,7 @@ class RotaryTransformerEncoder(RotaryTransformerModule, TransformerEncoder):
         return "rotary transformer"
 
 
-class RotaryFeatureInvariantTransformerEncoder(
+class FeatureInvariantRotaryTransformerEncoder(
     RotaryTransformerModule, FeatureInvariantTransformerEncoder
 ):
     """FeatureInvariantTransformerEncoder with rotary positional encodings.
@@ -639,7 +639,7 @@ class RotaryTransformerDecoder(RotaryTransformerModule, TransformerDecoder):
         return f"rotary {super().name}"
 
 
-class RotaryCausalTransformerDecoder(
+class CausalRotaryTransformerDecoder(
     RotaryTransformerModule, CausalTransformerDecoder
 ):
     """Causal transformer decoder with rotary positional encodings.

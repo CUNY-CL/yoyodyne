@@ -12,12 +12,12 @@ all: train.tsv \
 	pointer_generator_lstm_separate_features_expected.txt \
 	pointer_generator_transformer_linear_features_expected.test \
 	pointer_generator_transformer_linear_features_expected.txt \
-	rotary_causal_transformer_expected.test \
-	rotary_causal_transformer_expected.txt \
-	rotary_context_hard_attention_transformer_separate_features_expected.test \
-	rotary_context_hard_attention_transformer_separate_features_expected.txt \
-	rotary_pointer_generator_transformer_linear_features_expected.test \
-	rotary_pointer_generator_transformer_linear_features_expected.txt \
+	causal_rotary_transformer_expected.test \
+	causal_rotary_transformer_expected.txt \
+	context_hard_attention_rotary_transformer_separate_features_expected.test \
+	context_hard_attention_rotary_transformer_separate_features_expected.txt \
+	pointer_generator_rotary_transformer_linear_features_expected.test \
+	pointer_generator_rotary_transformer_linear_features_expected.txt \
 	rotary_transformer_shared_features_expected.test \
 	rotary_transformer_shared_features_expected.txt \
 	soft_attention_lstm_gru_features_expected.test \

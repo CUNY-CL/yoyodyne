@@ -143,7 +143,7 @@ class PointerGeneratorTransformerDecoder(transformer.TransformerDecoder):
 # Rotary decoders.
 
 
-class RotaryPointerGeneratorTransformerDecoder(
+class PointerGeneratorRotaryTransformerDecoder(
     transformer.RotaryTransformerModule, PointerGeneratorTransformerDecoder
 ):
     """Pointer-generator transformer decoder with rotary positional encodings.
@@ -159,7 +159,7 @@ class RotaryPointerGeneratorTransformerDecoder(
             max_length=self._rope_max_length,
         )
         if self.has_features_encoder:
-            decoder_layer = transformer_layers.RotarySeparateFeaturesTransformerDecoderLayer(  # noqa: E501
+            decoder_layer = transformer_layers.SeparateFeaturesRotaryTransformerDecoderLayer(  # noqa: E501
                 rope,
                 d_model=self.decoder_input_size,
                 dim_feedforward=self.hidden_size,

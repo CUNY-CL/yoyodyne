@@ -470,7 +470,7 @@ class PointerGeneratorTransformerModel(
         return "pointer-generator transformer"
 
 
-class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
+class PointerGeneratorRotaryTransformerModel(PointerGeneratorTransformerModel):
     """Pointer-generator transformer model using rotary positional encoding.
 
     RoPE is applied inside attention layers rather than to the token
@@ -479,7 +479,7 @@ class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
 
     All encoders used with this model should also use rotary positional
     encoding. Specifically, use RotaryTransformerEncoder or
-    RotaryFeatureInvariantTransformerEncoder as the source_encoder and
+    FeatureInvariantRotaryTransformerEncoder as the source_encoder and
     features_encoder. Mixing rotary decoders with non-rotary encoders
     is possible but is not recommended.
 
@@ -498,8 +498,8 @@ class RotaryPointerGeneratorTransformerModel(PointerGeneratorTransformerModel):
 
     def get_decoder(
         self, positional_encoding=None
-    ) -> modules.RotaryPointerGeneratorTransformerDecoder:
-        return modules.RotaryPointerGeneratorTransformerDecoder(
+    ) -> modules.PointerGeneratorRotaryTransformerDecoder:
+        return modules.PointerGeneratorRotaryTransformerDecoder(
             attention_heads=self.decoder_attention_heads,
             decoder_input_size=self.source_encoder.output_size,
             dropout=self.decoder_dropout,
