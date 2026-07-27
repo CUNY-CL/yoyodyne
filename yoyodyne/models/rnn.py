@@ -84,6 +84,19 @@ class RNNModel(base.BaseModel):
             ]
         )
 
+    @staticmethod
+    def _get_projection(in_size: int, out_size: int) -> nn.Linear | None:
+        """Builds a projection linear layer if needed.
+
+        Args:
+            in_size (int).
+            out_size (int).
+
+        Returns:
+            nn.Linear or None.
+        """
+        return None if in_size == out_size else nn.Linear(in_size, out_size)
+
     def beam_decode(
         self,
         context: torch.Tensor,
