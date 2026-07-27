@@ -29,21 +29,40 @@ class RNNModel(base.BaseModel):
 
     Args:
         *args: passed to superclass.
+        decoder_input_size (int, optional): if not specified the source
+            encoder output size is used.
         teacher_forcing (bool, optional): should teacher (rather than student)
             forcing be used?
         **kwargs: passed to superclass.
     """
 
+    decoder_input_size: int
+    features_projection: nn.Linear | None
+    source_projection: nn.Linear | None
     teacher_forcing: bool
     classifier: nn.Linear
 
     def __init__(
         self,
         *args,
+        decoder_input_size: int | None = None,
         teacher_forcing: bool = defaults.TEACHER_FORCING,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.decoder_input_size = (
+            decoder_input_size or self.source_encoder.output_size
+        )
+        self.source_projection = self._get_projection(
+            self.source_encoder.output_size, self.decoder_input_size
+        )
+        self.features_projection = (
+            self._get_projection(
+                self.features_encoder.output_size, self.decoder_input_size
+            )
+            if self.has_features_encoder
+            else None
+        )
         self.decoder = self.get_decoder()
         self.teacher_forcing = teacher_forcing
         self.classifier = nn.Linear(
@@ -57,7 +76,9 @@ class RNNModel(base.BaseModel):
                 "decoder",
                 "embeddings",
                 "features_encoder",
+                "features_projection",
                 "source_encoder",
+                "source_projection",
                 # Options that can change between training and prediction.
                 "beam_width",
             ]
@@ -157,11 +178,6 @@ class RNNModel(base.BaseModel):
         logits = self.classifier(decoded)
         return logits, state
 
-    @property
-    def decoder_input_size(self) -> int:
-        # Features concatenation does not change this.
-        return self.source_encoder.output_size
-
     def forward(
         self,
         batch: data.Batch,
@@ -186,6 +202,8 @@ class RNNModel(base.BaseModel):
         """
         sequence = batch.source.tensor
         encoded = self.source_encoder(batch.source, self.embeddings)
+        if self.has_source_projection:
+            encoded = self.source_projection(encoded)
         mask = batch.source.mask
         if self.has_features_encoder:
             if not batch.has_features:
@@ -193,19 +211,12 @@ class RNNModel(base.BaseModel):
                     "Features encoder specified but "
                     "no feature column specified"
                 )
-            if (
-                self.source_encoder.output_size
-                != self.features_encoder.output_size
-            ):
-                raise base.ConfigurationError(
-                    "Cannot concatenate source encoding "
-                    f"({self.source_encoder.output_size}) and features "
-                    f"encoding ({self.features_encoder.output_size})"
-                )
             sequence = torch.cat((sequence, batch.features.tensor), dim=1)
             features_encoded = self.features_encoder(
                 batch.features, self.embeddings
             )
+            if self.has_features_projection:
+                features_encoded = self.features_projection(features_encoded)
             encoded = torch.cat((encoded, features_encoded), dim=1)
             mask = torch.cat((mask, batch.features.mask), dim=1)
         elif batch.has_features:
@@ -309,6 +320,14 @@ class RNNModel(base.BaseModel):
                 break
         predictions = torch.stack(predictions, dim=2)
         return predictions
+
+    @property
+    def has_features_projection(self) -> bool:
+        return self.features_projection is not None
+
+    @property
+    def has_source_projection(self) -> bool:
+        return self.source_projection is not None
 
     def init_embeddings(
         self,
