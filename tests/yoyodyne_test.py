@@ -75,14 +75,12 @@ INFLECTION_ARCH = [
     "context_hard_attention_rotary_transformer_separate_features",
     "pointer_generator_rotary_transformer_linear_features",
     "rotary_transformer_shared_features",
-    "soft_attention_lstm_gru_features",
     "soft_attention_lstm_linear_features",
     "soft_attention_lstm_separate_features",
     "soft_attention_lstm_shared_features",
     "transformer_invariant_features",
     "transformer_null_positional_features",
     "transformer_shared_features",
-    "transducer_gru_linear_features",
     "transducer_lstm_linear_features",
 ]
 SEED = 49

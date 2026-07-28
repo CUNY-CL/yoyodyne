@@ -49,9 +49,13 @@ all: train.tsv \
 	soft_attention_gru_expected.test \
 	soft_attention_gru_expected.txt \
 	soft_attention_gru_beam_expected.txt \
+    soft_attention_gru_projection_expected.test \
+    soft_attention_gru_projection_expected.txt \
 	soft_attention_lstm_expected.test \
 	soft_attention_lstm_expected.txt \
 	soft_attention_lstm_beam_expected.txt \
+    soft_attention_lstm_projection_expected.test \
+    soft_attention_lstm_projection_expected.txt \
 	soft_attention_lstm_student_forcing_expected.test \
 	soft_attention_lstm_student_forcing_expected.txt \
 	soft_attention_lstm_gru_source_expected.test \

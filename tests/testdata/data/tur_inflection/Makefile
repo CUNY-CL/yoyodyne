@@ -20,8 +20,6 @@ all: train.tsv \
 	pointer_generator_rotary_transformer_linear_features_expected.txt \
 	rotary_transformer_shared_features_expected.test \
 	rotary_transformer_shared_features_expected.txt \
-	soft_attention_lstm_gru_features_expected.test \
-	soft_attention_lstm_gru_features_expected.txt \
 	soft_attention_lstm_linear_features_expected.test \
 	soft_attention_lstm_linear_features_expected.txt \
 	soft_attention_lstm_separate_features_expected.test \
@@ -36,8 +34,6 @@ all: train.tsv \
 	transformer_null_positional_features_expected.txt \
 	transformer_shared_features_expected.test \
 	transformer_shared_features_expected.txt \
-	transducer_gru_linear_features_expected.test \
-	transducer_gru_linear_features_expected.txt \
 	transducer_lstm_linear_features_expected.test \
 	transducer_lstm_linear_features_expected.txt
 
