@@ -264,7 +264,9 @@ class DataModule(lightning.LightningDataModule):
         )
 
     def val_dataloader(self) -> data.DataLoader:
-        assert self.val is not None, "no val path"
+        # This allows for training without a validation pass.
+        if self.val is None:
+            return data.DataLoader([])
         return data.DataLoader(
             datasets.MappableDataset(
                 self.val,
