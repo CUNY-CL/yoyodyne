@@ -406,8 +406,16 @@ as follows.
       verbose: true
     ...
 
-A checkpoint config must be specified or Yoyodyne will not generate any
-checkpoints.
+The `ModelCheckpoint` callback is registered whether or not a checkpoint
+config is given; without one it runs with the Lightning defaults. In either
+case checkpoints are written under the trainer's default root directory. To
+suppress them entirely, as one may wish to do when tuning hyperparameters, one
+sets `save_top_k` to zero.
+
+    ...
+    checkpoint:
+      save_top_k: 0
+    ...
 
 #### Callbacks
 
