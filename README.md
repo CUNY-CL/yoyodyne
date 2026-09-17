@@ -406,11 +406,9 @@ as follows.
       verbose: true
     ...
 
-The `ModelCheckpoint` callback is registered whether or not a checkpoint
-config is given; without one it runs with the Lightning defaults. In either
-case checkpoints are written under the trainer's default root directory. To
-suppress them entirely, as one may wish to do when tuning hyperparameters, one
-sets `save_top_k` to zero.
+The checkpointing callback is always registered. To totally suppress the
+generation of checkpoints (as one may wish to do when tuning), use the
+following configuration:
 
     ...
     checkpoint:
