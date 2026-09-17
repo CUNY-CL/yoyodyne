@@ -231,9 +231,9 @@ class TransformerModel(base.BaseModel):
         target_mask: torch.Tensor,
     ) -> torch.Tensor:
         """
-        Decodes globally using teacher forcing. This is only possible during strict
-        teacher-forcing training and validation; Student-forcing requires greedy
-        decoding.
+        Decodes globally using teacher forcing. This is only possible during
+        strict teacher-forcing training and validation; Student-forcing
+        requires greedy decoding.
 
         Args:
             encoded (torch.Tensor).
@@ -445,8 +445,8 @@ class CausalTransformerModel(base.BaseModel):
         positional_encoding (modules.BasePositionalEncoding, optional):
             a positional encoding object; if not specified, a sinusoidal
             encoding of the appropriate size will be allocated.
-        teacher_forcing (float, optional): what percentage of teacher (rather than student)
-            forcing be used?
+        teacher_forcing (float, optional): what percentage of
+        teacher (rather than student) forcing be used?
         **kwargs: passed to superclass.
     """
 
