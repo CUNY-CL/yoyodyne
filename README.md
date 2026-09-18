@@ -406,8 +406,14 @@ as follows.
       verbose: true
     ...
 
-A checkpoint config must be specified or Yoyodyne will not generate any
-checkpoints.
+The checkpointing callback is always registered. To totally suppress the
+generation of checkpoints (as one may wish to do when tuning), use the
+following configuration:
+
+    ...
+    checkpoint:
+      save_top_k: 0
+    ...
 
 #### Callbacks
 
